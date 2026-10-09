@@ -3,8 +3,10 @@
 Status: milestone 1 in progress. EditorCore now compiles a qualified prototype
 subset of its render plan into FFmpeg, with decoded-frame/sample integration
 evidence. Headless sequential MPV parity passes, but exact seeking and graph
-rebuilding fail; evaluate the native sequence-engine fallback next. Helper
-packaging and the full workspace remain in progress.
+rebuilding fail. The native FFmpeg-library fallback now passes decoded video/audio
+seeks, edited-plan replacement, native image captures and AVAudioEngine offline
+parity for qualified fixtures. Live playback, helper packaging and the full
+workspace remain in progress.
 This plan records the intended product and implementation order; unchecked
 items remain planned capabilities.
 
@@ -441,6 +443,9 @@ rates. Track stable container stream indices and per-stream timing offsets.
 - [ ] Render a minimal sequence with two overlapping videos and several audio
       components at different source in-points. Verify seeking and preview/export
       agreement before selecting the final playback path.
+- [x] Prototype the native FFmpeg-library fallback after MPV seek failure; verify
+      exact frame/sample requests, forward/backward seeks, decoder rebuilding,
+      edited-plan invalidation and native offline output against rendered fixtures.
 - [x] Test adjacency, multiple overlaps, free siblings, custom names, failed edit
       rollback, exact fractional rates, DF boundaries, and preserved audio sync.
 
@@ -459,8 +464,11 @@ handles frame-aligned video layers and sample-aligned explicitly routed audio;
 it is not yet a production export service. See
 [the media-engine audit](docs/media-engine-audit.md) for artifact evidence and the
 standalone FFmpeg smoke proof. Headless sequential MPV parity passes for the
-qualified fixture, but exact seeking and graph rebuilding fail. No media helpers
-have been bundled.
+qualified fixture, but exact seeking and graph rebuilding fail. The native fallback
+passes four frame/sample parity fixtures, including H.264 B-frames, video gaps,
+overlapping audio and replacement of a primed playback plan. It uses native
+CGImage captures and AVAudioEngine offline scheduling. Real-time monitoring and
+crossfades remain unqualified; no media helpers have been bundled.
 
 Completion example: extending a `Music` clip creates `Music 1` and `Music 2`
 with copied routing/static settings; undo restores the original state. A fixture
@@ -551,8 +559,10 @@ does not require implementing every proposed interchange adapter.
 - Surround output/downmix policy when monitoring hardware has fewer channels.
 - MPV timeline graph viability versus a dedicated FFmpeg-backed sequence engine.
   The unchanged canonical export graph passed sequential capture but failed
-  exact later/backward seeks and rebuilding. Next prototype FFmpeg-library frame
-  selection and native audio scheduling; retain MPV as a source-viewer candidate.
+  exact later/backward seeks and rebuilding. FFmpeg-library exact frame/sample
+  selection and native offline output now pass qualified fixtures. Continue with
+  this native sequence-engine direction, qualify live display/audio clocking and
+  packaging next, and retain MPV as a source-viewer candidate.
 - Mixed-frame-rate/VFR conform policy and proxy resolution/storage defaults.
 - Crossfade geometry at adjacent cuts and curve choices when audio is correlated.
 - First interchange target's native round-trip fidelity and explicit EDL subset.
@@ -632,3 +642,25 @@ launch-performance claim has been validated yet.
   Audio seeks, native display/CoreAudio, crossfades, helper packaging, and the
   full workspace remain unqualified. Milestone 1 remains in progress.
 - Reproduction and retained results: [media-engine audit](docs/media-engine-audit.md#runtime-track-resolution-sequential-parity-and-seek-failure-2026-10-09).
+
+### Native sequence fallback verification (2026-10-09)
+
+- Added exact `NativePlaybackPlan` frame and sample-block requests with 14 tests
+  for layer/cut/gap boundaries, fractional counts, explicit stream/channel routes,
+  overlapping audio, stateless seeks, invalid models and overflow.
+- Added a separate development FFmpeg C bridge with exact timestamp qualification,
+  backward seek/flush/forward decode, RGB output and matching-rate PCM extraction.
+  The app does not link local development libraries.
+- Four fixtures pass all 180 frames and 288,288 stereo samples each, plus ten
+  video and eight audio seeks each. They cover original barcodes, gaps, overlapping
+  audio, H.264 B-frames and replacement of a primed plan with changed edits.
+  CGImage/PNG captures and AVAudioEngine offline output match independent exports.
+  Maximum RGB error is 2.0 (tolerance <12); audio error is 0.75 s16 units (limit 1).
+- A reproducible direct decoder matrix passes 65 ASan/UBSan checks, including
+  four-channel PCM and explicit rejection of unsupported timing/geometry/audio.
+- 47 core tests, 9 Python tests and the unsigned macOS Debug build pass.
+- Continue the native sequence-engine direction. Full-stream initial qualification
+  is development behavior; live output/clocking, asynchronous caching/cancellation,
+  crossfades, format/rate/geometry coverage and macOS 14-compatible shipping
+  dependencies remain open. Milestone 1 remains in progress.
+- Reproduction and evidence: [native media-engine audit](docs/media-engine-audit.md#native-sequence-fallback-proof-2026-10-09).

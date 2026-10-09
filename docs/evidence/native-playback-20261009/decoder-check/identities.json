@@ -1,0 +1,41 @@
+{
+  "ffmpeg": {
+    "path": "/Users/truls.aagedal/Developer/Aagedal-Media-Converter/Aagedal Media Converter/Binaries/ffmpeg",
+    "sha256": "25ee9d7ecd96c81b18cf5970e58201f4c94c4b1f5b4dea51c765aa28c639afd2",
+    "version": "ffmpeg version 9.0.1 Copyright (c) 2000-2026 the FFmpeg developers\nbuilt with Apple clang version 21.0.0 (clang-2100.1.1.101)\nconfiguration: --prefix=/private/tmp/aagedal-ffmpeg-attribution-build/compiled --metalcc='/private/tmp/aagedal-metal-toolchain/Metal.xctoolchain/usr/bin/metal -fmodules-cache-path=/private/tmp/aagedal-ffmpeg-attribution-build/build/clang-module-cache' --metallib=/private/tmp/aagedal-metal-toolchain/Metal.xctoolchain/usr/bin/metallib --enable-metal --arch=arm64 --target-os=darwin --pkg-config-flags=--static --extra-cflags='-arch arm64 -I/private/tmp/aagedal-ffmpeg-attribution-build/compiled/include -O3 -fPIC -mcpu=apple-m1' --extra-cxxflags='-arch arm64 -I/private/tmp/aagedal-ffmpeg-attribution-build/compiled/include -O3 -fPIC -mcpu=apple-m1' --extra-ldflags='-arch arm64 -L/private/tmp/aagedal-ffmpeg-attribution-build/compiled/lib' --extra-libs='-lpthread -lm -lz' --enable-static --disable-shared --enable-gpl --enable-version3 --disable-debug --disable-doc --enable-pthreads --enable-runtime-cpudetect --enable-neon --enable-pic --disable-libxcb --disable-libxcb-shm --disable-libxcb-xfixes --disable-libxcb-shape --disable-sdl2 --disable-xlib --disable-libfontconfig --enable-libass --enable-libharfbuzz --enable-libfreetype --enable-libfribidi --enable-libx264 --enable-libx265 --enable-libvpx --enable-libaom --enable-libsvtav1 --enable-libvvenc --enable-libjxl --enable-libwebp --enable-libopus --enable-libvorbis --enable-libmp3lame --enable-libtheora --enable-libopenjpeg --enable-libvmaf --enable-whisper --enable-videotoolbox --enable-audiotoolbox --enable-encoder=libx264 --enable-encoder=libx265 --enable-encoder=libvpx_vp8 --enable-encoder=libvpx_vp9 --enable-encoder=libaom_av1 --enable-encoder=libsvtav1 --enable-encoder=libvvenc --enable-encoder=libjxl --enable-encoder=libwebp --enable-encoder=libwebp_anim --enable-encoder=libopus --enable-encoder=libvorbis --enable-encoder=libmp3lame --enable-encoder=aac --enable-encoder=aac_at --enable-encoder=flac --enable-encoder=libtheora --enable-encoder=libopenjpeg --enable-encoder=h264_videotoolbox --enable-encoder=hevc_videotoolbox --enable-encoder=prores_videotoolbox --enable-decoder=libjxl --enable-decoder=aac --enable-decoder=aac_at --enable-decoder=flac --enable-decoder=vvc --enable-decoder=theora --enable-filter=scale --enable-filter=overlay --enable-filter=whisper --enable-filter=ssim --enable-filter=psnr --enable-filter=xpsnr --enable-filter=msad\nlibavutil      61.  1.101 / 61.  1.101\nlibavcodec     63.  1.101 / 63.  1.101\nlibavformat    63.  1.101 / 63.  1.101\nlibavdevice    63.  1.101 / 63.  1.101\nlibavfilter    12.  1.101 / 12.  1.101\nlibswscale     10.  1.101 / 10.  1.101\nlibswresample   7.  1.101 /  7.  1.101\n\nExiting with exit code 0"
+  },
+  "pkgConfig": {
+    "path": "/opt/homebrew/bin/pkg-config",
+    "sha256": "1f3beefb56b473037af764da65297c3527e50533294891a07dfe91f0279150fd",
+    "version": "3.0.7"
+  },
+  "clang": {
+    "path": "/usr/bin/clang",
+    "sha256": "34129c71a01a74f7f3b2443521519b2e5447553fa187f5fcafaaf8c42cc192e2",
+    "version": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+  },
+  "libavformat": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2/lib/libavformat.63.1.102.dylib",
+    "sha256": "7037cf9835b02aca3ae66b8cb2c2eed380e5083fa432c3f9ef71e3efebb61262"
+  },
+  "libavcodec": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2/lib/libavcodec.63.1.102.dylib",
+    "sha256": "f3359c960778d4f8469700a051d5e9adbacaeeeb7ffdc68c87a1d5d66cd74680"
+  },
+  "libavutil": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2/lib/libavutil.61.1.102.dylib",
+    "sha256": "d8735f7e878ea9f44d7ec15f0aee0bf473bacb5d44f7a46df1a299462372f664"
+  },
+  "libswscale": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2/lib/libswscale.10.1.102.dylib",
+    "sha256": "5677ad33d0c49eb31262e3a4a7fe0eec06544756b53e816f19f598cd8a94bd9e"
+  },
+  "libswresample": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2/lib/libswresample.7.1.102.dylib",
+    "sha256": "cb7096d9fbedbec10b878e68244167e2c9cc7ba8907f9840b6b39becc91969ad"
+  },
+  "checkExecutable": {
+    "path": "/private/tmp/film-native-decoder-check-repro-20261009-v2/native-decoder-check",
+    "sha256": "4c3ff2e822f4d9f59a4fc380b68023952df50d50824f213fadf318f8692b53b2"
+  }
+}

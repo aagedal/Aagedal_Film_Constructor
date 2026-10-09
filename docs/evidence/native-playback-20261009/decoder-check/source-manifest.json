@@ -1,0 +1,6 @@
+{
+  "scripts/native-decoder-check.py": "dadba090fa38a07a2faebd97fecbeadf86ec1078a132766e65ba078831169cf7",
+  "scripts/native-decoder-check.c": "59dbf53ede101e0a15dbc0e8ba068f60ac5fb374b7c8d77b6eaf21987d51c828",
+  "Packages/NativePlaybackProof/Sources/CNativeDecoder/NativeDecoder.c": "1fec61ddacbccc90d3b719048d1ed80a59a5f549cda54c4d0a0ad248b041c0eb",
+  "Packages/NativePlaybackProof/Sources/CNativeDecoder/include/CNativeDecoder.h": "16a7fff1026752bc527d48eaaea2247bb9dbab8483de84f63c08f253dcefd06a"
+}

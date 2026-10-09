@@ -360,3 +360,111 @@ The retained build source manifest identifies the snapshot; it does not itself
 supply full GPL source accompaniment. Core validation passes 33 tests, IPC
 validation passes 5 tests, and the unsigned macOS Debug app builds. This is
 media-engine evidence, not a completed playback feature in the app.
+
+## Native sequence fallback proof (2026-10-09)
+
+The plan's fallback is now implemented as a development experiment rather than
+another MPV filter graph. EditorCore's `NativePlaybackPlan` validates the canonical
+render plan and computes stateless, exact source-frame and source-sample requests.
+Half-open video cuts select the explicitly frontmost track; audio blocks intersect
+every active component while retaining its source stream/channel, output route,
+gain, source in-point and destination offset. Empty intervals are black/silent.
+No FFmpeg process or media probing is part of this core scheduler.
+
+`Packages/NativePlaybackProof` is separate from the app. Its C bridge owns one
+serial libavformat/libavcodec context per selected container stream. On first use
+it scans all decoded presentation timestamps and requires a contiguous exact
+CFR/sample grid, rejecting missing/inferred timestamps and nonzero starts. It
+then seeks backward, flushes the decoder, and decodes forward to actual exact
+presentation timestamps or PCM sample ranges, including delayed B-frames at EOF.
+This follows the [FFmpeg seek API](https://www.ffmpeg.org/doxygen/trunk/group__lavf__decoding.html);
+reported player time never serves as a substitute for decoded pixels/samples.
+
+The Swift proof monitor converts the selected opaque frame to a CGImage and
+ImageIO PNG, mixes explicitly mapped float PCM, and queues bounded buffers at
+AVAudioPlayerNode sample times. It checks the native sample clock and consumes
+[AVAudioEngine offline output](https://developer.apple.com/documentation/avfaudio/avaudioengine)
+at the exact requested count. Every audio seek uses a fresh engine. Successful
+plan replacement clears decoder state; compilation failure preserves the previous
+plan and usable decoders. This is evidence for native frame selection and sample
+scheduling, not live hardware audio or a display refresh loop.
+
+Reproduce from a new barcode render-plan fixture:
+
+```sh
+scripts/render-plan-proof.py \
+  '/Users/truls.aagedal/Developer/Aagedal-Media-Converter/Aagedal Media Converter/Binaries/ffmpeg' \
+  /opt/homebrew/bin/ffprobe /private/tmp/film-native-render-new
+scripts/native-sequence-proof.py \
+  '/Users/truls.aagedal/Developer/Aagedal-Media-Converter/Aagedal Media Converter/Binaries/ffmpeg' \
+  /opt/homebrew/bin/ffprobe /opt/homebrew/bin/pkg-config \
+  /private/tmp/film-native-render-new /private/tmp/film-native-monitor-new
+scripts/native-decoder-check.py \
+  '/Users/truls.aagedal/Developer/Aagedal-Media-Converter/Aagedal Media Converter/Binaries/ffmpeg' \
+  /opt/homebrew/bin/pkg-config /private/tmp/film-native-render-new \
+  /private/tmp/film-native-decoder-check-new
+```
+
+The runners require explicitly supplied executable paths, locally installed
+FFmpeg development libraries, and new output directories. They record commands,
+actual helper/library hashes, source identities and retained failures. They do
+not install or download dependencies. SwiftPM uses local module/build caches.
+AVAudioPlayerNode could not initialize under this session's tool sandbox because
+the system audio-component registrar was inaccessible. The native monitor proof
+passed outside that sandbox with authorization; it uses offline mode and does
+not play through an audio device. The unsigned Xcode build also needed its normal
+package-manifest diagnostic cache access outside the tool sandbox.
+
+The retained run at `/private/tmp/film-native-sequence-final-20261009` passes:
+
+| Fixture | Frames | Stereo samples/channel | Maximum mean RGB error | Maximum audio error, s16 units |
+| --- | ---: | ---: | ---: | ---: |
+| Original overlapping video and separate mono streams | 180 | 288,288 | 2.0 | 0.5 |
+| Video gaps and a second overlapping routed audio track | 180 | 288,288 | 2.0 | 0.75 |
+| The preceding edits with closed-GOP H.264 and B-frames | 180 | 288,288 | 1.8 | 0.75 |
+| Changed source in-point/gain/routing after priming the old plan | 180 | 288,288 | 2.0 | 0.75 |
+
+Every variant also passes all ten video and eight audio seek/rebuild captures.
+Video checks include frames 0, 2, 3, 60, 119, 120 and 179, backward 60/15, and
+reopened decoders at 15. Audio checks cross the exact component boundaries at
+48,048 and 240,240 samples, revisit earlier positions, reopen source decoders and
+reach the final sample. Native PNG pixels are independently decoded and compared
+as well. Both original 300-frame sources are authenticated against their binary
+frame/source barcode formula. Exact expected counts and complete ordered seek
+manifests are required; empty, truncated or nonfinite captures cannot pass.
+The FFmpeg render compiler executes separately against each persisted project.
+RGB tolerance is strictly below 12; PCM tolerance is one s16 unit, accounting for
+quantization of the independent exported reference. Mixed float buffers and
+native scheduled output are checked separately.
+
+The direct C run at `/private/tmp/film-native-decoder-check-repro-20261009-v2`
+passes 65 checks with AddressSanitizer and UndefinedBehaviorSanitizer. Reused
+qtrle frames and arbitrary PCM source ranges match independent decodes exactly.
+Four-channel PCM patterns verify interleaving and backward/EOF boundaries. The
+matrix rejects VFR and PCM timestamp gaps, nonzero source starts, rotation,
+non-square pixels, AAC, timestamp-less raw H.264, rate/stream/type mismatches,
+insufficient buffers, off-grid requests, overflow and beyond-EOF ranges. Rejected
+requests leave qualified decoders usable. This finite matrix does not qualify
+all source codecs or malformed inputs.
+
+The tested native libraries are local Homebrew FFmpeg 9.0.2. The proof captures
+their hashes and actual linkage; they have macOS 27 deployment requirements,
+despite the Swift package's macOS 14 target. They are not a selected shipping
+dependency and do not establish macOS 14 runtime support. The app does not link
+this proof package. Explicit frame/block sizes and open-decoder counts have
+development limits; total FFmpeg probing/index/reference memory has not been
+comprehensively bounded or profiled. First-use qualification scans whole selected
+streams and must be replaced or moved into asynchronous asset preparation before
+meeting the launch/interactive performance targets.
+
+Continue the sequence engine in this native direction, retaining MPV as a
+source-viewer candidate. Before app playback, qualify a shipping library build,
+off-thread decode/cancellation/cache ownership, a native display loop and live
+audio clock/seeking/teardown. The current proof covers matching-raster grayscale
+square-pixel CFR video and matching-rate PCM. Scaling/color/HDR, VFR conforming,
+compressed audio/resampling, fades/crossfades, proxy mappings, real-time A/V sync
+and production packaging remain open. Milestone 1 remains in progress.
+
+Reviewable evidence is in [docs/evidence/native-playback-20261009](evidence/native-playback-20261009/README.md).
+All 47 EditorCore tests and 9 Python tests pass; the unsigned macOS Debug app build
+passes. No new application media workflow is claimed by this development proof.

@@ -1,0 +1,1199 @@
+{
+  "passed": true,
+  "variants": [
+    {
+      "name": "baseline",
+      "libraryVersion": "9.0.2",
+      "initialPlanReplaced": false,
+      "sequentialVideo": {
+        "frames": 180,
+        "maxMeanRGBError": 2.0
+      },
+      "mixedAudio": {
+        "samplesPerChannel": 288288,
+        "maxErrorInS16Units": 0.5
+      },
+      "scheduledAudio": {
+        "samplesPerChannel": 288288,
+        "maxErrorInS16Units": 0.5
+      },
+      "videoSeeks": [
+        {
+          "frame": 0,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 2,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 3,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 60,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 119,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 120,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 179,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 60,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 15,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 15,
+          "rebuilt": true,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        }
+      ],
+      "audioSeeks": [
+        {
+          "startSample": 0,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0
+          }
+        },
+        {
+          "startSample": 48047,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 48048,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 240239,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 115315,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 48048,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 287264,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 1024,
+            "maxErrorInS16Units": 0
+          },
+          "scheduled": {
+            "samplesPerChannel": 1024,
+            "maxErrorInS16Units": 0
+          }
+        },
+        {
+          "startSample": 48047,
+          "rebuilt": true,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        }
+      ],
+      "artifacts": {
+        "png-seek-1.rgb": "227fae7d0138661ab68c4fb8ce1f7421d42c580a436c058b6effe8abc7ea46ef",
+        "png-seek-0.rgb": "3b7ec669bc8762ac8f80820c7b70c4297550e63856d7a5123a39cabd09935467",
+        "png-seek-2.rgb": "c71ead82b7e653ed4c2b899c121bdb72315b789de61f0f74b7a04c59d541403a",
+        "png-seek-3.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "png-seek-7.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "png-seek-6.rgb": "24f9e33af417893ac148c7b373b8f49de57c401d9136b95ef5a4bc877880ea42",
+        "png-seek-4.rgb": "9d28c5f34bb2ad83de78341e82365fcd00da046d8ab3f0e3e7ea3f87405584e7",
+        "png-seek-5.rgb": "112e859a95235edf9b80ef650e6129979cd5bd74161a331a41bc5a59113afa83",
+        "project.json": "873bd38c6dc3c96637463938d11fe25b61a49a2c011b3c513f2e7c9df393de0c",
+        "render.mov": "088a9b159b26bd6040311451057dae8a3775329f36e7be363367efc63800153c",
+        "reference.rgb": "fca712495b86fd2d6e25c5a4e2f58732285836b919a9df69b86ac53c06469d03",
+        "reference.pcm": "d83167c967428da0100cff32f8799ae2d055abafc51c8c023dbcb5168e11a7e0",
+        "command.json": "e92ee45c39f3128f93f3f762589ad0f4c004b85c3b3b68b5eafadfe6045a1d32",
+        "png-seek-8.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "png-seek-9.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "native/audio-seek-2-48048-scheduled.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/seek-4-frame-119.rgb": "9d28c5f34bb2ad83de78341e82365fcd00da046d8ab3f0e3e7ea3f87405584e7",
+        "native/seek-4-frame-119.png": "493cc360fbe127db3f9f3f52047a2aeea2352c514a768962e621d8546904dcc1",
+        "native/audio-seek-4-115315-scheduled.f32": "6de924f5c5f58484df90be856ca787def5cc5933a4ce871eca5724c4171ef899",
+        "native/seek-7-frame-60.png": "9e0de6a8f7a210b4f9d225aac8a927a5f2d9adbdbb7c0083c14cd4768a5ae3da",
+        "native/seek-7-frame-60.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "native/audio-seek-5-48048-scheduled.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/seek-0-frame-0.rgb": "3b7ec669bc8762ac8f80820c7b70c4297550e63856d7a5123a39cabd09935467",
+        "native/native.rgb": "1c1f8b56a0505b7ae4fae77b96278742f57a9629ecaf993bbcc0de1c1c121275",
+        "native/seek-0-frame-0.png": "c319e79c3a303e087d15cfa1db859d4739ed774d3a01f349f87a45e14052d10f",
+        "native/audio-seek-3-240239-scheduled.f32": "6fa3319db361a0afeb36ab0f971a7cc4895ccf12d3363e100c25a6c3ed50dd4a",
+        "native/audio-seek-6-287264-mixed.f32": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47",
+        "native/audio-seek-0-0-scheduled.f32": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "native/audio-seek-6-287264-scheduled.f32": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47",
+        "native/audio-seek-1-48047-scheduled.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/audio-seek-3-240239-mixed.f32": "6fa3319db361a0afeb36ab0f971a7cc4895ccf12d3363e100c25a6c3ed50dd4a",
+        "native/seek-6-frame-179.png": "54296a0d40006fb7335b7abb87d8141df69571ee5fa60e1548c94e3a382a10cc",
+        "native/seek-2-frame-3.rgb": "c71ead82b7e653ed4c2b899c121bdb72315b789de61f0f74b7a04c59d541403a",
+        "native/audio-seek-4-115315-mixed.f32": "6de924f5c5f58484df90be856ca787def5cc5933a4ce871eca5724c4171ef899",
+        "native/seek-6-frame-179.rgb": "24f9e33af417893ac148c7b373b8f49de57c401d9136b95ef5a4bc877880ea42",
+        "native/seek-2-frame-3.png": "1723cd6b193e623cf577180a364f16eff9e917c59405e907ebc40f02bbf45acd",
+        "native/audio-seek-0-0-mixed.f32": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "native/mixed.f32": "5dc416a439f716f698d1ae607a85ad62cb0140751bf3b70c15175cfc286164f3",
+        "native/audio-seek-7-48047-mixed.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/manifest.json": "248ea0ea3cffbc4886a296f40592b5ae3ff9ef2c784087ce7eaa66ba214335b1",
+        "native/audio-seek-7-48047-scheduled.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/scheduled.f32": "5dc416a439f716f698d1ae607a85ad62cb0140751bf3b70c15175cfc286164f3",
+        "native/audio-seek-2-48048-mixed.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/seek-9-frame-15.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "native/seek-9-frame-15.png": "b610656b22bea4be32553e386c035efd1a182a5d1f93ec57dae06cce7226c649",
+        "native/seek-5-frame-120.png": "778ec1a7ff0ea9db4b13761f14b1b37ed4d9a4162f585e44352e7c05c3d021db",
+        "native/seek-5-frame-120.rgb": "112e859a95235edf9b80ef650e6129979cd5bd74161a331a41bc5a59113afa83",
+        "native/seek-8-frame-15.png": "b610656b22bea4be32553e386c035efd1a182a5d1f93ec57dae06cce7226c649",
+        "native/seek-3-frame-60.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "native/seek-8-frame-15.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "native/seek-3-frame-60.png": "9e0de6a8f7a210b4f9d225aac8a927a5f2d9adbdbb7c0083c14cd4768a5ae3da",
+        "native/seek-1-frame-2.rgb": "227fae7d0138661ab68c4fb8ce1f7421d42c580a436c058b6effe8abc7ea46ef",
+        "native/audio-seek-1-48047-mixed.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/seek-1-frame-2.png": "19bb046309b1e2384d06c1f24a88d0ef8964975c4a4349551bae36b1e71e6436",
+        "native/audio-seek-5-48048-mixed.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c"
+      }
+    },
+    {
+      "name": "gaps-and-audio-overlap",
+      "libraryVersion": "9.0.2",
+      "initialPlanReplaced": false,
+      "sequentialVideo": {
+        "frames": 180,
+        "maxMeanRGBError": 2.0
+      },
+      "mixedAudio": {
+        "samplesPerChannel": 288288,
+        "maxErrorInS16Units": 0.75
+      },
+      "scheduledAudio": {
+        "samplesPerChannel": 288288,
+        "maxErrorInS16Units": 0.75
+      },
+      "videoSeeks": [
+        {
+          "frame": 0,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 0.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 0.0
+          }
+        },
+        {
+          "frame": 2,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 0.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 0.0
+          }
+        },
+        {
+          "frame": 3,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 60,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 119,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 120,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 179,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 0.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 0.0
+          }
+        },
+        {
+          "frame": 60,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 15,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 15,
+          "rebuilt": true,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        }
+      ],
+      "audioSeeks": [
+        {
+          "startSample": 0,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0
+          }
+        },
+        {
+          "startSample": 48047,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 48048,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 240239,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          }
+        },
+        {
+          "startSample": 115315,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          }
+        },
+        {
+          "startSample": 48048,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 287264,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 1024,
+            "maxErrorInS16Units": 0.75
+          },
+          "scheduled": {
+            "samplesPerChannel": 1024,
+            "maxErrorInS16Units": 0.75
+          }
+        },
+        {
+          "startSample": 48047,
+          "rebuilt": true,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        }
+      ],
+      "artifacts": {
+        "png-seek-1.rgb": "e19d750c09c65857034cb57d3021349141c001da44d8e310a5281090f9b1f78a",
+        "png-seek-0.rgb": "e19d750c09c65857034cb57d3021349141c001da44d8e310a5281090f9b1f78a",
+        "png-seek-2.rgb": "c71ead82b7e653ed4c2b899c121bdb72315b789de61f0f74b7a04c59d541403a",
+        "png-seek-3.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "png-seek-7.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "png-seek-6.rgb": "e19d750c09c65857034cb57d3021349141c001da44d8e310a5281090f9b1f78a",
+        "png-seek-4.rgb": "9d28c5f34bb2ad83de78341e82365fcd00da046d8ab3f0e3e7ea3f87405584e7",
+        "png-seek-5.rgb": "8f0835afeb7151812442a80a895a0ee77bea2755caa25bb9c002c0433b7070d1",
+        "project.json": "f6f337c6f198ba20682b812d6db5a113e39ef36ca350c75a14135793a72f5356",
+        "render.mov": "135f221452060c1d8598ba49bdaf7b805c467fa6f46b27bf5bc5a587768b267c",
+        "reference.rgb": "4e6e2416e942e842904162dfb40ef3205153056cddf61703d9abc760d712d167",
+        "reference.pcm": "c41948e5cda80fd6c0e1c86607531b4d564d16ac5a2e2ae9c3ba25fb11eaefdc",
+        "command.json": "f0d827dfbff4139ec4150f778248c63c7b8cb1c4bcec8e9289705713945b63d5",
+        "png-seek-8.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "png-seek-9.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "native/audio-seek-2-48048-scheduled.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/seek-4-frame-119.rgb": "9d28c5f34bb2ad83de78341e82365fcd00da046d8ab3f0e3e7ea3f87405584e7",
+        "native/seek-4-frame-119.png": "493cc360fbe127db3f9f3f52047a2aeea2352c514a768962e621d8546904dcc1",
+        "native/audio-seek-4-115315-scheduled.f32": "673e350ddfe932dce0787cc14717e259bf0a6fa7185b860a6010e37deb543309",
+        "native/seek-7-frame-60.png": "9e0de6a8f7a210b4f9d225aac8a927a5f2d9adbdbb7c0083c14cd4768a5ae3da",
+        "native/seek-7-frame-60.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "native/audio-seek-5-48048-scheduled.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/seek-0-frame-0.rgb": "e19d750c09c65857034cb57d3021349141c001da44d8e310a5281090f9b1f78a",
+        "native/native.rgb": "0e0237cb5ef3b3a69df79ce018eb16663f29d6f8a687e9899c36910c20fa75e5",
+        "native/seek-0-frame-0.png": "7b276fb708ed2f95168c040cf1b1c5407e2543230d3a64ea93b0399eed17ceb1",
+        "native/audio-seek-3-240239-scheduled.f32": "602c7d50e7d4e122c18dd3fc72a3ae5c515db914600072a35e72b62dd8e51690",
+        "native/audio-seek-6-287264-mixed.f32": "b671a5c84b7915788597a8851531bbf161e149453ab2361d1b98055db6743189",
+        "native/audio-seek-0-0-scheduled.f32": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "native/audio-seek-6-287264-scheduled.f32": "b671a5c84b7915788597a8851531bbf161e149453ab2361d1b98055db6743189",
+        "native/audio-seek-1-48047-scheduled.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/audio-seek-3-240239-mixed.f32": "602c7d50e7d4e122c18dd3fc72a3ae5c515db914600072a35e72b62dd8e51690",
+        "native/seek-6-frame-179.png": "7b276fb708ed2f95168c040cf1b1c5407e2543230d3a64ea93b0399eed17ceb1",
+        "native/seek-2-frame-3.rgb": "c71ead82b7e653ed4c2b899c121bdb72315b789de61f0f74b7a04c59d541403a",
+        "native/audio-seek-4-115315-mixed.f32": "673e350ddfe932dce0787cc14717e259bf0a6fa7185b860a6010e37deb543309",
+        "native/seek-6-frame-179.rgb": "e19d750c09c65857034cb57d3021349141c001da44d8e310a5281090f9b1f78a",
+        "native/seek-2-frame-3.png": "1723cd6b193e623cf577180a364f16eff9e917c59405e907ebc40f02bbf45acd",
+        "native/audio-seek-0-0-mixed.f32": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "native/mixed.f32": "a4c9dd36fa87de5f94c021c61c3d9757722b4e9a637ecf0036446babd44b3c1e",
+        "native/audio-seek-7-48047-mixed.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/manifest.json": "291bde81570819625de17c5f6d8f94603e09ae3ddf219049016de887db68b722",
+        "native/audio-seek-7-48047-scheduled.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/scheduled.f32": "a4c9dd36fa87de5f94c021c61c3d9757722b4e9a637ecf0036446babd44b3c1e",
+        "native/audio-seek-2-48048-mixed.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/seek-9-frame-15.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "native/seek-9-frame-15.png": "b610656b22bea4be32553e386c035efd1a182a5d1f93ec57dae06cce7226c649",
+        "native/seek-5-frame-120.png": "87416993e4727f1fd7e56dc49ad7bfd0a041b0c8de806f702e1edd240dbfba69",
+        "native/seek-5-frame-120.rgb": "8f0835afeb7151812442a80a895a0ee77bea2755caa25bb9c002c0433b7070d1",
+        "native/seek-8-frame-15.png": "b610656b22bea4be32553e386c035efd1a182a5d1f93ec57dae06cce7226c649",
+        "native/seek-3-frame-60.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "native/seek-8-frame-15.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "native/seek-3-frame-60.png": "9e0de6a8f7a210b4f9d225aac8a927a5f2d9adbdbb7c0083c14cd4768a5ae3da",
+        "native/seek-1-frame-2.rgb": "e19d750c09c65857034cb57d3021349141c001da44d8e310a5281090f9b1f78a",
+        "native/audio-seek-1-48047-mixed.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/seek-1-frame-2.png": "7b276fb708ed2f95168c040cf1b1c5407e2543230d3a64ea93b0399eed17ceb1",
+        "native/audio-seek-5-48048-mixed.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c"
+      }
+    },
+    {
+      "name": "interframe-b-frames",
+      "libraryVersion": "9.0.2",
+      "initialPlanReplaced": false,
+      "sequentialVideo": {
+        "frames": 180,
+        "maxMeanRGBError": 1.8
+      },
+      "mixedAudio": {
+        "samplesPerChannel": 288288,
+        "maxErrorInS16Units": 0.75
+      },
+      "scheduledAudio": {
+        "samplesPerChannel": 288288,
+        "maxErrorInS16Units": 0.75
+      },
+      "videoSeeks": [
+        {
+          "frame": 0,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 0.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 0.0
+          }
+        },
+        {
+          "frame": 2,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 0.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 0.0
+          }
+        },
+        {
+          "frame": 3,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 1.5
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 1.5
+          }
+        },
+        {
+          "frame": 60,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 1.6
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 1.6
+          }
+        },
+        {
+          "frame": 119,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 1.4
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 1.4
+          }
+        },
+        {
+          "frame": 120,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 1.4
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 1.4
+          }
+        },
+        {
+          "frame": 179,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 0.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 0.0
+          }
+        },
+        {
+          "frame": 60,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 1.6
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 1.6
+          }
+        },
+        {
+          "frame": 15,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 1.3
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 1.3
+          }
+        },
+        {
+          "frame": 15,
+          "rebuilt": true,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 1.3
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 1.3
+          }
+        }
+      ],
+      "audioSeeks": [
+        {
+          "startSample": 0,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0
+          }
+        },
+        {
+          "startSample": 48047,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 48048,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 240239,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          }
+        },
+        {
+          "startSample": 115315,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          }
+        },
+        {
+          "startSample": 48048,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 287264,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 1024,
+            "maxErrorInS16Units": 0.75
+          },
+          "scheduled": {
+            "samplesPerChannel": 1024,
+            "maxErrorInS16Units": 0.75
+          }
+        },
+        {
+          "startSample": 48047,
+          "rebuilt": true,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        }
+      ],
+      "artifacts": {
+        "png-seek-1.rgb": "e19d750c09c65857034cb57d3021349141c001da44d8e310a5281090f9b1f78a",
+        "png-seek-0.rgb": "e19d750c09c65857034cb57d3021349141c001da44d8e310a5281090f9b1f78a",
+        "png-seek-2.rgb": "258dcffdc26edafb69df4e9401d2d7491d90b9966ac1507c173969da7f32aeef",
+        "png-seek-3.rgb": "f4e840d03e9bd82894912f1f881adf7fa7a161fe03a368969a95f86ad7450b54",
+        "png-seek-7.rgb": "f4e840d03e9bd82894912f1f881adf7fa7a161fe03a368969a95f86ad7450b54",
+        "png-seek-6.rgb": "e19d750c09c65857034cb57d3021349141c001da44d8e310a5281090f9b1f78a",
+        "png-seek-4.rgb": "de1e99f63fe82f099c351da29bd72cb417adb1a3e10cbce788dd8608fe8a8c8f",
+        "png-seek-5.rgb": "e9b80cfa60389d427178ebb1920d8d49eec4d48cd49aff03eabbc748f4c92f95",
+        "project.json": "0932c9fc645ccefaa4080abb2fabe56d41a6172ab129ee4bae734bd9793d44e4",
+        "render.mov": "135f221452060c1d8598ba49bdaf7b805c467fa6f46b27bf5bc5a587768b267c",
+        "reference.rgb": "4e6e2416e942e842904162dfb40ef3205153056cddf61703d9abc760d712d167",
+        "reference.pcm": "c41948e5cda80fd6c0e1c86607531b4d564d16ac5a2e2ae9c3ba25fb11eaefdc",
+        "command.json": "67e2ee6a8b5f57f1207b93c4b2d76e5fe10cba26eab3a9d1195808c617b673ee",
+        "png-seek-8.rgb": "5bc787588a18aa2378bd1ba1ca557fc3cf66ec5284ee73ffdc3bfddcb3a39c1e",
+        "png-seek-9.rgb": "5bc787588a18aa2378bd1ba1ca557fc3cf66ec5284ee73ffdc3bfddcb3a39c1e",
+        "native/audio-seek-2-48048-scheduled.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/seek-4-frame-119.rgb": "de1e99f63fe82f099c351da29bd72cb417adb1a3e10cbce788dd8608fe8a8c8f",
+        "native/seek-4-frame-119.png": "6e36ef20a1aa1a34d35d9b6ea74db5f1b487971f408b93c73cf95f4e3a5e2064",
+        "native/audio-seek-4-115315-scheduled.f32": "673e350ddfe932dce0787cc14717e259bf0a6fa7185b860a6010e37deb543309",
+        "native/seek-7-frame-60.png": "c9d07171f4bcaa3f9845d145a04dd191e2ba2220951557a82f1c475baa8149a1",
+        "native/seek-7-frame-60.rgb": "f4e840d03e9bd82894912f1f881adf7fa7a161fe03a368969a95f86ad7450b54",
+        "native/audio-seek-5-48048-scheduled.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/seek-0-frame-0.rgb": "e19d750c09c65857034cb57d3021349141c001da44d8e310a5281090f9b1f78a",
+        "native/native.rgb": "1ceca70a0550107aa780a2cc2aa504456528b2b15c6fe4977e33949b949cf881",
+        "native/seek-0-frame-0.png": "7b276fb708ed2f95168c040cf1b1c5407e2543230d3a64ea93b0399eed17ceb1",
+        "native/audio-seek-3-240239-scheduled.f32": "602c7d50e7d4e122c18dd3fc72a3ae5c515db914600072a35e72b62dd8e51690",
+        "native/audio-seek-6-287264-mixed.f32": "b671a5c84b7915788597a8851531bbf161e149453ab2361d1b98055db6743189",
+        "native/audio-seek-0-0-scheduled.f32": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "native/audio-seek-6-287264-scheduled.f32": "b671a5c84b7915788597a8851531bbf161e149453ab2361d1b98055db6743189",
+        "native/audio-seek-1-48047-scheduled.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/audio-seek-3-240239-mixed.f32": "602c7d50e7d4e122c18dd3fc72a3ae5c515db914600072a35e72b62dd8e51690",
+        "native/seek-6-frame-179.png": "7b276fb708ed2f95168c040cf1b1c5407e2543230d3a64ea93b0399eed17ceb1",
+        "native/seek-2-frame-3.rgb": "258dcffdc26edafb69df4e9401d2d7491d90b9966ac1507c173969da7f32aeef",
+        "native/audio-seek-4-115315-mixed.f32": "673e350ddfe932dce0787cc14717e259bf0a6fa7185b860a6010e37deb543309",
+        "native/seek-6-frame-179.rgb": "e19d750c09c65857034cb57d3021349141c001da44d8e310a5281090f9b1f78a",
+        "native/seek-2-frame-3.png": "228f4636b520d9c49d2634887cf88a8742788f641d318da4d4561e1bc4003f55",
+        "native/audio-seek-0-0-mixed.f32": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "native/mixed.f32": "a4c9dd36fa87de5f94c021c61c3d9757722b4e9a637ecf0036446babd44b3c1e",
+        "native/audio-seek-7-48047-mixed.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/manifest.json": "15fc7ccd6fccd5089608c29086e03ca8065285618acd73c9e64b2a7455e85891",
+        "native/audio-seek-7-48047-scheduled.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/scheduled.f32": "a4c9dd36fa87de5f94c021c61c3d9757722b4e9a637ecf0036446babd44b3c1e",
+        "native/audio-seek-2-48048-mixed.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/seek-9-frame-15.rgb": "5bc787588a18aa2378bd1ba1ca557fc3cf66ec5284ee73ffdc3bfddcb3a39c1e",
+        "native/seek-9-frame-15.png": "43c117e1d42da4c6fae92bd7d005d7ff46ad030be001d02fe9d9b7694a080dcd",
+        "native/seek-5-frame-120.png": "d693dc6412007c1f3f286351004ad0697f86005d45ae00244d6a027f6ce02187",
+        "native/seek-5-frame-120.rgb": "e9b80cfa60389d427178ebb1920d8d49eec4d48cd49aff03eabbc748f4c92f95",
+        "native/seek-8-frame-15.png": "43c117e1d42da4c6fae92bd7d005d7ff46ad030be001d02fe9d9b7694a080dcd",
+        "native/seek-3-frame-60.rgb": "f4e840d03e9bd82894912f1f881adf7fa7a161fe03a368969a95f86ad7450b54",
+        "native/seek-8-frame-15.rgb": "5bc787588a18aa2378bd1ba1ca557fc3cf66ec5284ee73ffdc3bfddcb3a39c1e",
+        "native/seek-3-frame-60.png": "c9d07171f4bcaa3f9845d145a04dd191e2ba2220951557a82f1c475baa8149a1",
+        "native/seek-1-frame-2.rgb": "e19d750c09c65857034cb57d3021349141c001da44d8e310a5281090f9b1f78a",
+        "native/audio-seek-1-48047-mixed.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/seek-1-frame-2.png": "7b276fb708ed2f95168c040cf1b1c5407e2543230d3a64ea93b0399eed17ceb1",
+        "native/audio-seek-5-48048-mixed.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c"
+      }
+    },
+    {
+      "name": "edited-plan-rebuild",
+      "libraryVersion": "9.0.2",
+      "initialPlanReplaced": true,
+      "sequentialVideo": {
+        "frames": 180,
+        "maxMeanRGBError": 2.0
+      },
+      "mixedAudio": {
+        "samplesPerChannel": 288288,
+        "maxErrorInS16Units": 0.75
+      },
+      "scheduledAudio": {
+        "samplesPerChannel": 288288,
+        "maxErrorInS16Units": 0.75
+      },
+      "videoSeeks": [
+        {
+          "frame": 0,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 2,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 3,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 60,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 119,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 120,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 179,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 60,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 15,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 15,
+          "rebuilt": true,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        }
+      ],
+      "audioSeeks": [
+        {
+          "startSample": 0,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0
+          }
+        },
+        {
+          "startSample": 48047,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          }
+        },
+        {
+          "startSample": 48048,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          }
+        },
+        {
+          "startSample": 240239,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          }
+        },
+        {
+          "startSample": 115315,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          }
+        },
+        {
+          "startSample": 48048,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          }
+        },
+        {
+          "startSample": 287264,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 1024,
+            "maxErrorInS16Units": 0
+          },
+          "scheduled": {
+            "samplesPerChannel": 1024,
+            "maxErrorInS16Units": 0
+          }
+        },
+        {
+          "startSample": 48047,
+          "rebuilt": true,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.75
+          }
+        }
+      ],
+      "artifacts": {
+        "initial-project.json": "873bd38c6dc3c96637463938d11fe25b61a49a2c011b3c513f2e7c9df393de0c",
+        "png-seek-1.rgb": "227fae7d0138661ab68c4fb8ce1f7421d42c580a436c058b6effe8abc7ea46ef",
+        "png-seek-0.rgb": "3b7ec669bc8762ac8f80820c7b70c4297550e63856d7a5123a39cabd09935467",
+        "png-seek-2.rgb": "3871b84f6ab79a126e03434d252b047e2eaaef854b91716c7c81779b94bd5cee",
+        "png-seek-3.rgb": "c55a2c914e0e3e407685d58701cb2a703affc9e4f8825c9393be92911918efe9",
+        "png-seek-7.rgb": "c55a2c914e0e3e407685d58701cb2a703affc9e4f8825c9393be92911918efe9",
+        "png-seek-6.rgb": "24f9e33af417893ac148c7b373b8f49de57c401d9136b95ef5a4bc877880ea42",
+        "png-seek-4.rgb": "515b099678c959472245e72811b589930a167bab3aaeef7455186bd5b87dc637",
+        "png-seek-5.rgb": "112e859a95235edf9b80ef650e6129979cd5bd74161a331a41bc5a59113afa83",
+        "project.json": "41b6b8df4576b82707d98cc9bbda75910cbdf17dfb0a8cbb2a5753221c5f116e",
+        "render.mov": "71fd55abaa10c5696d5158dd1754d0f1e8184df0e1aa73ba9e6c5d25717b297c",
+        "reference.rgb": "2c80fffc3bc07bf2532a4a554e25325e2aab5de2727ee428aa12c0faf55cdc65",
+        "reference.pcm": "77e21887dc670ce496624ac500d27f7168079e7c9106a4f3365c076d6790d247",
+        "command.json": "f4bd8eec2d749e8de079f9ee3864bcbe4f3e1e5013b7df4b22f0205bba38a4b9",
+        "png-seek-8.rgb": "6bfe8bc60236e376bf48504c1d71de9bbf9b2d86abcb589742e7f2e0f18cadef",
+        "png-seek-9.rgb": "6bfe8bc60236e376bf48504c1d71de9bbf9b2d86abcb589742e7f2e0f18cadef",
+        "native/audio-seek-2-48048-scheduled.f32": "59bfba34ee2f1f670200699297d4962ab4aa6eaf4902826b43dff5ea5d97fc80",
+        "native/seek-4-frame-119.rgb": "515b099678c959472245e72811b589930a167bab3aaeef7455186bd5b87dc637",
+        "native/seek-4-frame-119.png": "5bdf0e910c19353059db9a7a5458338186b21be431da218ae0b8b043c6dfe859",
+        "native/audio-seek-4-115315-scheduled.f32": "465970f516786481c7ef989a43f89abc7709c72dd3fae5fd83326a3af503c4ff",
+        "native/seek-7-frame-60.png": "02279fdf12616a0e479d36aa898576db6b1b1e4ad06fd392029c335f1f77fd6f",
+        "native/seek-7-frame-60.rgb": "c55a2c914e0e3e407685d58701cb2a703affc9e4f8825c9393be92911918efe9",
+        "native/audio-seek-5-48048-scheduled.f32": "59bfba34ee2f1f670200699297d4962ab4aa6eaf4902826b43dff5ea5d97fc80",
+        "native/seek-0-frame-0.rgb": "3b7ec669bc8762ac8f80820c7b70c4297550e63856d7a5123a39cabd09935467",
+        "native/native.rgb": "401d1b33971c8b77cdb779e74a65db7320f8540d52383f498ac1d85fc1890a87",
+        "native/seek-0-frame-0.png": "c319e79c3a303e087d15cfa1db859d4739ed774d3a01f349f87a45e14052d10f",
+        "native/audio-seek-3-240239-scheduled.f32": "a3cb1d4052d38b41f9eb665d91f79479245723d68207999b8f2823a20d9f725e",
+        "native/audio-seek-6-287264-mixed.f32": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47",
+        "native/audio-seek-0-0-scheduled.f32": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "native/audio-seek-6-287264-scheduled.f32": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47",
+        "native/audio-seek-1-48047-scheduled.f32": "1d6ebe9912850f1819913fded7cced0249f6df22aeb90c7a777597d1c530eaad",
+        "native/audio-seek-3-240239-mixed.f32": "a3cb1d4052d38b41f9eb665d91f79479245723d68207999b8f2823a20d9f725e",
+        "native/seek-6-frame-179.png": "54296a0d40006fb7335b7abb87d8141df69571ee5fa60e1548c94e3a382a10cc",
+        "native/seek-2-frame-3.rgb": "3871b84f6ab79a126e03434d252b047e2eaaef854b91716c7c81779b94bd5cee",
+        "native/audio-seek-4-115315-mixed.f32": "465970f516786481c7ef989a43f89abc7709c72dd3fae5fd83326a3af503c4ff",
+        "native/seek-6-frame-179.rgb": "24f9e33af417893ac148c7b373b8f49de57c401d9136b95ef5a4bc877880ea42",
+        "native/seek-2-frame-3.png": "c0e5558d22eafe8d544ae12d8ee18feca2c8dbe47f9533dee1aad0609a27f920",
+        "native/audio-seek-0-0-mixed.f32": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "native/mixed.f32": "315383b767ad6dddc0fe07531ac585b29c8867f3ce2449934b202b6d502f601b",
+        "native/audio-seek-7-48047-mixed.f32": "1d6ebe9912850f1819913fded7cced0249f6df22aeb90c7a777597d1c530eaad",
+        "native/manifest.json": "5b99c5f90c12711f1b707a220264a7e5389bcd18c4fbad3f85e620a70b2198eb",
+        "native/audio-seek-7-48047-scheduled.f32": "1d6ebe9912850f1819913fded7cced0249f6df22aeb90c7a777597d1c530eaad",
+        "native/scheduled.f32": "315383b767ad6dddc0fe07531ac585b29c8867f3ce2449934b202b6d502f601b",
+        "native/audio-seek-2-48048-mixed.f32": "59bfba34ee2f1f670200699297d4962ab4aa6eaf4902826b43dff5ea5d97fc80",
+        "native/seek-9-frame-15.rgb": "6bfe8bc60236e376bf48504c1d71de9bbf9b2d86abcb589742e7f2e0f18cadef",
+        "native/seek-9-frame-15.png": "85482f81ee197af7e771121f67ef2332cbd84fda2a2efa2636ff4705a9886b0e",
+        "native/seek-5-frame-120.png": "778ec1a7ff0ea9db4b13761f14b1b37ed4d9a4162f585e44352e7c05c3d021db",
+        "native/seek-5-frame-120.rgb": "112e859a95235edf9b80ef650e6129979cd5bd74161a331a41bc5a59113afa83",
+        "native/seek-8-frame-15.png": "85482f81ee197af7e771121f67ef2332cbd84fda2a2efa2636ff4705a9886b0e",
+        "native/seek-3-frame-60.rgb": "c55a2c914e0e3e407685d58701cb2a703affc9e4f8825c9393be92911918efe9",
+        "native/seek-8-frame-15.rgb": "6bfe8bc60236e376bf48504c1d71de9bbf9b2d86abcb589742e7f2e0f18cadef",
+        "native/seek-3-frame-60.png": "02279fdf12616a0e479d36aa898576db6b1b1e4ad06fd392029c335f1f77fd6f",
+        "native/seek-1-frame-2.rgb": "227fae7d0138661ab68c4fb8ce1f7421d42c580a436c058b6effe8abc7ea46ef",
+        "native/audio-seek-1-48047-mixed.f32": "1d6ebe9912850f1819913fded7cced0249f6df22aeb90c7a777597d1c530eaad",
+        "native/seek-1-frame-2.png": "19bb046309b1e2384d06c1f24a88d0ef8964975c4a4349551bae36b1e71e6436",
+        "native/audio-seek-5-48048-mixed.f32": "59bfba34ee2f1f670200699297d4962ab4aa6eaf4902826b43dff5ea5d97fc80"
+      }
+    }
+  ],
+  "limitations": [
+    "Development dynamically linked libraries, no bundled/signed distribution",
+    "Matching-raster square-pixel SDR CFR video and matching-rate PCM audio only",
+    "Native CGImage/PNG captures and offline AVAudioEngine; no live display/CoreAudio A/V sync",
+    "No scaling/color/VFR conformance, compressed audio/resampling, fades/crossfades or proxies",
+    "First source access qualifies all selected-stream timestamps; launch/interactive performance unmeasured"
+  ],
+  "fixtureBarcodes": [
+    {
+      "frames": 300,
+      "maxMeanRGBError": 0.0
+    },
+    {
+      "frames": 300,
+      "maxMeanRGBError": 0.0
+    }
+  ]
+}
