@@ -13,7 +13,8 @@ This is work in process and a sparetime project. Coded with the help of AI.
 
 The planned first version focuses on assembling overlapping video and audio
 tracks, source audio selection, fades/crossfades, proxies, and export with correct
-resolution, frame rate, and timecode. The app will use native Swift/SwiftUI with
+resolution, frame rate, and timecode. Stream-copy export without re-encoding is
+planned for eligible timelines, with exact-cut and codec/container validation. The app will use native Swift/SwiftUI with
 FFmpeg for media processing and MPV evaluated for broad-format preview. Effects,
 titles, keyframing, and plugin hosting are planned for later versions.
 
@@ -33,3 +34,9 @@ Run `scripts/verify.sh` to test the core and build the app without signing.
 For the core alone, run `swift test --package-path Packages/EditorCore`.
 See [the media audit](docs/media-engine-audit.md) for the development-only FFmpeg
 proof, packaging gaps, and the next MPV parity experiment.
+
+The core now includes a development FFmpeg render-plan compiler and a persisted
+fixture integration proof. Run `scripts/render-plan-proof.py` with explicit
+absolute FFmpeg and FFprobe paths and a new absolute output directory. It checks
+decoded frame identities, cuts, channel routing, gain, timecode, and sample counts.
+This does not yet enable media import/export in the app or establish MPV parity.

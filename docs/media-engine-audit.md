@@ -171,3 +171,50 @@ chosen pinned MPVKit package:
    exact seeking, simultaneous stream routing, and repeatable parity pass. If they
    fail, retain MPV for sources and evaluate an FFmpeg library bridge with native
    rendering/audio scheduling for sequences, as specified in `PLAN.md`.
+
+## Render-plan compiler proof (2026-10-09)
+
+`FFmpegRenderCompiler` now generates an argument array and filter graph from
+`TimelineRenderPlan`. The standalone `RenderPlanProof` development executable
+creates, saves, decodes, and compiles a fixture project; it is not an app helper.
+`scripts/render-plan-proof.py` creates lossless frame-coded video and two separate
+mono audio streams, executes the compiler's arguments without a shell, records
+helper hashes/versions, and probes/decodes the rendered MOV. Reproduce with:
+
+```sh
+scripts/render-plan-proof.py \
+  '/Users/truls.aagedal/Developer/Aagedal-Media-Converter/Aagedal Media Converter/Binaries/ffmpeg' \
+  /opt/homebrew/bin/ffprobe \
+  /private/tmp/film-constructor-render-plan-proof-new
+```
+
+The run at `/private/tmp/film-constructor-render-plan-proof-20261009-v3` passed:
+180 frames, 30000/1001, 160x90, 288,288 stereo samples at 48 kHz, and MOV
+timecode `01:00:00;00`. Eleven frame checks include both sides of the upper layer's
+start/end and source in-points; whole-frame colors change every frame to expose
+off-by-one selection. Mean RGB errors were 1–2.67 byte values after ProRes
+encoding (tolerance 12). Audio uses stream 2 on left and stream 1 on right with
+0.5 static gain, with exact zero PCM outside sample interval [48048, 240240).
+
+The experiment caught the overlay ending one frame early with `repeatlast=0`;
+the compiler now retains the last frame and explicitly limits layer visibility
+to the clip's half-open range using integer sequence frame indices. Placement uses integer frame offsets after `fps`
+to avoid floating-point `start/TB` truncation. FFmpeg's documented
+[`fps`, `overlay`, `pan`, and audio filters](https://ffmpeg.org/ffmpeg-filters.html)
+provide the filter semantics; decoded fixtures provide the integration evidence.
+
+Current compiler subset: originals, local MOV/ProRes HQ + PCM, even raster,
+mono/stereo output, frame-aligned video, sample-aligned audio, and zero stream
+offsets. Video uses explicit sequence-grid `fps` with nearest timestamp rounding
+before source trim. Fit/fill/none graph generation exists; only square-pixel SDR
+fixtures at fit have been qualified. Stills and nonzero stream offsets are rejected.
+Geometry/color metadata and VFR mapping cannot yet be validated from this model.
+Missing originals and invalid maps fail compilation; existing output is protected
+by `-n`. Helpers remain supplied explicitly by the development runner, with no
+shipping dependency on Homebrew or `PATH`. Hashes/versions for the separately
+supplied development FFprobe are recorded alongside FFmpeg, without asserting
+that they form a matched redistributable bundle.
+
+This is a canonical-plan export proof, not MPV monitoring parity or a completed
+export service. Crossfades remain demonstrated only by the earlier handwritten
+smoke graph; they are not yet represented by EditorCore or this compiler.
