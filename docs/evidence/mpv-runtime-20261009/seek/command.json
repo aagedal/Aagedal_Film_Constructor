@@ -1,0 +1,19 @@
+[
+  "/private/tmp/film-reproducible-mpv-20261009/build/mpv",
+  "--no-config",
+  "--hwdec=no",
+  "--vo=image",
+  "--vo-image-format=png",
+  "--vo-image-outdir=/private/tmp/film-barcode-seek-reproducible-20261009/frames",
+  "--ao=null",
+  "--pause=yes",
+  "--idle=yes",
+  "--keep-open=yes",
+  "--vid=1",
+  "--aid=no",
+  "--demuxer=lavf",
+  "--demuxer-lavf-format=mov",
+  "--autoload-files=no",
+  "--input-ipc-server=/var/folders/pv/f8g9jgrd7px_0xvh3kxgmyg40000gp/T/film-seek-ipc-sx3d32lb/mpv.sock",
+  "--external-file=/private/tmp/film-barcode-render-20261009/b.mov"
+]

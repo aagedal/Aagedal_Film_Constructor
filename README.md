@@ -42,6 +42,10 @@ decoded frame identities, cuts, channel routing, gain, timecode, and sample coun
 This does not yet enable media import/export in the app or establish MPV parity.
 
 The fixture also emits an experimental MPV graph from the same export filters.
-`scripts/mpv-plan-proof.py` tests an explicitly supplied development MPV against
-those artifacts and retains initialization failures as evidence. The audited
-local build lacks required filters; timeline preview/seek parity remains open.
+`scripts/mpv-plan-proof.py` resolves actual loaded tracks over local JSON IPC and
+compares every captured frame and sample. A full-filter headless MPV now passes
+sequential parity. `scripts/mpv-seek-proof.py` demonstrates incorrect frames after
+later/backward seeks and graph rebuilding, despite correct reported time positions.
+The unchanged export graph is unsuitable for interactive sequence monitoring.
+See the audit for reproduction and retained evidence. Native playback and helper
+packaging remain open; this does not enable media playback in the app.

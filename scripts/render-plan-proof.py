@@ -33,13 +33,19 @@ def ff(arguments, log):
 for name, executable in [('ffmpeg', args.ffmpeg), ('ffprobe', args.ffprobe)]:
     run([executable, '-version'], name + '-version.txt')
     (root / (name + '.sha256')).write_text(hashlib.sha256(executable.read_bytes()).hexdigest() + '\n')
-# Lossless frame-coded RGB fixtures: every consecutive frame has a distinct color.
-ff(['-f', 'lavfi', '-i', "testsrc=size=160x90:rate=30000/1001:duration=10.01,geq=r='mod(N*73,256)':g='mod(N*151,256)':b='mod(N*199,256)'",
+# Ten full-height binary stripes encode a 9-bit frame number plus a source bit.
+# A one-bit mismatch changes whole-frame mean RGB by 19.2, above tolerance 12.
+# This avoids collisions between an RGB color ramp and its inverted source.
+def barcode(offset):
+    value = f"32+192*mod(floor((N+{offset})/pow(2,floor(X/16))),2)"
+    return f"testsrc=size=160x90:rate=30000/1001:duration=10.01,geq=r='{value}':g='{value}':b='{value}'"
+
+ff(['-f', 'lavfi', '-i', barcode(0),
     '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=10.01',
     '-f', 'lavfi', '-i', 'sine=frequency=880:sample_rate=48000:duration=10.01',
     '-map', '0:v', '-map', '1:a', '-map', '2:a', '-c:v', 'qtrle', '-c:a', 'pcm_s16le', root / 'a.mov'], 'source-a.log')
-ff(['-f', 'lavfi', '-i', "testsrc=size=160x90:rate=30000/1001:duration=10.01,geq=r='mod(N*73,256)':g='mod(N*151,256)':b='mod(N*199,256)'",
-    '-vf', 'negate', '-c:v', 'qtrle', root / 'b.mov'], 'source-b.log')
+ff(['-f', 'lavfi', '-i', barcode(512),
+    '-c:v', 'qtrle', root / 'b.mov'], 'source-b.log')
 env = os.environ.copy()
 env['CLANG_MODULE_CACHE_PATH'] = str(root / 'module-cache')
 env['SWIFTPM_MODULECACHE_OVERRIDE'] = str(root / 'module-cache')

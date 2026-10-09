@@ -1,0 +1,64 @@
+● Video  --vid=1  (qtrle 160x90 29.97 fps) [default]
+○ Video  --vid=2  'b.mov' (qtrle 160x90 29.97 fps) [external]
+○ Audio  --aid=1  (pcm_s16le 1ch 48000 Hz) [default]
+○ Audio  --aid=2  (pcm_s16le 1ch 48000 Hz)
+[vo/image] Creating output directory '/private/tmp/film-barcode-seek-reproducible-20261009/frames'...
+VO: [image] 160x90 rgb24
+[vo/image] Saving /private/tmp/film-barcode-seek-reproducible-20261009/frames/00000001.png
+[vo/image] Creating output directory '/private/tmp/film-barcode-seek-reproducible-20261009/frames'...
+VO: [image] 160x90 yuv444p
+(Paused) AV: 00:00:00 / 00:00:10 (0%) A-V:  0.000
+[vo/image] Saving /private/tmp/film-barcode-seek-reproducible-20261009/frames/00000001.png
+(Paused) AV: 00:00:00 / 00:00:10 (0%) A-V:  0.000
+AO: [null] 48000Hz stereo 2ch floatp
+(Paused) AV: 00:00:00 / 00:00:10 (0%) A-V:  0.000
+[vo/image] Saving /private/tmp/film-barcode-seek-reproducible-20261009/frames/00000002.png
+(Paused) AV: 00:00:00 / 00:00:10 (0%) A-V:  0.000
+Screenshot: '/private/tmp/film-barcode-seek-reproducible-20261009/operation-01.png'
+(Paused) AV: 00:00:00 / 00:00:10 (0%) A-V:  0.000
+(Paused) AV: 00:00:00 / 00:00:10 (1%) A-V:  0.000
+[vo/image] Saving /private/tmp/film-barcode-seek-reproducible-20261009/frames/00000003.png
+(Paused) AV: 00:00:00 / 00:00:10 (1%) A-V:  0.000
+Screenshot: '/private/tmp/film-barcode-seek-reproducible-20261009/operation-02.png'
+(Paused) AV: 00:00:00 / 00:00:10 (1%) A-V:  0.000
+[vo/image] Saving /private/tmp/film-barcode-seek-reproducible-20261009/frames/00000004.png
+(Paused) AV: 00:00:00 / 00:00:10 (1%) A-V:  0.000
+Screenshot: '/private/tmp/film-barcode-seek-reproducible-20261009/operation-03.png'
+(Paused) AV: 00:00:00 / 00:00:10 (1%) A-V:  0.000
+(Paused) AV: 00:00:02 / 00:00:10 (20%) A-V:  0.000
+[vo/image] Saving /private/tmp/film-barcode-seek-reproducible-20261009/frames/00000005.png
+(Paused) AV: 00:00:02 / 00:00:10 (20%) A-V:  0.000
+Screenshot: '/private/tmp/film-barcode-seek-reproducible-20261009/operation-04.png'
+(Paused) AV: 00:00:02 / 00:00:10 (20%) A-V:  0.000
+(Paused) AV: 00:00:03 / 00:00:10 (40%) A-V:  0.000
+[vo/image] Saving /private/tmp/film-barcode-seek-reproducible-20261009/frames/00000006.png
+(Paused) AV: 00:00:03 / 00:00:10 (40%) A-V:  0.000
+Screenshot: '/private/tmp/film-barcode-seek-reproducible-20261009/operation-05.png'
+(Paused) AV: 00:00:03 / 00:00:10 (40%) A-V:  0.000
+(Paused) AV: 00:00:04 / 00:00:10 (40%) A-V:  0.000
+[vo/image] Saving /private/tmp/film-barcode-seek-reproducible-20261009/frames/00000007.png
+(Paused) AV: 00:00:04 / 00:00:10 (40%) A-V:  0.000
+Screenshot: '/private/tmp/film-barcode-seek-reproducible-20261009/operation-06.png'
+(Paused) AV: 00:00:04 / 00:00:10 (40%) A-V:  0.000
+(Paused) AV: 00:00:05 / 00:00:10 (60%) A-V:  0.000
+[vo/image] Saving /private/tmp/film-barcode-seek-reproducible-20261009/frames/00000008.png
+(Paused) AV: 00:00:05 / 00:00:10 (60%) A-V:  0.000
+Screenshot: '/private/tmp/film-barcode-seek-reproducible-20261009/operation-07.png'
+(Paused) AV: 00:00:05 / 00:00:10 (60%) A-V:  0.000
+(Paused) AV: 00:00:02 / 00:00:10 (20%) A-V:  0.000
+[vo/image] Saving /private/tmp/film-barcode-seek-reproducible-20261009/frames/00000009.png
+(Paused) AV: 00:00:02 / 00:00:10 (20%) A-V:  0.000
+Screenshot: '/private/tmp/film-barcode-seek-reproducible-20261009/operation-08.png'
+(Paused) AV: 00:00:02 / 00:00:10 (20%) A-V:  0.000
+(Paused) AV: 00:00:00 / 00:00:10 (5%) A-V:  0.000
+[vo/image] Saving /private/tmp/film-barcode-seek-reproducible-20261009/frames/00000010.png
+(Paused) AV: 00:00:00 / 00:00:10 (5%) A-V:  0.000
+Screenshot: '/private/tmp/film-barcode-seek-reproducible-20261009/operation-09.png'
+(Paused) AV: 00:00:00 / 00:00:10 (5%) A-V:  0.000
+[vo/image] Saving /private/tmp/film-barcode-seek-reproducible-20261009/frames/00000011.png
+(Paused) AV: 00:00:00 / 00:00:10 (5%) A-V:  0.000
+[vo/image] Saving /private/tmp/film-barcode-seek-reproducible-20261009/frames/00000012.png
+(Paused) AV: 00:00:00 / 00:00:10 (5%) A-V:  0.000
+Screenshot: '/private/tmp/film-barcode-seek-reproducible-20261009/operation-10.png'
+(Paused) AV: 00:00:00 / 00:00:10 (5%) A-V:  0.000
+Exiting... (Quit)

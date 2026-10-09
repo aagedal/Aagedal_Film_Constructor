@@ -1,0 +1,20 @@
+[
+  [
+    "/opt/homebrew/bin/meson",
+    "setup",
+    "/private/tmp/film-reproducible-mpv-20261009/build",
+    "/private/tmp/film-reproducible-mpv-20261009/source",
+    "--buildtype=release",
+    "--wrap-mode=nofallback",
+    "-Dauto_features=disabled",
+    "-Dcplayer=true",
+    "-Dlibmpv=false",
+    "-Dtests=false",
+    "-Dgl=disabled"
+  ],
+  [
+    "/opt/homebrew/bin/ninja",
+    "-C",
+    "/private/tmp/film-reproducible-mpv-20261009/build"
+  ]
+]
