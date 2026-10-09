@@ -49,3 +49,13 @@ later/backward seeks and graph rebuilding, despite correct reported time positio
 The unchanged export graph is unsuitable for interactive sequence monitoring.
 See the audit for reproduction and retained evidence. Native playback and helper
 packaging remain open; this does not enable media playback in the app.
+
+The native fallback now has an exact `NativePlaybackPlan` scheduler and a separate
+development FFmpeg-library bridge in `Packages/NativePlaybackProof`. Its runner
+compares every frame/sample, forward/backward seeks, native PNG captures,
+AVAudioEngine offline output, and replacement of an already-used edit plan against
+independent FFmpeg renders. Barcode, video-gap, overlapping-audio and H.264 B-frame
+fixtures pass. See [the native proof evidence](docs/evidence/native-playback-20261009/README.md)
+and [reproduction instructions](docs/media-engine-audit.md#native-sequence-fallback-proof-2026-10-09).
+The app still uses its synthetic timeline; live playback and shipping media
+dependencies remain unfinished.

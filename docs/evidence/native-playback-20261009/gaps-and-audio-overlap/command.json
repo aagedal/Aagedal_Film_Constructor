@@ -1,0 +1,81 @@
+{
+  "arguments" : [
+    "-hide_banner",
+    "-nostdin",
+    "-n",
+    "-i",
+    "\/private\/tmp\/film-barcode-render-20261009\/a.mov",
+    "-i",
+    "\/private\/tmp\/film-barcode-render-20261009\/a.mov",
+    "-i",
+    "\/private\/tmp\/film-barcode-render-20261009\/a.mov",
+    "-i",
+    "\/private\/tmp\/film-barcode-render-20261009\/a.mov",
+    "-i",
+    "\/private\/tmp\/film-barcode-render-20261009\/a.mov",
+    "-i",
+    "\/private\/tmp\/film-barcode-render-20261009\/b.mov",
+    "-filter_complex",
+    "color=c=black:s=160x90:r=30000\/1001,trim=end_frame=180,setpts=PTS-STARTPTS,format=yuv444p[base];anullsrc=r=48000:cl=stereo,atrim=end_sample=288288[silence];[0:2]aresample=48000,atrim=start_sample=0:end_sample=192192,asetpts=PTS-STARTPTS,pan=stereo|c0=0*c0|c1=c0,volume=0.25,adelay=96096S:all=1[a0c0];[1:1]aresample=48000,atrim=start_sample=0:end_sample=192192,asetpts=PTS-STARTPTS,pan=stereo|c0=c0|c1=0*c0,volume=0.25,adelay=96096S:all=1[a0c1];[2:2]aresample=48000,atrim=start_sample=48048:end_sample=240240,asetpts=PTS-STARTPTS,pan=stereo|c0=c0|c1=0*c0,volume=0.5,adelay=48048S:all=1[a1c0];[3:1]aresample=48000,atrim=start_sample=48048:end_sample=240240,asetpts=PTS-STARTPTS,pan=stereo|c0=0*c0|c1=c0,volume=0.5,adelay=48048S:all=1[a1c1];[4:0]setpts=PTS-STARTPTS,fps=30000\/1001:round=near,trim=start_frame=30:end_frame=180,setpts=PTS-STARTPTS+15,scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)\/2:(oh-ih)\/2,setsar=1,format=yuv444p[v2];[base][v2]overlay=eof_action=repeat:repeatlast=1:format=yuv444:enable='gte(n,15)*lt(n,165)'[layer2];[5:0]setpts=PTS-STARTPTS,fps=30000\/1001:round=near,trim=start_frame=60:end_frame=177,setpts=PTS-STARTPTS+3,scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)\/2:(oh-ih)\/2,setsar=1,format=yuv444p[v3];[layer2][v3]overlay=eof_action=repeat:repeatlast=1:format=yuv444:enable='gte(n,3)*lt(n,120)'[layer3];[layer3]trim=end_frame=180[video];[silence][a0c0][a0c1][a1c0][a1c1]amix=inputs=5:normalize=0,atrim=end_sample=288288[audio]",
+    "-map",
+    "[video]",
+    "-map",
+    "[audio]",
+    "-r",
+    "30000\/1001",
+    "-fps_mode",
+    "cfr",
+    "-c:v",
+    "prores_ks",
+    "-profile:v",
+    "3",
+    "-pix_fmt",
+    "yuv422p10le",
+    "-c:a",
+    "pcm_s24le",
+    "-ar",
+    "48000",
+    "-ac",
+    "2",
+    "-video_track_timescale",
+    "30000",
+    "-timecode",
+    "01:00:00;00",
+    "\/private\/tmp\/film-native-sequence-final-20261009\/gaps-and-audio-overlap\/render.mov"
+  ],
+  "audioSamples" : 288288,
+  "filterGraph" : "color=c=black:s=160x90:r=30000\/1001,trim=end_frame=180,setpts=PTS-STARTPTS,format=yuv444p[base];anullsrc=r=48000:cl=stereo,atrim=end_sample=288288[silence];[0:2]aresample=48000,atrim=start_sample=0:end_sample=192192,asetpts=PTS-STARTPTS,pan=stereo|c0=0*c0|c1=c0,volume=0.25,adelay=96096S:all=1[a0c0];[1:1]aresample=48000,atrim=start_sample=0:end_sample=192192,asetpts=PTS-STARTPTS,pan=stereo|c0=c0|c1=0*c0,volume=0.25,adelay=96096S:all=1[a0c1];[2:2]aresample=48000,atrim=start_sample=48048:end_sample=240240,asetpts=PTS-STARTPTS,pan=stereo|c0=c0|c1=0*c0,volume=0.5,adelay=48048S:all=1[a1c0];[3:1]aresample=48000,atrim=start_sample=48048:end_sample=240240,asetpts=PTS-STARTPTS,pan=stereo|c0=0*c0|c1=c0,volume=0.5,adelay=48048S:all=1[a1c1];[4:0]setpts=PTS-STARTPTS,fps=30000\/1001:round=near,trim=start_frame=30:end_frame=180,setpts=PTS-STARTPTS+15,scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)\/2:(oh-ih)\/2,setsar=1,format=yuv444p[v2];[base][v2]overlay=eof_action=repeat:repeatlast=1:format=yuv444:enable='gte(n,15)*lt(n,165)'[layer2];[5:0]setpts=PTS-STARTPTS,fps=30000\/1001:round=near,trim=start_frame=60:end_frame=177,setpts=PTS-STARTPTS+3,scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)\/2:(oh-ih)\/2,setsar=1,format=yuv444p[v3];[layer2][v3]overlay=eof_action=repeat:repeatlast=1:format=yuv444:enable='gte(n,3)*lt(n,120)'[layer3];[layer3]trim=end_frame=180[video];[silence][a0c0][a0c1][a1c0][a1c1]amix=inputs=5:normalize=0,atrim=end_sample=288288[audio]",
+  "inputs" : [
+    {
+      "kind" : "audio",
+      "streamIndex" : 2,
+      "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+    },
+    {
+      "kind" : "audio",
+      "streamIndex" : 1,
+      "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+    },
+    {
+      "kind" : "audio",
+      "streamIndex" : 2,
+      "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+    },
+    {
+      "kind" : "audio",
+      "streamIndex" : 1,
+      "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+    },
+    {
+      "kind" : "video",
+      "streamIndex" : 0,
+      "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+    },
+    {
+      "kind" : "video",
+      "streamIndex" : 0,
+      "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/b.mov"
+    }
+  ],
+  "videoFrames" : 180
+}

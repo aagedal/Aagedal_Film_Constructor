@@ -1,0 +1,394 @@
+{
+  "audioCaptures" : [
+    {
+      "mixedFile" : "audio-seek-0-0-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-0-0-scheduled.f32",
+      "startSample" : 0
+    },
+    {
+      "mixedFile" : "audio-seek-1-48047-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "destinationChannel" : 0,
+          "destinationOffset" : 1,
+          "gain" : 0.5,
+          "sampleCount" : 2047,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        },
+        {
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "destinationChannel" : 1,
+          "destinationOffset" : 1,
+          "gain" : 0.5,
+          "sampleCount" : 2047,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-1-48047-scheduled.f32",
+      "startSample" : 48047
+    },
+    {
+      "mixedFile" : "audio-seek-2-48048-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        },
+        {
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-2-48048-scheduled.f32",
+      "startSample" : 48048
+    },
+    {
+      "mixedFile" : "audio-seek-3-240239-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "gain" : 0.5,
+          "sampleCount" : 1,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 240239,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        },
+        {
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "gain" : 0.5,
+          "sampleCount" : 1,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 240239,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        },
+        {
+          "clipID" : "63C6F4A8-CDD4-4CB5-8C15-48D056CFB6E5",
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "gain" : 0.25,
+          "sampleCount" : 2048,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 144143,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        },
+        {
+          "clipID" : "63C6F4A8-CDD4-4CB5-8C15-48D056CFB6E5",
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "gain" : 0.25,
+          "sampleCount" : 2048,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 144143,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-3-240239-scheduled.f32",
+      "startSample" : 240239
+    },
+    {
+      "mixedFile" : "audio-seek-4-115315-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 115315,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        },
+        {
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 115315,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        },
+        {
+          "clipID" : "63C6F4A8-CDD4-4CB5-8C15-48D056CFB6E5",
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "gain" : 0.25,
+          "sampleCount" : 2048,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 19219,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        },
+        {
+          "clipID" : "63C6F4A8-CDD4-4CB5-8C15-48D056CFB6E5",
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "gain" : 0.25,
+          "sampleCount" : 2048,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 19219,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-4-115315-scheduled.f32",
+      "startSample" : 115315
+    },
+    {
+      "mixedFile" : "audio-seek-5-48048-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        },
+        {
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-5-48048-scheduled.f32",
+      "startSample" : 48048
+    },
+    {
+      "mixedFile" : "audio-seek-6-287264-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipID" : "63C6F4A8-CDD4-4CB5-8C15-48D056CFB6E5",
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "gain" : 0.25,
+          "sampleCount" : 1024,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 191168,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        },
+        {
+          "clipID" : "63C6F4A8-CDD4-4CB5-8C15-48D056CFB6E5",
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "gain" : 0.25,
+          "sampleCount" : 1024,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 191168,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        }
+      ],
+      "sampleCount" : 1024,
+      "scheduledFile" : "audio-seek-6-287264-scheduled.f32",
+      "startSample" : 287264
+    },
+    {
+      "mixedFile" : "audio-seek-7-48047-mixed.f32",
+      "rebuilt" : true,
+      "requests" : [
+        {
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "destinationChannel" : 0,
+          "destinationOffset" : 1,
+          "gain" : 0.5,
+          "sampleCount" : 2047,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        },
+        {
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "destinationChannel" : 1,
+          "destinationOffset" : 1,
+          "gain" : 0.5,
+          "sampleCount" : 2047,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-7-48047-scheduled.f32",
+      "startSample" : 48047
+    }
+  ],
+  "audioSamples" : 288288,
+  "channels" : 2,
+  "height" : 90,
+  "initialPlanReplaced" : false,
+  "libraryVersion" : "9.0.2",
+  "sampleRate" : 48000,
+  "videoCaptures" : [
+    {
+      "frame" : 0,
+      "pngFile" : "seek-0-frame-0.png",
+      "rebuilt" : false,
+      "rgbFile" : "seek-0-frame-0.rgb"
+    },
+    {
+      "frame" : 2,
+      "pngFile" : "seek-1-frame-2.png",
+      "rebuilt" : false,
+      "rgbFile" : "seek-1-frame-2.rgb"
+    },
+    {
+      "frame" : 3,
+      "pngFile" : "seek-2-frame-3.png",
+      "rebuilt" : false,
+      "request" : {
+        "clipID" : "6E65C026-4778-4653-A2D6-A4CF5BFECA58",
+        "scalingMode" : "fit",
+        "sourceFrame" : 60,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-1.mov"
+      },
+      "rgbFile" : "seek-2-frame-3.rgb"
+    },
+    {
+      "frame" : 60,
+      "pngFile" : "seek-3-frame-60.png",
+      "rebuilt" : false,
+      "request" : {
+        "clipID" : "6E65C026-4778-4653-A2D6-A4CF5BFECA58",
+        "scalingMode" : "fit",
+        "sourceFrame" : 117,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-1.mov"
+      },
+      "rgbFile" : "seek-3-frame-60.rgb"
+    },
+    {
+      "frame" : 119,
+      "pngFile" : "seek-4-frame-119.png",
+      "rebuilt" : false,
+      "request" : {
+        "clipID" : "6E65C026-4778-4653-A2D6-A4CF5BFECA58",
+        "scalingMode" : "fit",
+        "sourceFrame" : 176,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-1.mov"
+      },
+      "rgbFile" : "seek-4-frame-119.rgb"
+    },
+    {
+      "frame" : 120,
+      "pngFile" : "seek-5-frame-120.png",
+      "rebuilt" : false,
+      "request" : {
+        "clipID" : "505719D5-555E-4616-9055-B593EF7FB8EF",
+        "scalingMode" : "fit",
+        "sourceFrame" : 135,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-0.mov"
+      },
+      "rgbFile" : "seek-5-frame-120.rgb"
+    },
+    {
+      "frame" : 179,
+      "pngFile" : "seek-6-frame-179.png",
+      "rebuilt" : false,
+      "rgbFile" : "seek-6-frame-179.rgb"
+    },
+    {
+      "frame" : 60,
+      "pngFile" : "seek-7-frame-60.png",
+      "rebuilt" : false,
+      "request" : {
+        "clipID" : "6E65C026-4778-4653-A2D6-A4CF5BFECA58",
+        "scalingMode" : "fit",
+        "sourceFrame" : 117,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-1.mov"
+      },
+      "rgbFile" : "seek-7-frame-60.rgb"
+    },
+    {
+      "frame" : 15,
+      "pngFile" : "seek-8-frame-15.png",
+      "rebuilt" : false,
+      "request" : {
+        "clipID" : "6E65C026-4778-4653-A2D6-A4CF5BFECA58",
+        "scalingMode" : "fit",
+        "sourceFrame" : 72,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-1.mov"
+      },
+      "rgbFile" : "seek-8-frame-15.rgb"
+    },
+    {
+      "frame" : 15,
+      "pngFile" : "seek-9-frame-15.png",
+      "rebuilt" : true,
+      "request" : {
+        "clipID" : "6E65C026-4778-4653-A2D6-A4CF5BFECA58",
+        "scalingMode" : "fit",
+        "sourceFrame" : 72,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/film-native-sequence-final-20261009\/interframe-source-1.mov"
+      },
+      "rgbFile" : "seek-9-frame-15.rgb"
+    }
+  ],
+  "videoFrames" : 180,
+  "width" : 160
+}

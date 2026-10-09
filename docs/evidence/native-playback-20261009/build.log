@@ -1,0 +1,32 @@
+Building for debugging...
+[Planning deferred tasks]
+[27 / 45]
+[29 / 46] CNativeDecoder
+[38 / 59]
+[51 / 103]
+[54 / 103]
+[59 / 103]
+[62 / 103] CNativeDecoder
+[63 / 103]
+[67 / 103]
+[70 / 103]
+[75 / 103]
+[76 / 103]
+[77 / 103]
+[78 / 103]
+[88 / 103] EditorCore
+[97 / 104] NativeSequenceProof-product
+[110 / 130]
+[114 / 130]
+[117 / 130]
+[118 / 130] EditorCore
+[121 / 130] EditorCore
+[125 / 130] NativeSequenceProof-product
+[126 / 130] NativeSequenceProof-product
+[128 / 130] NativeSequenceProof-product
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-892f1ba5/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavformat.63.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-892f1ba5/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavcodec.63.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-892f1ba5/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libswscale.10.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-892f1ba5/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libswresample.7.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-892f1ba5/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavutil.61.dylib' which was built for newer version 27.0
+Build complete! (7,40 sec)

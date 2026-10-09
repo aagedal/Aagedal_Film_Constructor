@@ -1,9 +1,18 @@
 import Foundation
 import EditorCore
 
-// The proof runner must force --demuxer=lavf for all loaded files before capturing
+// compile-render emits argv for an independently persisted development project.
+// The MPV proof runner must force --demuxer=lavf for all loaded files before capturing
 // this list. This mode compiles the actual loaded tracks, never fixture IDs.
-if CommandLine.arguments.count == 6, CommandLine.arguments[1] == "resolve-mpv" {
+if CommandLine.arguments.count == 5, CommandLine.arguments[1] == "compile-render" {
+    let arguments = CommandLine.arguments
+    let project = try JSONDecoder().decode(Project.self, from: Data(contentsOf: URL(fileURLWithPath: arguments[2])))
+    let command = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project),
+        outputURL: URL(fileURLWithPath: arguments[3]))
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    try encoder.encode(command).write(to: URL(fileURLWithPath: arguments[4]))
+} else if CommandLine.arguments.count == 6, CommandLine.arguments[1] == "resolve-mpv" {
     let arguments = CommandLine.arguments
     let project = try JSONDecoder().decode(Project.self, from: Data(contentsOf: URL(fileURLWithPath: arguments[2])))
     let tracks = try JSONDecoder().decode([MPVTrackListEntry].self, from: Data(contentsOf: URL(fileURLWithPath: arguments[3])))
@@ -17,7 +26,7 @@ if CommandLine.arguments.count == 6, CommandLine.arguments[1] == "resolve-mpv" {
     try encoder.encode(graph).write(to: output)
 } else {
 // Development fixture generator; emits a reviewable document and argv manifest.
-guard CommandLine.arguments.count == 2 else { fatalError("Usage: RenderPlanProof /fixture/directory OR resolve-mpv <project.json> <track-list.json> <primary-path> <output.json> (all sources loaded with --demuxer=lavf)") }
+guard CommandLine.arguments.count == 2 else { fatalError("Usage: RenderPlanProof /fixture/directory OR compile-render <project.json> <output.mov> <command.json> OR resolve-mpv <project.json> <track-list.json> <primary-path> <output.json> (all sources loaded with --demuxer=lavf)") }
 let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
 let rate = try FrameRate(30000, 1001)
 let settings = try SequenceSettings(width: 160, height: 90, frameRate: rate, startTimecode: .init(frameCount: 107892, mode: .dropFrame))
