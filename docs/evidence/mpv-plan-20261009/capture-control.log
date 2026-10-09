@@ -1,0 +1,17 @@
+2026-10-09 22:43:07.222 mpv[5991:12784980] Failure on line 688 in function id scheduleApplicationNotification(LSNotificationCode, NSWorkspaceNotificationCenter *): noErr == _LSModifyNotification(notificationID, 1, &code, 0, NULL, NULL, NULL)
+2026-10-09 22:43:07.426 mpv[5991:12784982] Connection Invalid error for service com.apple.hiservices-xpcservice.
+2026-10-09 22:43:07.426 mpv[5991:12784980] Error received in message reply handler: Connection invalid
+sandbox_extension_issue_file failed for /private/tmp/film-render-mpv-20261009/render.mov: 1 (Operation not permitted)
+sandbox_extension_issue_file failed for /private/tmp/film-render-mpv-20261009/render.mov: 1 (Operation not permitted)
+● Video  --vid=1  (prores 160x90 29.97 fps) [default]
+● Audio  --aid=1  (pcm_s24le 2ch 48000 Hz) [default]
+[vo/image] Creating output directory '/private/tmp/film-mpv-plan-proof-20261009-v2/capture-control'...
+sandbox_extension_issue_file failed for /private/tmp/film-render-mpv-20261009/render.mov: 1 (Operation not permitted)
+VO: [image] 160x90 yuv422p10
+[vo/image] Saving /private/tmp/film-mpv-plan-proof-20261009-v2/capture-control/00000001.png
+[vo/image] Could not open libavcodec encoder for saving images
+[vo/image] Error writing file '/private/tmp/film-mpv-plan-proof-20261009-v2/capture-control/00000001.png'!
+AO: [null] 48000Hz stereo 2ch s16
+sandbox_extension_issue_file failed for /private/tmp/film-render-mpv-20261009/render.mov: 1 (Operation not permitted)
+Exiting... (End of file)
+sandbox_extension_issue_file failed for /private/tmp/film-render-mpv-20261009/render.mov: 1 (Operation not permitted)

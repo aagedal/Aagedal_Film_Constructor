@@ -1,0 +1,55 @@
+{
+  "fixtureDirectory": "/private/tmp/film-render-mpv-20261009",
+  "fixtureHashes": {
+    "mpv-command.json": "cdec3f4e4c1dd0a47170984c863e4be2b707f307912b02b211556b7aee239443",
+    "a.mov": "7d0dc45bad92c01d4530feba89613af62aec0e74615cf70f489b7b584bfd0774",
+    "b.mov": "01008664ba749e7057713a4f7ac59f7dacd15e4151571047199eb98cc6268494",
+    "render.mov": "75dabed153703452d9becda905e69cdf56b8ae3ed280c2e6b3cda800be0bf259",
+    "render.rgb": "aafce172add1e52d9484db9fe3af1c79a3c7d6510ec6c4ab79d9cc4db3f65e52",
+    "audio.pcm": "d83167c967428da0100cff32f8799ae2d055abafc51c8c023dbcb5168e11a7e0"
+  },
+  "fixtureSourceControl": {
+    "exitCode": 0,
+    "timedOut": false,
+    "capturedFrames": 0,
+    "selectedAudioTrack": 2,
+    "audioDecode": {
+      "exitCode": 0,
+      "timedOut": false
+    },
+    "decodedPCMBytes": 262144,
+    "passed": false
+  },
+  "proresSourceControl": {
+    "exitCode": 0,
+    "timedOut": false,
+    "videoDecodeObserved": true,
+    "audioDecode": {
+      "exitCode": 0,
+      "timedOut": false
+    },
+    "decodedPCMBytes": 1153152,
+    "passed": true,
+    "framesCaptured": false
+  },
+  "captureControl": {
+    "exitCode": 0,
+    "timedOut": false,
+    "capturedFrames": 0,
+    "captureUnsupported": true
+  },
+  "execution": {
+    "exitCode": 2,
+    "timedOut": false
+  },
+  "capturedVideoFrames": 0,
+  "expectedVideoFrames": 180,
+  "expectedAudioSamplesPerChannel": 288288,
+  "sequentialParityPassed": false,
+  "seekParityTested": false,
+  "nativeDisplayTested": false,
+  "coreAudioTested": false,
+  "pixelMeanTolerance": 12,
+  "pcmSampleTolerance": 20,
+  "failureReason": "MPV graph did not complete; inspect mpv.log for decoder/filter errors"
+}

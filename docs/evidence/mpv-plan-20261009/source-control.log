@@ -1,0 +1,17 @@
+2026-10-09 22:43:06.105 mpv[5987:12784869] Failure on line 688 in function id scheduleApplicationNotification(LSNotificationCode, NSWorkspaceNotificationCenter *): noErr == _LSModifyNotification(notificationID, 1, &code, 0, NULL, NULL, NULL)
+2026-10-09 22:43:06.320 mpv[5987:12784869] Error received in message reply handler: Connection invalid
+2026-10-09 22:43:06.320 mpv[5987:12784872] Connection Invalid error for service com.apple.hiservices-xpcservice.
+sandbox_extension_issue_file failed for /private/tmp/film-render-mpv-20261009/a.mov: 1 (Operation not permitted)
+sandbox_extension_issue_file failed for /private/tmp/film-render-mpv-20261009/a.mov: 1 (Operation not permitted)
+● Video  --vid=1  (qtrle 160x90 29.97 fps) [default]
+○ Audio  --aid=1  (pcm_s16le 1ch 48000 Hz) [default]
+● Audio  --aid=2  (pcm_s16le 1ch 48000 Hz)
+[vo/image] Creating output directory '/private/tmp/film-mpv-plan-proof-20261009-v2/source-control'...
+Failed to initialize a decoder for codec 'qtrle'.
+Video: no video
+[ao/pcm] File: /private/tmp/film-mpv-plan-proof-20261009-v2/source-control/audio.wav (WAVE)
+[ao/pcm] PCM: Samplerate: 48000 Hz Channels: 2 Format: s16
+sandbox_extension_issue_file failed for /private/tmp/film-render-mpv-20261009/a.mov: 1 (Operation not permitted)
+AO: [pcm] 48000Hz stereo 2ch s16
+Exiting... (End of file)
+sandbox_extension_issue_file failed for /private/tmp/film-render-mpv-20261009/a.mov: 1 (Operation not permitted)
