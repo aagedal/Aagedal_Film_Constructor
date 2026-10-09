@@ -11,5 +11,11 @@ Using a fast classifier model such as Jev (or just some basic logic) it should b
 NB!
 This is work in process and a sparetime project. Coded with the help of AI.
 
-See [PLAN.md](PLAN.md) for the editing workflow, source audio selection, Media
-Converter reuse audit, and implementation milestones.
+The planned first version focuses on assembling overlapping video and audio
+tracks, source audio selection, fades/crossfades, proxies, and export with correct
+resolution, frame rate, and timecode. The app will use native Swift/SwiftUI with
+FFmpeg for media processing and MPV evaluated for broad-format preview. Effects,
+titles, keyframing, and plugin hosting are planned for later versions.
+
+See [PLAN.md](PLAN.md) for the workspace layout, editing workflow, proxy and
+interchange plans, Media Converter/Player reuse audits, and implementation milestones.
