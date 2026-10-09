@@ -1,8 +1,9 @@
 # Aagedal Film Constructor — implementation plan
 
-Status: milestone 1 implementation started. A local, UI-independent EditorCore
-package and a small interactive track-collision example are in place. The
-media-engine proof and full workspace remain in progress.
+Status: milestone 1 in progress. EditorCore now compiles a qualified prototype
+subset of its render plan into FFmpeg, with decoded-frame/sample integration
+evidence. MPV preview parity, helper packaging, and the full workspace remain
+in progress.
 This plan records the intended product and implementation order; unchecked
 items remain planned capabilities.
 
@@ -47,6 +48,8 @@ Required v1 capabilities:
   post-insertion mono/multiple-mono/stereo/surround source selection.
 - FFmpeg-backed rendered export at the selected sequence resolution, exact frame
   rate, and start timecode, with explicit audio channel mapping.
+- Stream-copy export without re-encoding when the timeline and source packets
+  permit it, with explicit eligibility and exact-cut checks before export.
 - Project-bin proxy generation: ProRes Proxy by default, optional H.264, and a
   global hires/proxy playback toggle. Final renders use originals by default.
 - Default scale-to-fit, with scale-to-fill and no-scaling choices per clip.
@@ -211,6 +214,44 @@ that can be transcoded but cannot be monitored directly, and display that status
 - Account for rotation, pixel aspect ratio, and color metadata. Proxy dimensions
   must not change the source geometry used for scaling; validate the same result
   in preview and export.
+
+## Stream-copy export
+
+Offer a distinct **Copy original streams (no re-encoding)** export mode when
+feasible. This preserves encoded media quality while remuxing packets; it does
+not promise an identical container file. Assess video and audio independently,
+so copying video while rendering edited audio is possible when timing/container
+compatibility is validated. Clearly label which streams are copied or encoded.
+
+Start with one source range, then qualify contiguous cuts-only sequences of
+compatible sources. Eligibility requires probed codecs/codec parameters, raster,
+pixel format/color, exact timing, audio layout/sample rate, container support,
+and packet/random-access boundaries. A matching codec name alone is insufficient.
+Do not conform copied video to a different sequence frame rate or raster.
+Reject copying any stream needing compositing, generated gaps, scaling,
+transitions, filters, speed changes, audio mixing, gain/fades, or sample-channel
+remapping. Selecting whole original audio streams can remain copyable.
+
+For interframe codecs, exact trim starts require independently decodable random
+access points and valid dependencies at the outgoing boundary; an arbitrary
+keyframe flag is not sufficient for every open-GOP source. Audio cuts must respect
+packet framing, codec delay/padding, and container edit support. Intra-frame media
+may allow more cut points, but still needs timing validation. FFmpeg documents
+that input seeking can preserve preroll when copying rather than discard it.
+See [streamcopy and seeking](https://ffmpeg.org/ffmpeg.html#Streamcopy).
+
+Never silently shift cuts or change sequence duration to permit copying. Show
+reasons when exact copying is unavailable, and offer rendered export or an
+explicit, previewable adjustment to safe cut boundaries. Re-encoding boundary
+GOPs while copying interiors is a later smart-render experiment, not a promise
+of entirely unencoded export. Preserve source originals and validate timestamps,
+A/V sync, decoded first/last frames, duration, and packet payload hashes (allowing
+documented container-required bitstream transformations). Test ProRes/PCM,
+closed/open-GOP H.264/HEVC, and compressed audio before declaring support.
+
+The current render-plan compiler always encodes ProRes/PCM. Stream-copy needs
+additional codec/packet metadata and its own compiler path; it must bypass the
+filter graph rather than attach `-c copy` to filtered outputs.
 
 ## Proxies
 
@@ -399,7 +440,7 @@ rates. Track stable container stream indices and per-stream timing offsets.
 - [ ] Render a minimal sequence with two overlapping videos and several audio
       components at different source in-points. Verify seeking and preview/export
       agreement before selecting the final playback path.
-- [ ] Test adjacency, multiple overlaps, free siblings, custom names, failed edit
+- [x] Test adjacency, multiple overlaps, free siblings, custom names, failed edit
       rollback, exact fractional rates, DF boundaries, and preserved audio sync.
 
 Implemented foundation: `Packages/EditorCore` contains exact checked rational
@@ -411,8 +452,10 @@ survive cleanup; retained tracks and custom names are respected. The app's small
 synthetic example demonstrates an extension creating a sibling and undo/redo.
 
 This is not the complete playback model: source geometry/color, bookmarks, proxy
-mappings, fades/crossfades, ripple and attachment rules, and a render-plan-to-media
-compiler remain work for the relevant milestones. See
+mappings, fades/crossfades, and ripple/attachment rules remain work for the
+relevant milestones. The development FFmpeg compiler now
+handles frame-aligned video layers and sample-aligned explicitly routed audio;
+it is not yet a production export service. See
 [the media-engine audit](docs/media-engine-audit.md) for artifact evidence and the
 standalone FFmpeg smoke proof. MPV timeline parity is not established, and no
 media helpers have been bundled.
@@ -461,6 +504,11 @@ a compatible track, create a crossfade, and undo both operations without lost sy
 - [ ] Implement FFmpeg sequence render with correct raster, rational frame rate,
       start timecode, compositing order, scaling, audio selections, and fades.
 - [ ] Add output settings, timecode-capability validation, progress, and cancellation.
+- [ ] Add stream-copy eligibility using codec/packet metadata; qualify exact
+      single-source trims, compatible cuts-only concatenation, and video-copy /
+      audio-render export, with clear reasons and no silent boundary shifts.
+- [ ] Verify copied packet payloads, decoded boundary frames, timestamps, duration,
+      timecode, and A/V sync across supported containers/codecs.
 - [ ] Verify outputs using FFprobe, decoded frame checks, channel identification
       audio fixtures, and native-player/editor import at integer/fractional rates.
 - [ ] Add FCPXML sequence export and validate real layered-video/audio imports.
@@ -532,3 +580,17 @@ launch-performance claim has been validated yet.
 - Development FFmpeg proof: decoded 180 frames at 30000/1001 and 288,288 audio
   samples per channel, with layer colors, channel routing, fade amplitudes, and
   MOV timecode checked. See the audit for limitations and reproduction.
+
+### Render-plan compiler verification (2026-10-09)
+
+- Core suite: 25 tests pass; unsigned macOS Debug build passes with Xcode 27.
+  Tests include fractional collision/linked-sync cases,
+  rollback after sibling creation, custom names, and compiler rejection cases.
+- New `scripts/render-plan-proof.py` compiles a persisted fixture project through
+  EditorCore, executes the emitted argument array, and decodes its actual output.
+  It passes 180 frames at 30000/1001, 288,288 stereo samples, MOV DF timecode,
+  exact layer cut boundaries, distinct source frame identities, swapped mono
+  stream routing, static gain, and exact silence boundaries.
+- Preview/export parity is still unchecked: the proof has no MPV monitor.
+  Helper packaging, source geometry/color, VFR, nonzero stream offsets, stills,
+  fades, process cancellation/progress, and native interchange remain open.

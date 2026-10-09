@@ -85,3 +85,22 @@ import Testing
     #expect(plan.components[1].selection == project.tracks[1].clips[0].selection)
     #expect(try plan.duration == RationalTime(10))
 }
+
+@Test func fractionalFrameArithmeticAndDropFrameMinuteExceptions() throws {
+    for numerator: Int64 in [24000, 30000, 60000] {
+        let rate = try FrameRate(numerator, 1001)
+        let frame = try rate.time(forFrames: 1)
+        var accumulated = RationalTime.zero
+        for _ in 0..<1000 { accumulated = try accumulated.adding(frame) }
+        #expect(accumulated == (try rate.time(forFrames: 1000)))
+        #expect(try JSONDecoder().decode(RationalTime.self, from: JSONEncoder().encode(accumulated)) == accumulated)
+    }
+    let thirty = try FrameRate(30000, 1001)
+    #expect(try Timecode(frameCount: 17981, mode: .dropFrame).formatted(rate: thirty) == "00:09:59;29")
+    #expect(try Timecode(frameCount: 19781, mode: .dropFrame).formatted(rate: thirty) == "00:10:59;29")
+    #expect(try Timecode(frameCount: 19782, mode: .dropFrame).formatted(rate: thirty) == "00:11:00;02")
+    let sixty = try FrameRate(60000, 1001)
+    #expect(try Timecode(frameCount: 35963, mode: .dropFrame).formatted(rate: sixty) == "00:09:59;59")
+    #expect(try Timecode(frameCount: 35964, mode: .dropFrame).formatted(rate: sixty) == "00:10:00;00")
+    #expect(try Timecode(frameCount: 39564, mode: .dropFrame).formatted(rate: sixty) == "00:11:00;04")
+}
