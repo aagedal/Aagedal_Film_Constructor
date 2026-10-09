@@ -19,3 +19,17 @@ titles, keyframing, and plugin hosting are planned for later versions.
 
 See [PLAN.md](PLAN.md) for the workspace layout, editing workflow, proxy and
 interchange plans, Media Converter/Player reuse audits, and implementation milestones.
+
+
+### Current implementation
+
+The macOS app includes a synthetic timeline prototype: extend the Music clip
+to create a sibling track, then undo/redo the complete edit. It does not yet
+import or play media. `Packages/EditorCore` is the independent Swift 6 timeline
+model and editing engine, with regression tests. The app targets macOS 14+;
+the inherited project format requires a compatible Xcode (verified with Xcode 27).
+
+Run `scripts/verify.sh` to test the core and build the app without signing.
+For the core alone, run `swift test --package-path Packages/EditorCore`.
+See [the media audit](docs/media-engine-audit.md) for the development-only FFmpeg
+proof, packaging gaps, and the next MPV parity experiment.
