@@ -1,0 +1,11 @@
+Local build header (not independently authenticated to the binary)
+/Users/truls.aagedal/Developer/MPVKit/dist/FFmpeg/macos/scratch/arm64/config_components.h
+SHA-256 0b501a48f37e4e5c4b641e0fc661aa9c5fae256ed4e7b729d9cccc0a18f47d98
+#define CONFIG_PRORES_DECODER 1
+#define CONFIG_QTRLE_DECODER 0
+#define CONFIG_PNG_ENCODER 0
+#define CONFIG_ADELAY_FILTER 0
+#define CONFIG_ASETPTS_FILTER 0
+#define CONFIG_ANULLSRC_FILTER 0
+#define CONFIG_PAD_FILTER 0
+#define CONFIG_SETSAR_FILTER 0

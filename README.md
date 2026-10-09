@@ -40,3 +40,8 @@ fixture integration proof. Run `scripts/render-plan-proof.py` with explicit
 absolute FFmpeg and FFprobe paths and a new absolute output directory. It checks
 decoded frame identities, cuts, channel routing, gain, timecode, and sample counts.
 This does not yet enable media import/export in the app or establish MPV parity.
+
+The fixture also emits an experimental MPV graph from the same export filters.
+`scripts/mpv-plan-proof.py` tests an explicitly supplied development MPV against
+those artifacts and retains initialization failures as evidence. The audited
+local build lacks required filters; timeline preview/seek parity remains open.

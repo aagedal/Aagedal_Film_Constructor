@@ -218,3 +218,55 @@ that they form a matched redistributable bundle.
 This is a canonical-plan export proof, not MPV monitoring parity or a completed
 export service. Crossfades remain demonstrated only by the earlier handwritten
 smoke graph; they are not yet represented by EditorCore or this compiler.
+
+## Canonical MPV graph experiment (2026-10-09)
+
+The local CLI at `MPVKit/dist/libmpv/macos/thin/arm64/bin/mpv` was located after
+the earlier PATH-only check. It reports MPV 0.41.0-dirty with FFmpeg n8.1.2;
+SHA-256 is `ab141c977e3f6dd31ef98154571158024d1c31eddf1f7b54982d25b6ecf3ef86`.
+This is a development artifact, not a pinned or bundled shipping helper.
+
+`MPVRenderCompiler` adapts the exact export filters to MPV's `vidN`/`aidN`
+inputs and `vo`/`ao` outputs. Explicit bindings separate container stream indices
+from MPV track IDs, and repeated inputs use split/asplit. MPV's
+[complex-filter documentation](https://mpv.io/manual/stable/#options-lavfi-complex)
+defines those labels and external-file loading. The fixture assumes the known
+track enumeration; a future controller must resolve the actual loaded track-list.
+Sharing filters is an experiment, not a guarantee that seek resets and source
+timestamp offsets work in a playback engine.
+
+Reproduce after completing the render-plan proof above:
+
+```sh
+scripts/mpv-plan-proof.py \
+  '/Users/truls.aagedal/Developer/MPVKit/dist/libmpv/macos/thin/arm64/bin/mpv' \
+  '/Users/truls.aagedal/Developer/Aagedal-Media-Converter/Aagedal Media Converter/Binaries/ffmpeg' \
+  /private/tmp/film-render-mpv-20261009 \
+  /private/tmp/film-mpv-plan-proof-new
+```
+
+The runner requires existing fixture artifacts and a fresh output directory,
+retains helper identities, the graph, command, controls and result, and returns
+nonzero when parity fails. It does not rewrite the graph to fit a limited build.
+The run at `/private/tmp/film-mpv-plan-proof-20261009-v2` returned failure:
+
+- The canonical graph exits with code 2 while parsing the asetpts chain, before
+  capturing any frames. The adjacent local FFmpeg configuration disables asetpts,
+  adelay, anullsrc, pad and setsar. The header is corroborating build evidence,
+  not independently authenticated to this executable.
+- The qtrle fixture cannot initialize its video decoder. Its selected second
+  audio track produces PCM, which alone does not establish source playback.
+  The local configuration also disables qtrle decoding and PNG encoding; empty
+  image files are excluded from frame counts.
+- A ProRes control using the rendered MOV initializes video to the null output
+  and writes 288,288 stereo PCM samples. This establishes limited headless decoder
+  operation, without capturing video pixels or qualifying A/V synchronization.
+  The untimed run logs a desynchronization warning; no timing claim follows from it.
+
+Selected raw evidence is retained in [docs/evidence/mpv-plan-20261009](evidence/mpv-plan-20261009/result.json).
+The core suite has 28 passing tests and the unsigned macOS Debug app builds.
+The repeated FFmpeg integration still passes 180 decoded frames and 288,288
+samples. Native display, CoreAudio, precise seeks, scrubbing, graph rebuilding,
+crossfades and preview/export parity remain untested. Next select or build an
+MPV candidate with the required filters, fixture decoders and capture encoder,
+then rerun this experiment before choosing the sequence playback path.

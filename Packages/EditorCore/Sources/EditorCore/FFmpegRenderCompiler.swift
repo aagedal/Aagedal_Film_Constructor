@@ -1,8 +1,17 @@
 import Foundation
 
-/// Development MOV/ProRes compiler. Callers supply the executable and manage access,
-/// cancellation and output registration. No helper discovery or process launch occurs here.
+/// A container stream used by one filter input, independent of backend track IDs.
+public struct RenderSourceInput: Equatable, Codable, Sendable {
+    public let url: URL
+    public let streamIndex: Int
+    public let kind: MediaStreamKind
+}
+
+/// Development MOV/ProRes command. Callers manage helper access, cancellation and
+/// output registration. No helper discovery or process launch occurs here.
 public struct FFmpegRenderCommand: Equatable, Codable, Sendable {
+    /// One entry per -i argument, in FFmpeg input-index order.
+    public let inputs: [RenderSourceInput]
     public let arguments: [String]
     public let filterGraph: String
     public let videoFrames: Int64
@@ -33,6 +42,7 @@ public enum FFmpegRenderCompiler {
         var arguments = ["-hide_banner", "-nostdin", "-n"]
         var graph = ["color=c=black:s=\(settings.width)x\(settings.height):r=\(rate),trim=end_frame=\(frames),setpts=PTS-STARTPTS,format=yuv444p[base]",
                      "anullsrc=r=\(settings.audioSampleRate):cl=\(layout),atrim=end_sample=\(samples)[silence]"]
+        var inputs: [RenderSourceInput] = []
         var inputIndex = 0
         var videoLabel = "base"
         var audioLabels = ["silence"]
@@ -55,6 +65,7 @@ public enum FFmpegRenderCompiler {
                 guard let source = component.sourceStreams.first(where: { $0.index == stream && $0.kind == kind }), source.timeOffset == .zero else {
                     throw EditorCoreError.invalidModel("Missing stream or unsupported nonzero stream offset")
                 }
+                inputs.append(RenderSourceInput(url: url, streamIndex: stream, kind: kind))
                 arguments += ["-i", url.path]
                 defer { inputIndex += 1 }
                 return "[\(inputIndex):\(stream)]"
@@ -107,7 +118,7 @@ public enum FFmpegRenderCompiler {
         graph.append(audioLabels.map { "[\($0)]" }.joined() + "amix=inputs=\(audioLabels.count):normalize=0,atrim=end_sample=\(samples)[audio]")
         let filterGraph = graph.joined(separator: ";")
         arguments += ["-filter_complex", filterGraph, "-map", "[video]", "-map", "[audio]", "-r", rate, "-fps_mode", "cfr", "-c:v", "prores_ks", "-profile:v", "3", "-pix_fmt", "yuv422p10le", "-c:a", "pcm_s24le", "-ar", String(settings.audioSampleRate), "-ac", String(settings.audioLayout.channels.count), "-video_track_timescale", String(settings.frameRate.value.numerator), "-timecode", try settings.startTimecode.formatted(rate: settings.frameRate), outputURL.path]
-        return FFmpegRenderCommand(arguments: arguments, filterGraph: filterGraph, videoFrames: frames, audioSamples: samples)
+        return FFmpegRenderCommand(inputs: inputs, arguments: arguments, filterGraph: filterGraph, videoFrames: frames, audioSamples: samples)
     }
     private static func fraction(_ time: RationalTime) -> String { "\(time.numerator)/\(time.denominator)" }
     private static func integral(_ time: RationalTime, _ message: String) throws -> Int64 {

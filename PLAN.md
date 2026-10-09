@@ -594,3 +594,16 @@ launch-performance claim has been validated yet.
 - Preview/export parity is still unchecked: the proof has no MPV monitor.
   Helper packaging, source geometry/color, VFR, nonzero stream offsets, stills,
   fades, process cancellation/progress, and native interchange remain open.
+
+### MPV canonical-graph experiment (2026-10-09)
+
+- Added an experimental `MPVRenderCompiler` adapter that uses the exact FFmpeg
+  export graph, explicit file/stream-to-MPV track bindings, and split/asplit for
+  repeated source use. It does not assume container stream indices are MPV IDs.
+- The persisted render fixture now emits `mpv-command.json`; the development
+  runner records MPV capabilities and actual graph initialization/playback.
+- The local MPV 0.41.0-dirty / FFmpeg n8.1.2 build cannot initialize this graph.
+  Its build disables required filters including asetpts, adelay, anullsrc, pad,
+  and setsar. This is a package capability failure, not a completed parity or
+  seek test. Select/build a filter-enabled candidate before evaluating timeline
+  seeking; keep the milestone unchecked. See the media-engine audit for evidence.

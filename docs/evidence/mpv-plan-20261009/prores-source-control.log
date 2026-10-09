@@ -1,0 +1,24 @@
+2026-10-09 22:43:06.772 mpv[5989:12784917] Failure on line 688 in function id scheduleApplicationNotification(LSNotificationCode, NSWorkspaceNotificationCenter *): noErr == _LSModifyNotification(notificationID, 1, &code, 0, NULL, NULL, NULL)
+2026-10-09 22:43:06.977 mpv[5989:12784922] Connection Invalid error for service com.apple.hiservices-xpcservice.
+2026-10-09 22:43:06.977 mpv[5989:12784917] Error received in message reply handler: Connection invalid
+sandbox_extension_issue_file failed for /private/tmp/film-render-mpv-20261009/render.mov: 1 (Operation not permitted)
+sandbox_extension_issue_file failed for /private/tmp/film-render-mpv-20261009/render.mov: 1 (Operation not permitted)
+● Video  --vid=1  (prores 160x90 29.97 fps) [default]
+● Audio  --aid=1  (pcm_s24le 2ch 48000 Hz) [default]
+sandbox_extension_issue_file failed for /private/tmp/film-render-mpv-20261009/render.mov: 1 (Operation not permitted)
+VO: [null] 160x90 yuv422p10
+[ao/pcm] File: /private/tmp/film-mpv-plan-proof-20261009-v2/prores-control/audio.wav (WAVE)
+[ao/pcm] PCM: Samplerate: 48000 Hz Channels: 2 Format: s16
+sandbox_extension_issue_file failed for /private/tmp/film-render-mpv-20261009/render.mov: 1 (Operation not permitted)
+AO: [pcm] 48000Hz stereo 2ch s16
+AV: 00:00:00 / 00:00:06 (0%) A-V:  0.000
+
+Audio/Video desynchronisation detected! Possible reasons include too slow
+hardware, temporary CPU spikes, broken drivers, and broken files. Audio
+position will not match to the video (see A-V status field).
+Consider trying `--profile=fast` and/or `--hwdec=auto` as they may help.
+
+AV: 00:00:00 / 00:00:06 (0%) A-V:  0.000
+AV: 00:00:00 / 00:00:06 (1%) A-V:  1.299
+Exiting... (End of file)
+sandbox_extension_issue_file failed for /private/tmp/film-render-mpv-20261009/render.mov: 1 (Operation not permitted)

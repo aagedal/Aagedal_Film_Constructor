@@ -26,3 +26,13 @@ let restored = try JSONDecoder().decode(Project.self, from: encoder.encode(proje
 let command = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: restored), outputURL: root.appendingPathComponent("render.mov"))
 try encoder.encode(command).write(to: root.appendingPathComponent("command.json"))
 try command.filterGraph.write(to: root.appendingPathComponent("filtergraph.txt"), atomically: true, encoding: .utf8)
+
+let bindings = [
+    MPVTrackBinding(url: a.originalURL!, streamIndex: 0, kind: .video, trackID: 1),
+    MPVTrackBinding(url: b.originalURL!, streamIndex: 0, kind: .video, trackID: 2),
+    MPVTrackBinding(url: a.originalURL!, streamIndex: 1, kind: .audio, trackID: 1),
+    MPVTrackBinding(url: a.originalURL!, streamIndex: 2, kind: .audio, trackID: 2)
+]
+// Fixture-only known enumeration; a production controller must resolve track-list.
+let monitor = try MPVRenderCompiler.compile(TimelineRenderPlan(project: restored), bindings: bindings)
+try encoder.encode(monitor).write(to: root.appendingPathComponent("mpv-command.json"))
