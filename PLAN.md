@@ -1,9 +1,10 @@
 # Aagedal Film Constructor — implementation plan
 
-Status: planning, updated with the version-one scope; the app is currently the
-original SwiftUI starter project.
-This plan records the intended product and a proposed implementation order. It
-does not imply that the editing or audio features already exist.
+Status: milestone 1 implementation started. A local, UI-independent EditorCore
+package and a small interactive track-collision example are in place. The
+media-engine proof and full workspace remain in progress.
+This plan records the intended product and implementation order; unchecked
+items remain planned capabilities.
 
 ## Product direction
 
@@ -289,9 +290,9 @@ layers and audio. Do not promise a lossless multitrack timeline through EDL.
 
 ## Architecture
 
-Start with a macOS editor. The recovered template currently targets several
-Apple platforms and has a macOS 27 deployment target; choose the supported macOS
-baseline and narrow platform settings in the implementation phase.
+Start with a macOS editor. The application now targets macOS 14 and later. The project file remains in
+the Xcode 27 format inherited from the recovered starter; building the app
+requires a compatible Xcode, while the standalone core uses Swift 6.
 
 Keep a UI-independent editor core, preferably a local Swift package so timeline
 logic can be tested without launching the app:
@@ -391,15 +392,30 @@ rates. Track stable container stream indices and per-stream timing offsets.
 
 ### 1. Timeline core and media-engine proof — first implementation
 
-- [ ] Add rational time, validated sequence settings, tracks/families, stable
+- [x] Add rational time, validated sequence settings, tracks/families, stable
       source stream identities, clip ranges, scaling modes, and a render plan.
-- [ ] Implement move/trim/split/placement, sibling naming, cleanup, and undo/redo.
+- [x] Implement move/trim/split/placement, sibling naming, cleanup, and undo/redo.
 - [ ] Bundle/audit FFmpeg and prototype MPV-based source/timeline monitoring.
 - [ ] Render a minimal sequence with two overlapping videos and several audio
       components at different source in-points. Verify seeking and preview/export
       agreement before selecting the final playback path.
 - [ ] Test adjacency, multiple overlaps, free siblings, custom names, failed edit
       rollback, exact fractional rates, DF boundaries, and preserved audio sync.
+
+Implemented foundation: `Packages/EditorCore` contains exact checked rational
+arithmetic, DF/NDF formatting, validated project decoding, explicit source channel
+selection and stream offsets, ordered render components, and non-ripple edit
+commands. Linked components move/trim/split/delete transactionally. Split refuses
+a cut outside any linked component rather than breaking sync. Family templates
+survive cleanup; retained tracks and custom names are respected. The app's small
+synthetic example demonstrates an extension creating a sibling and undo/redo.
+
+This is not the complete playback model: source geometry/color, bookmarks, proxy
+mappings, fades/crossfades, ripple and attachment rules, and a render-plan-to-media
+compiler remain work for the relevant milestones. See
+[the media-engine audit](docs/media-engine-audit.md) for artifact evidence and the
+standalone FFmpeg smoke proof. MPV timeline parity is not established, and no
+media helpers have been bundled.
 
 Completion example: extending a `Music` clip creates `Music 1` and `Music 2`
 with copied routing/static settings; undo restores the original state. A fixture
@@ -504,3 +520,15 @@ xcodebuild -project "Aagedal Film Constructor.xcodeproj" \
 
 This checks the starter's compilation only. No editor functionality or
 launch-performance claim has been validated yet.
+
+
+### First implementation verification (2026-10-09)
+
+- Standalone EditorCore suite: 16 tests passed (10 edit-engine XCTest cases and
+  6 model Swift Testing cases).
+- macOS Debug app build: passed with Xcode 27, signing disabled. This proves
+  package integration and compilation, not GUI interaction or macOS 14 runtime
+  compatibility; the build was run on the current development machine.
+- Development FFmpeg proof: decoded 180 frames at 30000/1001 and 288,288 audio
+  samples per channel, with layer colors, channel routing, fade amplitudes, and
+  MOV timecode checked. See the audit for limitations and reproduction.
