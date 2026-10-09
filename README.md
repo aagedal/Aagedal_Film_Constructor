@@ -10,3 +10,6 @@ Using a fast classifier model such as Jev (or just some basic logic) it should b
 
 NB!
 This is work in process and a sparetime project. Coded with the help of AI.
+
+See [PLAN.md](PLAN.md) for the editing workflow, source audio selection, Media
+Converter reuse audit, and implementation milestones.
