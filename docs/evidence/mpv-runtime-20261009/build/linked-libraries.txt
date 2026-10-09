@@ -1,0 +1,10 @@
+/private/tmp/film-reproducible-mpv-20261009/build/mpv:
+	/opt/homebrew/opt/libass/lib/libass.9.dylib (compatibility version 14.0.0, current version 14.2.0)
+	/opt/homebrew/opt/ffmpeg/lib/libavcodec.63.dylib (compatibility version 63.0.0, current version 63.1.102)
+	/opt/homebrew/opt/ffmpeg/lib/libavfilter.12.dylib (compatibility version 12.0.0, current version 12.1.102)
+	/opt/homebrew/opt/ffmpeg/lib/libavformat.63.dylib (compatibility version 63.0.0, current version 63.1.102)
+	/opt/homebrew/opt/ffmpeg/lib/libavutil.61.dylib (compatibility version 61.0.0, current version 61.1.102)
+	/opt/homebrew/opt/libplacebo/lib/libplacebo.360.dylib (compatibility version 360.0.0, current version 360.0.0)
+	/opt/homebrew/opt/ffmpeg/lib/libswresample.7.dylib (compatibility version 7.0.0, current version 7.1.102)
+	/opt/homebrew/opt/ffmpeg/lib/libswscale.10.dylib (compatibility version 10.0.0, current version 10.1.102)
+	/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1359.0.0)

@@ -1,0 +1,84 @@
+{
+  "decodedVideoFrames": 180,
+  "audioSamplesPerChannel": 288288,
+  "frameRate": "30000/1001",
+  "timecode": "01:00:00;00",
+  "videoChecks": [
+    {
+      "sequenceFrame": 0,
+      "source": "a",
+      "sourceFrame": 30,
+      "meanRGBError": 2.0
+    },
+    {
+      "sequenceFrame": 2,
+      "source": "a",
+      "sourceFrame": 32,
+      "meanRGBError": 2.0
+    },
+    {
+      "sequenceFrame": 3,
+      "source": "b",
+      "sourceFrame": 60,
+      "meanRGBError": 2.0
+    },
+    {
+      "sequenceFrame": 15,
+      "source": "b",
+      "sourceFrame": 72,
+      "meanRGBError": 2.0
+    },
+    {
+      "sequenceFrame": 59,
+      "source": "b",
+      "sourceFrame": 116,
+      "meanRGBError": 2.0
+    },
+    {
+      "sequenceFrame": 60,
+      "source": "b",
+      "sourceFrame": 117,
+      "meanRGBError": 2.0
+    },
+    {
+      "sequenceFrame": 75,
+      "source": "b",
+      "sourceFrame": 132,
+      "meanRGBError": 2.0
+    },
+    {
+      "sequenceFrame": 119,
+      "source": "b",
+      "sourceFrame": 176,
+      "meanRGBError": 2.0
+    },
+    {
+      "sequenceFrame": 120,
+      "source": "a",
+      "sourceFrame": 150,
+      "meanRGBError": 2.0
+    },
+    {
+      "sequenceFrame": 150,
+      "source": "a",
+      "sourceFrame": 180,
+      "meanRGBError": 2.0
+    },
+    {
+      "sequenceFrame": 179,
+      "source": "a",
+      "sourceFrame": 209,
+      "meanRGBError": 2.0
+    }
+  ],
+  "sourceStreamMap": {
+    "left": 2,
+    "right": 1
+  },
+  "staticGain": 0.5,
+  "audioActiveSamples": [
+    48048,
+    240240
+  ],
+  "mpvParityTested": false
+}

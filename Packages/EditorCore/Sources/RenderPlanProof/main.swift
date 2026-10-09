@@ -1,8 +1,23 @@
 import Foundation
 import EditorCore
 
+// The proof runner must force --demuxer=lavf for all loaded files before capturing
+// this list. This mode compiles the actual loaded tracks, never fixture IDs.
+if CommandLine.arguments.count == 6, CommandLine.arguments[1] == "resolve-mpv" {
+    let arguments = CommandLine.arguments
+    let project = try JSONDecoder().decode(Project.self, from: Data(contentsOf: URL(fileURLWithPath: arguments[2])))
+    let tracks = try JSONDecoder().decode([MPVTrackListEntry].self, from: Data(contentsOf: URL(fileURLWithPath: arguments[3])))
+    let plan = try TimelineRenderPlan(project: project)
+    let output = URL(fileURLWithPath: arguments[5])
+    let command = try FFmpegRenderCompiler.compile(plan, outputURL: URL(fileURLWithPath: "/__editor_mpv_graph__.mov"))
+    let bindings = try MPVTrackResolver.resolve(inputs: command.inputs, trackList: tracks, primaryURL: URL(fileURLWithPath: arguments[4]), demuxer: "lavf")
+    let graph = try MPVRenderCompiler.compile(plan, bindings: bindings)
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    try encoder.encode(graph).write(to: output)
+} else {
 // Development fixture generator; emits a reviewable document and argv manifest.
-guard CommandLine.arguments.count == 2 else { fatalError("Usage: RenderPlanProof /fixture/directory") }
+guard CommandLine.arguments.count == 2 else { fatalError("Usage: RenderPlanProof /fixture/directory OR resolve-mpv <project.json> <track-list.json> <primary-path> <output.json> (all sources loaded with --demuxer=lavf)") }
 let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
 let rate = try FrameRate(30000, 1001)
 let settings = try SequenceSettings(width: 160, height: 90, frameRate: rate, startTimecode: .init(frameCount: 107892, mode: .dropFrame))
@@ -36,3 +51,4 @@ let bindings = [
 // Fixture-only known enumeration; a production controller must resolve track-list.
 let monitor = try MPVRenderCompiler.compile(TimelineRenderPlan(project: restored), bindings: bindings)
 try encoder.encode(monitor).write(to: root.appendingPathComponent("mpv-command.json"))
+}

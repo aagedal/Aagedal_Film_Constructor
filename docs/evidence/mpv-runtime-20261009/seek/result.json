@@ -1,0 +1,176 @@
+{
+  "fixtureDirectory": "/private/tmp/film-barcode-render-20261009",
+  "runtimeManifest": "/private/tmp/film-barcode-mpv-20261009/runtime-mpv-command.json",
+  "fixtureHashes": {
+    "project.json": "5ec493317966ab451ef7991f28365ddf37ebe39327366e9a1fdff202654cc34c",
+    "probe.json": "a2177052ae1329852e35421dbf2ca84da452474be3ce85c4b4a560220c3ffff1",
+    "a.mov": "763197d1e6b0ab1dda284f66f406c10eeb8dd8b06e407d042ef48d517a819875",
+    "b.mov": "593726f1b30d544f4a4b8780295fd5dc6439ac65c543081477e8832be9d380ac",
+    "render.rgb": "fca712495b86fd2d6e25c5a4e2f58732285836b919a9df69b86ac53c06469d03"
+  },
+  "expectedVideoFrames": 180,
+  "expectedAudioSamplesPerChannel": 288288,
+  "runtimeManifestSHA256": "cdec3f4e4c1dd0a47170984c863e4be2b707f307912b02b211556b7aee239443",
+  "trackBindingPassed": true,
+  "pixelMeanTolerance": 12,
+  "timePositionToleranceSeconds": 0.03336666666666667,
+  "operations": [
+    {
+      "kind": "seek",
+      "targetFrame": 0,
+      "targetTimeSeconds": 0.0,
+      "passed": true,
+      "restartLatencySeconds": 0.003604832978453487,
+      "timePositionSeconds": 0.0,
+      "capturedFrames": [
+        "frames/00000002.png"
+      ],
+      "displayedFrameCapture": "operation-01.png",
+      "meanRGBError": 1.4,
+      "timePositionErrorSeconds": 0.0
+    },
+    {
+      "kind": "seek",
+      "targetFrame": 2,
+      "targetTimeSeconds": 0.06673333333333334,
+      "passed": true,
+      "restartLatencySeconds": 0.0039992499514482915,
+      "timePositionSeconds": 0.066733,
+      "capturedFrames": [
+        "frames/00000003.png"
+      ],
+      "displayedFrameCapture": "operation-02.png",
+      "meanRGBError": 1.1,
+      "timePositionErrorSeconds": 3.333333333382926e-07
+    },
+    {
+      "kind": "seek",
+      "targetFrame": 3,
+      "targetTimeSeconds": 0.1001,
+      "passed": true,
+      "restartLatencySeconds": 0.004225000040605664,
+      "timePositionSeconds": 0.1001,
+      "capturedFrames": [
+        "frames/00000004.png"
+      ],
+      "displayedFrameCapture": "operation-03.png",
+      "meanRGBError": 1.5,
+      "timePositionErrorSeconds": 0.0
+    },
+    {
+      "kind": "seek",
+      "targetFrame": 60,
+      "targetTimeSeconds": 2.002,
+      "passed": false,
+      "restartLatencySeconds": 0.01852633396629244,
+      "timePositionSeconds": 2.002,
+      "capturedFrames": [
+        "frames/00000005.png"
+      ],
+      "displayedFrameCapture": "operation-04.png",
+      "meanRGBError": 58.7,
+      "timePositionErrorSeconds": 0.0,
+      "failureReason": "Displayed pixels or time position differ from canonical target frame"
+    },
+    {
+      "kind": "seek",
+      "targetFrame": 119,
+      "targetTimeSeconds": 3.9706333333333332,
+      "passed": false,
+      "restartLatencySeconds": 0.03304508398286998,
+      "timePositionSeconds": 3.970633,
+      "capturedFrames": [
+        "frames/00000006.png"
+      ],
+      "displayedFrameCapture": "operation-05.png",
+      "meanRGBError": 97.1,
+      "timePositionErrorSeconds": 3.33333333379926e-07,
+      "failureReason": "Displayed pixels or time position differ from canonical target frame"
+    },
+    {
+      "kind": "seek",
+      "targetFrame": 120,
+      "targetTimeSeconds": 4.004,
+      "passed": false,
+      "restartLatencySeconds": 0.03152908297488466,
+      "timePositionSeconds": 4.004,
+      "capturedFrames": [
+        "frames/00000007.png"
+      ],
+      "displayedFrameCapture": "operation-06.png",
+      "meanRGBError": 77.8,
+      "timePositionErrorSeconds": 0.0,
+      "failureReason": "Displayed pixels or time position differ from canonical target frame"
+    },
+    {
+      "kind": "seek",
+      "targetFrame": 179,
+      "targetTimeSeconds": 5.9726333333333335,
+      "passed": false,
+      "restartLatencySeconds": 0.029311958991456777,
+      "timePositionSeconds": 5.972633,
+      "capturedFrames": [
+        "frames/00000008.png"
+      ],
+      "displayedFrameCapture": "operation-07.png",
+      "meanRGBError": 154.2,
+      "timePositionErrorSeconds": 3.33333333379926e-07,
+      "failureReason": "Displayed pixels or time position differ from canonical target frame"
+    },
+    {
+      "kind": "seek",
+      "targetFrame": 60,
+      "targetTimeSeconds": 2.002,
+      "passed": false,
+      "restartLatencySeconds": 0.020369375008158386,
+      "timePositionSeconds": 2.002,
+      "capturedFrames": [
+        "frames/00000009.png"
+      ],
+      "displayedFrameCapture": "operation-08.png",
+      "meanRGBError": 58.7,
+      "timePositionErrorSeconds": 0.0,
+      "failureReason": "Displayed pixels or time position differ from canonical target frame"
+    },
+    {
+      "kind": "seek",
+      "targetFrame": 15,
+      "targetTimeSeconds": 0.5005,
+      "passed": false,
+      "restartLatencySeconds": 0.0083332079811953,
+      "timePositionSeconds": 0.5005,
+      "capturedFrames": [
+        "frames/00000010.png"
+      ],
+      "displayedFrameCapture": "operation-09.png",
+      "meanRGBError": 58.8,
+      "timePositionErrorSeconds": 0.0,
+      "failureReason": "Displayed pixels or time position differ from canonical target frame"
+    },
+    {
+      "kind": "rebuild",
+      "targetFrame": 15,
+      "targetTimeSeconds": 0.5005,
+      "passed": false,
+      "playheadBeforeRebuild": 0.5005,
+      "restartLatencySeconds": 0.014920415997039527,
+      "timePositionSeconds": 0.5005,
+      "capturedFrames": [
+        "frames/00000011.png",
+        "frames/00000012.png"
+      ],
+      "displayedFrameCapture": "operation-10.png",
+      "meanRGBError": 58.8,
+      "timePositionErrorSeconds": 0.0,
+      "failureReason": "Displayed pixels or time position differ from canonical target frame"
+    }
+  ],
+  "seekParityPassed": false,
+  "graphRebuildParityPassed": false,
+  "audioSeekTested": false,
+  "nativeDisplayTested": false,
+  "coreAudioTested": false,
+  "candidateSourceRevision": "41f6a645068483470267271e1d09966ca3b9f413",
+  "candidateSourceManifestSHA256": "6d73d3cd7772656f012a85791da3058e9b1b17a295831c4e1b72666aa126b3b4",
+  "exitCode": 0
+}

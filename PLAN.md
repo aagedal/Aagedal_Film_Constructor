@@ -2,8 +2,9 @@
 
 Status: milestone 1 in progress. EditorCore now compiles a qualified prototype
 subset of its render plan into FFmpeg, with decoded-frame/sample integration
-evidence. MPV preview parity, helper packaging, and the full workspace remain
-in progress.
+evidence. Headless sequential MPV parity passes, but exact seeking and graph
+rebuilding fail; evaluate the native sequence-engine fallback next. Helper
+packaging and the full workspace remain in progress.
 This plan records the intended product and implementation order; unchecked
 items remain planned capabilities.
 
@@ -457,8 +458,9 @@ relevant milestones. The development FFmpeg compiler now
 handles frame-aligned video layers and sample-aligned explicitly routed audio;
 it is not yet a production export service. See
 [the media-engine audit](docs/media-engine-audit.md) for artifact evidence and the
-standalone FFmpeg smoke proof. MPV timeline parity is not established, and no
-media helpers have been bundled.
+standalone FFmpeg smoke proof. Headless sequential MPV parity passes for the
+qualified fixture, but exact seeking and graph rebuilding fail. No media helpers
+have been bundled.
 
 Completion example: extending a `Music` clip creates `Music 1` and `Music 2`
 with copied routing/static settings; undo restores the original state. A fixture
@@ -548,6 +550,9 @@ does not require implementing every proposed interchange adapter.
 - Default state of the optional layout-change confirmation setting.
 - Surround output/downmix policy when monitoring hardware has fewer channels.
 - MPV timeline graph viability versus a dedicated FFmpeg-backed sequence engine.
+  The unchanged canonical export graph passed sequential capture but failed
+  exact later/backward seeks and rebuilding. Next prototype FFmpeg-library frame
+  selection and native audio scheduling; retain MPV as a source-viewer candidate.
 - Mixed-frame-rate/VFR conform policy and proxy resolution/storage defaults.
 - Crossfade geometry at adjacent cuts and curve choices when audio is correlated.
 - First interchange target's native round-trip fidelity and explicit EDL subset.
@@ -607,3 +612,23 @@ launch-performance claim has been validated yet.
   and setsar. This is a package capability failure, not a completed parity or
   seek test. Select/build a filter-enabled candidate before evaluating timeline
   seeking; keep the milestone unchecked. See the media-engine audit for evidence.
+
+### Runtime MPV parity and seeking verification (2026-10-09)
+
+- Added strict runtime `track-list` resolution by file, kind, and `ff-index`,
+  requiring libavformat demuxing. Missing/ambiguous identities fail explicitly;
+  repeated stream use resolves once and retains split/asplit behavior.
+- Added a reproducible development headless MPV build using local source and
+  installed full FFmpeg libraries, with per-file source hashes and build commands.
+  It is dynamically linked to Homebrew and is not a shipping package.
+- Replaced potentially colliding frame colors with binary frame/source barcodes.
+  MPV sequential capture matches all 180 frames and 288,288 stereo samples;
+  maximum frame mean RGB error is 1.8 and maximum PCM sample error is 1.
+- Exact seek checks pass at frames 0, 2, and 3, but fail at 60, 119, 120, 179,
+  backward 60/15, and rebuilding at 15. Reported time positions are accurate;
+  displayed pixels differ by 58.7–154.2 (tolerance 12). Do not use this unchanged
+  graph as the interactive timeline engine. Evaluate the native fallback next.
+- 33 core tests and 5 IPC tests pass; unsigned macOS Debug app build passes.
+  Audio seeks, native display/CoreAudio, crossfades, helper packaging, and the
+  full workspace remain unqualified. Milestone 1 remains in progress.
+- Reproduction and retained results: [media-engine audit](docs/media-engine-audit.md#runtime-track-resolution-sequential-parity-and-seek-failure-2026-10-09).

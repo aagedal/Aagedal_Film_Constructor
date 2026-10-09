@@ -270,3 +270,93 @@ samples. Native display, CoreAudio, precise seeks, scrubbing, graph rebuilding,
 crossfades and preview/export parity remain untested. Next select or build an
 MPV candidate with the required filters, fixture decoders and capture encoder,
 then rerun this experiment before choosing the sequence playback path.
+
+## Runtime track resolution, sequential parity, and seek failure (2026-10-09)
+
+The earlier limited MPVKit build is superseded **for this headless experiment**
+by a full-filter development CLI. No native package pin or shipping bundle was
+changed. `scripts/build-mpv-proof.py` snapshots an explicit local Git checkout,
+records source-file hashes and dirty status, restores missing tracked packaging
+resources only in the snapshot, and builds without network downloads or installs.
+The tested source revision is `41f6a645068483470267271e1d09966ca3b9f413`, with
+local MPVKit modifications recorded in the source manifest. HEAD alone does not
+identify the source bytes. The resulting MPV 0.41.0 links to Homebrew FFmpeg 9.0.2
+and libplacebo 7.360.1; image/null video and PCM/null audio outputs are enabled.
+Native display/CoreAudio and libmpv are disabled. It is not redistributable as an
+app helper: its local dylib dependencies, attribution/source accompaniment,
+deployment target, signing and distribution still require separate work.
+
+Reproduce with installed Meson/Ninja and dependency pkg-config files available:
+
+```sh
+scripts/build-mpv-proof.py \
+  /Users/truls.aagedal/Developer/MPVKit/dist/libmpv-v0.41.0 \
+  /opt/homebrew/bin/meson /opt/homebrew/bin/ninja \
+  /private/tmp/film-mpv-full-new
+scripts/render-plan-proof.py \
+  '/Users/truls.aagedal/Developer/Aagedal-Media-Converter/Aagedal Media Converter/Binaries/ffmpeg' \
+  /opt/homebrew/bin/ffprobe /private/tmp/film-barcode-render-new
+scripts/mpv-plan-proof.py \
+  /private/tmp/film-mpv-full-new/build/mpv \
+  '/Users/truls.aagedal/Developer/Aagedal-Media-Converter/Aagedal Media Converter/Binaries/ffmpeg' \
+  /private/tmp/film-barcode-render-new /private/tmp/film-mpv-runtime-new
+scripts/mpv-seek-proof.py \
+  /private/tmp/film-mpv-full-new/build/mpv \
+  '/Users/truls.aagedal/Developer/Aagedal-Media-Converter/Aagedal Media Converter/Binaries/ffmpeg' \
+  /private/tmp/film-barcode-render-new \
+  /private/tmp/film-mpv-runtime-new/runtime-mpv-command.json \
+  /private/tmp/film-mpv-runtime-new/build/debug/RenderPlanProof \
+  /private/tmp/film-mpv-seek-new
+```
+
+The IPC runners require permission to bind a local Unix socket. In this session
+sandboxed socket binding was unavailable; the same proof passed with sandbox
+escalation. Each run uses a new output directory, bounded waits and process
+cleanup, and retains failures rather than treating initialization as parity.
+
+`MPVTrackResolver` matches actual `track-list` entries by primary/external file,
+media kind and `ff-index`. The runner forces `--demuxer=lavf` because MPV documents
+that `ff-index` is not guaranteed with other demuxers. Missing, invalid, ambiguous,
+or aliased identities fail instead of guessing enumeration. See the
+[MPV track-list reference](https://mpv.io/manual/stable/#command-interface-track-list).
+Discovery and sequential capture share one paused MPV process. The separate seek
+process resolves its own list and requires its complete graph/count manifest to
+match before using it.
+
+The former uniform color ramp had collisions across frame/source identities.
+The new lossless sources encode a 9-bit frame number and a source bit in ten
+full-height binary stripes. A one-bit mismatch produces a mean RGB difference
+of 19.2, exceeding the declared tolerance of 12. The sources remain 30000/1001,
+with two independent mono audio streams, different source in-points, upper-layer
+priority and exact component boundaries. The compiler/export behavior is unchanged.
+
+The run at `/private/tmp/film-barcode-mpv-repro-20261009` passes sequential parity:
+180 decoded frames and 288,288 stereo samples, maximum per-frame mean RGB error
+1.8, maximum signed-16-bit PCM sample difference 1. Capture and reference sizes
+must both match independently compiled counts; project, probe, sources, reference
+and runtime graph identities are hashed. Source-decoder, ProRes and image-capture
+controls also pass. Untimed file capture does not establish real-time A/V sync.
+
+The run at `/private/tmp/film-barcode-seek-reproducible-20261009` has successful
+runtime bindings, all ten displayed-frame captures and exit code 0, but correctly
+returns proof failure. Frames 0, 2 and 3 pass. Later frames 60, 119, 120 and 179,
+backward seeks to 60 and 15, and detach/reattach at frame 15 fail with mean RGB
+errors 58.7–154.2. Reported time positions differ from requested positions by
+less than 0.34 microseconds, so the reported clock does not prove displayed frame
+accuracy. Captures use `screenshot-to-file ... video` after playback restart,
+including same-position seeks which may not write a new image-output frame.
+
+This rules out reusing the unchanged canonical export graph for interactive
+sequence monitoring. It does not prove every possible MPV timeline graph would
+fail. Following the plan's fallback, next evaluate an FFmpeg-library bridge for
+explicit timestamp/frame selection and native rendering/audio scheduling; retain
+MPV for source viewing. No inference about audio seeking, real-time clocking,
+native display/CoreAudio or signed teardown follows from this headless test.
+Crossfades, the broader format/rate matrix and helper packaging remain open.
+
+Selected reviewable evidence (no helper binaries or full media fixtures) is in
+[docs/evidence/mpv-runtime-20261009](evidence/mpv-runtime-20261009/README.md).
+The retained build source manifest identifies the snapshot; it does not itself
+supply full GPL source accompaniment. Core validation passes 33 tests, IPC
+validation passes 5 tests, and the unsigned macOS Debug app builds. This is
+media-engine evidence, not a completed playback feature in the app.
