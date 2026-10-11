@@ -10,11 +10,14 @@ public enum EditCommand: Sendable {
     /// A linked split requires the cut to be inside every component. Both resulting halves remain linked.
     case split(clipID: UUID, at: RationalTime)
     case delete(clipID: UUID)
+    /// Replace one audio component with explicitly mapped components, preserving linked picture/timing.
+    case selectAudioSource(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting])
 }
 
 public enum TimelineEditError: Error, Equatable, Sendable {
     case missingClip, missingTrack, missingFamily, incompatibleTrack, duplicateClip
     case invalidSplit, unsupportedLinkedSplit
+    case invalidAudioSelection, incompatibleAudioRouting
 }
 
 /// Value snapshots make placement, sibling creation and cleanup one atomic history entry.
@@ -34,6 +37,21 @@ public struct TimelineEditEngine: Sendable {
     public mutating func apply(_ command: EditCommand) throws {
         var candidate = project
         try Self.perform(command, in: &candidate)
+        try commit(candidate)
+    }
+
+    /// Returns component identities in selection order. The first component retains the selected ID.
+    /// Inspect a copied engine for confirmation previews; committing applies one undoable transaction.
+    @discardableResult
+    public mutating func selectAudioSource(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting]) throws -> [UUID] {
+        var candidate = project
+        let ids = try Self.selectAudioSource(clipID: clipID, selections: selections, routing: routing, in: &candidate)
+        try commit(candidate)
+        return ids
+    }
+
+    private mutating func commit(_ proposed: Project) throws {
+        var candidate = proposed
         if candidate.preferences.automaticallyRemoveEmptyTracks {
             candidate.tracks.removeAll { $0.clips.isEmpty && !$0.retained }
         }
@@ -84,7 +102,7 @@ public struct TimelineEditEngine: Sendable {
         if try free(target) {
             project.tracks[targetIndex].clips.append(clip)
         } else if let siblingIndex = try project.tracks.indices.first(where: {
-            try project.tracks[$0].familyID == target.familyID && free(project.tracks[$0])
+            try project.tracks[$0].familyID == target.familyID && project.tracks[$0].template == target.template && free(project.tracks[$0])
         }) {
             project.tracks[siblingIndex].clips.append(clip)
         } else {
@@ -102,6 +120,63 @@ public struct TimelineEditEngine: Sendable {
 
     private static func remove(_ ids: Set<UUID>, from project: inout Project) {
         for index in project.tracks.indices { project.tracks[index].clips.removeAll { ids.contains($0.id) } }
+    }
+
+    private static func selectAudioSource(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], in project: inout Project) throws -> [UUID] {
+        guard let trackIndex = project.tracks.firstIndex(where: { $0.clips.contains(where: { $0.id == clipID }) }),
+              let selected = project.tracks[trackIndex].clips.first(where: { $0.id == clipID }) else {
+            throw TimelineEditError.missingClip
+        }
+        guard case .audio = selected.selection, !selections.isEmpty, selections.count == routing.count else {
+            throw TimelineEditError.invalidAudioSelection
+        }
+        let origin = project.tracks[trackIndex]
+        if selections.count == 1, selected.selection == .audio(selections[0]), origin.template.routing == routing[0] {
+            return [clipID]
+        }
+        for (selection, route) in zip(selections, routing) {
+            try selection.layout.validate()
+            guard selection.channels.count == selection.layout.channels.count else { throw TimelineEditError.invalidAudioSelection }
+            if route.outputChannels.isEmpty {
+                guard selection.layout == project.settings.audioLayout else { throw TimelineEditError.incompatibleAudioRouting }
+            } else {
+                guard route.outputChannels.count == selection.channels.count,
+                      route.outputChannels.allSatisfy({ $0 >= 0 && $0 < project.settings.audioLayout.channels.count }) else {
+                    throw TimelineEditError.incompatibleAudioRouting
+                }
+            }
+        }
+        remove([clipID], from: &project)
+        let group = selected.linkGroupID ?? (selections.count > 1 ? UUID() : nil)
+        var ids: [UUID] = []
+        for (index, pair) in zip(selections, routing).enumerated() {
+            var clip = selected
+            if index > 0 { clip.id = UUID() }
+            clip.selection = .audio(pair.0)
+            clip.linkGroupID = group
+            ids.append(clip.id)
+            func available(_ track: TimelineTrack) throws -> Bool {
+                guard track.familyID == origin.familyID, compatible(clip, track: track), track.template.routing == pair.1 else { return false }
+                let range = try clip.timelineRange()
+                return try !track.clips.contains(where: { try $0.timelineRange().overlaps(range) })
+            }
+            // Reconfigure only an empty originating track; other clips retain their interpretation.
+            if let originalIndex = project.tracks.firstIndex(where: { $0.id == origin.id }), project.tracks[originalIndex].clips.isEmpty {
+                project.tracks[originalIndex].template.audioLayout = pair.0.layout
+                project.tracks[originalIndex].template.routing = pair.1
+                project.tracks[originalIndex].clips.append(clip)
+            } else if let destination = try project.tracks.indices.first(where: { try available(project.tracks[$0]) }) {
+                project.tracks[destination].clips.append(clip)
+            } else {
+                var template = origin.template
+                template.audioLayout = pair.0.layout
+                template.routing = pair.1
+                let sibling = TimelineTrack(familyID: origin.familyID, template: template, clips: [clip])
+                let insertion = project.tracks.firstIndex(where: { $0.id == origin.id }).map { $0 + 1 } ?? project.tracks.count
+                project.tracks.insert(sibling, at: insertion)
+            }
+        }
+        return ids
     }
 
     private static func perform(_ command: EditCommand, in project: inout Project) throws {
@@ -167,6 +242,8 @@ public struct TimelineEditEngine: Sendable {
         case .delete(let clipID):
             let components = try linked(to: clipID, in: project)
             remove(Set(components.map { $0.clip.id }), from: &project)
+        case .selectAudioSource(let clipID, let selections, let routing):
+            _ = try selectAudioSource(clipID: clipID, selections: selections, routing: routing, in: &project)
         }
     }
 }
