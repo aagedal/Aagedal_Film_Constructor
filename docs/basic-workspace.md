@@ -153,6 +153,13 @@ Post-insertion explicit maps support other streams/layouts on existing component
 
 ## Verification
 
+Still source previews decode asynchronously on a serial ImageIO worker, retain
+at most a 2048-pixel longest edge, and apply embedded orientation. Import validates
+stills with a 64-pixel thumbnail rather than a full raster. Source switching,
+deselection, document replacement and closing reject obsolete results. Originals
+and timeline/export coordinates remain intact. These are retained-pixel limits;
+ImageIO codec scratch allocations and filesystem latency are not bounded here.
+
 ```sh
 scripts/verify.sh
 scripts/app-file-smoke.sh

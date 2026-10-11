@@ -22,7 +22,43 @@ enum MediaImportError: LocalizedError {
     }
 }
 
+/// Serial image decoding prevents rapid source switches from running multiple
+/// uncancellable ImageIO calls simultaneously. Queued cancelled requests exit
+/// before touching the source; actor work runs independently of the main actor.
+private actor StillPreviewDecoder {
+    static let shared = StillPreviewDecoder()
+
+    func decode(url: URL, maximumDimension: Int) throws -> CGImage {
+        try Task.checkCancellation()
+        guard (1...2048).contains(maximumDimension) else { throw MediaImportError.invalidImage }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let source = CGImageSourceCreateWithURL(url as CFURL,
+                [kCGImageSourceShouldCache: false] as CFDictionary),
+              CGImageSourceGetCount(source) > 0,
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maximumDimension,
+                kCGImageSourceShouldCacheImmediately: true
+              ] as CFDictionary),
+              image.width > 0, image.height > 0,
+              image.width <= maximumDimension, image.height <= maximumDimension else {
+            throw MediaImportError.invalidImage
+        }
+        try Task.checkCancellation()
+        return image
+    }
+}
+
 enum MediaImporter {
+    /// Decode an oriented monitor-sized image off the main actor. ImageIO may
+    /// still use codec scratch memory, but retained pixels never exceed this bound.
+    @concurrent
+    static func stillPreview(url: URL, maximumDimension: Int = 2048) async throws -> CGImage {
+        try await StillPreviewDecoder.shared.decode(url: url, maximumDimension: maximumDimension)
+    }
+
     /// Inspect while the import-panel grant is active. The editor retains access for playback.
     @concurrent
     static func inspect(url: URL) async throws -> ImportedMedia {
@@ -33,11 +69,8 @@ enum MediaImporter {
             ?? UTType(filenameExtension: url.pathExtension)
 
         if type?.conforms(to: .image) == true {
-            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-                  CGImageSourceGetCount(source) > 0,
-                  CGImageSourceCreateImageAtIndex(source, 0, nil) != nil else {
-                throw MediaImportError.invalidImage
-            }
+            // Validate decode without allocating the full original raster.
+            _ = try await stillPreview(url: url, maximumDimension: 64)
             // Stills have a default five-second source extent until editable still durations arrive.
             return ImportedMedia(asset: MediaAsset(name: url.lastPathComponent, originalURL: url,
                                                    duration: try RationalTime(5)), bookmark: bookmark)
