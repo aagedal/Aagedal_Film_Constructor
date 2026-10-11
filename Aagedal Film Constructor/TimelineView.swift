@@ -4,6 +4,8 @@ import EditorCore
 struct TimelineView: View {
     @ObservedObject var store: EditorStore
     @State private var pixelsPerSecond = 35.0
+    @State private var showingTimecodeEntry = false
+    @State private var timecodeEntry = ""
     private let labelWidth: CGFloat = 145
     private var visibleDuration: Double { max(20, store.duration + 5) }
     private var canvasWidth: CGFloat { max(650, visibleDuration * pixelsPerSecond) }
@@ -21,7 +23,26 @@ struct TimelineView: View {
                 Divider().frame(height: 18)
                 Button("Split at playhead", action: store.splitSelectedClip).disabled(store.selectedClip == nil)
                 Button("Delete clip", action: store.deleteSelectedClip).disabled(store.selectedClip == nil)
+                Toggle(isOn: $store.snappingEnabled) { Image(systemName: "magnet") }
+                    .toggleStyle(.button).help("Snap clip edges to adjacent clips and the playhead")
                 Spacer()
+                Button { store.stepPlayhead(frames: -1) } label: { Image(systemName: "backward.frame") }.help("Previous frame")
+                Button { store.stepPlayhead(frames: 1) } label: { Image(systemName: "forward.frame") }.help("Next frame")
+                Button(store.playheadTimecode) {
+                    timecodeEntry = store.playheadTimecode
+                    showingTimecodeEntry = true
+                }
+                .font(.system(.caption, design: .monospaced))
+                .help("Go to sequence timecode")
+                .popover(isPresented: $showingTimecodeEntry) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Go to timecode").font(.headline)
+                        TextField("HH:MM:SS:FF", text: $timecodeEntry)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit(goToTimecode)
+                        Button("Go", action: goToTimecode).keyboardShortcut(.defaultAction)
+                    }.padding().frame(width: 220)
+                }
                 Text("\(store.playheadSeconds, specifier: "%.3f") s").font(.system(.caption, design: .monospaced))
                 Image(systemName: "minus.magnifyingglass").foregroundStyle(.secondary)
                 Slider(value: $pixelsPerSecond, in: 2...100).frame(width: 100).help("Timeline zoom")
@@ -62,6 +83,11 @@ struct TimelineView: View {
         }
     }
 
+    private func goToTimecode() {
+        showingTimecodeEntry = false
+        store.seek(toTimecode: timecodeEntry)
+    }
+
     private var ruler: some View {
         ZStack(alignment: .topLeading) {
             Color(nsColor: .controlBackgroundColor)
@@ -85,12 +111,18 @@ struct TimelineView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { location in store.seek(to: max(0, min(store.duration, location.x / pixelsPerSecond))) }
             ForEach(track.clips) { clip in
-                TimelineClipView(clip: clip, title: store.project.assets.first(where: { $0.id == clip.assetID })?.name ?? "Media", selected: store.selectedClipID == clip.id, pixelsPerSecond: pixelsPerSecond) {
-                    store.selectedClipID = clip.id
-                } move: { seconds in
-                    store.selectedClipID = clip.id
-                    store.moveSelectedClip(to: seconds)
-                }
+                TimelineClipView(clip: clip, title: store.project.assets.first(where: { $0.id == clip.assetID })?.name ?? "Media", selected: store.selectedClipID == clip.id, pixelsPerSecond: pixelsPerSecond,
+                    select: { store.selectedClipID = clip.id },
+                    proposedMove: { store.proposedMove(clip: clip, to: $0, tolerance: 8 / pixelsPerSecond) },
+                    move: { seconds in
+                        store.selectedClipID = clip.id
+                        store.moveSelectedClip(to: seconds)
+                    },
+                    proposedTrim: { store.proposedTrimDelta(clip: clip, edge: $0, delta: $1, tolerance: 8 / pixelsPerSecond) },
+                    trim: { edge, delta in
+                        store.selectedClipID = clip.id
+                        store.trimSelectedClip(edge: edge, delta: delta)
+                    })
                 .offset(x: clip.timelineStart.seconds * pixelsPerSecond, y: 6)
             }
             playhead(height: 64).allowsHitTesting(false)
@@ -113,8 +145,13 @@ private struct TimelineClipView: View {
     let selected: Bool
     let pixelsPerSecond: Double
     let select: () -> Void
+    let proposedMove: (Double) -> Double
     let move: (Double) -> Void
+    let proposedTrim: (TimelineTrimEdge, Double) -> Double
+    let trim: (TimelineTrimEdge, Double) -> Void
     @GestureState private var dragOffset: CGFloat = 0
+    @GestureState private var leadingDelta = 0.0
+    @GestureState private var trailingDelta = 0.0
 
     var body: some View {
         RoundedRectangle(cornerRadius: 5)
@@ -122,18 +159,36 @@ private struct TimelineClipView: View {
             .overlay(alignment: .leading) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title).font(.caption.bold()).lineLimit(1)
-                    Text("\(clip.sourceRange.duration.seconds, specifier: "%.2f") s").font(.caption2.monospacedDigit()).lineLimit(1)
-                }.foregroundStyle(.white).padding(.horizontal, 8)
+                    Text("\(clip.sourceRange.duration.seconds - leadingDelta + trailingDelta, specifier: "%.2f") s").font(.caption2.monospacedDigit()).lineLimit(1)
+                }.foregroundStyle(.white).padding(.horizontal, 12)
             }
             .overlay { RoundedRectangle(cornerRadius: 5).strokeBorder(selected ? Color.orange : Color.white.opacity(0.15), lineWidth: selected ? 2 : 1) }
-            .frame(width: max(10, clip.sourceRange.duration.seconds * pixelsPerSecond), height: 52)
+            .frame(width: max(10, (clip.sourceRange.duration.seconds - leadingDelta + trailingDelta) * pixelsPerSecond), height: 52)
             .clipped()
-            .offset(x: dragOffset)
             .onTapGesture(perform: select)
-            .gesture(DragGesture(minimumDistance: 3)
-                .updating($dragOffset) { value, state, _ in state = max(-clip.timelineStart.seconds * pixelsPerSecond, value.translation.width) }
+            .gesture(DragGesture(minimumDistance: 3, coordinateSpace: .global)
+                .updating($dragOffset) { value, state, _ in
+                    state = (proposedMove(clip.timelineStart.seconds + value.translation.width / pixelsPerSecond) - clip.timelineStart.seconds) * pixelsPerSecond
+                }
                 .onChanged { _ in select() }
-                .onEnded { value in move(max(0, clip.timelineStart.seconds + value.translation.width / pixelsPerSecond)) })
-            .help("Select to inspect; drag horizontally to move")
+                .onEnded { value in move(proposedMove(clip.timelineStart.seconds + value.translation.width / pixelsPerSecond)) })
+            .overlay(alignment: .leading) { trimHandle(.leading) }
+            .overlay(alignment: .trailing) { trimHandle(.trailing) }
+            .offset(x: dragOffset + leadingDelta * pixelsPerSecond)
+            .help("Drag to move; drag the edge handles to trim linked clips")
+    }
+
+    private func trimHandle(_ edge: TimelineTrimEdge) -> some View {
+        Capsule().fill(Color.white.opacity(selected ? 0.9 : 0.4))
+            .frame(width: 3, height: 26)
+            .frame(width: 10, height: 52)
+            .contentShape(Rectangle())
+            .highPriorityGesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .updating(edge == .leading ? $leadingDelta : $trailingDelta) { value, state, _ in
+                    state = proposedTrim(edge, value.translation.width / pixelsPerSecond)
+                }
+                .onChanged { _ in select() }
+                .onEnded { value in trim(edge, proposedTrim(edge, value.translation.width / pixelsPerSecond)) })
+            .help(edge == .leading ? "Trim clip start" : "Trim clip end")
     }
 }

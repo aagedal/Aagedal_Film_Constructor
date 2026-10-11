@@ -28,6 +28,21 @@ struct AppFileSmoke {
             _ = try await MediaImporter.inspect(url: corruptURL)
             throw SmokeError.failed("Corrupt image accepted")
         } catch MediaImportError.invalidImage { }
+        let batch = EditorStore()
+        defer { batch.close() }
+        batch.importMedia(urls: [corruptURL, audioURL])
+        batch.importMedia(urls: [imageURL])
+        for _ in 0..<500 where batch.isImporting { try await Task.sleep(for: .milliseconds(10)) }
+        try check(!batch.isImporting && batch.project.assets.count == 1 && batch.project.assets[0].name == "stereo.wav",
+                  "Batch import continues after a bad file and ignores overlapping requests")
+        try check(batch.errorMessage?.contains("corrupt.png") == true && batch.statusMessage == "Imported 1 file.",
+                  "Batch import reports partial success and the failed file")
+        batch.importMedia(urls: [imageURL])
+        let emptyDocument = ProjectDocument()
+        batch.load(emptyDocument)
+        try await Task.sleep(for: .milliseconds(20))
+        try check(batch.project == emptyDocument.project && !batch.isImporting && !batch.canUndo,
+                  "Opening a document cancels pending imports before they mutate the new project")
 
         let store = EditorStore()
         defer { store.close() }
@@ -58,6 +73,18 @@ struct AppFileSmoke {
         try document.encodedData().write(to: projectURL)
         var restored = try ProjectDocument(data: Data(contentsOf: projectURL))
         try check(restored.project == store.project && restored.mediaBookmarks == store.mediaBookmarks, "Project round trip and orphan bookmark pruning")
+        var fallback = ProjectDocument(project: store.project)
+        let fallbackURL = try fallback.resolveMediaURL(for: audio.asset.id)
+        try check(fallbackURL == audioURL, "Media without a bookmark preserves its original URL")
+        try check(try fallback.resolveMediaURL(for: UUID()) == nil, "Unknown media resolution")
+        var damagedGrant = ProjectDocument(project: store.project, mediaBookmarks: [audio.asset.id: Data([1, 2, 3])])
+        let recoverable = try ProjectDocument(data: damagedGrant.encodedData())
+        try check(recoverable.project == store.project, "Damaged media grant does not prevent opening the project for relinking")
+        do {
+            _ = try damagedGrant.resolveMediaURL(for: audio.asset.id)
+            throw SmokeError.failed("Damaged media grant resolved")
+        } catch let error as SmokeError { throw error }
+        catch { }
         let resolved = try restored.resolveMediaURL(for: audio.asset.id)
         try check(resolved?.standardizedFileURL == audioURL.standardizedFileURL, "Persistent bookmark resolution")
         let reopened = EditorStore()
@@ -91,6 +118,15 @@ struct AppFileSmoke {
             throw SmokeError.failed("Relink accepted mismatched stream identities")
         } catch EditorCoreError.invalidModel { }
         try check(reopened.project == beforeFailure, "Relink failure is atomic")
+        let grantsBeforeFailure = reopened.mediaBookmarks
+        var tooShort = replacementMedia.asset
+        tooShort.duration = try RationalTime(1, 2)
+        do {
+            try reopened.replaceMedia(assetID: audio.asset.id, with: ImportedMedia(asset: tooShort, bookmark: nil))
+            throw SmokeError.failed("Relink accepted media shorter than used source range")
+        } catch EditorCoreError.invalidModel { }
+        try check(reopened.project == beforeFailure && reopened.mediaBookmarks == grantsBeforeFailure,
+                  "Short relink failure preserves project and grants")
         reopened.load(restored)
         try check(!reopened.canUndo, "Reload clears previous editing history")
         reopened.close()
@@ -108,7 +144,97 @@ struct AppFileSmoke {
         invalidProject["settings"] = invalidSettings
         invalid["project"] = invalidProject
         try reject(JSONSerialization.data(withJSONObject: invalid), "Invalid project settings accepted")
-        print("App file smoke passed: WAV/PNG import, bookmarks, append/split/undo/redo, project save/reopen, corrupt and unsupported file rejection.")
+        try exerciseWorkspace()
+        print("App file smoke passed: WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, project save/reopen, corrupt and unsupported file rejection.")
+    }
+
+    @MainActor
+    static func exerciseWorkspace() throws {
+        let store = EditorStore()
+        defer { store.close() }
+        let asset = MediaAsset(name: "Linked fixture", duration: try RationalTime(4), streams: [
+            MediaStream(index: 0, kind: .video),
+            MediaStream(index: 1, kind: .audio, audioLayout: .stereo)
+        ])
+        try store.registerImportedMedia(ImportedMedia(asset: asset, bookmark: nil))
+        store.appendSelectedAsset()
+        let baseline = store.project
+        let originalClips = baseline.tracks.flatMap(\.clips)
+        try check(originalClips.count == 2 && originalClips[0].linkGroupID != nil &&
+                  originalClips[0].linkGroupID == originalClips[1].linkGroupID, "Video/audio append creates linked components")
+        store.trimSelectedClip(edge: .leading, delta: 1)
+        let leadingTrim = store.project
+        try check(leadingTrim.tracks.flatMap(\.clips).allSatisfy {
+            $0.sourceRange.start.seconds == 1 && $0.timelineStart.seconds == 1 && $0.sourceRange.duration.seconds == 3
+        }, "Leading drag trim preserves the out point of both linked components")
+        store.undo()
+        try check(store.project == baseline, "One undo restores the whole linked drag trim")
+        store.redo()
+        try check(store.project == leadingTrim, "Linked drag trim redo")
+        store.trimSelectedClip(edge: .trailing, delta: -1)
+        let trailingTrim = store.project
+        try check(trailingTrim.tracks.flatMap(\.clips).allSatisfy {
+            $0.sourceRange.start.seconds == 1 && $0.timelineStart.seconds == 1 && $0.sourceRange.duration.seconds == 2
+        }, "Trailing drag trim preserves linked in points")
+        store.undo()
+        try check(store.project == leadingTrim && store.canRedo, "Trailing trim undo")
+        store.trimSelectedClip(start: 1, duration: .infinity)
+        try check(store.project == leadingTrim && store.canRedo && store.errorMessage != nil,
+                  "Invalid inspector trim is atomic and preserves redo")
+        store.errorMessage = nil
+        store.trimSelectedClip(edge: .trailing, delta: .nan)
+        try check(store.project == leadingTrim && store.canRedo, "Nonfinite drag trim creates no history entry")
+        store.redo()
+        try check(store.project == trailingTrim, "Redo survives rejected trims")
+        let clip = store.selectedClip!
+        store.playheadSeconds = 2
+        store.snappingEnabled = true
+        try check(store.proposedMove(clip: clip, to: 1.97, tolerance: 0.1) == 2, "Move snaps to the playhead")
+        store.snappingEnabled = false
+        try check(abs(store.proposedMove(clip: clip, to: 1.97, tolerance: 0.1) - 2) > 0.01,
+                  "Disabling snapping keeps frame-grid placement without magnetic targets")
+        let bounded = store.proposedTrimDelta(clip: clip, edge: .leading, delta: 100, tolerance: 0)
+        store.trimSelectedClip(edge: .leading, delta: bounded)
+        try check(store.project.tracks.flatMap(\.clips).allSatisfy {
+            abs($0.sourceRange.duration.seconds - 1.0 / 24) < 0.000001
+        }, "Oversized drag trim clamps to one video frame for the whole linked group")
+        try store.project.validate()
+        store.undo()
+        try check(store.project == trailingTrim, "Bounded drag trim undo")
+        store.seek(toTimecode: "00:00:00:02")
+        try check(store.playheadTimecode == "00:00:00:02" && abs(store.playheadSeconds - 2.0 / 24) < 0.000001,
+                  "24 fps seeking preserves the second frame despite decimal conversion")
+        store.stepPlayhead(frames: 1)
+        try check(store.playheadTimecode == "00:00:00:03", "24 fps frame step advances exactly one frame")
+
+        store.updateSequence(width: 1920, height: 1080, frameRate: 29.97)
+        let beforeTimecode = store.project
+        let start = try Timecode(parsing: "01:00:00;00", rate: store.project.settings.frameRate)
+        store.updateStartTimecode(start)
+        let withTimecode = store.project
+        store.undo()
+        try check(store.project == beforeTimecode, "Start timecode undo")
+        store.redo()
+        try check(store.project == withTimecode, "Start timecode redo")
+        store.seek(toTimecode: "01:00:00;02")
+        try check(store.playheadTimecode == "01:00:00;02" && abs(store.playheadSeconds - 2 * 1001.0 / 30000) < 0.000001,
+                  "29.97 fps seeking preserves the second frame")
+        store.stepPlayhead(frames: 1)
+        try check(store.playheadTimecode == "01:00:00;03", "29.97 fps frame step advances exactly one frame")
+        store.seek(toTimecode: "01:00:01;00")
+        try check(abs(store.playheadSeconds - 1.001) < 0.000001 && store.playheadTimecode == "01:00:01;00",
+                  "Drop-frame seeking uses the sequence start offset")
+        let validPosition = store.playheadSeconds
+        store.seek(toTimecode: "01:01:00;00")
+        try check(store.playheadSeconds == validPosition && store.errorMessage != nil, "Skipped drop-frame label does not move playhead")
+        store.stepPlayhead(frames: 1)
+        try check(abs(store.playheadSeconds - validPosition - 1001.0 / 30000) < 0.000001, "Fractional-rate frame stepping")
+        let persisted = try ProjectDocument(data: ProjectDocument(project: store.project).encodedData())
+        let reopened = EditorStore()
+        defer { reopened.close() }
+        reopened.load(persisted)
+        try check(reopened.project == store.project && reopened.playheadTimecode == "01:00:00;00",
+                  "Sequence frame rate and start timecode survive document reopen")
     }
 
     static func check(_ condition: Bool, _ message: String) throws {

@@ -13,6 +13,7 @@ final class EditorStore: ObservableObject {
     @Published var playheadSeconds: Double = 0
     @Published var errorMessage: String?
     @Published var isImporting = false
+    @Published var snappingEnabled = true
     @Published var sourcePlayer: AVPlayer?
     @Published var previewImage: NSImage?
     @Published var statusMessage = "Import media to begin."
@@ -31,6 +32,7 @@ final class EditorStore: ObservableObject {
 
     func load(_ document: ProjectDocument) {
         close()
+        errorMessage = nil
         isImporting = false
         undoHistory = []; redoHistory = []
         selectedAssetID = nil; selectedClipID = nil; playheadSeconds = 0
@@ -59,6 +61,7 @@ final class EditorStore: ObservableObject {
     func close() {
         mediaEpoch = UUID()
         importTask?.cancel()
+        isImporting = false
         sourcePlayer?.pause()
         sourcePlayer = nil
         for url in scopedURLs { url.stopAccessingSecurityScopedResource() }
@@ -72,7 +75,11 @@ final class EditorStore: ObservableObject {
         panel.allowedContentTypes = [.movie, .audio, .image]
         panel.allowsMultipleSelection = true
         guard panel.runModal() == .OK else { return }
-        let urls = panel.urls
+        importMedia(urls: panel.urls)
+    }
+
+    func importMedia(urls: [URL]) {
+        guard !isImporting, !urls.isEmpty else { return }
         let epoch = mediaEpoch
         isImporting = true
         importTask = Task {
@@ -197,6 +204,38 @@ final class EditorStore: ObservableObject {
         guard let id = selectedClipID, let track = project.tracks.first(where: { $0.clips.contains { $0.id == id } }) else { return }
         do { edit(.move(clipID: id, trackID: track.id, start: try editTime(max(0, seconds)))) } catch { report(error) }
     }
+    private func gestureQuantum(for clip: TimelineClip) -> Double {
+        TimelineGesture.components(of: clip, in: project).contains { $0.requiredTrackKind == .video }
+            ? 1 / project.settings.frameRate.value.seconds : 0.000001
+    }
+    private func snapTargets(excluding clip: TimelineClip) -> [Double] {
+        let excluded = Set(TimelineGesture.components(of: clip, in: project).map(\.id))
+        return [0, playheadSeconds] + project.tracks.flatMap(\.clips).filter { !excluded.contains($0.id) }.flatMap {
+            [$0.timelineStart.seconds, $0.timelineStart.seconds + $0.sourceRange.duration.seconds]
+        }
+    }
+    func proposedMove(clip: TimelineClip, to seconds: Double, tolerance: Double) -> Double {
+        let components = TimelineGesture.components(of: clip, in: project)
+        let minimum = clip.timelineStart.seconds - (components.map { $0.timelineStart.seconds }.min() ?? 0)
+        let proposed = snappingEnabled ? TimelineGesture.snap(seconds, movingEdges: [0, clip.sourceRange.duration.seconds], targets: snapTargets(excluding: clip), tolerance: tolerance) : seconds
+        let quantum = gestureQuantum(for: clip)
+        return max(ceil(minimum / quantum) * quantum, (proposed / quantum).rounded() * quantum)
+    }
+    func proposedTrimDelta(clip: TimelineClip, edge: TimelineTrimEdge, delta: Double, tolerance: Double) -> Double {
+        let edgeTime = clip.timelineStart.seconds + (edge == .leading ? 0 : clip.sourceRange.duration.seconds)
+        let proposed = snappingEnabled ? TimelineGesture.snap(edgeTime + delta, movingEdges: [0], targets: snapTargets(excluding: clip), tolerance: tolerance) - edgeTime : delta
+        return TimelineGesture.trimDelta(proposed, edge: edge, clip: clip, project: project, quantum: gestureQuantum(for: clip))
+    }
+    func trimSelectedClip(edge: TimelineTrimEdge, delta: Double) {
+        guard let clip = selectedClip else { return }
+        do {
+            let bounded = TimelineGesture.trimDelta(delta, edge: edge, clip: clip, project: project, quantum: gestureQuantum(for: clip))
+            let change = try editTime(bounded)
+            let range = try TimeRange(start: edge == .leading ? clip.sourceRange.start.adding(change) : clip.sourceRange.start,
+                                      duration: edge == .leading ? clip.sourceRange.duration.subtracting(change) : clip.sourceRange.duration.adding(change))
+            edit(.trim(clipID: clip.id, sourceRange: range, timelineStart: edge == .leading ? try clip.timelineStart.adding(change) : clip.timelineStart))
+        } catch { report(error) }
+    }
     func trimSelectedClip(start: Double, duration: Double) {
         guard let clip = selectedClip else { return }
         do {
@@ -206,6 +245,37 @@ final class EditorStore: ObservableObject {
         } catch { report(error) }
     }
     func seek(to seconds: Double) { playheadSeconds = max(0, min(seconds, duration)) }
+    var playheadTimecode: String {
+        let position = playheadSeconds * project.settings.frameRate.value.seconds
+        let nearest = position.rounded()
+        let frames = abs(position - nearest) < 1e-8 ? nearest : floor(position)
+        guard frames.isFinite, frames >= 0, frames < Double(Int64.max) else { return "00:00:00:00" }
+        let count = project.settings.startTimecode.frameCount.addingReportingOverflow(Int64(frames))
+        guard !count.overflow else { return "00:00:00:00" }
+        return (try? Timecode(frameCount: count.partialValue, mode: project.settings.startTimecode.mode).formatted(rate: project.settings.frameRate)) ?? "00:00:00:00"
+    }
+    func updateStartTimecode(_ value: Timecode) {
+        do { try change { $0.settings.startTimecode = value } } catch { report(error) }
+    }
+    func seek(toTimecode label: String) {
+        do {
+            let value = try Timecode(parsing: label, rate: project.settings.frameRate)
+            guard value.mode == project.settings.startTimecode.mode else { throw EditorCoreError.invalidTime }
+            let (frames, overflow) = value.frameCount.subtractingReportingOverflow(project.settings.startTimecode.frameCount)
+            guard !overflow, frames >= 0 else { throw EditorCoreError.invalidTime }
+            seek(to: try project.settings.frameRate.time(forFrames: frames).seconds)
+        } catch { report(error) }
+    }
+    func stepPlayhead(frames: Int64) {
+        let position = playheadSeconds * project.settings.frameRate.value.seconds
+        let nearest = position.rounded()
+        let aligned = abs(position - nearest) < 1e-8
+        let target = aligned ? nearest + Double(frames) : (frames < 0 ? ceil(position) : floor(position)) + Double(frames)
+        seek(to: target / project.settings.frameRate.value.seconds)
+    }
+    func setAutomaticTrackCleanup(_ enabled: Bool) {
+        do { try change { $0.preferences.automaticallyRemoveEmptyTracks = enabled } } catch { report(error) }
+    }
     private func editTime(_ seconds: Double) throws -> RationalTime {
         guard let clip = selectedClip else { return try time(seconds) }
         let linkedVideo = project.tracks.flatMap(\.clips).contains {
