@@ -1,0 +1,37 @@
+Building for debugging...
+[Planning deferred tasks]
+[33 / 59]
+[35 / 60] CNativeDecoder
+[44 / 73]
+[57 / 122]
+[60 / 122]
+[65 / 122]
+[69 / 122]
+[73 / 122]
+[76 / 122]
+[81 / 122]
+[82 / 122]
+[83 / 122]
+[84 / 122]
+[99 / 122] EditorCore
+[106 / 123] NativePlaybackRuntime
+[115 / 149]
+[119 / 149]
+[121 / 149]
+[123 / 149]
+[125 / 149]
+[127 / 149]
+[128 / 149] EditorCore
+[134 / 149] NativePlaybackRuntime
+[143 / 150] NativePlaybackRuntime
+[143 / 150] NativeSequenceProof-product
+[145 / 152] NativeSequenceProof-product
+[148 / 152] NativePlaybackRuntime
+[148 / 152] NativeSequenceProof-product
+[150 / 152] NativeSequenceProof-product
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-98ff46da/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavformat.63.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-98ff46da/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavcodec.63.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-98ff46da/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libswscale.10.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-98ff46da/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libswresample.7.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-98ff46da/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavutil.61.dylib' which was built for newer version 27.0
+Build complete! (7,40 sec)

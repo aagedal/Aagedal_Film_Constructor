@@ -132,6 +132,16 @@ struct TimelineView: View {
                     trim: { edge, delta in
                         store.selectedClipID = clip.id
                         store.trimSelectedClip(edge: edge, delta: delta)
+                    },
+                    proposedFade: { store.proposedAudioFadeDuration(clip: clip, seconds: $0) },
+                    setFade: { edge, seconds, expected in
+                        do {
+                            try store.applyAudioFades(clipID: clip.id,
+                                fadeInSeconds: edge == .leading ? seconds : expected.fadeIn.duration.seconds,
+                                fadeInCurve: expected.fadeIn.curve,
+                                fadeOutSeconds: edge == .trailing ? seconds : expected.fadeOut.duration.seconds,
+                                fadeOutCurve: expected.fadeOut.curve, expectedClip: expected)
+                        } catch { store.errorMessage = String(describing: error) }
                     })
                 .offset(x: clip.timelineStart.seconds * pixelsPerSecond, y: 6)
             }
@@ -161,9 +171,14 @@ private struct TimelineClipView: View {
     let move: (Double) -> Void
     let proposedTrim: (TimelineTrimEdge, Double) -> Double
     let trim: (TimelineTrimEdge, Double) -> Void
+    let proposedFade: (Double) -> Double
+    let setFade: (TimelineTrimEdge, Double, TimelineClip) -> Void
     @GestureState private var dragOffset: CGFloat = 0
     @GestureState private var leadingDelta = 0.0
     @GestureState private var trailingDelta = 0.0
+    @GestureState private var fadeInPreview: Double?
+    @GestureState private var fadeOutPreview: Double?
+    @State private var fadeGestureClip: TimelineClip?
     @State private var clipFrame = CGRect.zero
     @State private var preview: TimelinePreview?
     @State private var loadedRequest: TimelinePreviewRequest?
@@ -199,6 +214,9 @@ private struct TimelineClipView: View {
                     .shadow(color: .black.opacity(0.9), radius: 2)
             }
             .overlay { RoundedRectangle(cornerRadius: 5).strokeBorder(selected ? Color.orange : Color.white.opacity(0.15), lineWidth: selected ? 2 : 1) }
+            .overlay {
+                if clip.requiredTrackKind == .audio { fadeEnvelope.allowsHitTesting(false) }
+            }
             .frame(width: clipWidth, height: 52)
             .clipped()
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { clipFrame = $0 }
@@ -238,8 +256,76 @@ private struct TimelineClipView: View {
                 .onEnded { value in move(proposedMove(clip.timelineStart.seconds + value.translation.width / pixelsPerSecond)) })
             .overlay(alignment: .leading) { trimHandle(.leading) }
             .overlay(alignment: .trailing) { trimHandle(.trailing) }
+            .overlay(alignment: .topLeading) {
+                if clip.requiredTrackKind == .audio {
+                    fadeHandle(.leading)
+                    fadeHandle(.trailing)
+                }
+            }
+            .onChange(of: fadeInPreview) { _, value in
+                if value == nil && fadeOutPreview == nil { fadeGestureClip = nil }
+            }
+            .onChange(of: fadeOutPreview) { _, value in
+                if value == nil && fadeInPreview == nil { fadeGestureClip = nil }
+            }
             .offset(x: dragOffset + leadingDelta * pixelsPerSecond)
-            .help("Drag to move; drag the edge handles to trim linked clips")
+            .help(clip.requiredTrackKind == .audio
+                ? "Drag to move; drag side handles to trim; drag yellow handles to fade this audio component"
+                : "Drag to move; drag the edge handles to trim linked clips")
+    }
+
+    private var fadeEnvelope: some View {
+        Canvas { context, size in
+            for edge in [TimelineTrimEdge.leading, .trailing] {
+                let duration = edge == .leading ? (fadeInPreview ?? clip.fadeIn.duration.seconds)
+                    : (fadeOutPreview ?? clip.fadeOut.duration.seconds)
+                guard duration > 0 else { continue }
+                let curve = edge == .leading ? clip.fadeIn.curve : clip.fadeOut.curve
+                let width = min(size.width, duration * pixelsPerSecond)
+                var path = Path()
+                for step in 0...32 {
+                    let progress = Double(step) / 32
+                    let gain = curve == .linear ? progress : sin(progress * .pi / 2)
+                    let x = edge == .leading ? progress * width : size.width - progress * width
+                    let point = CGPoint(x: x, y: size.height * (1 - gain))
+                    if step == 0 { path.move(to: point) } else { path.addLine(to: point) }
+                }
+                context.stroke(path, with: .color(.yellow.opacity(0.9)), lineWidth: 1.5)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func fadeHandle(_ edge: TimelineTrimEdge) -> some View {
+        let fade = edge == .leading ? clip.fadeIn : clip.fadeOut
+        let duration = edge == .leading ? (fadeInPreview ?? fade.duration.seconds) : (fadeOutPreview ?? fade.duration.seconds)
+        let inset = min(clipWidth - 6, max(6, duration * pixelsPerSecond))
+        return Circle().fill(Color.yellow)
+            .frame(width: 7, height: 7)
+            .frame(width: 14, height: 14)
+            .contentShape(Rectangle())
+            .offset(x: (edge == .leading ? inset : clipWidth - inset) - 7,
+                    y: edge == .leading ? 0 : 12)
+            .highPriorityGesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .updating(edge == .leading ? $fadeInPreview : $fadeOutPreview) { value, state, _ in
+                    let original = fadeGestureClip ?? clip
+                    let start = edge == .leading ? original.fadeIn.duration.seconds : original.fadeOut.duration.seconds
+                    let delta = value.translation.width / pixelsPerSecond * (edge == .leading ? 1 : -1)
+                    state = proposedFade(start + delta)
+                }
+                .onChanged { _ in
+                    if fadeGestureClip == nil { fadeGestureClip = clip }
+                    select()
+                }
+                .onEnded { value in
+                    let original = fadeGestureClip ?? clip
+                    let start = edge == .leading ? original.fadeIn.duration.seconds : original.fadeOut.duration.seconds
+                    let delta = value.translation.width / pixelsPerSecond * (edge == .leading ? 1 : -1)
+                    setFade(edge, proposedFade(start + delta), original)
+                    fadeGestureClip = nil
+                })
+            .help(edge == .leading ? "Drag to set audio fade in" : "Drag to set audio fade out")
+            .accessibilityLabel(edge == .leading ? "Audio fade in handle" : "Audio fade out handle")
     }
 
     private func trimHandle(_ edge: TimelineTrimEdge) -> some View {

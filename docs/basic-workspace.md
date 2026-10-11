@@ -56,8 +56,8 @@ macOS 14+. On the initial file dialog choose **New Document** (or use File → N
    under **Combine linked audio components**. Choose the resulting layout and
    source/output map, then Apply. Only checked components are replaced; unchecked
    audio and linked picture remain intact. Eligible components share the same
-   asset, source range, timeline start, linked group, family and gain. Different
-   timing or gain must be resolved separately. Try combining two mono components
+   asset, source range, timeline start, linked group, family, gain and fades. Different
+   timing, gain or fades must be resolved separately. Try combining two mono components
    into stereo or selecting a source 5.1 stream with explicit output routing.
    Cancel the confirmation, then apply and undo/redo; save/reopen the result.
    Verify obsolete empty tracks follow the cleanup preference and retained tracks
@@ -80,8 +80,20 @@ macOS 14+. On the initial file dialog choose **New Document** (or use File → N
     Try a 5.1 source in a stereo sequence and explicitly map each desired channel
     to an output.
 
+13. Select an audio component and set its fade-in/out durations and curves in the
+    inspector, then apply. Drag the small upper-edge fade handles to change the
+    durations; each release commits one undoable edit. Linear is the default;
+    equal-power uses a sine amplitude ramp. Fades can overlap and multiply.
+    Shortening a clip clamps each fade to the remaining duration. Splitting
+    inside an active fade is refused so an edit cannot silently change its
+    envelope; splitting between fades preserves the outer fades and clears the
+    new inner edges. Move clips, change source channels, undo/redo, and save/reopen
+    to check preservation. The source monitor still plays original audio;
+    timeline fades are qualified through the separate development render/native
+    proof. Linked crossfades are unfinished.
+
 Current limits: AVFoundation-supported source formats; no edited-sequence
-playback, export, proxies, or fades. Stills have a
+playback, export, proxies, or linked crossfades. Stills have a
 five-second source extent. Default audio assembly accepts matching layouts or mono
 (duplicated into stereo); other layouts use the explicit initial selection sheet.
 Post-insertion explicit maps support other streams/layouts on existing components.

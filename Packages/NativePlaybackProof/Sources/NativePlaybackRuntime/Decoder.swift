@@ -113,7 +113,7 @@ public final class NativeMonitor {
             width: plan.settings.width, height: plan.settings.height)
     }
 
-    /// Float mixing preserves explicit routing and static gain without a limiter.
+    /// Float mixing preserves explicit routing, static gain and sample-timed fades without a limiter.
     public func audio(start: Int64, count: Int) throws -> [Float] {
         let requests = try plan.audioBlock(startSample: start, sampleCount: count)
         let channels = plan.settings.audioLayout.channels.count
@@ -124,7 +124,10 @@ public final class NativeMonitor {
             let samples = try source.audio(start: request.sourceStartSample, count: request.sampleCount,
                                            sampleRate: plan.settings.audioSampleRate)
             for frame in 0..<request.sampleCount {
-                let value = samples[frame * source.channels + request.sourceChannel] * Float(request.gain)
+                let envelope = try AudioFadeEnvelope.gain(sampleIndex: request.clipSampleOffset + Int64(frame),
+                    sampleRate: request.sampleRate, duration: request.clipDuration,
+                    fadeIn: request.fadeIn, fadeOut: request.fadeOut)
+                let value = samples[frame * source.channels + request.sourceChannel] * Float(request.gain * envelope)
                 let destination = (request.destinationOffset + frame) * channels + request.destinationChannel
                 output[destination] += value
                 guard output[destination].isFinite else { throw ProofFailure("Nonfinite mixed sample") }

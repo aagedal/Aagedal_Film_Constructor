@@ -34,6 +34,11 @@ public struct Project: Equatable, Codable, Sendable {
             for clip in track.clips {
                 guard clip.requiredTrackKind == track.kind, clip.requiredAudioLayout == track.audioLayout, let asset = assets.first(where: { $0.id == clip.assetID }) else { throw EditorCoreError.invalidModel("Missing asset or incompatible track") }
                 try clip.sourceRange.validate()
+                try clip.fadeIn.validate(duration: clip.sourceRange.duration)
+                try clip.fadeOut.validate(duration: clip.sourceRange.duration)
+                guard clip.requiredTrackKind == .audio || (clip.fadeIn.duration == .zero && clip.fadeOut.duration == .zero) else {
+                    throw EditorCoreError.invalidModel("Only audio clips support fades")
+                }
                 _ = try clip.timelineRange()
                 guard try clip.sourceRange.end().compared(to: asset.duration) != .orderedDescending else { throw EditorCoreError.invalidModel("Source range exceeds media") }
                 switch clip.selection {
@@ -88,6 +93,8 @@ public struct TimelineRenderPlan: Equatable, Sendable {
         public var layerOrder: Int
         public var routing: AudioRouting
         public var gain: Double
+        public var fadeIn: AudioFade = .init()
+        public var fadeOut: AudioFade = .init()
     }
     public let settings: SequenceSettings
     public let components: [Component]
@@ -108,7 +115,7 @@ public struct TimelineRenderPlan: Equatable, Sendable {
                 let clipEnd = try range.end()
                 if try clipEnd.compared(to: end) == .orderedDescending { end = clipEnd }
                 let asset = project.assets.first { $0.id == clip.assetID }!
-                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: clip.sourceRange, timelineRange: range, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain))
+                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: clip.sourceRange, timelineRange: range, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain, fadeIn: clip.fadeIn, fadeOut: clip.fadeOut))
             }
         }
         components = result; duration = end

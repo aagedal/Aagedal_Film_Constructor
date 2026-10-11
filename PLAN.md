@@ -509,7 +509,12 @@ and save/reopen without losing placements, preferences, or source identity.
       on a selected component, including explicit consolidation of aligned linked
       components with matching source, track family, and gain.
 - [x] Implement explicit channel maps and compatible track layout adaptation.
-- [ ] Add fade handles and linked crossfades, including drag-to-second-clip creation.
+- [x] Add standalone audio fade handles, inspector durations/curves, persistence,
+      atomic undo/redo, trim clamping and envelope-preserving split rules.
+- [x] Qualify standalone linear/equal-power fades, including overlapping edges,
+      fractional durations, seeks and edited-plan replacement in development
+      FFmpeg/native sample-parity fixtures.
+- [ ] Add linked crossfades, including drag-to-second-clip creation.
 - [ ] Handle insufficient source handles, adjacent cuts, overlapping siblings,
       layout compatibility, subsequent trims/moves, cancellation, and atomic undo.
 - [ ] Validate output layout and monitor/render the same sample-timed mix.
@@ -822,3 +827,26 @@ launch-performance claim has been validated yet.
   and the unsigned macOS Debug build.
 - Live sequence monitoring, helper packaging, fades/crossfades, proxies and export
   remain open. Native sheet interactions still need manual UI testing.
+
+### Standalone audio fades checkpoint (2026-10-11)
+
+- Added backward-compatible per-component fade-in/out durations and linear or
+  equal-power curves. Each edge is independently bounded by clip duration;
+  overlapping edges multiply. Timeline handles preview locally and commit one
+  undoable edit; inspector controls use the sequence audio sample grid.
+- Fades survive moves, explicit source selection, save/reopen and undo/redo.
+  Consolidation requires matching envelopes. Trims clamp fades; splits between
+  fades preserve the original envelope and clear inner edges. Splits inside an
+  active fade are rejected atomically rather than changing its sound.
+- The development FFmpeg compiler and native monitor evaluate the same envelope
+  at clip-relative sample positions, independent of block boundaries and seek
+  history. Source monitoring and source waveforms still describe original media.
+- Linked crossfades, adjacent-cut source-handle extension, live sequence playback,
+  bundled helpers, proxies and production export remain open. Native gesture
+  interaction and inspector layout still require manual UI testing.
+- Verification passed: 95 EditorCore tests (51 XCTest and 44 Swift Testing),
+  nine Python regressions, shortcut smoke, expanded app-file smoke, unsigned macOS
+  Debug build, baseline render proof and five native playback variants. Fade audio
+  differs by at most 1.0 s16 unit from independent FFmpeg output; all seeks,
+  replacement and offline sample-clock checks pass. See
+  [retained fade evidence](docs/evidence/audio-fades-20261011/README.md).

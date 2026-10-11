@@ -304,3 +304,38 @@ struct NativePlaybackPlanTests {
         #expect(throws: EditorCoreError.overflow) { try compile(project) }
     }
 }
+
+@Test func nativeFadeRequestsUseClipRelativeClockAcrossChannelsAndSeeks() throws {
+    var project = try DemoProjectFactory.musicCollision()
+    project.assets[0].originalURL = URL(fileURLWithPath: "/private/tmp/fade-source.mov")
+    project.tracks[0].clips[1].fadeIn = .init(duration: try RationalTime(4), curve: .linear)
+    project.tracks[0].clips[1].fadeOut = .init(duration: try RationalTime(4), curve: .equalPower)
+    let plan = try NativePlaybackPlan(TimelineRenderPlan(project: project))
+    func envelope(_ read: NativeAudioReadRequest, _ offset: Int64 = 0) throws -> Double {
+        try AudioFadeEnvelope.gain(sampleIndex: read.clipSampleOffset + offset, sampleRate: read.sampleRate,
+            duration: read.clipDuration, fadeIn: read.fadeIn, fadeOut: read.fadeOut)
+    }
+    // The source in (10s), timeline in (5s), and envelope clock (0s) differ.
+    let entering = try plan.audioBlock(startSample: 239999, sampleCount: 3)
+    let second = entering.filter { $0.clipID == project.tracks[0].clips[1].id }
+    #expect(second.count == 2)
+    #expect(second.allSatisfy { $0.sourceStartSample == 480000 && $0.clipSampleOffset == 0 && $0.destinationOffset == 1 })
+    #expect(try envelope(second[0]) == 0)
+    #expect(try envelope(second[0], 1) == envelope(second[1], 1))
+    // Both edges are active in the middle and multiply independently.
+    let middle = try plan.audioBlock(startSample: 360000, sampleCount: 2)
+    #expect(middle.allSatisfy { $0.clipSampleOffset == 120000 })
+    let expected = 0.625 * sin(0.625 * .pi / 2)
+    #expect(abs(try envelope(middle[0]) - expected) < 1e-12)
+    let last = try plan.audioBlock(startSample: 479999, sampleCount: 1)
+    #expect(abs(try envelope(last[0]) - sin(.pi / (2 * 192000))) < 1e-12)
+    _ = try plan.audioBlock(startSample: 240000, sampleCount: 1)
+    #expect(try plan.audioBlock(startSample: 360000, sampleCount: 2) == middle)
+    // A fade edit changes the plan even when source addressing stays identical.
+    project.tracks[0].clips[1].fadeIn.curve = .equalPower
+    let replaced = try NativePlaybackPlan(TimelineRenderPlan(project: project))
+    #expect(plan != replaced)
+    let edited = try replaced.audioBlock(startSample: 360000, sampleCount: 2)
+    #expect(edited[0].sourceStartSample == middle[0].sourceStartSample)
+    #expect(try envelope(edited[0]) > envelope(middle[0]))
+}

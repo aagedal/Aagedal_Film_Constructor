@@ -14,7 +14,8 @@ public extension Project {
             $0.kind == .audio && $0.familyID == origin.familyID && $0.template.gain == origin.template.gain
         }.flatMap(\.clips).filter {
             $0.id != clipID && $0.linkGroupID == group && $0.assetID == selected.assetID &&
-            $0.timelineStart == selected.timelineStart && $0.sourceRange == selected.sourceRange
+            $0.timelineStart == selected.timelineStart && $0.sourceRange == selected.sourceRange &&
+            $0.fadeIn == selected.fadeIn && $0.fadeOut == selected.fadeOut
         }
     }
 }

@@ -8,8 +8,11 @@ public enum EditCommand: Sendable {
     /// Linked components receive equal source/timeline deltas; source-bound failures roll back the whole group.
     case trim(clipID: UUID, sourceRange: TimeRange, timelineStart: RationalTime)
     /// A linked split requires the cut to be inside every component. Both resulting halves remain linked.
+    /// Cuts inside active fades are rejected because an edge fade cannot preserve a partial envelope.
     case split(clipID: UUID, at: RationalTime)
     case delete(clipID: UUID)
+    /// Change only the selected audio component, preserving linked components.
+    case setAudioFades(clipID: UUID, fadeIn: AudioFade, fadeOut: AudioFade)
     /// Replace one audio component with explicitly mapped components, preserving linked picture/timing.
     case selectAudioSource(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting])
     /// Replace explicitly chosen, aligned linked audio components with one mapped component.
@@ -232,6 +235,8 @@ public struct TimelineEditEngine: Sendable {
                 var clip = component.clip
                 clip.sourceRange = try TimeRange(start: clip.sourceRange.start.adding(sourceDelta), duration: clip.sourceRange.duration.adding(durationDelta))
                 clip.timelineStart = try clip.timelineStart.adding(timelineDelta)
+                if try clip.fadeIn.duration.compared(to: clip.sourceRange.duration) == .orderedDescending { clip.fadeIn.duration = clip.sourceRange.duration }
+                if try clip.fadeOut.duration.compared(to: clip.sourceRange.duration) == .orderedDescending { clip.fadeOut.duration = clip.sourceRange.duration }
                 try place(clip, on: component.trackID, in: &project)
             }
         case .split(let clipID, let at):
@@ -245,7 +250,15 @@ public struct TimelineEditEngine: Sendable {
                       try leftDuration.compared(to: left.sourceRange.duration) == .orderedAscending else {
                     throw components.count > 1 ? TimelineEditError.unsupportedLinkedSplit : TimelineEditError.invalidSplit
                 }
+                // A partial envelope cannot be represented by an edge fade without changing its sound.
+                let fadeOutStart = try left.sourceRange.duration.subtracting(left.fadeOut.duration)
+                guard try leftDuration.compared(to: left.fadeIn.duration) != .orderedAscending,
+                      try leftDuration.compared(to: fadeOutStart) != .orderedDescending else {
+                    throw components.count > 1 ? TimelineEditError.unsupportedLinkedSplit : TimelineEditError.invalidSplit
+                }
                 var right = left
+                left.fadeOut = .init()
+                right.fadeIn = .init()
                 right.id = UUID()
                 right.linkGroupID = rightGroup
                 right.timelineStart = at
@@ -254,6 +267,12 @@ public struct TimelineEditEngine: Sendable {
                 try place(left, on: component.trackID, in: &project)
                 try place(right, on: component.trackID, in: &project)
             }
+        case .setAudioFades(let clipID, let fadeIn, let fadeOut):
+            guard let trackIndex = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
+                  let clipIndex = project.tracks[trackIndex].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
+            guard project.tracks[trackIndex].clips[clipIndex].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
+            project.tracks[trackIndex].clips[clipIndex].fadeIn = fadeIn
+            project.tracks[trackIndex].clips[clipIndex].fadeOut = fadeOut
         case .delete(let clipID):
             let components = try linked(to: clipID, in: project)
             remove(Set(components.map { $0.clip.id }), from: &project)

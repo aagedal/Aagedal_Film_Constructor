@@ -27,13 +27,23 @@ public struct NativeAudioReadRequest: Equatable, Codable, Sendable {
     public let destinationOffset: Int
     public let sampleCount: Int
     public let gain: Double
+    /// Absolute offset from this clip's in point, independent of block/seek history.
+    public let clipSampleOffset: Int64
+    public let clipDuration: RationalTime
+    public let sampleRate: Int
+    public let fadeIn: AudioFade
+    public let fadeOut: AudioFade
 
     public init(clipID: UUID, url: URL, streamIndex: Int, sourceChannel: Int, destinationChannel: Int,
-                sourceStartSample: Int64, destinationOffset: Int, sampleCount: Int, gain: Double) {
+                sourceStartSample: Int64, destinationOffset: Int, sampleCount: Int, gain: Double,
+                clipSampleOffset: Int64 = 0, clipDuration: RationalTime = .zero, sampleRate: Int = 48000,
+                fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init()) {
         self.clipID = clipID; self.url = url; self.streamIndex = streamIndex
         self.sourceChannel = sourceChannel; self.destinationChannel = destinationChannel
         self.sourceStartSample = sourceStartSample; self.destinationOffset = destinationOffset
         self.sampleCount = sampleCount; self.gain = gain
+        self.clipSampleOffset = clipSampleOffset; self.clipDuration = clipDuration; self.sampleRate = sampleRate
+        self.fadeIn = fadeIn; self.fadeOut = fadeOut
     }
 }
 
@@ -63,6 +73,9 @@ public struct NativePlaybackPlan: Equatable, Sendable {
         let start: Int64
         let end: Int64
         let gain: Double
+        let duration: RationalTime
+        let fadeIn: AudioFade
+        let fadeOut: AudioFade
     }
 
     public init(_ renderPlan: TimelineRenderPlan) throws {
@@ -92,6 +105,8 @@ public struct NativePlaybackPlan: Equatable, Sendable {
             guard let url = component.originalURL, Self.isLocalOriginal(url) else {
                 throw EditorCoreError.invalidModel("Native playback requires an absolute local original URL")
             }
+            try component.fadeIn.validate(duration: component.sourceRange.duration)
+            try component.fadeOut.validate(duration: component.sourceRange.duration)
             try component.sourceRange.validate()
             try component.timelineRange.validate()
             guard component.layerOrder >= 0,
@@ -120,6 +135,9 @@ public struct NativePlaybackPlan: Equatable, Sendable {
             case .still:
                 throw EditorCoreError.invalidModel("Still-image playback is not qualified by this prototype")
             case .video(let streamIndex):
+                guard component.fadeIn.duration == .zero && component.fadeOut.duration == .zero else {
+                    throw EditorCoreError.invalidModel("Only audio clips support fades")
+                }
                 guard component.routing.outputChannels.isEmpty else {
                     throw EditorCoreError.invalidModel("Video component has audio routing")
                 }
@@ -163,7 +181,8 @@ public struct NativePlaybackPlan: Equatable, Sendable {
                 let end = try Self.add(start, sourceEnd - sourceStart)
                 guard end <= samples else { throw EditorCoreError.invalidModel("Audio range exceeds sequence") }
                 audio.append(AudioClip(clipID: component.clipID, url: url, channels: selection.channels, routing: routing,
-                                       sourceStart: sourceStart, start: start, end: end, gain: component.gain))
+                                       sourceStart: sourceStart, start: start, end: end, gain: component.gain,
+                                       duration: component.timelineRange.duration, fadeIn: component.fadeIn, fadeOut: component.fadeOut))
             }
         }
         self.settings = settings; videoFrames = frames; audioSamples = samples
@@ -204,7 +223,8 @@ public struct NativePlaybackPlan: Equatable, Sendable {
                 result.append(.init(clipID: clip.clipID, url: clip.url, streamIndex: channel.streamIndex,
                                     sourceChannel: channel.channelIndex, destinationChannel: clip.routing[index],
                                     sourceStartSample: sourceStart, destinationOffset: destinationOffset,
-                                    sampleCount: count, gain: clip.gain))
+                                    sampleCount: count, gain: clip.gain, clipSampleOffset: start - clip.start,
+                                    clipDuration: clip.duration, sampleRate: settings.audioSampleRate, fadeIn: clip.fadeIn, fadeOut: clip.fadeOut))
             }
         }
         return result
