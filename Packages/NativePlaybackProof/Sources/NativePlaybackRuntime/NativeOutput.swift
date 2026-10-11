@@ -7,13 +7,8 @@ import UniformTypeIdentifiers
 /// Construct a native image from the selected decoded pixels. ImageIO's PNG is
 /// an inspectable capture, not evidence of a display refresh or Metal rendering.
 public func writeNativeImage(rgb: Data, width: Int, height: Int, to url: URL) throws {
-    guard let provider = CGDataProvider(data: rgb as CFData),
-          let image = CGImage(width: width, height: height, bitsPerComponent: 8,
-                              bitsPerPixel: 24, bytesPerRow: width * 3,
-                              space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: [],
-                              provider: provider, decode: nil, shouldInterpolate: false,
-                              intent: .defaultIntent),
-          let destination = CGImageDestinationCreateWithURL(url as CFURL,
+    let image = try nativeImage(rgb: rgb, width: width, height: height)
+    guard let destination = CGImageDestinationCreateWithURL(url as CFURL,
               UTType.png.identifier as CFString, 1, nil) else {
         throw ProofFailure("Cannot construct native image capture")
     }
@@ -97,4 +92,19 @@ public func renderNativeAudio(monitor: NativeMonitor, start: Int64, count: Int64
         try presented(engine.manualRenderingSampleTime)
         try fillQueue(renderedThrough: position)
     }
+}
+
+/// RGB24 image shared by captures and the development live monitor.
+public func nativeImage(rgb: Data, width: Int, height: Int) throws -> CGImage {
+    guard width > 0, height > 0, width <= 4096, height <= 4096,
+          rgb.count == width * height * 3,
+          let provider = CGDataProvider(data: rgb as CFData),
+          let image = CGImage(width: width, height: height, bitsPerComponent: 8,
+                              bitsPerPixel: 24, bytesPerRow: width * 3,
+                              space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: [],
+                              provider: provider, decode: nil, shouldInterpolate: false,
+                              intent: .defaultIntent) else {
+        throw ProofFailure("Cannot construct native RGB24 image")
+    }
+    return image
 }
