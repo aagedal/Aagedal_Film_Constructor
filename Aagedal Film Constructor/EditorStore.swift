@@ -285,22 +285,30 @@ final class EditorStore: ObservableObject {
         do { try change { $0.preferences.askBeforeAudioTrackLayoutChanges = enabled } } catch { report(error) }
     }
     /// Validate a draft on a copy before the inspector asks to commit a track change.
-    func previewAudioSelection(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting]) throws -> Project {
+    func previewAudioSelection(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], replacingClipIDs: [UUID] = []) throws -> Project {
         var engine = try TimelineEditEngine(project: project)
-        try engine.apply(.selectAudioSource(clipID: clipID, selections: selections, routing: routing))
+        try engine.apply(audioSelectionCommand(clipID: clipID, selections: selections, routing: routing, replacingClipIDs: replacingClipIDs))
         return engine.project
     }
-    func applyAudioSelection(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], expectedProject: Project) throws {
+    func applyAudioSelection(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], replacingClipIDs: [UUID] = [], expectedProject: Project) throws {
         guard project == expectedProject else {
             throw EditorCoreError.invalidModel("The project changed while editing audio. Reopen source selection to review the current clip.")
         }
         try change {
             var engine = try TimelineEditEngine(project: $0)
-            try engine.apply(.selectAudioSource(clipID: clipID, selections: selections, routing: routing))
+            try engine.apply(audioSelectionCommand(clipID: clipID, selections: selections, routing: routing, replacingClipIDs: replacingClipIDs))
             $0 = engine.project
         }
         selectedClipID = clipID
-        statusMessage = "Updated audio source channels and output routing."
+        statusMessage = replacingClipIDs.isEmpty ? "Updated audio source channels and output routing."
+            : "Combined \(replacingClipIDs.count + 1) audio components. Linked picture and timing preserved."
+    }
+    private func audioSelectionCommand(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], replacingClipIDs: [UUID]) throws -> EditCommand {
+        guard !replacingClipIDs.isEmpty else {
+            return .selectAudioSource(clipID: clipID, selections: selections, routing: routing)
+        }
+        guard selections.count == 1, routing.count == 1 else { throw TimelineEditError.incompatibleAudioConsolidation }
+        return .consolidateAudioSources(clipID: clipID, replacingClipIDs: replacingClipIDs, selection: selections[0], routing: routing[0])
     }
     private func editTime(_ seconds: Double) throws -> RationalTime {
         guard let clip = selectedClip else { return try time(seconds) }

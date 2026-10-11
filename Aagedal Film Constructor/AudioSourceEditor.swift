@@ -12,10 +12,12 @@ struct AudioSourceEditor: View {
     @State private var channels: [SourceChannel]
     @State private var destinations: [Int]
     @State private var separateMono = false
+    @State private var replacingClipIDs: Set<UUID> = []
     @State private var errorMessage: String?
     @State private var confirmationMessage: String?
     @State private var pendingSelections: [AudioSourceSelection] = []
     @State private var pendingRouting: [AudioRouting] = []
+    @State private var pendingReplacementIDs: [UUID] = []
 
     init(store: EditorStore, clip: TimelineClip) {
         self.store = store
@@ -41,18 +43,42 @@ struct AudioSourceEditor: View {
         for value in [layout] + asset.streams.compactMap(\.audioLayout) where !result.contains(value) { result.append(value) }
         return result
     }
+    private var consolidationCandidates: [TimelineClip] {
+        (try? originalProject.audioConsolidationCandidates(for: clip.id)) ?? []
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Audio source channels").font(.title2.bold())
             Text(asset.name).foregroundStyle(.secondary)
-            Text("Choose each source channel and its sequence output. Other linked components keep their source selections and timing.")
+            Text("Choose each source channel and its sequence output. Linked picture and timing stay unchanged.")
                 .font(.callout)
+            if !consolidationCandidates.isEmpty {
+                GroupBox("Combine linked audio components") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Include components to replace with this one. Choose the resulting layout and source map below; unselected components stay in the sequence.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(consolidationCandidates) { component in
+                                    Toggle(componentName(component), isOn: Binding(
+                                        get: { replacingClipIDs.contains(component.id) },
+                                        set: { included in
+                                            if included { replacingClipIDs.insert(component.id); separateMono = false }
+                                            else { replacingClipIDs.remove(component.id) }
+                                        }
+                                    ))
+                                }
+                            }.frame(maxWidth: .infinity, alignment: .leading)
+                        }.frame(height: min(110, CGFloat(consolidationCandidates.count) * 45))
+                    }.frame(maxWidth: .infinity, alignment: .leading).padding(4)
+                }
+            }
             Picker("Component layout", selection: Binding(get: { layout }, set: changeLayout)) {
                 ForEach(layouts, id: \.self) { value in Text(layoutName(value)).tag(value) }
             }
             Toggle("Create separate mono components", isOn: $separateMono)
-                .disabled(channels.count < 2)
+                .disabled(channels.count < 2 || !replacingClipIDs.isEmpty)
             Text(separateMono ? "Each row becomes a mono component on a compatible track. Components remain linked for timing edits." : "All rows form one component in the chosen speaker order.")
                 .font(.caption).foregroundStyle(.secondary)
             ScrollView {
@@ -120,24 +146,31 @@ struct AudioSourceEditor: View {
             let identity = layout == originalProject.settings.audioLayout && destinations == Array(channels.indices)
             pendingRouting = separateMono ? destinations.map { AudioRouting(outputChannels: [$0]) }
                 : [AudioRouting(outputChannels: identity ? [] : destinations)]
-            let candidate = try store.previewAudioSelection(clipID: clip.id, selections: pendingSelections, routing: pendingRouting)
+            pendingReplacementIDs = consolidationCandidates.map(\.id).filter { replacingClipIDs.contains($0) }
+            let candidate = try store.previewAudioSelection(clipID: clip.id, selections: pendingSelections, routing: pendingRouting, replacingClipIDs: pendingReplacementIDs)
             let changedTracks = candidate.tracks.filter { track in
                 guard let before = originalProject.tracks.first(where: { $0.id == track.id }) else { return true }
                 return track.template != before.template
             }
             let removedCount = originalProject.tracks.filter { old in !candidate.tracks.contains { $0.id == old.id } }.count
-            if originalProject.preferences.askBeforeAudioTrackLayoutChanges && (!changedTracks.isEmpty || removedCount > 0) {
+            if originalProject.preferences.askBeforeAudioTrackLayoutChanges && (!changedTracks.isEmpty || removedCount > 0 || !pendingReplacementIDs.isEmpty) {
                 let details = changedTracks.map { "\($0.displayName(in: candidate)): \(layoutName($0.audioLayout ?? .mono))" }.joined(separator: "\n")
-                confirmationMessage = "\(channels.count) source channels → \(pendingSelections.count) component(s).\n\(details)\n\(removedCount) empty track(s) removed. Source in, duration, and linked video stay unchanged."
+                let combined = pendingReplacementIDs.isEmpty ? "" : "Combining \(pendingReplacementIDs.count + 1) existing components.\n"
+                confirmationMessage = "\(combined)\(channels.count) source channels → \(pendingSelections.count) component(s).\n\(details)\n\(removedCount) empty track(s) removed. Source in, duration, and linked video stay unchanged."
             } else { commit() }
         } catch { errorMessage = String(describing: error) }
     }
     private func commit() {
         do {
-            try store.applyAudioSelection(clipID: clip.id, selections: pendingSelections, routing: pendingRouting, expectedProject: originalProject)
+            try store.applyAudioSelection(clipID: clip.id, selections: pendingSelections, routing: pendingRouting, replacingClipIDs: pendingReplacementIDs, expectedProject: originalProject)
             dismiss()
         } catch { errorMessage = String(describing: error) }
         confirmationMessage = nil
+    }
+    private func componentName(_ component: TimelineClip) -> String {
+        let track = originalProject.tracks.first { $0.clips.contains { $0.id == component.id } }
+        guard case .audio(let selection) = component.selection else { return "Audio" }
+        return "\(track?.displayName(in: originalProject) ?? "Audio") · " + selection.channels.map(channelName).joined(separator: ", ")
     }
     private func channelName(_ channel: SourceChannel) -> String {
         guard let stream = asset.streams.first(where: { $0.index == channel.streamIndex }) else { return "Missing stream" }

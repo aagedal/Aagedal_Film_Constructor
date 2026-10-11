@@ -34,15 +34,17 @@ sequence timecode and frame stepping, and an empty-track cleanup preference are
 available. Timeline clips display asynchronous filmstrips and channel waveforms;
 Settings includes persistent keyboard shortcut remapping and conflict checks.
 Audio components support explicit source/output channel selection with track
-adaptation and optional confirmation. See [basic testing instructions](docs/basic-workspace.md).
+adaptation and optional confirmation. Aligned linked audio components with the
+same source, track family, and gain can be combined into one explicitly mapped
+component. See [basic testing instructions](docs/basic-workspace.md).
 
 This is the first usable assembly workspace. The monitor previews original
 sources, not the edited sequence. Native timeline playback, bundled FFmpeg,
 proxies, fades, and export remain unfinished. Still images currently have a
 five-second extent; initial audio placement supports stereo and mono duplicated to stereo, with other layouts
 requiring an initial-placement workflow. Once an audio component exists, its
-source channels and output routing can be changed in the inspector. Combining
-existing separate components into one is still pending.
+source channels and output routing can be changed in the inspector, including
+combining compatible separate components into one.
 
 `Packages/EditorCore` is the independent Swift 6 timeline model and editing
 engine. The app targets macOS 14+; the inherited project format requires a

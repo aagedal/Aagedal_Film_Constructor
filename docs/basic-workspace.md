@@ -51,8 +51,17 @@ macOS 14+. On the initial file dialog choose **New Document** (or use File → N
    confirmation for track reconfiguration/creation/cleanup. Cancel leaves the
    project untouched. Try undo/redo and save/reopen to verify maps and routing.
    Routing several channels to one output explicitly sums them; there is no
-   automatic downmix gain or level adjustment. Changing one of several linked
-   audio components changes that component; consolidation is not yet available.
+   automatic downmix gain or level adjustment. To combine separate components,
+   reopen **Audio source channels…** on one and check the additional components
+   under **Combine linked audio components**. Choose the resulting layout and
+   source/output map, then Apply. Only checked components are replaced; unchecked
+   audio and linked picture remain intact. Eligible components share the same
+   asset, source range, timeline start, linked group, family and gain. Different
+   timing or gain must be resolved separately. Try combining two mono components
+   into stereo or selecting a source 5.1 stream with explicit output routing.
+   Cancel the confirmation, then apply and undo/redo; save/reopen the result.
+   Verify obsolete empty tracks follow the cleanup preference and retained tracks
+   survive. Separate mono creation is disabled while combining components.
 10. Open **Settings → Keyboard Shortcuts** (⌘,). Select a command, change its key
     and modifiers, and **Apply**. Conflicts and reserved application shortcuts
     block Apply. Clear removes a binding after Apply; reset restores defaults.

@@ -12,12 +12,14 @@ public enum EditCommand: Sendable {
     case delete(clipID: UUID)
     /// Replace one audio component with explicitly mapped components, preserving linked picture/timing.
     case selectAudioSource(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting])
+    /// Replace explicitly chosen, aligned linked audio components with one mapped component.
+    case consolidateAudioSources(clipID: UUID, replacingClipIDs: [UUID], selection: AudioSourceSelection, routing: AudioRouting)
 }
 
 public enum TimelineEditError: Error, Equatable, Sendable {
     case missingClip, missingTrack, missingFamily, incompatibleTrack, duplicateClip
     case invalidSplit, unsupportedLinkedSplit
-    case invalidAudioSelection, incompatibleAudioRouting
+    case invalidAudioSelection, incompatibleAudioRouting, incompatibleAudioConsolidation
 }
 
 /// Value snapshots make placement, sibling creation and cleanup one atomic history entry.
@@ -48,6 +50,11 @@ public struct TimelineEditEngine: Sendable {
         let ids = try Self.selectAudioSource(clipID: clipID, selections: selections, routing: routing, in: &candidate)
         try commit(candidate)
         return ids
+    }
+
+    /// The selected identity survives; only the explicitly listed additional components are removed.
+    public mutating func consolidateAudioSources(clipID: UUID, replacingClipIDs: [UUID], selection: AudioSourceSelection, routing: AudioRouting) throws {
+        try apply(.consolidateAudioSources(clipID: clipID, replacingClipIDs: replacingClipIDs, selection: selection, routing: routing))
     }
 
     private mutating func commit(_ proposed: Project) throws {
@@ -122,7 +129,7 @@ public struct TimelineEditEngine: Sendable {
         for index in project.tracks.indices { project.tracks[index].clips.removeAll { ids.contains($0.id) } }
     }
 
-    private static func selectAudioSource(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], in project: inout Project) throws -> [UUID] {
+    private static func selectAudioSource(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], replacingClipIDs: [UUID] = [], in project: inout Project) throws -> [UUID] {
         guard let trackIndex = project.tracks.firstIndex(where: { $0.clips.contains(where: { $0.id == clipID }) }),
               let selected = project.tracks[trackIndex].clips.first(where: { $0.id == clipID }) else {
             throw TimelineEditError.missingClip
@@ -131,7 +138,14 @@ public struct TimelineEditEngine: Sendable {
             throw TimelineEditError.invalidAudioSelection
         }
         let origin = project.tracks[trackIndex]
-        if selections.count == 1, selected.selection == .audio(selections[0]), origin.template.routing == routing[0] {
+        if !replacingClipIDs.isEmpty {
+            let eligible = Set(try project.audioConsolidationCandidates(for: clipID).map(\.id))
+            guard selections.count == 1, Set(replacingClipIDs).count == replacingClipIDs.count,
+                  replacingClipIDs.allSatisfy({ eligible.contains($0) }) else {
+                throw TimelineEditError.incompatibleAudioConsolidation
+            }
+        }
+        if replacingClipIDs.isEmpty, selections.count == 1, selected.selection == .audio(selections[0]), origin.template.routing == routing[0] {
             return [clipID]
         }
         for (selection, route) in zip(selections, routing) {
@@ -146,7 +160,7 @@ public struct TimelineEditEngine: Sendable {
                 }
             }
         }
-        remove([clipID], from: &project)
+        remove(Set(replacingClipIDs + [clipID]), from: &project)
         let group = selected.linkGroupID ?? (selections.count > 1 ? UUID() : nil)
         var ids: [UUID] = []
         for (index, pair) in zip(selections, routing).enumerated() {
@@ -156,7 +170,8 @@ public struct TimelineEditEngine: Sendable {
             clip.linkGroupID = group
             ids.append(clip.id)
             func available(_ track: TimelineTrack) throws -> Bool {
-                guard track.familyID == origin.familyID, compatible(clip, track: track), track.template.routing == pair.1 else { return false }
+                guard track.familyID == origin.familyID, compatible(clip, track: track), track.template.routing == pair.1,
+                      replacingClipIDs.isEmpty || track.template.gain == origin.template.gain else { return false }
                 let range = try clip.timelineRange()
                 return try !track.clips.contains(where: { try $0.timelineRange().overlaps(range) })
             }
@@ -244,6 +259,9 @@ public struct TimelineEditEngine: Sendable {
             remove(Set(components.map { $0.clip.id }), from: &project)
         case .selectAudioSource(let clipID, let selections, let routing):
             _ = try selectAudioSource(clipID: clipID, selections: selections, routing: routing, in: &project)
+        case .consolidateAudioSources(let clipID, let replacingClipIDs, let selection, let routing):
+            guard !replacingClipIDs.isEmpty else { throw TimelineEditError.incompatibleAudioConsolidation }
+            _ = try selectAudioSource(clipID: clipID, selections: [selection], routing: [routing], replacingClipIDs: replacingClipIDs, in: &project)
         }
     }
 }
