@@ -14,6 +14,7 @@ swiftc -module-cache-path "$smoke_root/module-cache" -parse-as-library \
   "$repo_root/Aagedal Film Constructor/EditorStore.swift" \
   "$repo_root/Aagedal Film Constructor/EditorExport.swift" \
   "$repo_root/Aagedal Film Constructor/EditorProxy.swift" \
+  "$repo_root/Aagedal Film Constructor/EditorProxyQueue.swift" \
   "$repo_root/Aagedal Film Constructor/ProxyGenerationService.swift" \
   "$repo_root/Aagedal Film Constructor/SequenceExportService.swift" \
   "$repo_root/Aagedal Film Constructor/ShortcutBinding.swift" \

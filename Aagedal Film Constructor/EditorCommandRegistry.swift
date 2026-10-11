@@ -74,7 +74,8 @@ final class EditorCommandRegistry: ObservableObject {
         case .appendSource: return store.selectedAsset != nil && !store.isImporting
         case .splitClip, .deleteClip: return store.selectedClip != nil
         case .previousFrame, .nextFrame: return true
-        case .playReverse, .pausePlayback, .playForward: return store.sourcePlayer != nil
+        case .playReverse: return store.sourcePlayer != nil
+        case .pausePlayback, .playForward: return store.canControlSourceTransport
         case .exportSequence, .exportFCPXML: return store.duration > 0 && store.renderExportDraft == nil && store.audioAppendAsset == nil
         }
     }

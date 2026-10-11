@@ -44,7 +44,10 @@ This is the first usable assembly workspace. The monitor previews sources;
 native timeline playback and release media-helper packaging remain unfinished.
 The bin supports batch ProRes Proxy/H.264 creation, cancellable verified jobs,
 saved proxy references, and a hires/proxy source-preview toggle with original
-audio and missing/stale fallback. See [proxy scope and testing](docs/proxies.md).
+audio and missing/stale/modified fallback. Newly generated proxies have recorded
+SHA-256 hashes and can be relinked after relocation with one undoable reference/grant
+change. Proxy jobs persist with the project and can be manually resumed after
+interruption or reopening. See [proxy scope and testing](docs/proxies.md).
 A development sequence render workflow
 exports MOV/ProRes 422 HQ with PCM audio, progress, cancellation, and FFprobe
 verification when explicitly prepared helpers are bundled. PNG/JPEG stills,
@@ -63,6 +66,10 @@ Use “Append with audio selection…” in the bin to choose channels and outpu
 before insertion, or omit audio from picture. Once an audio component exists, its
 source channels and output routing can be changed in the inspector, including
 combining compatible separate components into one.
+
+EditorCore also has a conservative [stream-copy assessment](docs/stream-copy.md)
+with separate picture/audio reasons. It requires exact packet evidence that the
+current importer does not produce; stream-copy export remains unimplemented.
 
 `Packages/EditorCore` is the independent Swift 6 timeline model and editing
 engine. The app targets macOS 14+; the inherited project format requires a

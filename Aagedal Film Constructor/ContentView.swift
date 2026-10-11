@@ -52,6 +52,11 @@ struct ContentView: View {
                         .disabled(store.selectedAsset?.streams.contains(where: { $0.kind == .audio }) != true || store.isImporting)
                 } label: { Label("Audio placement", systemImage: "waveform.badge.plus") }
                 Menu {
+                    Button("Create proxies…") { store.beginProxyCreation() }
+                        .disabled(!store.project.assets.contains { store.selectedAssetIDs.contains($0.id) && $0.streams.contains { $0.kind == .video } } || store.proxyGenerationTask != nil || store.isRelinkingProxy)
+                    Button("Proxy queue…") { store.showProxyQueue = true }
+                } label: { Label("Proxies", systemImage: "film.stack") }
+                Menu {
                     Toggle("Media bin", isOn: $showMediaBin)
                     Toggle("Inspector", isOn: $showInspector)
                     Toggle("Timeline", isOn: $showTimeline)
@@ -80,6 +85,9 @@ struct ContentView: View {
         }
         .sheet(item: $store.proxyCreationDraft) { draft in
             ProxyCreationView(store: store, draft: draft)
+        }
+        .sheet(isPresented: $store.showProxyQueue) {
+            ProxyQueueView(store: store)
         }
         .sheet(item: $store.audioAppendAsset) { asset in
             AudioSourceEditor(store: store, asset: asset)
@@ -123,7 +131,11 @@ struct ContentView: View {
                         .padding(.vertical, 4).tag(asset.id)
                         .contextMenu {
                             Button("Create proxies…") { store.beginProxyCreation(assetID: asset.id) }
-                                .disabled(!asset.streams.contains(where: { $0.kind == .video }) || store.proxyGenerationTask != nil)
+                                .disabled(!asset.streams.contains(where: { $0.kind == .video }) || store.proxyGenerationTask != nil || store.isRelinkingProxy)
+                            if asset.proxy != nil {
+                                Button("Relink proxy…") { store.beginProxyRelink(assetID: asset.id) }
+                                    .disabled(store.isRelinkingProxy || store.proxyGenerationTask != nil)
+                            }
                             Button("Append to timeline") {
                                 store.selectAsset(asset.id)
                                 store.appendSelectedAsset()
@@ -181,14 +193,16 @@ struct ContentView: View {
                     Button(action: store.playSourceBackwards) { Image(systemName: "backward.fill") }
                         .accessibilityLabel("Play source backwards")
                         .help("Play source backwards (silent)")
+                        .disabled(store.sourcePlayer == nil)
                     Button(action: store.pauseSource) { Image(systemName: "pause.fill") }
                         .accessibilityLabel("Pause source")
                         .help("Pause source")
+                        .disabled(!store.canControlSourceTransport)
                     Button(action: store.playSourceForwards) { Image(systemName: "play.fill") }
                         .accessibilityLabel("Play source forwards")
                         .help("Play source forwards")
+                        .disabled(!store.canControlSourceTransport)
                 }
-                .disabled(store.sourcePlayer == nil)
                 if let asset = store.selectedAsset { Text("\(asset.duration.seconds, specifier: "%.2f") seconds").font(.caption.monospacedDigit()) }
             }.padding(10)
         }

@@ -5,9 +5,24 @@ right-click a selected item, and choose **Create proxies…**. ProRes Proxy is t
 default; H.264 is optional. Choose full, half (default), or quarter resolution,
 then an output folder. Each batch runs sequentially, with at most two jobs admitted
 across document windows. Additional concurrent requests report a busy error and
-can be retried. Jobs report individual failures and
-can be canceled. Successfully completed assets remain registered when a later
-job fails or is canceled. Rerun creation to resume the remaining assets.
+can be retried. Jobs report individual failures and can be canceled. Successfully
+completed assets remain registered when a later job fails or is canceled.
+
+The **Proxies** toolbar menu opens the persistent queue. Jobs save their codec,
+resolution, source snapshot/fingerprint, unique destination and output-folder
+access grant with the project. Closing the queue leaves generation running;
+closing the document cancels it. After save/reopen, running jobs become interrupted
+and nothing starts automatically. Choose **Resume queue** for unfinished jobs,
+or **Retry** for one job. Source changes require a new job. Remove unwanted entries
+or clear completed entries without deleting files or registered proxies.
+
+An interrupted job can recover an already published output only when its saved
+verified metadata matches the file's exact bytes. If an existing output has no
+saved verification record, it is retained and the job fails. **Retry to new file**
+chooses another unique destination. Queue state follows normal document save and
+autosave; it is not a separate crash journal. An unsaved publication can therefore
+leave an orphan file requiring that explicit retry. Queue status and progress stay
+outside timeline edit undo; successful proxy registration remains undoable.
 
 The application uses explicitly bundled FFmpeg/FFprobe helpers; ordinary builds
 contain none. See [helper preparation](media-helper-packaging.md). H.264 requires
@@ -33,10 +48,15 @@ change timeline edits, clip scaling, sequence settings, filmstrips or waveforms.
 Rendered exports and FCPXML continue to reference originals.
 
 Proxy references and separate file-access grants survive save/open. Relinking an
-original clears its proxy reference in the same undoable action. Missing proxy
-files can be regenerated; explicit proxy relinking and a persistent job queue
-are not implemented. The hires/proxy choice is a session preference rather than
-an edit saved in the project.
+original clears its proxy reference in the same undoable action. To relocate a
+generated proxy, right-click its source and choose **Relink proxy…**, then select
+the moved MOV file. Relinking verifies its recorded byte identity asynchronously
+before changing the reference and sandbox grant in one undoable action. A different
+file is refused even if its dimensions and duration match. The original must remain
+available and unchanged. Regenerate older proxies that have no recorded hash before
+relinking them. Missing proxies can also be regenerated. The hires/proxy choice is
+a session preference rather than an
+edit saved in the project.
 
 ## Qualified subset
 
@@ -55,8 +75,13 @@ Source freshness uses file size and modification time, checked before and after
 generation and when choosing playback. This is a metadata fingerprint, not a
 content hash: replacement bytes with identical size and modification time are
 not detected automatically. Explicit original relinking always invalidates the
-proxy. Proxy files themselves are trusted after generation; external replacement
-of a proxy is not detected by a stored output hash.
+proxy. Newly generated proxies record their file size and SHA-256 hash. Choosing
+proxy playback checks the file in bounded chunks off the main actor; a mismatch
+falls back to originals with a visible modified-proxy status. This detects changed
+bytes even when size and modification time are preserved. Legacy unhashed proxies
+remain playable with the earlier trust model until regenerated. Verification occurs
+when loading the representation; it does not continuously monitor a file during
+playback or prevent external changes after verification.
 
 Source/frame probe output is limited to 2 MB per subprocess. Long sources can
 exceed that limit and are rejected without publication. Generation scans all
@@ -67,6 +92,9 @@ Run `scripts/proxy-service-smoke.sh` with explicit development helpers to exerci
 real encoding, fractional-rate/timecode preservation, unsupported media rejection,
 cancellation, failure and atomic publication. `scripts/proxy-workspace-smoke.sh`
 exercises source composition, transport switching, grants, history, and reopen.
+`scripts/proxy-queue-smoke.sh` covers persisted jobs, manual resume, interrupted
+publication recovery, destination conflicts, single-job retries, stale sources,
+cancellation, legacy documents and queue/undo separation.
 These tests use development helpers and unsigned runners; native dialog gestures,
 hardware playback quality/sync, and signed sandbox grants across launches still
 require manual qualification. Edited-sequence monitoring is not enabled.

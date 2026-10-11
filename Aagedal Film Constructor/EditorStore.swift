@@ -9,14 +9,19 @@ final class EditorStore: ObservableObject {
     @Published var project: Project = Project(settings: try! SequenceSettings())
     @Published var mediaBookmarks: [UUID: Data] = [:]
     @Published var proxyBookmarks: [UUID: Data] = [:]
+    @Published var proxyJobs: [ProxyGenerationJob] = []
+    @Published var proxyQueueProgress: [UUID: SequenceExportProgress] = [:]
+    @Published var showProxyQueue = false
     @Published var selectedAssetIDs: Set<UUID> = []
     @Published var proxyCreationDraft: ProxyCreationDraft?
     @Published var playbackRepresentation: PlaybackRepresentation = .original
     @Published var proxyPlaybackMessage = "Original source"
-    var pendingSourceTransport: (time: CMTime, playing: Bool)?
+    @Published var pendingSourceTransport: (time: CMTime, playing: Bool)?
     var sourceRevisions: [UUID: UUID] = [:]
     var sourcePreviewTask: Task<Void, Never>?
     var proxyGenerationTask: Task<Void, Never>?
+    var proxyRelinkTask: Task<Void, Never>?
+    @Published var isRelinkingProxy = false
     @Published var selectedAssetID: UUID?
     @Published var selectedClipID: UUID?
     @Published var audioAppendAsset: MediaAsset?
@@ -42,6 +47,7 @@ final class EditorStore: ObservableObject {
     var duration: Double { (try? TimelineRenderPlan(project: project).duration.seconds) ?? 0 }
     var selectedAsset: MediaAsset? { project.assets.first { $0.id == selectedAssetID } }
     var selectedClip: TimelineClip? { project.tracks.flatMap(\.clips).first { $0.id == selectedClipID } }
+    var canControlSourceTransport: Bool { sourcePlayer != nil || pendingSourceTransport != nil }
 
     func load(_ document: ProjectDocument) {
         close()
@@ -55,6 +61,10 @@ final class EditorStore: ObservableObject {
         project = document.project
         mediaBookmarks = document.mediaBookmarks
         proxyBookmarks = document.proxyBookmarks
+        proxyJobs = document.proxyJobs.map { job in
+            var restored = job; restored.prepareAfterReopen(); return restored
+        }
+        proxyQueueProgress = [:]
         resolveProxyBookmarks()
         for index in project.assets.indices {
             let id = project.assets[index].id
@@ -80,8 +90,16 @@ final class EditorStore: ObservableObject {
         renderExportDraft = nil
         importTask?.cancel()
         sourcePreviewTask?.cancel()
+        for index in proxyJobs.indices where proxyJobs[index].state == .running {
+            proxyJobs[index].prepareAfterReopen()
+        }
+        showProxyQueue = false
+        proxyQueueProgress = [:]
         proxyGenerationTask?.cancel()
         proxyGenerationTask = nil
+        proxyRelinkTask?.cancel()
+        proxyRelinkTask = nil
+        isRelinkingProxy = false
         sourceRevisions.removeAll()
         pendingSourceTransport = nil
         proxyCreationDraft = nil
@@ -177,7 +195,14 @@ final class EditorStore: ObservableObject {
 
     func playSourceForwards() {
         pauseSource()
-        guard let player = sourcePlayer, let asset = selectedAsset else { return }
+        guard let asset = selectedAsset else { return }
+        guard let player = sourcePlayer else {
+            if let pending = pendingSourceTransport {
+                let time = pending.time.seconds >= asset.duration.seconds - 0.001 ? CMTime.zero : pending.time
+                pendingSourceTransport = (time, true)
+            }
+            return
+        }
         sourceTransportTask = Task {
             if player.currentTime().seconds >= asset.duration.seconds - 0.001 {
                 await player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)

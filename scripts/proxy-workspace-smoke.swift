@@ -59,8 +59,22 @@ struct ProxyWorkspaceSmoke {
         let forward = try await awaitPlayer(reopened)
         try check(forward.rate > 0, "Rapid switches preserve forward play intent")
         reopened.pauseSource()
-        // Removing the selected import must cancel all pending preview work, even
-        // when that work has already advanced from composition loading into seeking.
+        reopened.setPlaybackRepresentation(.proxy)
+        try check(reopened.sourcePlayer == nil && reopened.canControlSourceTransport, "Loading proxy keeps forward/pause transport available")
+        reopened.playSourceForwards()
+        try check(reopened.pendingSourceTransport?.playing == true, "Forward during verification records play intent")
+        reopened.pauseSource()
+        try check(reopened.pendingSourceTransport?.playing == false, "Pause during verification clears play intent")
+        let pausedAfterVerification = try await awaitPlayer(reopened)
+        try check(pausedAfterVerification.rate == 0, "Pause during verification prevents auto-resume")
+        reopened.setPlaybackRepresentation(.original)
+        _ = try await awaitPlayer(reopened)
+        reopened.setPlaybackRepresentation(.proxy)
+        reopened.playSourceForwards()
+        let resumedAfterVerification = try await awaitPlayer(reopened)
+        try check(resumedAfterVerification.rate > 0, "Forward during verification resumes playback")
+        reopened.pauseSource()
+        // Removing selected media cancels pending preview work and transport intent.
         let removed = EditorStore()
         try removed.registerImportedMedia(imported)
         let pending = Task<Void, Never> { @MainActor in
@@ -86,6 +100,58 @@ struct ProxyWorkspaceSmoke {
         try FileManager.default.moveItem(at: proxy.url, to: hidden)
         reopened.refreshSourcePreview(preservingTransport: true)
         try check(reopened.sourcePlayer != nil && reopened.proxyPlaybackMessage.contains("missing"), "Missing proxy falls back immediately")
+        let beforeRelink = reopened.project
+        let beforeRelinkGrant = reopened.proxyBookmarks[imported.asset.id]
+        let expectedRelink = reopened.selectedAsset!
+        do {
+            try await reopened.relinkProxy(for: expectedRelink, to: source, epoch: reopened.mediaEpoch, sourceRevision: nil)
+            throw SmokeError.failed("Unrelated replacement proxy accepted")
+        } catch SequenceExportError.verification { }
+        try check(reopened.project == beforeRelink && reopened.proxyBookmarks[imported.asset.id] == beforeRelinkGrant, "Rejected relink preserves project and access")
+        try await reopened.relinkProxy(for: expectedRelink, to: hidden, epoch: reopened.mediaEpoch, sourceRevision: nil)
+        _ = try await awaitPlayer(reopened)
+        try check(reopened.selectedAsset?.proxy?.url == hidden && reopened.selectedAsset?.proxy?.id == proxy.id,
+                  "Relink preserves identity and restores moved proxy")
+        let relinkGrant = reopened.proxyBookmarks[imported.asset.id]
+        try check(relinkGrant != nil && relinkGrant != beforeRelinkGrant, "Relink persists replacement sandbox grant")
+        try check(reopened.project.tracks == beforeRelink.tracks && reopened.selectedAsset?.originalURL == expectedRelink.originalURL,
+                  "Relink preserves original source and timeline")
+        reopened.undo()
+        try check(reopened.selectedAsset?.proxy == expectedRelink.proxy && reopened.proxyBookmarks[imported.asset.id] == beforeRelinkGrant,
+                  "Undo relink restores proxy URL and sandbox grant")
+        reopened.redo()
+        try check(reopened.selectedAsset?.proxy?.url == hidden && reopened.proxyBookmarks[imported.asset.id] == relinkGrant,
+                  "Redo relink restores moved proxy and sandbox grant")
+        let relinkedDocument = ProjectDocument(project: reopened.project, mediaBookmarks: reopened.mediaBookmarks, proxyBookmarks: reopened.proxyBookmarks)
+        let relinkedStore = EditorStore()
+        defer { relinkedStore.close() }
+        relinkedStore.load(try ProjectDocument(data: relinkedDocument.encodedData()))
+        try check(relinkedStore.project.assets.first?.proxy?.url.resolvingSymlinksInPath() == hidden.resolvingSymlinksInPath() && relinkedStore.proxyBookmarks[imported.asset.id] != nil,
+                  "Relink survives save and reopen")
+        do {
+            try await reopened.relinkProxy(for: reopened.selectedAsset!, to: hidden, epoch: UUID(), sourceRevision: nil)
+            throw SmokeError.failed("Old document relink accepted")
+        } catch EditorCoreError.invalidModel { }
+        var legacy = reopened.selectedAsset!
+        legacy.proxy?.outputIntegrity = nil
+        do {
+            try await reopened.relinkProxy(for: legacy, to: hidden, epoch: reopened.mediaEpoch, sourceRevision: nil)
+            throw SmokeError.failed("Legacy unverified proxy relink accepted")
+        } catch SequenceExportError.verification { }
+        let verifiedBytes = try Data(contentsOf: hidden)
+        let handle = try FileHandle(forWritingTo: hidden)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data([0]))
+        try handle.close()
+        reopened.refreshSourcePreview(preservingTransport: true)
+        _ = try await awaitPlayer(reopened)
+        try check(reopened.proxyPlaybackMessage.contains("modified") && reopened.sourcePlayer?.currentItem?.asset is AVURLAsset,
+                  "Modified proxy picture falls back to original")
+        try verifiedBytes.write(to: hidden)
+        reopened.refreshSourcePreview(preservingTransport: true)
+        _ = try await awaitPlayer(reopened)
+        try check(reopened.proxyPlaybackMessage.contains("original audio"), "Restored exact proxy bytes resume proxy playback")
+        reopened.undo()
         try FileManager.default.moveItem(at: hidden, to: proxy.url)
         try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(10)], ofItemAtPath: source.path)
         reopened.refreshSourcePreview(preservingTransport: true)
@@ -96,7 +162,10 @@ struct ProxyWorkspaceSmoke {
         } catch EditorCoreError.invalidModel { }
         let oldEpoch = reopened.mediaEpoch
         reopened.proxyGenerationTask = Task { try? await Task.sleep(for: .seconds(60)) }
+        reopened.proxyRelinkTask = Task { try? await Task.sleep(for: .seconds(60)) }
+        reopened.isRelinkingProxy = true
         reopened.close()
+        try check(reopened.proxyRelinkTask == nil && !reopened.isRelinkingProxy, "Close cancels proxy relink")
         try check(reopened.proxyGenerationTask == nil && reopened.sourceRevisions.isEmpty, "Close clears cancelled jobs and source revisions")
         reopened.load(document)
         try check(reopened.proxyGenerationTask == nil, "Reopen allows new proxy jobs")
@@ -104,7 +173,7 @@ struct ProxyWorkspaceSmoke {
             try reopened.registerProxy(proxy, for: imported.asset, epoch: oldEpoch, sourceRevision: nil)
             throw SmokeError.failed("Old document generation accepted")
         } catch EditorCoreError.invalidModel { }
-        print("Proxy workspace smoke passed: composition, original audio, switching, persistence, undo, fallback, and stale registration")
+        print("Proxy workspace smoke passed: composition, original audio, switching, persistence, relink validation and undo, fallback, and stale registration")
     }
 
     @MainActor private static func awaitPlayer(_ store: EditorStore) async throws -> AVPlayer {
