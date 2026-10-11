@@ -44,6 +44,25 @@ track and report notes before saving and handle the resulting EDL as a track
 interchange document. Native Final Cut Pro/Resolve import and media conform remain
 unqualified; no rendered picture/audio equivalence is claimed.
 
+## App workflow
+
+Choose **Export track EDL…** in the toolbar Export menu or File menu. The sheet
+captures the project when opened and initially selects the selected clip's track
+(or the first nonempty track). Choose the intended track explicitly; other tracks
+and any later sequence tail are excluded. Enter a unique uppercase reel, exact
+source rate and start timecode for each original on that track, then confirm that
+you verified those values and each video's constant frame rate. These are manual
+source declarations, not automatic probe results. Changing a field or track clears
+the confirmation. No zero timecode or sequence-rate default is supplied.
+
+**Choose EDL file…** validates the entire selected track before opening the save
+panel. Unsupported edits show reasons without producing a partial EDL. The panel
+shows the format/receiver limitations before saving. Export leaves the document
+and undo history intact, and protects original media destinations, including
+symlink and hard-link aliases. The command is remappable in shortcut Settings;
+it has no assigned default shortcut. Source declarations remain local to the
+sheet and are not project metadata.
+
 ## Format references and verification
 
 The [OpenTimelineIO adapter documentation](https://opentimelineio.readthedocs.io/en/v0.15/tutorials/adapters.html)

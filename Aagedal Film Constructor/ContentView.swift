@@ -69,6 +69,7 @@ struct ContentView: View {
                 Menu {
                     Button("Render sequence…", action: store.beginRenderExport)
                     Button("Export FCPXML…", action: store.exportFCPXML)
+                    Button("Export track EDL…", action: store.beginEDLExport)
                 } label: { Label("Export", systemImage: "square.and.arrow.up") }
                 .disabled(store.duration <= 0)
             }
@@ -91,6 +92,9 @@ struct ContentView: View {
         }
         .sheet(item: $store.audioAppendAsset) { asset in
             AudioSourceEditor(store: store, asset: asset)
+        }
+        .sheet(item: $store.edlExportDraft) { draft in
+            EDLExportView(store: store, draft: draft)
         }
         .sheet(item: $store.renderExportDraft) { draft in
             SequenceExportView(draft: draft)

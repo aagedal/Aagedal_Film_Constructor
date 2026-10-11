@@ -117,3 +117,16 @@ fixtures pass asynchronous frame/sample parity and transport checks against the
 actual AVAudioEngine offline sample clock. See
 [the asynchronous proof evidence](docs/evidence/native-playback-20261011/README.md).
 This remains a development engine; live display and hardware A/V sync are next.
+
+
+The app also exports a conservative cuts-only CMX3600 EDL for one selected track.
+Source frame rate, start timecode and reel identity must be declared explicitly;
+unsupported edits are refused. Other tracks are excluded rather than flattened.
+See [EDL workflow and limits](docs/edl-export.md). Native receiver conform is
+unqualified.
+
+`Packages/NativePlaybackProof` now includes a standalone live monitor development
+window with bounded audio scheduling, node sample-clock transport, play/pause,
+seeks and stale-result rejection. It is separate from the shipping app. Hardware
+A/V sync, device latency and release dependency packaging remain unqualified;
+see [the native package instructions](Packages/NativePlaybackProof/README.md).

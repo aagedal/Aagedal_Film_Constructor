@@ -567,8 +567,9 @@ remaining signed/native playback checks.
       audio fixtures, and native-player/editor import at integer/fractional rates.
 - [ ] Add FCPXML sequence export and validate real layered-video/audio imports.
 - [ ] Evaluate OTIO export using its official core/validator; document its subset.
-- [ ] Define and optionally implement cuts-only sequence EDL using Player helpers,
-      with clear per-track/flattening limits and exact source/record timecode.
+- [x] Define and implement a conservative selected-track cuts-only CMX3600 EDL
+      exporter with explicit source timing declarations, exact source/record
+      timecode and no flattening. Native receiver conform remains unqualified.
 
 V1 requires rendered export plus one validated sequence interchange target; it
 does not require implementing every proposed interchange adapter.
@@ -1031,3 +1032,28 @@ launch-performance claim has been validated yet.
   gestures, signed grants and hardware playback remain unqualified.
 - Live edited-sequence monitoring, broad-format/color/VFR qualification, actual
   stream-copy export and release helper review remain open.
+
+
+### Selected-track EDL and live monitor development checkpoint (2026-10-12)
+
+- Added a conservative CMX3600 exporter for one explicitly selected video or
+  complete mono/stereo audio track. Exact cuts and leading/internal gaps use
+  exclusive out points; source/record frame alignment, rational-rate agreement,
+  timecode modes, reel identity, event limits and day boundaries are validated.
+  Unsupported processing and unknown source timing are refused before serialization.
+- Added an app export sheet, menu command and remappable shortcut entry. Original
+  source rate/timecode/reel values require explicit user declarations and CFR
+  confirmation. The sheet keeps an immutable project snapshot, reports its track
+  scope and receiver limitations, and protects original-file aliases when saving.
+  Declarations are not imported metadata or automatically verified source evidence.
+- Expanded proxy queue checks cover individual retry isolation, saving active jobs,
+  document replacement cancellation and stale cleanup against a new document.
+- Added a standalone native live monitor development path; it remains separate
+  from the shipping app. Hardware A/V synchronization, decoder deadline behavior,
+  signed dependency packaging and live edited-sequence app monitoring remain open.
+- Verification passed: 144 core tests with one optional DTD test skipped, nine
+  Python regressions, shortcut smoke, expanded app-file and proxy-queue smokes,
+  unsigned macOS Debug app build, standalone live proof build and 14 native
+  runtime tests. Hardware playback and native EDL import were not exercised.
+- See [EDL scope and usage](docs/edl-export.md) and the
+  [native development package](Packages/NativePlaybackProof/README.md).

@@ -80,11 +80,27 @@ struct AppFileSmoke {
                   "Subsequent edits do not change the export snapshot")
         store.redo()
         store.renderExportDraft = nil
+        store.selectedClipID = store.project.tracks.flatMap(\.clips).first?.id
+        store.beginEDLExport()
+        let edlSnapshot = store.edlExportDraft!
+        try check(edlSnapshot.project == store.project &&
+                  edlSnapshot.initialTrackID == store.project.tracks.first(where: { $0.clips.contains { $0.id == store.selectedClipID } })?.id,
+                  "Track EDL captures the project and starts on the selected clip's track")
+        store.beginRenderExport()
+        try check(store.renderExportDraft == nil, "An EDL sheet prevents a second export sheet")
+        store.undo()
+        try check(store.edlExportDraft?.project == edlSnapshot.project,
+                  "Subsequent edits preserve the EDL snapshot")
+        store.redo()
+        store.edlExportDraft = nil
+        try exerciseInterchangeDestinationProtection(directory: directory, asset: audio.asset)
         let emptyExport = EditorStore()
         emptyExport.beginRenderExport()
         try check(emptyExport.renderExportDraft == nil && emptyExport.errorMessage != nil,
                   "Empty sequence export fails without opening a draft")
         emptyExport.close()
+        emptyExport.beginEDLExport()
+        try check(emptyExport.edlExportDraft == nil, "Empty track EDL does not open a sheet")
 
         var document = ProjectDocument(project: store.project, mediaBookmarks: store.mediaBookmarks, proxyBookmarks: store.proxyBookmarks)
         document.mediaBookmarks[UUID()] = Data([1, 2, 3])
@@ -169,7 +185,7 @@ struct AppFileSmoke {
         try exerciseAudioFades()
         try exerciseAudioCrossfades()
         try exerciseShortcuts()
-        print("App file smoke passed: WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, project save/reopen, corrupt and unsupported file rejection.")
     }
 
     @MainActor
@@ -649,6 +665,30 @@ struct AppFileSmoke {
         reopened.redo()
         try check(reopened.project.assets[0].proxy == nil && reopened.proxyBookmarks.isEmpty,
                   "Redo relinking removes the previous derived media")
+    }
+
+    @MainActor
+    static func exerciseInterchangeDestinationProtection(directory: URL, asset: MediaAsset) throws {
+        // Keep alias creation isolated: adding a hard link can mark the imported
+        // original's macOS security bookmark stale during later reopen checks.
+        let original = directory.appendingPathComponent("protected-source.wav")
+        try FileManager.default.copyItem(at: asset.originalURL!, to: original)
+        var isolatedAsset = asset
+        isolatedAsset.originalURL = original
+        let symlink = directory.appendingPathComponent("original-alias.edl")
+        let hardlink = directory.appendingPathComponent("original-hardlink.edl")
+        try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: original)
+        try FileManager.default.linkItem(at: original, to: hardlink)
+        let before = try Data(contentsOf: original)
+        for destination in [original, symlink, hardlink] {
+            do {
+                try EditorStore.validateInterchangeDestination(destination, originals: [isolatedAsset])
+                throw SmokeError.failed("Interchange accepted an original media alias")
+            } catch is EditorCoreError { }
+        }
+        try EditorStore.validateInterchangeDestination(directory.appendingPathComponent("new.edl"), originals: [isolatedAsset])
+        try check(try Data(contentsOf: original) == before,
+                  "Interchange preflight protects original bytes and allows an independent destination")
     }
 
     static func check(_ condition: Bool, _ message: String) throws {
