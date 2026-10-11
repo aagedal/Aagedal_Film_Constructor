@@ -15,6 +15,8 @@ import Foundation
         precondition(defaults[.playReverse] == ShortcutBinding(key: "j"))
         precondition(defaults[.pausePlayback] == ShortcutBinding(key: "k"))
         precondition(defaults[.playForward] == ShortcutBinding(key: "l"))
+        precondition(defaults[.exportSequence] == ShortcutBinding(key: "e", command: true, shift: true))
+        precondition(defaults[.exportFCPXML]?.isEmpty == true)
         precondition(ShortcutBinding(key: "j").validationError(for: .playForward, bindings: defaults)?.contains("Backwards") == true)
         precondition(ShortcutBinding(key: "p").validationError(for: .pausePlayback, bindings: defaults) == nil)
         let customized = ShortcutBinding(key: "k", command: true, shift: true)

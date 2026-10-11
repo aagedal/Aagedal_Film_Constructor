@@ -1,0 +1,174 @@
+import Foundation
+import XCTest
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
+@testable import EditorCore
+
+final class FCPXMLExporterTests: XCTestCase {
+    private func fixture(rate: FrameRate = try! FrameRate(24)) throws -> Project {
+        let settings = try SequenceSettings(frameRate: rate, startTimecode: Timecode(frameCount: Int64(rate.nominalFramesPerSecond) * 3600))
+        let videoTemplate = TrackTemplate(kind: .video)
+        let videoFamily = TrackFamily(baseName: "Video", template: videoTemplate)
+        let audioTemplate = TrackTemplate(kind: .audio, audioLayout: .stereo)
+        let audioFamily = TrackFamily(baseName: "Audio", template: audioTemplate)
+        let asset = MediaAsset(name: "Source & \"quoted\"\nfilm", originalURL: URL(fileURLWithPath: "/tmp/Original & film.mov"), duration: try RationalTime(30), streams: [MediaStream(index: 0, kind: .video), MediaStream(index: 1, kind: .audio, audioLayout: .stereo)])
+        let duration = try rate.time(forFrames: 48)
+        let foreground = TimelineClip(assetID: asset.id, sourceRange: try TimeRange(start: RationalTime(10), duration: duration), timelineStart: duration, selection: .video(streamIndex: 0), scalingMode: .fill)
+        let background = TimelineClip(assetID: asset.id, sourceRange: try TimeRange(start: RationalTime(2), duration: duration.multiplied(by: 2)), selection: .video(streamIndex: 0))
+        let audio = TimelineClip(assetID: asset.id, sourceRange: try TimeRange(start: RationalTime(1, 48000), duration: duration), timelineStart: duration, selection: .audio(AudioSourceSelection(channels: [SourceChannel(streamIndex: 1, channelIndex: 0), SourceChannel(streamIndex: 1, channelIndex: 1)], layout: .stereo)))
+        return Project(settings: settings, assets: [asset], families: [videoFamily, audioFamily], tracks: [
+            TimelineTrack(familyID: videoFamily.id, template: videoTemplate, clips: [foreground]),
+            TimelineTrack(familyID: videoFamily.id, template: videoTemplate, clips: [background]),
+            TimelineTrack(familyID: audioFamily.id, template: audioTemplate, clips: [audio])
+        ])
+    }
+
+    private func reasons(_ project: Project) throws -> [String] {
+        do {
+            _ = try FCPXMLExporter.export(project: project)
+            XCTFail("Unsupported project was exported")
+            return []
+        } catch FCPXMLExportError.unsupported(let reasons) { return reasons }
+    }
+
+    func testExactTimingMediaReferencesAndLayerOrder() throws {
+        let project = try fixture(rate: FrameRate(24000, 1001))
+        let result = try FCPXMLExporter.export(project: project, projectName: "Film & \"edit\"\nOne")
+        let document = try XMLDocument(xmlString: result.xml)
+        func value(_ xpath: String) throws -> String? { try document.nodes(forXPath: xpath).first?.stringValue }
+        XCTAssertEqual(try value("//format/@frameDuration"), "1001/24000s")
+        XCTAssertEqual(try value("//sequence/@tcStart"), "18018/5s")
+        XCTAssertEqual(try value("//sequence/@duration"), "1001/250s")
+        XCTAssertEqual(try value("//gap/@offset"), "18018/5s")
+        XCTAssertEqual(try value("//gap/@start"), "0s")
+        XCTAssertEqual(try value("//asset-clip[1]/@lane"), "2")
+        XCTAssertEqual(try value("//asset-clip[2]/@lane"), "1")
+        XCTAssertEqual(try value("//asset-clip[3]/@lane"), "-1")
+        XCTAssertEqual(try value("//asset-clip[1]/@offset"), "1001/500s")
+        XCTAssertEqual(try value("//asset-clip[1]/@start"), "10s")
+        XCTAssertEqual(try value("//asset-clip[3]/@start"), "1/48000s")
+        XCTAssertEqual(try value("//asset-clip[1]/@srcEnable"), "video")
+        XCTAssertEqual(try value("//asset-clip[3]/@srcEnable"), "audio")
+        XCTAssertEqual(try value("//asset-clip[1]/adjust-conform/@type"), "fill")
+        XCTAssertEqual(try value("//asset-clip[2]/adjust-conform/@type"), "fit")
+        XCTAssertEqual(try value("//project/@name"), "Film & \"edit\"\nOne")
+        XCTAssertEqual(try value("//asset/@name"), project.assets[0].name)
+        XCTAssertEqual(try value("//media-rep/@src"), project.assets[0].originalURL?.absoluteString)
+        XCTAssertEqual(try document.nodes(forXPath: "//asset").count, 1)
+        XCTAssertEqual(try document.nodes(forXPath: "//asset/@format").count, 0, "Never invent source geometry or frame rate")
+        XCTAssertEqual(result.report.clipCount, 3)
+        XCTAssertEqual(result.report.assetCount, 1)
+        XCTAssertTrue(result.report.notes.contains { $0.contains("not been verified") })
+        XCTAssertEqual(try FCPXMLExporter.export(project: project, projectName: "Film & \"edit\"\nOne"), result)
+    }
+
+    func testDropFrameAndWholeFrameRatesStayExact() throws {
+        for (n, d): (Int64, Int64) in [(24, 1), (25, 1), (24000, 1001), (30000, 1001), (60000, 1001)] {
+            var project = try fixture(rate: FrameRate(n, d))
+            if project.settings.frameRate.supportsDropFrame { project.settings.startTimecode.mode = .dropFrame }
+            let xml = try FCPXMLExporter.export(project: project).xml
+            let document = try XMLDocument(xmlString: xml)
+            let mode = try document.nodes(forXPath: "//sequence/@tcFormat").first?.stringValue
+            XCTAssertEqual(mode, project.settings.frameRate.supportsDropFrame ? "DF" : "NDF")
+            XCTAssertTrue(xml.contains("frameDuration=\"\(d == 1 ? "1/\(n)" : "\(d)/\(n)")s\""))
+        }
+    }
+
+    func testRejectsFadesCrossfadesAndGainInsteadOfDroppingThem() throws {
+        var project = try fixture()
+        project.tracks[2].clips[0].fadeIn = .init(duration: try RationalTime(1))
+        project.tracks[2].template.gain = 0.5
+        let errors = try reasons(project)
+        XCTAssertTrue(errors.contains { $0.contains("fades") })
+        XCTAssertTrue(errors.contains { $0.contains("gain") })
+        var audio = try DemoProjectFactory.musicCollision()
+        audio.assets[0].originalURL = URL(fileURLWithPath: "/tmp/audio.wav")
+        audio.tracks[0].template.gain = 1
+        audio.audioCrossfades = [AudioCrossfade(outgoingClipID: audio.tracks[0].clips[0].id, incomingClipID: audio.tracks[0].clips[1].id, duration: try RationalTime(2))]
+        XCTAssertTrue(try reasons(audio).contains { $0.contains("crossfades") })
+    }
+
+    func testRejectsChannelAndStreamSelectionLoss() throws {
+        var project = try fixture()
+        let stream = project.assets[0].streams[1]
+        project.assets[0].streams.append(MediaStream(index: 2, kind: .audio, audioLayout: .stereo))
+        XCTAssertTrue(try reasons(project).contains { $0.contains("complete audio stream") })
+        project.assets[0].streams.removeLast()
+        project.tracks[2].clips[0].selection = .audio(AudioSourceSelection(channels: [SourceChannel(streamIndex: stream.index, channelIndex: 1), SourceChannel(streamIndex: stream.index, channelIndex: 0)], layout: .stereo))
+        project.tracks[2].template.routing = .init(outputChannels: [1, 0])
+        let errors = try reasons(project)
+        XCTAssertTrue(errors.contains { $0.contains("channel selections") })
+        XCTAssertTrue(errors.contains { $0.contains("routing") })
+        project = try fixture()
+        project.assets[0].streams.append(MediaStream(index: 3, kind: .video))
+        XCTAssertTrue(try reasons(project).contains { $0.contains("multiple video streams") })
+    }
+
+    func testRejectsMissingOriginalAndUnsupportedGeometry() throws {
+        var project = try fixture()
+        project.assets[0].originalURL = nil
+        project.tracks[0].clips[0].scalingMode = .none
+        let errors = try reasons(project)
+        XCTAssertTrue(errors.contains { $0.contains("original local file") })
+        XCTAssertTrue(errors.contains { $0.contains("geometry") })
+        project.assets[0].originalURL = URL(string: "https://example.com/film.mov")
+        XCTAssertTrue(try reasons(project).contains { $0.contains("original local file") })
+        project = try fixture()
+        project.assets[0].streams[0].timeOffset = try RationalTime(1, 2)
+        project.assets[0].sourceTimecode = Timecode(frameCount: 100)
+        let otherErrors = try reasons(project)
+        XCTAssertTrue(otherErrors.contains { $0.contains("source stream offsets") })
+        XCTAssertTrue(otherErrors.contains { $0.contains("source timecode") })
+    }
+
+    func testRejectsTimingRoundingInvalidXMLAndEmptySequences() throws {
+        var project = try fixture()
+        project.tracks[0].clips[0].timelineStart = try RationalTime(1, 1000)
+        XCTAssertTrue(try reasons(project).contains { $0.contains("frame boundaries") })
+        project = try fixture()
+        project.assets[0].name = "Control\u{1}"
+        XCTAssertTrue(try reasons(project).contains { $0.contains("XML 1.0") })
+        project = try fixture()
+        project.tracks = []
+        XCTAssertTrue(try reasons(project).contains { $0.contains("no clips") })
+        project = try fixture()
+        project.settings.audioSampleRate = 12345
+        XCTAssertTrue(try reasons(project).contains { $0.contains("sample rate") })
+        project = try fixture()
+        project.tracks[2].clips[0].sourceRange.start = try RationalTime(1, Int64(Int32.max) + 1)
+        XCTAssertTrue(try reasons(project).contains { $0.contains("32-bit") })
+    }
+
+    func testCompleteMonoAudioAndUnusedAssets() throws {
+        var project = try DemoProjectFactory.musicCollision()
+        project.settings.audioLayout = .mono
+        project.assets[0].originalURL = URL(fileURLWithPath: "/tmp/music.wav")
+        project.assets[0].streams[0].audioLayout = .mono
+        project.tracks[0].template.audioLayout = .mono
+        project.tracks[0].template.gain = 1
+        project.families[0].template = project.tracks[0].template
+        for index in project.tracks[0].clips.indices {
+            project.tracks[0].clips[index].selection = .audio(AudioSourceSelection(channels: [SourceChannel(streamIndex: 0, channelIndex: 0)], layout: .mono))
+        }
+        project.assets.append(MediaAsset(name: "Unused", duration: try RationalTime(1)))
+        let result = try FCPXMLExporter.export(project: project)
+        XCTAssertEqual(result.report.assetCount, 1)
+        XCTAssertTrue(result.xml.contains("audioLayout=\"mono\""))
+        XCTAssertFalse(result.xml.contains("Unused"))
+    }
+
+    /// Opt in with a locally downloaded Apple DTD. The DTD is intentionally not bundled
+    /// or fetched by tests, and passing this check does not establish native import support.
+    func testAgainstLocalAppleDTDWhenProvided() throws {
+        guard let path = ProcessInfo.processInfo.environment["FCPXML_DTD"] else { throw XCTSkip("Set FCPXML_DTD to Apple's FCPXML 1.10 DTD for schema validation") }
+        for rate in [try FrameRate(24), try FrameRate(24000, 1001), try FrameRate(30000, 1001), try FrameRate(60000, 1001)] {
+            let result = try FCPXMLExporter.export(project: fixture(rate: rate))
+            let document = try XMLDocument(xmlString: result.xml)
+            let dtd = try XMLDTD(contentsOf: URL(fileURLWithPath: path))
+            dtd.name = "fcpxml"
+            document.dtd = dtd
+            try document.validate()
+        }
+    }
+}

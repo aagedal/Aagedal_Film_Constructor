@@ -74,7 +74,12 @@ private struct EditorCommands: Commands {
             command(.undo)
             command(.redo)
         }
-        CommandGroup(after: .newItem) { command(.importMedia) }
+        CommandGroup(after: .newItem) {
+            command(.importMedia)
+            Divider()
+            command(.exportSequence)
+            command(.exportFCPXML)
+        }
         CommandGroup(after: .sidebar) {
             Toggle("Show Media Bin", isOn: $showMediaBin)
             Toggle("Show Inspector", isOn: $showInspector)

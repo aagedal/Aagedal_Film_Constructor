@@ -113,8 +113,31 @@ macOS 14+. On the initial file dialog choose **New Document** (or use File → N
     joint moves preserve the relation. Native gesture interaction and inspector
     layout still need manual testing.
 
+15. Choose **Export → Render sequence…** in the toolbar or **File → Render
+    Sequence…** (default shortcut Shift-Command-E). The dialog captures the
+    current sequence and displays its resolution, exact frame rate, timecode,
+    audio layout, and source qualification limits. Set resolution, frame rate
+    and start timecode in the sequence inspector before opening export; audio
+    follows the saved sequence settings. Enter a new MOV filename and
+    choose an export folder. Folder access permits private staging and atomic
+    publication. Progress includes verification; cancellation or failure removes
+    partial files, and existing destinations are protected. The result is
+    ProRes 422 HQ/24-bit PCM from originals, including timeline gain/fades and
+    crossfades. Helpers must be explicitly prepared and bundled using
+    [the opt-in build instructions](media-helper-packaging.md); ordinary builds
+    show an unavailable-helper message. Signed sandbox export remains a manual
+    qualification step.
+
+16. Choose **Export → Export FCPXML…** for a sequence in
+    [the supported interchange subset](fcpxml-export.md). The save panel explains
+    its qualification limits. Unsupported fades, remaps and other edits are
+    refused before saving, with specific reasons. Keep originals available to
+    the receiving editor. Native Final Cut Pro/Resolve import remains unverified.
+
 Current limits: AVFoundation-supported source formats; no edited-sequence
-playback, export, or proxies. Stills have a
+playback or proxies. Rendering is a qualified development subset; shipping
+helper provenance, signed sandbox execution, source geometry/color/VFR and
+native interchange import remain open. Stills have a
 five-second source extent. Default audio assembly accepts matching layouts or mono
 (duplicated into stereo); other layouts use the explicit initial selection sheet.
 Post-insertion explicit maps support other streams/layouts on existing components.
@@ -126,6 +149,7 @@ scripts/verify.sh
 scripts/app-file-smoke.sh
 scripts/shortcut-smoke.sh
 scripts/timeline-preview-smoke.sh
+scripts/export-service-smoke.sh
 ```
 
 The first runs Python regressions, shortcut model smoke, EditorCore tests, and an
