@@ -27,6 +27,28 @@ enum ProxySmokeFailure: Error { case failed(String) }
         try check(proxy.width == 80 && proxy.height == 48 && proxy.frameCount == 24 && proxy.frameRate == RationalTime(24000, 1001), "Verified scaled proxy metadata")
         let h264 = try await service.generate(asset: source, preset: .h264, scaleDivisor: 4, to: directory.appendingPathComponent("h264.mov"))
         try check(h264.width == 40 && h264.height == 24 && h264.frameCount == proxy.frameCount, "Verified H264 proxy")
+        let recorded = try await ProxyGenerationService.validateProxyFile(proxy)
+        try check(recorded == proxy.outputIntegrity, "Generated proxy records verified output bytes")
+        let relocated = directory.appendingPathComponent("relocated.mov")
+        try FileManager.default.copyItem(at: prores, to: relocated)
+        _ = try await ProxyGenerationService.validateProxyFile(proxy, at: relocated)
+        let integrityBefore = try ProxyGenerationService.fingerprint(for: relocated)
+        let relocatedHandle = try FileHandle(forUpdating: relocated)
+        let firstByte = try relocatedHandle.read(upToCount: 1)![0]
+        try relocatedHandle.seek(toOffset: 0)
+        try relocatedHandle.write(contentsOf: Data([firstByte ^ 1]))
+        try relocatedHandle.close()
+        // Preserve size and timestamp to prove byte hashing catches metadata-preserving mutation.
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: integrityBefore.modificationTime)], ofItemAtPath: relocated.path)
+        do {
+            _ = try await ProxyGenerationService.validateProxyFile(proxy, at: relocated)
+            throw ProxySmokeFailure.failed("Tampered proxy accepted")
+        } catch is SequenceExportError { }
+        var legacy = proxy; legacy.outputIntegrity = nil
+        do {
+            _ = try await ProxyGenerationService.validateProxyFile(legacy)
+            throw ProxySmokeFailure.failed("Unhashed legacy proxy relink accepted")
+        } catch is SequenceExportError { }
         let originalProxy = try Data(contentsOf: prores)
         do {
             _ = try await service.generate(asset: source, preset: .h264, scaleDivisor: 1, to: prores)
@@ -82,6 +104,6 @@ enum ProxySmokeFailure: Error { case failed(String) }
         try check(try Data(contentsOf: source.originalURL!) == before, "Original bytes preserved")
         let leftovers = try FileManager.default.contentsOfDirectory(atPath: directory.path).filter { $0.hasPrefix(".afc-proxy-") }
         try check(leftovers.isEmpty, "Private staging cleaned")
-        print("Proxy service smoke passed: ProRes/H264, rational CFR, VFR/SAR rejection, no overwrite, failure, cancellation, originals preserved")
+        print("Proxy service smoke passed: ProRes/H264, output SHA256, relocated/tampered proxy, legacy rejection, rational CFR, VFR/SAR rejection, no overwrite, failure, cancellation, originals preserved")
     }
 }

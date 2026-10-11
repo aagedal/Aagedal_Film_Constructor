@@ -123,7 +123,11 @@ struct ContentView: View {
                         .padding(.vertical, 4).tag(asset.id)
                         .contextMenu {
                             Button("Create proxies…") { store.beginProxyCreation(assetID: asset.id) }
-                                .disabled(!asset.streams.contains(where: { $0.kind == .video }) || store.proxyGenerationTask != nil)
+                                .disabled(!asset.streams.contains(where: { $0.kind == .video }) || store.proxyGenerationTask != nil || store.isRelinkingProxy)
+                            if asset.proxy != nil {
+                                Button("Relink proxy…") { store.beginProxyRelink(assetID: asset.id) }
+                                    .disabled(store.isRelinkingProxy || store.proxyGenerationTask != nil)
+                            }
                             Button("Append to timeline") {
                                 store.selectAsset(asset.id)
                                 store.appendSelectedAsset()

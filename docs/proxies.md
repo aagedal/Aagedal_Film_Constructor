@@ -32,10 +32,15 @@ change timeline edits, clip scaling, sequence settings, filmstrips or waveforms.
 Rendered exports and FCPXML continue to reference originals.
 
 Proxy references and separate file-access grants survive save/open. Relinking an
-original clears its proxy reference in the same undoable action. Missing proxy
-files can be regenerated; explicit proxy relinking and a persistent job queue
-are not implemented. The hires/proxy choice is a session preference rather than
-an edit saved in the project.
+original clears its proxy reference in the same undoable action. To relocate a
+generated proxy, right-click its source and choose **Relink proxy…**, then select
+the moved MOV file. Relinking verifies its recorded byte identity asynchronously
+before changing the reference and sandbox grant in one undoable action. A different
+file is refused even if its dimensions and duration match. The original must remain
+available and unchanged. Regenerate older proxies that have no recorded hash before
+relinking them. Missing proxies can also be regenerated. A persistent job queue is
+not implemented. The hires/proxy choice is a session preference rather than an
+edit saved in the project.
 
 ## Qualified subset
 
@@ -54,8 +59,13 @@ Source freshness uses file size and modification time, checked before and after
 generation and when choosing playback. This is a metadata fingerprint, not a
 content hash: replacement bytes with identical size and modification time are
 not detected automatically. Explicit original relinking always invalidates the
-proxy. Proxy files themselves are trusted after generation; external replacement
-of a proxy is not detected by a stored output hash.
+proxy. Newly generated proxies record their file size and SHA-256 hash. Choosing
+proxy playback checks the file in bounded chunks off the main actor; a mismatch
+falls back to originals with a visible modified-proxy status. This detects changed
+bytes even when size and modification time are preserved. Legacy unhashed proxies
+remain playable with the earlier trust model until regenerated. Verification occurs
+when loading the representation; it does not continuously monitor a file during
+playback or prevent external changes after verification.
 
 Source/frame probe output is limited to 2 MB per subprocess. Long sources can
 exceed that limit and are rejected without publication. Generation scans all

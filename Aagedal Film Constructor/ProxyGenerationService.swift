@@ -1,5 +1,6 @@
 import Foundation
 import Darwin
+import CryptoKit
 import EditorCore
 
 /// Generates a separate, verified video rendition. Originals and existing proxies are never replaced.
@@ -23,6 +24,47 @@ actor ProxyGenerationService {
             throw SequenceExportError.verification("Proxy source must be a regular local file.")
         }
         return .init(fileSize: size.int64Value, modificationTime: date.timeIntervalSince1970)
+    }
+    /// Streams bounded chunks off the main actor; never loads a whole movie into memory.
+    @concurrent static func outputIntegrity(for url: URL) async throws -> MediaProxyFileIntegrity {
+        guard url.isFileURL, url.host == nil || url.host == "" || url.host == "localhost",
+              url.query == nil, url.fragment == nil, url.user == nil, url.password == nil, url.port == nil else {
+            throw SequenceExportError.verification("Proxy must be a readable local file.")
+        }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let before = try fingerprint(for: url)
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var digest = SHA256()
+        var bytes: Int64 = 0
+        while true {
+            try Task.checkCancellation()
+            guard let chunk = try handle.read(upToCount: 1024 * 1024), !chunk.isEmpty else { break }
+            digest.update(data: chunk)
+            bytes += Int64(chunk.count)
+            guard bytes <= before.fileSize else {
+                throw SequenceExportError.verification("Proxy grew while its integrity was being checked.")
+            }
+        }
+        guard bytes == before.fileSize, try fingerprint(for: url) == before else {
+            throw SequenceExportError.verification("Proxy changed while its integrity was being checked.")
+        }
+        let integrity = MediaProxyFileIntegrity(fileSize: bytes, sha256Hex: digest.finalize().map { String(format: "%02x", $0) }.joined())
+        try integrity.validate()
+        return integrity
+    }
+    /// Relinking accepts only the recorded bytes; old proxies require regeneration to establish identity.
+    @concurrent static func validateProxyFile(_ proxy: MediaProxy, at url: URL? = nil) async throws -> MediaProxyFileIntegrity {
+        try proxy.validate()
+        guard let expected = proxy.outputIntegrity else {
+            throw SequenceExportError.verification("This proxy has no recorded file integrity. Regenerate it before relinking.")
+        }
+        let actual = try await outputIntegrity(for: url ?? proxy.url)
+        guard actual == expected else {
+            throw SequenceExportError.verification("Proxy file differs from the verified generated proxy. Regenerate it or choose the original proxy file.")
+        }
+        return actual
     }
     func generate(asset: MediaAsset, preset: ProxyPreset, scaleDivisor: Int, to outputURL: URL,
                   progress: @escaping @Sendable (SequenceExportProgress) -> Void = { _ in }) async throws -> MediaProxy {
@@ -94,11 +136,13 @@ actor ProxyGenerationService {
             throw SequenceExportError.verification("Proxy codec, profile, raster, rate, timecode, or video-only verification failed.")
         }
         let outputCount = try await verifyFrames(staged, index: 0, rate: rendition.rate, timeBase: rendition.timeBase, ffprobe: ffprobe)
+        let integrity = try await outputIntegrity(for: staged)
         guard outputCount == count, try Self.fingerprint(for: source) == fingerprint else {
             throw SequenceExportError.verification("Proxy frame count differs or the original changed during generation.")
         }
         let result = MediaProxy(url: output, preset: preset, sourceFingerprint: fingerprint, videoStreamIndex: selected.index,
-                                width: width, height: height, frameRate: original.rate, frameCount: count)
+                                width: width, height: height, frameRate: original.rate, frameCount: count,
+                                outputIntegrity: integrity)
         try result.validate()
         try Task.checkCancellation()
         guard Darwin.link(staged.path, output.path) == 0 else {

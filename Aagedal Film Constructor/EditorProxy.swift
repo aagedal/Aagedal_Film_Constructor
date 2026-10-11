@@ -11,8 +11,59 @@ extension EditorStore {
     func beginProxyCreation(assetID: UUID? = nil) {
         if let assetID, !selectedAssetIDs.contains(assetID) { selectAsset(assetID) }
         let assets = project.assets.filter { selectedAssetIDs.contains($0.id) && $0.streams.contains(where: { $0.kind == .video }) }
-        guard !assets.isEmpty, proxyGenerationTask == nil, audioAppendAsset == nil, renderExportDraft == nil else { return }
+        guard !assets.isEmpty, proxyGenerationTask == nil, !isRelinkingProxy, audioAppendAsset == nil, renderExportDraft == nil else { return }
         proxyCreationDraft = ProxyCreationDraft(assets: assets)
+    }
+
+    func beginProxyRelink(assetID: UUID) {
+        guard !isRelinkingProxy, proxyGenerationTask == nil,
+              let expected = project.assets.first(where: { $0.id == assetID }), expected.proxy != nil else { return }
+        let panel = NSOpenPanel()
+        panel.title = "Relink proxy for \(expected.name)"
+        panel.allowedContentTypes = [.quickTimeMovie]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let epoch = mediaEpoch
+        let revision = sourceRevisions[assetID]
+        isRelinkingProxy = true
+        proxyRelinkTask = Task {
+            defer {
+                if epoch == mediaEpoch { isRelinkingProxy = false; proxyRelinkTask = nil }
+            }
+            do {
+                try await relinkProxy(for: expected, to: url, epoch: epoch, sourceRevision: revision)
+            } catch {
+                if !Task.isCancelled, epoch == mediaEpoch { errorMessage = audioEditErrorMessage(error) }
+            }
+        }
+    }
+
+    /// Only the proxy URL and its sandbox grant change; source identities and timeline coordinates stay intact.
+    func relinkProxy(for expected: MediaAsset, to url: URL, epoch: UUID, sourceRevision: UUID?) async throws {
+        guard let proxy = expected.proxy, let originalURL = expected.originalURL else {
+            throw EditorCoreError.invalidModel("Create a proxy before relinking it.")
+        }
+        let scoped = [url, originalURL].filter { $0.startAccessingSecurityScopedResource() }
+        defer { scoped.forEach { $0.stopAccessingSecurityScopedResource() } }
+        guard try ProxyGenerationService.fingerprint(for: originalURL) == proxy.sourceFingerprint else {
+            throw EditorCoreError.invalidModel("The original source changed. Create a new proxy before relinking.")
+        }
+        _ = try await ProxyGenerationService.validateProxyFile(proxy, at: url)
+        try Task.checkCancellation()
+        guard epoch == mediaEpoch, sourceRevisions[expected.id] == sourceRevision,
+              project.assets.first(where: { $0.id == expected.id }) == expected,
+              try ProxyGenerationService.fingerprint(for: originalURL) == proxy.sourceFingerprint else {
+            throw EditorCoreError.invalidModel("The source or proxy changed while relinking. The existing proxy reference was preserved.")
+        }
+        let bookmark = try url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
+        var replacement = proxy
+        replacement.url = url
+        try change(proxyBookmarkUpdates: [expected.id: bookmark]) { project in
+            guard let index = project.assets.firstIndex(where: { $0.id == expected.id }) else { return }
+            project.assets[index].proxy = replacement
+        }
+        holdAccess(url)
+        if selectedAssetID == expected.id { refreshSourcePreview(preservingTransport: true) }
+        statusMessage = "Relinked proxy for \(expected.name)."
     }
 
     func resolveProxyBookmarks() {
@@ -74,11 +125,33 @@ extension EditorStore {
         }
         if let url = asset.proxy?.url { holdAccess(url) }
         let fingerprint = try? ProxyGenerationService.fingerprint(for: originalURL)
-        let resolution = asset.resolvePlayback(representation: playbackRepresentation, sourceFingerprint: fingerprint,
-            proxyExists: asset.proxy.map { FileManager.default.isReadableFile(atPath: $0.url.path) } ?? false)
+        let proxyExists = asset.proxy.map { FileManager.default.isReadableFile(atPath: $0.url.path) } ?? false
+        if let proxy = asset.proxy, proxy.outputIntegrity != nil, proxyExists, fingerprint == proxy.sourceFingerprint, playbackRepresentation == .proxy {
+            let representation = playbackRepresentation
+            let epoch = mediaEpoch
+            proxyPlaybackMessage = "Verifying proxy…"
+            sourcePreviewTask = Task {
+                let matches = (try? await ProxyGenerationService.validateProxyFile(proxy)) != nil
+                guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset,
+                      representation == playbackRepresentation else { return }
+                let resolution = asset.resolvePlayback(representation: representation, sourceFingerprint: try? ProxyGenerationService.fingerprint(for: originalURL),
+                    proxyExists: proxyExists, proxyIntegrityMatches: matches)
+                installSourcePreview(asset: asset, originalURL: originalURL, resolution: resolution,
+                    time: time, playing: playing, preservingTransport: preservingTransport)
+            }
+            return
+        }
+        let resolution = asset.resolvePlayback(representation: playbackRepresentation, sourceFingerprint: fingerprint, proxyExists: proxyExists)
+        installSourcePreview(asset: asset, originalURL: originalURL, resolution: resolution,
+            time: time, playing: playing, preservingTransport: preservingTransport)
+    }
+
+    private func installSourcePreview(asset: MediaAsset, originalURL: URL, resolution: ProxyPlaybackResolution,
+                                      time: CMTime, playing: Bool, preservingTransport: Bool) {
         switch resolution.status {
         case .original: proxyPlaybackMessage = "Original source"
         case .available: proxyPlaybackMessage = "Proxy picture · original audio"
+        case .modified: proxyPlaybackMessage = "Proxy modified · using original"
         case .missing: proxyPlaybackMessage = "Proxy missing · using original"
         case .stale: proxyPlaybackMessage = "Proxy stale · using original"
         case .unavailable: proxyPlaybackMessage = "No usable proxy · using original"
@@ -92,7 +165,7 @@ extension EditorStore {
             if preservingTransport {
                 sourcePreviewTask = Task {
                     await player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
-                    guard !Task.isCancelled, epoch == mediaEpoch, selectedAssetID == asset.id else { return }
+                    guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation else { return }
                     if pendingSourceTransport?.playing ?? playing { player.play() }
                     pendingSourceTransport = nil
                 }
@@ -139,12 +212,14 @@ extension EditorStore {
                     player = AVPlayer(playerItem: AVPlayerItem(asset: composition))
                 } catch {
                     player = AVPlayer(url: originalURL)
-                    if !Task.isCancelled { proxyPlaybackMessage = "Proxy preview unavailable · using original picture and audio" }
+                    if !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation {
+                        proxyPlaybackMessage = "Proxy preview unavailable · using original picture and audio"
+                    }
                 }
             } else { player = AVPlayer(url: originalURL) }
-            guard !Task.isCancelled, epoch == mediaEpoch, selectedAssetID == asset.id, representation == playbackRepresentation else { return }
+            guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation else { return }
             await player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation else { return }
             sourcePlayer = player
             if pendingSourceTransport?.playing ?? playing { player.play() }
             pendingSourceTransport = nil

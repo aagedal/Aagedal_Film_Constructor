@@ -85,3 +85,40 @@ private func proxyFixture() throws -> MediaProxy {
     #expect(try FCPXMLExporter.export(project: project) == originalXML)
     #expect(!originalXML.xml.contains("proxy.mov"))
 }
+
+@Test func proxyOutputIntegrityPersistsWithoutInventingLegacyHashes() throws {
+    var proxy = try proxyFixture()
+    let encoder = JSONEncoder(), decoder = JSONDecoder()
+    #expect(try decoder.decode(MediaProxy.self, from: encoder.encode(proxy)).outputIntegrity == nil)
+    proxy.outputIntegrity = .init(fileSize: 4000, sha256Hex: String(repeating: "a", count: 64))
+    #expect(try decoder.decode(MediaProxy.self, from: encoder.encode(proxy)) == proxy)
+    var legacy = try #require(JSONSerialization.jsonObject(with: encoder.encode(proxy)) as? [String: Any])
+    legacy.removeValue(forKey: "outputIntegrity")
+    #expect(try decoder.decode(MediaProxy.self, from: JSONSerialization.data(withJSONObject: legacy)).outputIntegrity == nil)
+    for integrity in [MediaProxyFileIntegrity(fileSize: 0, sha256Hex: String(repeating: "a", count: 64)),
+                      .init(fileSize: 100, sha256Hex: String(repeating: "g", count: 64)),
+                      .init(fileSize: 100, sha256Hex: String(repeating: "a", count: 63))] {
+        proxy.outputIntegrity = integrity
+        #expect(throws: (any Error).self) { try proxy.validate() }
+        #expect(throws: (any Error).self) { try decoder.decode(MediaProxy.self, from: encoder.encode(proxy)) }
+    }
+}
+
+@Test func proxyResolutionRequiresVerifiedOutputIntegrityForNewProxies() throws {
+    var proxy = try proxyFixture()
+    proxy.outputIntegrity = .init(fileSize: 4000, sha256Hex: String(repeating: "a", count: 64))
+    let asset = MediaAsset(name: "Source", originalURL: URL(fileURLWithPath: "/tmp/original.mov"),
+                          duration: try RationalTime(30), streams: [.init(index: 3, kind: .video)], proxy: proxy)
+    for matches in [Optional<Bool>.none, false] {
+        let resolution = asset.resolvePlayback(representation: .proxy, sourceFingerprint: proxy.sourceFingerprint,
+                                               proxyExists: true, proxyIntegrityMatches: matches)
+        #expect(resolution.status == .modified)
+        #expect(resolution.url == asset.originalURL && !resolution.usesProxy)
+    }
+    #expect(asset.resolvePlayback(representation: .proxy, sourceFingerprint: proxy.sourceFingerprint,
+                                  proxyExists: true, proxyIntegrityMatches: true).usesProxy)
+    #expect(asset.resolvePlayback(representation: .proxy, sourceFingerprint: proxy.sourceFingerprint,
+                                  proxyExists: false, proxyIntegrityMatches: false).status == .missing)
+    #expect(asset.resolvePlayback(representation: .original, sourceFingerprint: proxy.sourceFingerprint,
+                                  proxyExists: true, proxyIntegrityMatches: false).status == .original)
+}

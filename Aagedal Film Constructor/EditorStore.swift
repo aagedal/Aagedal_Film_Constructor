@@ -17,6 +17,8 @@ final class EditorStore: ObservableObject {
     var sourceRevisions: [UUID: UUID] = [:]
     var sourcePreviewTask: Task<Void, Never>?
     var proxyGenerationTask: Task<Void, Never>?
+    var proxyRelinkTask: Task<Void, Never>?
+    @Published var isRelinkingProxy = false
     @Published var selectedAssetID: UUID?
     @Published var selectedClipID: UUID?
     @Published var audioAppendAsset: MediaAsset?
@@ -82,6 +84,9 @@ final class EditorStore: ObservableObject {
         sourcePreviewTask?.cancel()
         proxyGenerationTask?.cancel()
         proxyGenerationTask = nil
+        proxyRelinkTask?.cancel()
+        proxyRelinkTask = nil
+        isRelinkingProxy = false
         sourceRevisions.removeAll()
         pendingSourceTransport = nil
         proxyCreationDraft = nil

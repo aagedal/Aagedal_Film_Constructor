@@ -532,7 +532,8 @@ a compatible track, create a crossfade, and undo both operations without lost sy
       for the qualified constant-frame-rate video subset.
 - [x] Implement progress/cancel, bounded jobs and atomic verified registration,
       retaining prior proxies until replacement succeeds.
-- [ ] Add explicit proxy relinking and a persistent resumable job queue.
+- [x] Add explicit proxy relinking with recorded byte identity and atomic grants/history.
+- [ ] Add a persistent resumable proxy job queue.
 - [x] Add a document-session hires/proxy source-preview toggle with
       missing/stale-proxy status and fallback. Sequence monitoring remains open.
 - [ ] Test frame/timecode correspondence, geometry, multiple audio streams, VFR
@@ -556,6 +557,9 @@ remaining signed/native playback checks.
 - [ ] Add stream-copy eligibility using codec/packet metadata; qualify exact
       single-source trims, compatible cuts-only concatenation, and video-copy /
       audio-render export, with clear reasons and no silent boundary shifts.
+- [x] Add a pure, conservative single-range assessment with separate picture/audio
+      reasons and an explicit source/range/container packet-evidence contract.
+      Producing that evidence and performing qualified copy exports remain open.
 - [ ] Verify copied packet payloads, decoded boundary frames, timestamps, duration,
       timecode, and A/V sync across supported containers/codecs.
 - [ ] Verify outputs using FFprobe, decoded frame checks, channel identification
@@ -982,3 +986,23 @@ launch-performance claim has been validated yet.
   A/V quality remain open. Source freshness uses size/mtime rather than a content
   hash. Live edited-sequence playback is still unimplemented. See
   [proxy scope and reproduction](docs/proxies.md).
+
+### Proxy integrity, relocation and stream-copy assessment checkpoint (2026-10-11)
+
+- Newly generated proxies persist file size and SHA-256 identity. Cancellable
+  verification streams bounded chunks off the main actor before proxy playback;
+  changed files visibly fall back to originals. Source freshness still uses
+  size/mtime. Legacy unhashed references remain playable without a byte guarantee.
+- Added explicit MOV proxy relinking in the bin. Only the recorded proxy bytes
+  are accepted; originals must remain unchanged. URL and independent sandbox
+  grant update as one undoable edit, preserve timeline/source identity and source
+  transport, and survive save/reopen. Legacy references require regeneration
+  before relinking. Cancellation and stale document/source completions are refused.
+- Added independent picture/audio stream-copy assessments with typed rejection
+  reasons, exact source/range/container binding and an explicit packet-verifier
+  evidence contract. The current importer cannot produce this evidence; packet
+  verification, remuxing, copy/render combinations and cuts-only concatenation
+  remain open. See [assessment scope](docs/stream-copy.md).
+- Verification includes core integrity and assessment regressions, real ProRes/H.264
+  generation, moved-file validation, same-size/mtime tampering, and unsigned macOS
+  builds. Native dialog gestures and signed sandbox grants remain unqualified.
