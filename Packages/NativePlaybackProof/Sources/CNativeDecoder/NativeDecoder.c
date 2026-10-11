@@ -459,11 +459,12 @@ static int64_t gcd_positive(int64_t a, int64_t b) {
     return a;
 }
 
-static int convert_video(AFCDecoder *decoder, uint8_t *rgb, char *error, size_t size) {
+static int convert_video(AFCDecoder *decoder, int width, int height, uint8_t *rgb, char *error, size_t size) {
     AVFrame *frame = decoder->frame;
     decoder->sws = sws_getCachedContext(decoder->sws,
         decoder->width, decoder->height, frame->format,
-        decoder->width, decoder->height, AV_PIX_FMT_RGB24, SWS_BILINEAR,
+        width, height, AV_PIX_FMT_RGB24,
+        width == decoder->width && height == decoder->height ? SWS_BILINEAR : SWS_BICUBIC,
         NULL, NULL, NULL);
     if (!decoder->sws) return fail(error, size, "Initialize native RGB conversion");
     int matrix = SWS_CS_DEFAULT;
@@ -483,14 +484,14 @@ static int convert_video(AFCDecoder *decoder, uint8_t *rgb, char *error, size_t 
         0, 1 << 16, 1 << 16);
     if (result < 0) return ff_fail(error, size, "Configure native RGB conversion", result);
     uint8_t *output[4] = {rgb, NULL, NULL, NULL};
-    int strides[4] = {decoder->width * 3, 0, 0, 0};
+    int strides[4] = {width * 3, 0, 0, 0};
     result = sws_scale(decoder->sws, (const uint8_t *const *)frame->data,
         frame->linesize, 0, decoder->height, output, strides);
-    if (result != decoder->height) return fail(error, size, "Native RGB conversion returned an incomplete frame");
+    if (result != height) return fail(error, size, "Native RGB conversion returned an incomplete frame");
     return 0;
 }
 
-int afc_decoder_video(AFCDecoder *decoder, int64_t source_frame,
+int afc_decoder_scaled_video(AFCDecoder *decoder, int width, int height, int64_t source_frame,
                       int64_t rate_num, int64_t rate_den,
                       uint8_t *rgb, size_t rgb_size,
                       char *error, size_t error_size) {
@@ -507,7 +508,10 @@ int afc_decoder_video(AFCDecoder *decoder, int64_t source_frame,
     AVRational rate = {(int)rate_num, (int)rate_den};
     if (decoder->qualified && av_cmp_q(rate, decoder->video_rate))
         return fail(error, error_size, "Requested rate differs from the qualified source CFR rate");
-    size_t required = (size_t)decoder->width * decoder->height * 3;
+    if (width <= 0 || height <= 0 || width > 4096 || height > 4096 ||
+        (int64_t)width * height > AFC_MAX_PIXELS)
+        return fail(error, error_size, "Scaled raster exceeds development geometry limits");
+    size_t required = (size_t)width * height * 3;
     if (!rgb || rgb_size < required)
         return fail(error, error_size, "RGB24 output buffer is too small");
     int64_t target_pts;
@@ -526,7 +530,7 @@ int afc_decoder_video(AFCDecoder *decoder, int64_t source_frame,
     int retry_from_zero = 1;
     for (;;) {
         if (decoder->cached && decoder->cached_unit == source_frame)
-            return convert_video(decoder, rgb, error, error_size);
+            return convert_video(decoder, width, height, rgb, error, error_size);
         if (decoder->cached) previous = decoder->cached_unit;
         result = next_frame(decoder, error, error_size);
         if (result < 0) goto invalid;
@@ -562,6 +566,14 @@ int afc_decoder_video(AFCDecoder *decoder, int64_t source_frame,
 invalid:
     decoder->needs_seek = 1;
     return result;
+}
+
+int afc_decoder_video(AFCDecoder *decoder, int64_t source_frame,
+                      int64_t rate_num, int64_t rate_den,
+                      uint8_t *rgb, size_t rgb_size,
+                      char *error, size_t error_size) {
+    return afc_decoder_scaled_video(decoder, afc_decoder_width(decoder), afc_decoder_height(decoder),
+        source_frame, rate_num, rate_den, rgb, rgb_size, error, error_size);
 }
 
 static int convert_audio(AFCDecoder *decoder, char *error, size_t size) {

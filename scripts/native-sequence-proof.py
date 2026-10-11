@@ -17,7 +17,7 @@ import subprocess
 import uuid
 from urllib.parse import unquote, urlparse
 
-from native_parity import compare_float_audio, compare_rgb
+from native_parity import compare_float_audio, compare_rgb, compare_rgb_region
 
 
 def main():
@@ -27,7 +27,9 @@ def main():
     parser.add_argument('pkg_config', type=Path)
     parser.add_argument('fixture', type=Path)
     parser.add_argument('output', type=Path)
-    parser.add_argument('--crossfades-only', action='store_true', help='Qualify linked audio transitions and baseline only')
+    subset = parser.add_mutually_exclusive_group()
+    subset.add_argument('--crossfades-only', action='store_true', help='Qualify linked audio transitions and baseline only')
+    subset.add_argument('--geometry-only', action='store_true', help='Qualify video fit/fill/none and baseline only')
     args = parser.parse_args()
     for executable in (args.ffmpeg, args.ffprobe, args.pkg_config):
         if not executable.is_absolute() or not os.access(executable, os.X_OK):
@@ -45,9 +47,9 @@ def main():
     repo = Path(__file__).resolve().parent.parent
     result = {'passed': False, 'variants': [], 'limitations': [
         'Development dynamically linked libraries, no bundled/signed distribution',
-        'Matching-raster square-pixel SDR CFR video and matching-rate PCM audio only',
+        'Bounded square-pixel SDR CFR video and matching-rate PCM audio only',
         'Native CGImage/PNG captures and offline AVAudioEngine; no live display/CoreAudio A/V sync',
-        'No scaling/color/VFR conformance, compressed audio/resampling, video transitions or proxies',
+        'Only recorded video scaling fixtures qualified; no still/color/VFR conformance, compressed audio/resampling, video transitions or proxies',
         'First source access qualifies all selected-stream timestamps; launch/interactive performance unmeasured'
     ]}
     commands = []
@@ -137,7 +139,7 @@ def main():
                 expected.extend(row * 90)
             result['fixtureBarcodes'].append(compare_rgb(decoded.read_bytes(), expected, 160 * 90 * 3, tolerance=4))
 
-        def evaluate(name, project, replace_from=None, crossfade_oracle=None):
+        def evaluate(name, project, replace_from=None, crossfade_oracle=None, active_region=None):
             variant = root / name
             variant.mkdir()
             project_path = variant / 'project.json'
@@ -204,6 +206,12 @@ def main():
                 'mixedAudio': compare_float_audio((capture / 'mixed.f32').read_bytes(), reference_pcm, manifest['channels']),
                 'scheduledAudio': compare_float_audio((capture / 'scheduled.f32').read_bytes(), reference_pcm, manifest['channels']),
                 'videoSeeks': [], 'audioSeeks': []}
+            if active_region is not None:
+                checked['activePictureRegion'] = active_region
+                checked['activePictureVideo'] = {
+                    file: compare_rgb_region((capture / file).read_bytes(), reference_rgb,
+                                             manifest['width'], manifest['height'], active_region)
+                    for file in ['native.rgb', 'asynchronous.rgb']}
             for index, check in enumerate(manifest['videoCaptures']):
                 offset = check['frame'] * size
                 expected = reference_rgb[offset:offset + size]
@@ -259,13 +267,46 @@ def main():
             print(f"{name}: all sequential frames/samples and {len(checked['videoSeeks'])} video / {len(checked['audioSeeks'])} audio seeks pass", flush=True)
 
         evaluate('baseline', fixture_project)
-        for mode, curve in [('overlap', 'equalPower'), ('adjacent', 'equalPower'), ('adjacent', 'linear')]:
-            name = f'linked-crossfade-{mode}-{curve}-rebuild'
-            path = root / (name + '-project.json')
-            run([compiler, 'crossfade-fixture', args.fixture / 'project.json', path, mode, curve], name + '-fixture.log')
-            project = json.loads(path.read_text())
-            evaluate(name, project, replace_from=fixture_project, crossfade_oracle=(mode, curve))
         if not args.crossfades_only:
+            # Different aspect ratios, both smaller/larger sources, and odd
+            # dimensions exercise center padding/cropping and aspect rounding.
+            # Lossless RGB sources avoid encoding a chroma-alignment policy into
+            # these fixtures; the independently encoded reference remains ProRes.
+            for width, height in [(80, 90), (240, 90), (81, 91)]:
+                geometry = copy.deepcopy(fixture_project)
+                for index, asset in enumerate(geometry['assets']):
+                    path = root / f'geometry-source-{width}x{height}-{index}.nut'
+                    ff(['-i', source_paths[index], '-map', '0', '-vf',
+                        f'scale={width}:{height}:flags=neighbor,setsar=1,format=rgb24,'
+                        'drawbox=x=0:y=0:w=iw:h=8:color=red:t=fill,'
+                        'drawbox=x=0:y=ih-8:w=iw:h=8:color=blue:t=fill',
+                        '-c:v', 'ffv1', '-pix_fmt', 'bgr0', '-c:a', 'copy', path],
+                        f'geometry-source-{width}x{height}-{index}.log')
+                    asset['originalURL'] = path.as_uri()
+                for mode in ['fit', 'fill', 'none']:
+                    project = copy.deepcopy(geometry)
+                    for track in project['tracks']:
+                        if track['template']['kind'] == 'video':
+                            for clip in track['clips']:
+                                clip['scalingMode'] = mode
+                    # Independent expected occupied rectangles for these fixed
+                    # fixtures. Never average black padding into picture parity.
+                    regions = {
+                        (80, 90): {'fit': (40, 0, 80, 90), 'none': (40, 0, 80, 90)},
+                        (240, 90): {'fit': (0, 15, 160, 60), 'none': (0, 0, 160, 90)},
+                        (81, 91): {'fit': (40, 0, 80, 90), 'none': (39, 0, 81, 90)},
+                    }
+                    region = regions[(width, height)].get(mode, (0, 0, 160, 90))
+                    evaluate(f'geometry-{width}x{height}-{mode}-rebuild', project,
+                             replace_from=fixture_project, active_region=region)
+        if not args.geometry_only:
+            for mode, curve in [('overlap', 'equalPower'), ('adjacent', 'equalPower'), ('adjacent', 'linear')]:
+                name = f'linked-crossfade-{mode}-{curve}-rebuild'
+                path = root / (name + '-project.json')
+                run([compiler, 'crossfade-fixture', args.fixture / 'project.json', path, mode, curve], name + '-fixture.log')
+                project = json.loads(path.read_text())
+                evaluate(name, project, replace_from=fixture_project, crossfade_oracle=(mode, curve))
+        if not args.crossfades_only and not args.geometry_only:
             layered = copy.deepcopy(fixture_project)
             lower = layered['tracks'][1]['clips'][0]
             lower['timelineStart'] = {'numerator': 1001, 'denominator': 2000}  # frame 15

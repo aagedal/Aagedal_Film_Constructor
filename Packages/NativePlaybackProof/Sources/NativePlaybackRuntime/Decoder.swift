@@ -37,17 +37,16 @@ final class SourceDecoder {
 
     deinit { afc_decoder_close(handle) }
 
-    public func video(frame: Int64, rate: FrameRate, width: Int, height: Int) throws -> Data {
-        // Geometry is intentionally narrow until metadata and scaling are qualified.
-        guard self.width == width, self.height == height, width <= 4096, height <= 4096 else {
-            throw ProofFailure("Proof requires source raster equal to sequence raster (maximum 4096²)")
-        }
-        var bytes = [UInt8](repeating: 0, count: width * height * 3)
+    public func video(frame: Int64, rate: FrameRate, width: Int, height: Int,
+                      scalingMode: ScalingMode) throws -> Data {
+        let geometry = try NativeVideoGeometry(sourceWidth: self.width, sourceHeight: self.height,
+                                               width: width, height: height, mode: scalingMode)
+        var bytes = [UInt8](repeating: 0, count: geometry.scaledWidth * geometry.scaledHeight * 3)
         var error = [CChar](repeating: 0, count: 1024)
-        let result = afc_decoder_video(handle, frame, rate.value.numerator, rate.value.denominator,
-                                       &bytes, bytes.count, &error, error.count)
+        let result = afc_decoder_scaled_video(handle, Int32(geometry.scaledWidth), Int32(geometry.scaledHeight),
+            frame, rate.value.numerator, rate.value.denominator, &bytes, bytes.count, &error, error.count)
         guard result == 0 else { throw ProofFailure(message(error)) }
-        return Data(bytes)
+        return geometry.compose(Data(bytes))
     }
 
     public func audio(start: Int64, count: Int, sampleRate: Int) throws -> [Float] {
@@ -110,7 +109,7 @@ public final class NativeMonitor {
         }
         return try decoder(url: request.url, streamIndex: request.streamIndex).video(
             frame: request.sourceFrame, rate: plan.settings.frameRate,
-            width: plan.settings.width, height: plan.settings.height)
+            width: plan.settings.width, height: plan.settings.height, scalingMode: request.scalingMode)
     }
 
     /// Float mixing preserves explicit routing, static gain and sample-timed fades without a limiter.
@@ -131,6 +130,62 @@ public final class NativeMonitor {
                 let destination = (request.destinationOffset + frame) * channels + request.destinationChannel
                 output[destination] += value
                 guard output[destination].isFinite else { throw ProofFailure("Nonfinite mixed sample") }
+            }
+        }
+        return output
+    }
+}
+
+/// Integer-centered spatial conform for qualified square-pixel sources. RGB
+/// centering rounds toward the top/left when the spare dimension is odd. Color
+/// conversion and subsampled export edge equivalence remain independently tested.
+struct NativeVideoGeometry {
+    let width: Int
+    let height: Int
+    let scaledWidth: Int
+    let scaledHeight: Int
+    let x: Int
+    let y: Int
+
+    init(sourceWidth: Int, sourceHeight: Int, width: Int, height: Int, mode: ScalingMode) throws {
+        guard sourceWidth > 0, sourceHeight > 0, sourceWidth <= 4096, sourceHeight <= 4096,
+              width > 0, height > 0, width <= 4096, height <= 4096 else {
+            throw ProofFailure("Proof limits source and sequence raster to 4096²")
+        }
+        self.width = width; self.height = height
+        // Nearest positive integer, matching FFmpeg scale aspect-ratio rounding.
+        func rounded(_ numerator: Int, _ denominator: Int) -> Int {
+            (numerator + denominator / 2) / denominator
+        }
+        let aspectWidth = rounded(height * sourceWidth, sourceHeight)
+        let aspectHeight = rounded(width * sourceHeight, sourceWidth)
+        switch mode {
+        case .fit: scaledWidth = min(width, aspectWidth); scaledHeight = min(height, aspectHeight)
+        case .fill: scaledWidth = max(width, aspectWidth); scaledHeight = max(height, aspectHeight)
+        case .none: scaledWidth = sourceWidth; scaledHeight = sourceHeight
+        }
+        guard scaledWidth > 0, scaledHeight > 0, scaledWidth <= 4096, scaledHeight <= 4096 else {
+            throw ProofFailure("Spatial conform intermediate raster exceeds development limit")
+        }
+        let dx = width - scaledWidth, dy = height - scaledHeight
+        x = dx / 2; y = dy / 2
+    }
+
+    func compose(_ rgb: Data) -> Data {
+        precondition(rgb.count == scaledWidth * scaledHeight * 3)
+        if width == scaledWidth && height == scaledHeight { return rgb }
+        var output = Data(repeating: 0, count: width * height * 3)
+        let sourceX = max(0, -x), sourceY = max(0, -y)
+        let destinationX = max(0, x), destinationY = max(0, y)
+        let rowBytes = min(width, scaledWidth) * 3
+        let rows = min(height, scaledHeight)
+        output.withUnsafeMutableBytes { destination in
+            rgb.withUnsafeBytes { source in
+                for row in 0..<rows {
+                    destination.baseAddress!.advanced(by: ((destinationY + row) * width + destinationX) * 3)
+                        .copyMemory(from: source.baseAddress!.advanced(by: ((sourceY + row) * scaledWidth + sourceX) * 3),
+                                    byteCount: rowBytes)
+                }
             }
         }
         return output

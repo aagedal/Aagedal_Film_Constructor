@@ -1,0 +1,41 @@
+{
+  "ffmpeg": {
+    "path": "/opt/homebrew/bin/ffmpeg",
+    "sha256": "c8173e9755795978bce8e104f8d7044fabe7d6d84044aba37d3648c6f4e4e1a8",
+    "version": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers\nbuilt with Apple clang version 21.0.0 (clang-2100.3.34.2)\nconfiguration: --prefix=/opt/homebrew/Cellar/ffmpeg/9.0.2 --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gpl --enable-libsvtav1 --enable-libopus --enable-libx264 --enable-libmp3lame --enable-libdav1d --enable-libvmaf --enable-libvpx --enable-libx265 --enable-openssl --enable-videotoolbox --enable-audiotoolbox --enable-neon\nlibavutil      61.  1.102 / 61.  1.102\nlibavcodec     63.  1.102 / 63.  1.102\nlibavformat    63.  1.102 / 63.  1.102\nlibavdevice    63.  1.102 / 63.  1.102\nlibavfilter    12.  1.102 / 12.  1.102\nlibswscale     10.  1.102 / 10.  1.102\nlibswresample   7.  1.102 /  7.  1.102\n\nExiting with exit code 0"
+  },
+  "ffprobe": {
+    "path": "/opt/homebrew/bin/ffprobe",
+    "sha256": "56559c234422b0e3722c54b2bd99bbd8cd83d3732a13a6d207589982a6b7085e",
+    "version": "ffprobe version 9.0.2 Copyright (c) 2007-2026 the FFmpeg developers\nbuilt with Apple clang version 21.0.0 (clang-2100.3.34.2)\nconfiguration: --prefix=/opt/homebrew/Cellar/ffmpeg/9.0.2 --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gpl --enable-libsvtav1 --enable-libopus --enable-libx264 --enable-libmp3lame --enable-libdav1d --enable-libvmaf --enable-libvpx --enable-libx265 --enable-openssl --enable-videotoolbox --enable-audiotoolbox --enable-neon\nlibavutil      61.  1.102 / 61.  1.102\nlibavcodec     63.  1.102 / 63.  1.102\nlibavformat    63.  1.102 / 63.  1.102\nlibavdevice    63.  1.102 / 63.  1.102\nlibavfilter    12.  1.102 / 12.  1.102\nlibswscale     10.  1.102 / 10.  1.102\nlibswresample   7.  1.102 /  7.  1.102"
+  },
+  "pkgConfig": {
+    "path": "/opt/homebrew/bin/pkg-config",
+    "sha256": "1f3beefb56b473037af764da65297c3527e50533294891a07dfe91f0279150fd",
+    "version": "3.0.7"
+  },
+  "libavformat": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2/lib/libavformat.63.1.102.dylib",
+    "sha256": "7037cf9835b02aca3ae66b8cb2c2eed380e5083fa432c3f9ef71e3efebb61262"
+  },
+  "libavcodec": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2/lib/libavcodec.63.1.102.dylib",
+    "sha256": "f3359c960778d4f8469700a051d5e9adbacaeeeb7ffdc68c87a1d5d66cd74680"
+  },
+  "libavutil": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2/lib/libavutil.61.1.102.dylib",
+    "sha256": "d8735f7e878ea9f44d7ec15f0aee0bf473bacb5d44f7a46df1a299462372f664"
+  },
+  "libswscale": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2/lib/libswscale.10.1.102.dylib",
+    "sha256": "5677ad33d0c49eb31262e3a4a7fe0eec06544756b53e816f19f598cd8a94bd9e"
+  },
+  "libswresample": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2/lib/libswresample.7.1.102.dylib",
+    "sha256": "cb7096d9fbedbec10b878e68244167e2c9cc7ba8907f9840b6b39becc91969ad"
+  },
+  "nativeExecutable": {
+    "path": "/private/tmp/afc-native-geometry-final-20261012/build/debug/NativeSequenceProof",
+    "sha256": "7d5ed3e1931079750c0807877468b4443d67eb335e43d9e901e9f6b6953d7941"
+  }
+}

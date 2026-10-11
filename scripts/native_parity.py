@@ -17,6 +17,26 @@ def compare_rgb(actual, expected, frame_size, tolerance=12):
     return {'frames': len(errors), 'maxMeanRGBError': max(errors)}
 
 
+def compare_rgb_region(actual, expected, width, height, region, tolerance=12):
+    """Compare active picture without allowing black padding to dilute errors."""
+    x, y, region_width, region_height = region
+    if (width <= 0 or height <= 0 or x < 0 or y < 0
+            or region_width <= 0 or region_height <= 0
+            or x + region_width > width or y + region_height > height):
+        raise ValueError('RGB comparison region must lie within the frame')
+    size = width * height * 3
+    if not actual or len(actual) != len(expected) or len(actual) % size:
+        raise ValueError('RGB buffers must have matching, complete, nonempty frames')
+
+    def crop(buffer):
+        return b''.join(buffer[frame + ((y + row) * width + x) * 3:
+                              frame + ((y + row) * width + x + region_width) * 3]
+                        for frame in range(0, len(buffer), size)
+                        for row in range(region_height))
+
+    return compare_rgb(crop(actual), crop(expected), region_width * region_height * 3, tolerance)
+
+
 def compare_float_audio(actual, expected_s16, channels, tolerance=1 / 32768):
     if channels <= 0 or not actual or len(actual) % (4 * channels) or len(actual) != len(expected_s16) * 2:
         raise ValueError('PCM buffers must have matching, complete, nonempty sample frames')

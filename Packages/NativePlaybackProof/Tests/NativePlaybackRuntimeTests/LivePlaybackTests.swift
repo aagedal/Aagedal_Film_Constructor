@@ -1,9 +1,97 @@
 import Foundation
+import AVFAudio
 import Testing
 import EditorCore
 @testable import NativePlaybackRuntime
 
+private final class NotificationCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    var count: Int { lock.withLock { value } }
+    func increment() { lock.withLock { value += 1 } }
+}
+
 struct LivePlaybackTests {
+    @Test func playerStartupPrerollDoesNotEstablishOrAdvanceClock() throws {
+        var clock = LivePlayerClock()
+        var queue = try LiveAudioQueue(total: 10000)
+        try queue.commit(count: 1024)
+        for sample: Int64 in [-2048, -512, -1] {
+            if let value = try clock.observe(sample: sample, rate: 48000, expectedRate: 48000) {
+                try queue.update(clock: value)
+            }
+            #expect(!clock.initialized)
+            #expect(queue.clock == 0)
+        }
+        #expect(try clock.observe(sample: 0, rate: 48000, expectedRate: 48000) == 0)
+        #expect(clock.initialized)
+        #expect(try clock.observe(sample: 256, rate: 48000, expectedRate: 48000) == 256)
+        #expect(throws: (any Error).self) {
+            try clock.observe(sample: -1, rate: 48000, expectedRate: 48000)
+        }
+        #expect(clock.initialized)
+        clock = .init() // A new explicit play starts a new node clock epoch.
+        #expect(try clock.observe(sample: -512, rate: 48000, expectedRate: 48000) == nil)
+        #expect(!clock.initialized)
+    }
+
+    @Test func prerollStillRejectsChangedSampleRate() throws {
+        var clock = LivePlayerClock()
+        #expect(throws: (any Error).self) {
+            try clock.observe(sample: -512, rate: 44100, expectedRate: 48000)
+        }
+        #expect(!clock.initialized)
+        #expect(try clock.observe(sample: 0, rate: 48000, expectedRate: 48000) == 0)
+        #expect(throws: (any Error).self) {
+            try clock.observe(sample: 128, rate: 44100, expectedRate: 48000)
+        }
+    }
+
+    @Test func configurationObserverIsScopedAndRemovedOnRelease() {
+        let center = NotificationCenter()
+        let engine = NSObject()
+        let unrelated = NSObject()
+        let counter = NotificationCounter()
+        var observer: LiveAudioConfigurationObserver? = LiveAudioConfigurationObserver(
+            object: engine, center: center, changed: { counter.increment() })
+        #expect(observer != nil)
+        center.post(name: .AVAudioEngineConfigurationChange, object: unrelated)
+        center.post(name: Notification.Name("unrelated"), object: engine)
+        #expect(counter.count == 0)
+        center.post(name: .AVAudioEngineConfigurationChange, object: engine)
+        #expect(counter.count == 1)
+        observer = nil
+        center.post(name: .AVAudioEngineConfigurationChange, object: engine)
+        #expect(counter.count == 1)
+    }
+
+    @Test func removingConfigurationObserverReleasesCallbackCaptures() {
+        let center = NotificationCenter()
+        let engine = NSObject()
+        weak var retained: NotificationCounter?
+        var observer: LiveAudioConfigurationObserver?
+        do {
+            let counter = NotificationCounter()
+            retained = counter
+            observer = LiveAudioConfigurationObserver(object: engine, center: center,
+                                                      changed: { counter.increment() })
+        }
+        #expect(observer != nil)
+        #expect(retained != nil)
+        observer = nil
+        #expect(retained == nil)
+    }
+
+    @Test func liveStatisticsEncodeLifecycleFailures() throws {
+        var statistics = LivePlaybackStatistics()
+        statistics.configurationChanges = 2
+        statistics.unexpectedEngineStops = 1
+        let decoded = try JSONDecoder().decode(LivePlaybackStatistics.self,
+                                               from: JSONEncoder().encode(statistics))
+        #expect(decoded.configurationChanges == 2)
+        #expect(decoded.unexpectedEngineStops == 1)
+    }
+
     @Test func scheduleIsBoundedAndClockCreatesAdmission() throws {
         var queue = try LiveAudioQueue(total: 20000)
         for _ in 0..<4 { try queue.commit(count: 1024) }

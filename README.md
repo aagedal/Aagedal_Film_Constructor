@@ -127,6 +127,10 @@ unqualified.
 
 `Packages/NativePlaybackProof` now includes a standalone live monitor development
 window with bounded audio scheduling, node sample-clock transport, play/pause,
-seeks and stale-result rejection. It is separate from the shipping app. Hardware
+seeks and stale-result rejection. Video now supports bounded fit/fill/none scaling,
+with [decoded spatial parity evidence](docs/evidence/native-geometry-20261012/README.md).
+Audio configuration changes pause and flush pending work; explicit Play restarts
+the monitor. The runner retains JSON observations and offers a scripted
+play/seek/pause/resume exercise. It is separate from the shipping app. Hardware
 A/V sync, device latency and release dependency packaging remain unqualified;
 see [the native package instructions](Packages/NativePlaybackProof/README.md).
