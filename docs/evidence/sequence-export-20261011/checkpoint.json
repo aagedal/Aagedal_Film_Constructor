@@ -1,0 +1,15 @@
+{
+  "helperVersion": "9.0.1",
+  "ffmpegInputSHA256": "dc3770d91735cfe8b0ef8f4eb7c6f8431d722cca0d79c0959d62be216868d604",
+  "ffprobeInputSHA256": "57e5d8a10b0c7622632c65b6b548bca7a2fee3c994d13245bec77424cab69629",
+  "releaseCertified": false,
+  "provenanceReview": "unreviewed, development fixture explicitly records unknown source attribution",
+  "noticeReview": "unreviewed development fixture, not a redistribution notice set",
+  "coreXCTests": 74,
+  "coreSwiftTestingTests": 47,
+  "pythonRegressions": 9,
+  "FCPXMLVersion": "1.10",
+  "FCPXMLDTDValidated": true,
+  "nativeEditorImportVerified": false,
+  "signedSandboxExportVerified": false
+}

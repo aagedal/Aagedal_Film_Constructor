@@ -59,6 +59,8 @@ final class EditorCommandRegistry: ObservableObject {
         case .playReverse: store.playSourceBackwards()
         case .pausePlayback: store.pauseSource()
         case .playForward: store.playSourceForwards()
+        case .exportSequence: store.beginRenderExport()
+        case .exportFCPXML: store.exportFCPXML()
         }
     }
     func isEnabled(_ command: EditorCommandID, store: EditorStore?, scope: EditorCommandScope) -> Bool {
@@ -73,6 +75,7 @@ final class EditorCommandRegistry: ObservableObject {
         case .splitClip, .deleteClip: return store.selectedClip != nil
         case .previousFrame, .nextFrame: return true
         case .playReverse, .pausePlayback, .playForward: return store.sourcePlayer != nil
+        case .exportSequence, .exportFCPXML: return store.duration > 0 && store.renderExportDraft == nil && store.audioAppendAsset == nil
         }
     }
     private static var isEditingText: Bool { NSApp?.keyWindow?.firstResponder is NSTextView }

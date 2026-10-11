@@ -11,6 +11,7 @@ final class EditorStore: ObservableObject {
     @Published var selectedAssetID: UUID?
     @Published var selectedClipID: UUID?
     @Published var audioAppendAsset: MediaAsset?
+    @Published var renderExportDraft: SequenceExportDraft?
     @Published var playheadSeconds: Double = 0
     @Published var errorMessage: String?
     @Published var isImporting = false
@@ -65,6 +66,7 @@ final class EditorStore: ObservableObject {
     func close() {
         mediaEpoch = UUID()
         audioAppendAsset = nil
+        renderExportDraft = nil
         importTask?.cancel()
         isImporting = false
         pauseSource()

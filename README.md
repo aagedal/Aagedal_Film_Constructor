@@ -41,8 +41,15 @@ same source, track family, and gain can be combined into one explicitly mapped
 component. See [basic testing instructions](docs/basic-workspace.md).
 
 This is the first usable assembly workspace. The monitor previews original
-sources, not the edited sequence. Native timeline playback, bundled FFmpeg,
-proxies, and export remain unfinished. Standalone audio fades
+sources, not the edited sequence. Native timeline playback, release media-helper
+packaging, and proxies remain unfinished. A development sequence render workflow
+exports MOV/ProRes 422 HQ with PCM audio, progress, cancellation, and FFprobe
+verification when explicitly prepared helpers are bundled. PNG/JPEG stills,
+layered video, channel maps, gain, fades and crossfades are supported within the
+qualified subset. The export dialog reports source geometry/color/VFR limitations.
+See [helper preparation](docs/media-helper-packaging.md). FCPXML export references
+originals and refuses unsupported edits; [its supported subset](docs/fcpxml-export.md)
+passes Apple's DTD, with native editor import still unverified. Standalone audio fades
 have timeline handles and inspector duration/curve controls; edits persist and
 support undo/redo. Linked audio crossfades support existing overlaps and adjacent
 cuts with available source handles, without changing clip cuts or linked picture.
@@ -70,7 +77,8 @@ The core now includes a development FFmpeg render-plan compiler and a persisted
 fixture integration proof. Run `scripts/render-plan-proof.py` with explicit
 absolute FFmpeg and FFprobe paths and a new absolute output directory. It checks
 decoded frame identities, cuts, channel routing, gain, timecode, and sample counts.
-This does not yet enable media import/export in the app or establish MPV parity.
+The app now uses this compiler for the development render workflow; this proof
+does not qualify every source format or establish MPV parity.
 
 The fixture also emits an experimental MPV graph from the same export filters.
 `scripts/mpv-plan-proof.py` resolves actual loaded tracks over local JSON IPC and

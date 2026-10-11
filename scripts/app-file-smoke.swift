@@ -67,6 +67,23 @@ struct AppFileSmoke {
         store.appendSelectedAsset()
         try check(store.errorMessage == nil && store.duration == 7, "Still append")
         try store.project.validate()
+        let beforeExport = store.project
+        let exportHistory = (store.canUndo, store.canRedo)
+        store.beginRenderExport()
+        try check(store.renderExportDraft?.plan == TimelineRenderPlan(project: beforeExport),
+                  "Render dialog captures an immutable original-media sequence snapshot including imported stills")
+        try check(store.project == beforeExport && store.canUndo == exportHistory.0 && store.canRedo == exportHistory.1,
+                  "Opening render export does not edit the document or undo history")
+        store.undo()
+        try check(store.renderExportDraft?.plan == TimelineRenderPlan(project: beforeExport),
+                  "Subsequent edits do not change the export snapshot")
+        store.redo()
+        store.renderExportDraft = nil
+        let emptyExport = EditorStore()
+        emptyExport.beginRenderExport()
+        try check(emptyExport.renderExportDraft == nil && emptyExport.errorMessage != nil,
+                  "Empty sequence export fails without opening a draft")
+        emptyExport.close()
 
         var document = ProjectDocument(project: store.project, mediaBookmarks: store.mediaBookmarks)
         document.mediaBookmarks[UUID()] = Data([1, 2, 3])
