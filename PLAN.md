@@ -506,7 +506,8 @@ and save/reopen without losing placements, preferences, or source identity.
 ### 3. Audio components, fades, and crossfades
 
 - [x] Support post-insertion mono, multiple mono, stereo, and surround selection
-      on a selected component; consolidation of existing components remains open.
+      on a selected component, including explicit consolidation of aligned linked
+      components with matching source, track family, and gain.
 - [x] Implement explicit channel maps and compatible track layout adaptation.
 - [ ] Add fade handles and linked crossfades, including drag-to-second-clip creation.
 - [ ] Handle insufficient source handles, adjacent cuts, overlapping siblings,
@@ -778,3 +779,28 @@ launch-performance claim has been validated yet.
   cancellation, same-path replacement invalidation, source/channel windows and
   image bounds. Native workspace gestures, focus transitions, and sheet layout
   still need manual UI testing; no live sequence-playback claim is made.
+
+### Audio component consolidation checkpoint (2026-10-11)
+
+- The audio source inspector now lists compatible linked components for explicit
+  replacement with one mapped mono/stereo/surround component. Only checked
+  components are removed; linked picture and unchecked audio remain intact.
+  Source channels and sequence outputs still require explicit selection.
+- Consolidation requires matching asset, source range, timeline start, link group,
+  track family and static gain. Differing timing or gain requires a separate edit;
+  it is never silently resolved by choosing one component's settings. The selected
+  clip identity and gain survive, occupied tracks keep their settings, and empty
+  tracks follow the cleanup/retention preferences. Family templates survive.
+- Preview and optional track-change confirmation include component removal.
+  Cancellation and stale drafts leave the document intact. Consolidation, routing,
+  track adaptation and cleanup commit as one undoable document edit.
+- Added five core regressions covering mono-to-surround maps, explicit subsets,
+  occupied tracks, cleanup/retention, persistence, linked moves, invalid component
+  identities/maps, ambiguous timing/gain and redo preservation. The app smoke
+  harness exercises preview, rejection, commit, save/reopen and undo/redo.
+- Verification passed: 81 EditorCore tests (39 XCTest and 42 Swift Testing),
+  nine Python regressions, shortcut smoke, expanded app-file smoke and the
+  unsigned macOS Debug build.
+- Initial placement of non-mono/stereo-only assets, live edited-sequence monitoring,
+  helper packaging, fades/crossfades, proxies and export remain open. Inspector
+  checkbox interactions and confirmation layout still need manual UI testing.

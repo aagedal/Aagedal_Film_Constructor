@@ -147,7 +147,7 @@ struct AppFileSmoke {
         try exerciseWorkspace()
         try exerciseAudioSelection()
         try exerciseShortcuts()
-        print("App file smoke passed: WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, audio channel maps/routing/stale drafts, shortcut persistence/scoped dispatch, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, audio channel maps/routing/consolidation/stale drafts, shortcut persistence/scoped dispatch, project save/reopen, corrupt and unsupported file rejection.")
     }
 
     @MainActor
@@ -227,6 +227,31 @@ struct AppFileSmoke {
             throw SmokeError.failed("Invalid audio output route accepted")
         } catch TimelineEditError.incompatibleAudioRouting { }
         try check(store.project == changed && store.canRedo, "Rejected audio route preserves document and redo")
+
+        let replacementIDs = try changed.audioConsolidationCandidates(for: audio.id).map(\.id)
+        try check(replacementIDs.count == 1, "Linked mono component available for consolidation")
+        let combinedMap = AudioSourceSelection(channels: [.init(streamIndex: 2, channelIndex: 0), .init(streamIndex: 1, channelIndex: 1)], layout: .stereo)
+        let combinedRoute = AudioRouting(outputChannels: [1, 0])
+        let combinedPreview = try store.previewAudioSelection(clipID: audio.id, selections: [combinedMap], routing: [combinedRoute], replacingClipIDs: replacementIDs)
+        try check(store.project == changed && combinedPreview.tracks.flatMap(\.clips).count == 2, "Consolidation preview leaves document unchanged")
+        do {
+            try store.applyAudioSelection(clipID: audio.id, selections: [combinedMap], routing: [combinedRoute], replacingClipIDs: replacementIDs, expectedProject: baseline)
+            throw SmokeError.failed("Stale consolidation accepted")
+        } catch EditorCoreError.invalidModel { }
+        do {
+            try store.applyAudioSelection(clipID: audio.id, selections: maps, routing: routes, replacingClipIDs: replacementIDs, expectedProject: changed)
+            throw SmokeError.failed("Consolidation into multiple components accepted")
+        } catch TimelineEditError.incompatibleAudioConsolidation { }
+        try check(store.project == changed && store.canRedo, "Rejected consolidation preserves redo and document")
+        try store.applyAudioSelection(clipID: audio.id, selections: [combinedMap], routing: [combinedRoute], replacingClipIDs: replacementIDs, expectedProject: changed)
+        let consolidated = store.project
+        try check(consolidated == combinedPreview && store.selectedClipID == audio.id, "Consolidation matches preview and retains selection")
+        try check(consolidated.tracks.flatMap(\.clips).first { $0.id == picture.id } == picture, "Consolidation preserves linked picture")
+        try check(try ProjectDocument(data: ProjectDocument(project: consolidated).encodedData()).project == consolidated, "Consolidated maps and tracks persist")
+        store.undo()
+        try check(store.project == changed, "One undo restores separate audio components")
+        store.redo()
+        try check(store.project == consolidated, "Consolidation redo restores identical document")
     }
 
     @MainActor

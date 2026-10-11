@@ -169,4 +169,133 @@ final class AudioSourceSelectionTests: XCTestCase {
         XCTAssertEqual(engine.project.tracks.count, moved.tracks.count)
         try assertRoutes(engine.project)
     }
+
+    private func separatedFixture(cleanup: Bool = true) throws -> (Project, [UUID]) {
+        let (project, id) = try fixture(cleanup: cleanup)
+        var engine = try TimelineEditEngine(project: project)
+        let ids = try engine.selectAudioSource(clipID: id, selections: [selection(2, .mono), selection(3, .mono)],
+                                              routing: [.init(outputChannels: [0]), .init(outputChannels: [1])])
+        return (engine.project, ids)
+    }
+
+    func testConsolidateMonoToSurroundPreservesPictureTimingGainIdentityAndHistory() throws {
+        let (project, ids) = try separatedFixture()
+        var engine = try TimelineEditEngine(project: project)
+        let origin = try XCTUnwrap(project.tracks.first { $0.clips.contains { $0.id == ids[0] } })
+        XCTAssertEqual(try project.audioConsolidationCandidates(for: ids[0]).map(\.id), [ids[1]])
+        let map = selection(4, .surround51)
+        let route = AudioRouting(outputChannels: [0, 1, 0, 1, 0, 1])
+        try engine.consolidateAudioSources(clipID: ids[0], replacingClipIDs: [ids[1]], selection: map, routing: route)
+        let edited = engine.project
+        let track = try XCTUnwrap(edited.tracks.first { $0.clips.contains { $0.id == ids[0] } })
+        XCTAssertEqual(track.id, origin.id)
+        XCTAssertEqual(track.customName, origin.customName)
+        XCTAssertEqual(track.retained, origin.retained)
+        XCTAssertEqual(track.template.gain, 0.6)
+        XCTAssertEqual(track.template.routing, route)
+        XCTAssertEqual(track.audioLayout, .surround51)
+        XCTAssertEqual(track.clips[0].sourceRange, origin.clips[0].sourceRange)
+        XCTAssertEqual(track.clips[0].timelineStart, origin.clips[0].timelineStart)
+        XCTAssertEqual(track.clips[0].linkGroupID, origin.clips[0].linkGroupID)
+        XCTAssertEqual(edited.tracks.filter { $0.kind == .video }, project.tracks.filter { $0.kind == .video })
+        XCTAssertFalse(edited.tracks.flatMap(\.clips).contains { $0.id == ids[1] })
+        XCTAssertEqual(edited.tracks.count, 2)
+        XCTAssertEqual(edited.families, project.families)
+        let component = try XCTUnwrap(TimelineRenderPlan(project: edited).components.first { $0.clipID == ids[0] })
+        XCTAssertEqual(component.selection, .audio(map))
+        XCTAssertEqual(component.routing, route)
+        let data = try JSONEncoder().encode(edited)
+        XCTAssertEqual(try JSONDecoder().decode(Project.self, from: data), edited)
+        engine.undo(); XCTAssertEqual(engine.project, project)
+        engine.redo(); XCTAssertEqual(engine.project, edited)
+        try engine.apply(.move(clipID: ids[0], trackID: track.id, start: RationalTime(12)))
+        XCTAssertEqual(Set(engine.project.tracks.flatMap(\.clips).map(\.timelineStart)), [try RationalTime(12)])
+    }
+
+    func testConsolidationCleanupHonorsRetainedTracksAndPreference() throws {
+        for cleanup in [true, false] {
+            for retained in [true, false] {
+                var (project, ids) = try separatedFixture(cleanup: cleanup)
+                let index = try XCTUnwrap(project.tracks.firstIndex { $0.clips.contains { $0.id == ids[1] } })
+                project.tracks[index].retained = retained
+                let oldTrack = project.tracks[index]
+                var engine = try TimelineEditEngine(project: project)
+                try engine.consolidateAudioSources(clipID: ids[0], replacingClipIDs: [ids[1]], selection: selection(1, .stereo), routing: .init())
+                let remaining = engine.project.tracks.first { $0.id == oldTrack.id }
+                XCTAssertEqual(remaining != nil, retained || !cleanup)
+                if let remaining {
+                    var expected = oldTrack; expected.clips = []
+                    XCTAssertEqual(remaining, expected)
+                }
+                engine.undo(); XCTAssertEqual(engine.project, project)
+            }
+        }
+    }
+
+    func testConsolidationOnlyRemovesExplicitComponentsAndPreservesOccupiedTrack() throws {
+        let (original, id) = try fixture()
+        var engine = try TimelineEditEngine(project: original)
+        let ids = try engine.selectAudioSource(clipID: id, selections: [selection(2, .mono), selection(3, .mono), selection(2, .mono)],
+                                              routing: [.init(outputChannels: [0]), .init(outputChannels: [1]), .init(outputChannels: [0])])
+        var project = engine.project
+        let originIndex = try XCTUnwrap(project.tracks.firstIndex { $0.clips.contains { $0.id == id } })
+        var blocker = project.tracks[originIndex].clips[0]
+        blocker.id = UUID(); blocker.linkGroupID = nil; blocker.timelineStart = try RationalTime(20)
+        project.tracks[originIndex].clips.append(blocker)
+        let origin = project.tracks[originIndex]
+        let untouched = try XCTUnwrap(project.tracks.first { $0.clips.contains { $0.id == ids[2] } })
+        engine = try TimelineEditEngine(project: project)
+        try engine.consolidateAudioSources(clipID: id, replacingClipIDs: [ids[1]], selection: selection(1, .stereo), routing: .init())
+        XCTAssertEqual(engine.project.tracks.first { $0.id == origin.id }?.clips, [blocker])
+        XCTAssertEqual(engine.project.tracks.first { $0.id == origin.id }?.template, origin.template)
+        XCTAssertEqual(engine.project.tracks.first { $0.id == untouched.id }, untouched)
+        XCTAssertEqual(engine.project.tracks.flatMap(\.clips).count, 4)
+        engine.undo(); XCTAssertEqual(engine.project, project)
+    }
+
+    func testConsolidationRejectsAmbiguousComponentsWithoutMutatingHistory() throws {
+        let (project, ids) = try separatedFixture()
+        let secondIndex = try XCTUnwrap(project.tracks.firstIndex { $0.clips.contains { $0.id == ids[1] } })
+        var variants: [Project] = []
+        var modified = project; modified.tracks[secondIndex].clips[0].timelineStart = try RationalTime(11); variants.append(modified)
+        modified = project; modified.tracks[secondIndex].clips[0].sourceRange = try TimeRange(start: RationalTime(3), duration: RationalTime(5)); variants.append(modified)
+        modified = project; modified.tracks[secondIndex].clips[0].linkGroupID = UUID(); variants.append(modified)
+        modified = project; modified.tracks[secondIndex].template.gain = 0.2; variants.append(modified)
+        modified = project
+        var otherAsset = project.assets[0]; otherAsset.id = UUID(); modified.assets.append(otherAsset)
+        modified.tracks[secondIndex].clips[0].assetID = otherAsset.id; variants.append(modified)
+        modified = project
+        let family = TrackFamily(baseName: "Other", template: modified.tracks[secondIndex].template)
+        modified.families.append(family); modified.tracks[secondIndex].familyID = family.id; variants.append(modified)
+        for variant in variants {
+            XCTAssertTrue(try variant.audioConsolidationCandidates(for: ids[0]).isEmpty)
+            var engine = try TimelineEditEngine(project: variant)
+            XCTAssertThrowsError(try engine.consolidateAudioSources(clipID: ids[0], replacingClipIDs: [ids[1]], selection: selection(1, .stereo), routing: .init())) {
+                XCTAssertEqual($0 as? TimelineEditError, .incompatibleAudioConsolidation)
+            }
+            XCTAssertEqual(engine.project, variant)
+            XCTAssertFalse(engine.canUndo)
+        }
+    }
+
+    func testInvalidConsolidationIDsAndMappingPreserveRedo() throws {
+        let (project, ids) = try separatedFixture()
+        var engine = try TimelineEditEngine(project: project)
+        try engine.consolidateAudioSources(clipID: ids[0], replacingClipIDs: [ids[1]], selection: selection(1, .stereo), routing: .init())
+        engine.undo()
+        let videoID = project.tracks.first { $0.kind == .video }!.clips[0].id
+        for replacement in [[], [ids[0]], [UUID()], [videoID], [ids[1], ids[1]]] {
+            XCTAssertThrowsError(try engine.consolidateAudioSources(clipID: ids[0], replacingClipIDs: replacement, selection: selection(1, .stereo), routing: .init()))
+            XCTAssertEqual(engine.project, project)
+            XCTAssertTrue(engine.canRedo)
+        }
+        XCTAssertThrowsError(try engine.consolidateAudioSources(clipID: ids[0], replacingClipIDs: [ids[1]], selection: selection(999, .stereo), routing: .init()))
+        XCTAssertThrowsError(try engine.consolidateAudioSources(clipID: ids[0], replacingClipIDs: [ids[1]], selection: selection(1, .stereo), routing: .init(outputChannels: [0, 99])))
+        XCTAssertEqual(engine.project, project)
+        XCTAssertTrue(engine.canRedo)
+        // Removing an explicitly selected component still commits when the retained map is identical.
+        try engine.consolidateAudioSources(clipID: ids[0], replacingClipIDs: [ids[1]], selection: selection(2, .mono), routing: .init(outputChannels: [0]))
+        XCTAssertFalse(engine.project.tracks.flatMap(\.clips).contains { $0.id == ids[1] })
+        engine.undo(); XCTAssertEqual(engine.project, project)
+    }
 }
