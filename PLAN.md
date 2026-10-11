@@ -9,7 +9,9 @@ parity for qualified fixtures. Bounded asynchronous decoding, stale-result
 rejection and exact sample-driven transport now pass the same fixtures and native
 offline clock checks. Milestone 2 now has a basic assembly workspace with source
 preview, media import, project documents, and linked editing. Live sequence
-playback, helper packaging, and the remaining workspace features stay in progress.
+playback, release helper packaging, proxies and full export qualification stay
+in progress. A scoped render workflow now has progress/cancellation, verified
+publication and opt-in helper packaging; FCPXML has a validated structural subset.
 This plan records the intended product and implementation order; unchecked
 items remain planned capabilities.
 
@@ -535,7 +537,9 @@ a compatible track, create a crossfade, and undo both operations without lost sy
 
 - [ ] Implement FFmpeg sequence render with correct raster, rational frame rate,
       start timecode, compositing order, scaling, audio selections, and fades.
-- [ ] Add output settings, timecode-capability validation, progress, and cancellation.
+- [x] Add a fixed MOV/ProRes HQ/PCM development workflow using sequence output
+      settings and timecode, progress, cancellation and verified publication.
+      Additional output presets and full source/container qualification remain open.
 - [ ] Add stream-copy eligibility using codec/packet metadata; qualify exact
       single-source trims, compatible cuts-only concatenation, and video-copy /
       audio-render export, with clear reasons and no silent boundary shifts.
@@ -898,3 +902,35 @@ launch-performance claim has been validated yet.
   macOS Debug build. Playback smoke covers forward/pause, silent reverse, both
   source boundaries, restart, source replacement and document-close cancellation.
   Physical key delivery and native focus interactions still need manual UI testing.
+
+### Sequence render, helper preparation and FCPXML checkpoint (2026-10-11)
+
+- Added a snapshot-based native export dialog, toolbar/File menu commands and
+  remappable render shortcut. MOV/ProRes 422 HQ/24-bit PCM uses sequence raster,
+  rational frame rate, start timecode, original media, channel maps, gain and
+  fade/crossfade envelopes. PNG/JPEG stills preserve alpha and fit/fill/none;
+  synthetic still source trims do not change the decoded image. Audio retains
+  exact sample duration when video covers a final partial frame.
+- Added source FFprobe preflight, bounded progress/diagnostic handling, explicit
+  cancellation with subprocess reaping, independently scoped media access,
+  private staging and atomic no-overwrite publication after output metadata/count
+  verification. The folder picker grants staging access. Unsupported/mismatched
+  source stream indices, nonzero offsets, known rotation/non-square/HDR markers,
+  obvious VFR and insufficient source ranges fail without publishing output.
+- Added opt-in helper preparation and an Xcode copy/sign phase. Matching helpers,
+  required capabilities, system-only dependencies, file hashes and supplied
+  notices/provenance are recorded. Unset configuration removes stale helpers;
+  ordinary builds contain none. Development preparation does not certify release
+  source attribution or licensing; signed sandbox export remains unqualified.
+- Added a scoped FCPXML 1.10 exporter with exact sequence timing, layered picture,
+  complete matching mono/stereo audio and original references. Unsupported fades,
+  crossfades, remaps, gain and geometry are rejected before saving. The save panel
+  shows qualification notes. Apple's DTD passes; native editor import is open.
+- Verification passed: 121 EditorCore tests (74 XCTest and 47 Swift Testing), nine
+  Python regressions, shortcut smoke, expanded app-file smoke, export-service
+  lifecycle/failure checks, original render proof, independent still alpha/scaling
+  and audio-tail proof, helper copy/sign/tamper tests, and unsigned macOS builds
+  with/without opt-in helpers. See [retained evidence](docs/evidence/sequence-export-20261011/README.md).
+- Live edited-sequence monitoring, proxies, stream-copy export, full geometry/color/
+  VFR qualification, native interchange import and release helper review remain
+  open. No production media compatibility or completed v1 acceptance is claimed.

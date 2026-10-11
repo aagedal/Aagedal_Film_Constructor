@@ -61,6 +61,11 @@ struct ContentView: View {
                     }
                 } label: { Label("Panels", systemImage: "rectangle.3.group") }
                 .help("Show or hide workspace panels")
+                Menu {
+                    Button("Render sequence…", action: store.beginRenderExport)
+                    Button("Export FCPXML…", action: store.exportFCPXML)
+                } label: { Label("Export", systemImage: "square.and.arrow.up") }
+                .disabled(store.duration <= 0)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -75,6 +80,9 @@ struct ContentView: View {
         }
         .sheet(item: $store.audioAppendAsset) { asset in
             AudioSourceEditor(store: store, asset: asset)
+        }
+        .sheet(item: $store.renderExportDraft) { draft in
+            SequenceExportView(draft: draft)
         }
         .alert("Unable to complete action", isPresented: Binding(get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } })) {
             Button("OK", role: .cancel) { store.errorMessage = nil }
