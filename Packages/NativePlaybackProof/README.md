@@ -55,3 +55,47 @@ audio block, including seeks and primed plan replacement.
 
 See [the 2026-10-11 evidence](../../docs/evidence/native-playback-20261011/README.md).
 This does not qualify hardware clocking, live display, latency or underrun recovery.
+
+`NativeLiveProof` is a standalone AppKit development window using the async
+session, `NativePlaybackTransport`, a real-time AVAudioEngine/AVAudioPlayerNode,
+and CGImage display. Space plays/pauses; left/right seek approximately one second.
+Initial opening shows frame zero and waits for Space. Audio is primed before the
+engine starts, scheduled at exact node sample times with at most 4096 samples of
+look-ahead (four 1024-sample blocks, with a partial final block). Video decode has
+at most one outstanding request. Seeks flush the node, invalidate decoder epochs,
+and reject obsolete operation tokens immediately before scheduling or displaying.
+Pause retains the final observed sample-clock position. Starvation or a missing
+clock stops playback with an explicit error; automatic recovery is unfinished.
+
+Build and test with explicitly selected local libraries, capturing dependency
+hashes and command logs into a fresh directory:
+
+```sh
+python3 scripts/native-live-proof.py \
+  --pkg-config /absolute/path/pkg-config \
+  --project /absolute/path/proof-project.json \
+  --output /absolute/path/fresh-live-proof
+```
+
+Add `--launch` to open the window and record its close-time scheduling/display
+counters. The project can be a completed native sequence proof's generated JSON.
+The build-only runner prints the exact executable invocation for later inspection.
+The runtime tests cover bounded scheduling, refill admission, starvation,
+regressing clocks, partial final blocks, overshoot, and RGB payload validation.
+
+This implementation has compiled and its 14 runtime tests have passed on the
+current development host. A hardware playback run has **not** been qualified.
+The player-node clock measures rendered samples, not acoustic speaker arrival;
+output latency is not compensated. The display is polled at 5 ms and can drop
+frames when decode finishes late; it is not synchronized to display refresh.
+There is no measured A/V sync, device-change recovery, interruption handling,
+real-time decoding guarantee, or signed redistributable FFmpeg bundle. Local
+FFmpeg dylibs can require a newer macOS version than this package's deployment
+floor. This executable remains disconnected from the shipping app.
+
+The live monitor accepts only canonical mono/stereo layouts and rejects a player
+clock whose sample rate differs from the sequence grid. It permits validated
+`replace(project:)` edits with an unchanged audio output format, resets and pauses
+the transport, then displays the replacement's first frame. Audio format changes
+require creating a new live monitor. Surround routing and hardware layout
+adaptation have not been qualified.

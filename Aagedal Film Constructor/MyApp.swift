@@ -91,6 +91,7 @@ private struct EditorCommands: Commands {
             Divider()
             command(.exportSequence)
             command(.exportFCPXML)
+            command(.exportEDL)
         }
         CommandGroup(after: .sidebar) {
             Toggle("Show Media Bin", isOn: $showMediaBin)

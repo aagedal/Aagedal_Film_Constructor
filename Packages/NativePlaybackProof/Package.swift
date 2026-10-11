@@ -15,6 +15,8 @@ let package = Package(
         ]),
         .executableTarget(name: "NativeSequenceProof", dependencies: ["NativePlaybackRuntime", "CNativeDecoder",
             .product(name: "EditorCore", package: "EditorCore")]),
+        .executableTarget(name: "NativeLiveProof", dependencies: ["NativePlaybackRuntime",
+            .product(name: "EditorCore", package: "EditorCore")]),
         .testTarget(name: "NativePlaybackRuntimeTests", dependencies: ["NativePlaybackRuntime"])
     ]
 )

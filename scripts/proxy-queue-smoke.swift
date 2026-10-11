@@ -79,11 +79,43 @@ private enum QueueSmokeError: Error { case failed(String) }
         recovery.cancelProxyQueue()
         await recovery.proxyGenerationTask?.value
         try check(recovery.proxyJobs[0].state == .cancelled && !FileManager.default.fileExists(atPath: cancelled.outputURL.path), "Cancelled queue remains resumable and never publishes")
+        // Individual retry must not start another queued job in the same document.
+        var waiting = cancelled; waiting.id = UUID(); waiting.outputURL = directory.appendingPathComponent("waiting-queue.mov")
+        waiting.state = .queued
+        recovery.proxyJobs.append(waiting)
+        recovery.retryProxyJob(id: cancelled.id, service: service)
+        await recovery.proxyGenerationTask?.value
+        try check(recovery.proxyJobs[0].state == .completed && recovery.proxyJobs[1].state == .queued &&
+                  !FileManager.default.fileExists(atPath: waiting.outputURL.path), "Individual retry leaves other queued jobs untouched")
         recovery.runProxyQueue(service: service)
         await recovery.proxyGenerationTask?.value
-        try check(recovery.proxyJobs[0].state == .completed, "Cancelled job resumes manually")
+        try check(recovery.proxyJobs.allSatisfy { $0.state == .completed }, "Resume finishes remaining queued jobs")
         recovery.clearFinishedProxyJobs()
         try check(recovery.proxyJobs.isEmpty && recovery.project.assets[0].proxy != nil, "Clearing completed queue preserves registered proxies")
+        // Closing/reloading while a cancelled task unwinds cannot mutate the replacement document or clear its task.
+        var closing = cancelled; closing.id = UUID(); closing.state = .queued
+        closing.outputURL = directory.appendingPathComponent("closing-queue.mov")
+        recovery.proxyJobs = [closing]
+        recovery.runProxyQueue(service: slowService)
+        try await Task.sleep(for: .milliseconds(300))
+        let oldTask = recovery.proxyGenerationTask
+        let runningSaved = try ProjectDocument(project: recovery.project, mediaBookmarks: recovery.mediaBookmarks,
+                                               proxyBookmarks: recovery.proxyBookmarks, proxyJobs: recovery.proxyJobs).encodedData()
+        try check(try ProjectDocument(data: runningSaved).proxyJobs[0].state == .running, "Saving an active job preserves its resumable running snapshot")
+        recovery.load(try ProjectDocument(data: runningSaved))
+        try check(recovery.proxyGenerationTask == nil && recovery.proxyJobs[0].state == .interrupted &&
+                  recovery.proxyQueueProgress.isEmpty, "Document replacement cancels the old queue and restores interrupted state without starting it")
+        recovery.runProxyQueue(service: slowService)
+        await oldTask?.value
+        try await Task.sleep(for: .milliseconds(50))
+        try check(recovery.proxyGenerationTask != nil && recovery.proxyJobs[0].state == .running,
+                  "Old queue cleanup cannot clear a replacement document's active task or state")
+        recovery.cancelProxyQueue()
+        await recovery.proxyGenerationTask?.value
+        try check(!FileManager.default.fileExists(atPath: closing.outputURL.path), "Closed queue never publishes its unfinished output")
+        recovery.runProxyQueue(service: service)
+        await recovery.proxyGenerationTask?.value
+        try check(recovery.proxyJobs[0].state == .completed, "Interrupted document replacement remains manually resumable")
         var malformed = try JSONSerialization.jsonObject(with: queuedDocument.encodedData()) as! [String: Any]
         let jobs = malformed["proxyJobs"] as! [[String: Any]]
         malformed["proxyJobs"] = jobs + jobs
@@ -93,7 +125,7 @@ private enum QueueSmokeError: Error { case failed(String) }
         } catch EditorCoreError.invalidModel { }
         malformed.removeValue(forKey: "proxyJobs")
         try check(try ProjectDocument(data: JSONSerialization.data(withJSONObject: malformed)).proxyJobs.isEmpty, "Legacy documents load with empty queue")
-        print("Proxy queue smoke passed: persistence, manual resume, interruption recovery, collision preservation, fresh retry, stale source, cancellation, undo separation, legacy documents")
+        print("Proxy queue smoke passed: persistence, manual resume, interruption recovery, collision preservation, fresh retry, stale source, cancellation, individual retry isolation, active save/reload, stale task cleanup, undo separation, legacy documents")
     }
     static func check(_ condition: Bool, _ message: String) throws {
         guard condition else { throw QueueSmokeError.failed(message) }

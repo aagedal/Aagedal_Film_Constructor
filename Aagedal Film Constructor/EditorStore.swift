@@ -26,6 +26,7 @@ final class EditorStore: ObservableObject {
     @Published var selectedClipID: UUID?
     @Published var audioAppendAsset: MediaAsset?
     @Published var renderExportDraft: SequenceExportDraft?
+    @Published var edlExportDraft: EDLExportDraft?
     @Published var playheadSeconds: Double = 0
     @Published var errorMessage: String?
     @Published var isImporting = false
@@ -88,6 +89,7 @@ final class EditorStore: ObservableObject {
         mediaEpoch = UUID()
         audioAppendAsset = nil
         renderExportDraft = nil
+        edlExportDraft = nil
         importTask?.cancel()
         sourcePreviewTask?.cancel()
         for index in proxyJobs.indices where proxyJobs[index].state == .running {

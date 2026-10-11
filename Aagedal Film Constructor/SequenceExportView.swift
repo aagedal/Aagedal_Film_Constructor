@@ -124,3 +124,119 @@ struct SequenceExportView: View {
         }
     }
 }
+
+/// Source timing is supplied explicitly until import has a qualified timecode probe.
+struct EDLExportView: View {
+    @ObservedObject var store: EditorStore
+    let draft: EDLExportDraft
+    @Environment(\.dismiss) private var dismiss
+    @State private var trackID: UUID
+    @State private var entries: [UUID: SourceEntry] = [:]
+    @State private var verifiedTiming = false
+    @State private var errorMessage: String?
+
+    private struct SourceEntry {
+        var reel = ""
+        var rate = ""
+        var timecode = ""
+    }
+
+    init(store: EditorStore, draft: EDLExportDraft) {
+        self.store = store
+        self.draft = draft
+        _trackID = State(initialValue: draft.initialTrackID)
+    }
+
+    private var tracks: [TimelineTrack] { draft.project.tracks.filter { !$0.clips.isEmpty } }
+    private var track: TimelineTrack? { tracks.first { $0.id == trackID } }
+    private var assets: [MediaAsset] {
+        let ids = Set(track?.clips.map(\.assetID) ?? [])
+        return draft.project.assets.filter { ids.contains($0.id) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Export track EDL").font(.title2.bold())
+            Text("Exports cuts and gaps from one track as CMX 3600. Other tracks are omitted; this is not a flattened sequence. Scaling, compositing, fades, and channel processing cannot be carried in an EDL.")
+                .foregroundStyle(.secondary)
+            Picker("Track", selection: $trackID) {
+                ForEach(tracks) { track in
+                    Text(track.displayName(in: draft.project)).tag(track.id)
+                }
+            }
+            Text("Source timing is not probed automatically. Enter each original's exact frame rate (for example 24000/1001), start timecode, and a unique reel name of up to eight uppercase ASCII letters or digits. The source rate and timecode mode must match the sequence.")
+                .font(.caption).foregroundStyle(.secondary)
+            Text("Sequence: \(draft.project.settings.frameRate.value.numerator)/\(draft.project.settings.frameRate.value.denominator) fps · \((try? draft.project.settings.startTimecode.formatted(rate: draft.project.settings.frameRate)) ?? "")")
+                .font(.caption).monospacedDigit()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(assets) { asset in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(asset.name).font(.headline)
+                            HStack {
+                                TextField("Reel", text: entry(asset.id, \.reel)).frame(width: 100)
+                                TextField("Exact fps", text: entry(asset.id, \.rate)).frame(width: 130)
+                                TextField("Start HH:MM:SS:FF or HH:MM:SS;FF", text: entry(asset.id, \.timecode))
+                            }.textFieldStyle(.roundedBorder)
+                        }
+                    }
+                }
+            }.frame(maxHeight: 260)
+            Toggle("I verified the source rates and timecodes, and every video source has a constant frame rate.", isOn: $verifiedTiming)
+            if let errorMessage {
+                ScrollView { Text(errorMessage).foregroundStyle(.red).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
+                    .frame(maxHeight: 130)
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Choose EDL file…", action: export)
+                    .disabled(!verifiedTiming || assets.isEmpty)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(24).frame(width: 680)
+        .onChange(of: trackID) { _, _ in verifiedTiming = false; errorMessage = nil }
+    }
+
+    private func entry(_ id: UUID, _ keyPath: WritableKeyPath<SourceEntry, String>) -> Binding<String> {
+        Binding(get: { entries[id, default: SourceEntry()][keyPath: keyPath] }, set: { value in
+            var updated = entries[id, default: SourceEntry()]
+            updated[keyPath: keyPath] = value
+            entries[id] = updated
+            verifiedTiming = false
+            errorMessage = nil
+        })
+    }
+
+    private func export() {
+        guard verifiedTiming, let track else { return }
+        do {
+            var timing: [UUID: CMX3600SourceTiming] = [:]
+            for asset in assets {
+                let fields = entries[asset.id, default: SourceEntry()]
+                let parts = fields.rate.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "/", omittingEmptySubsequences: false)
+                guard (1...2).contains(parts.count), let numerator = Int64(parts[0]),
+                      let denominator = parts.count == 2 ? Int64(parts[1]) : 1 else {
+                    throw EditorCoreError.invalidModel("Enter an exact source frame rate for \(asset.name).")
+                }
+                let rate = try FrameRate(numerator, denominator)
+                let start = try Timecode(parsing: fields.timecode.trimmingCharacters(in: .whitespacesAndNewlines), rate: rate)
+                let indices = Set(track.clips.filter { $0.assetID == asset.id }.flatMap { clip -> [Int] in
+                    switch clip.selection {
+                    case .video(let index): return [index]
+                    case .audio(let selection): return selection.channels.map(\.streamIndex)
+                    case .still: return []
+                    }
+                })
+                guard indices.count == 1, let streamIndex = indices.first else {
+                    throw EditorCoreError.invalidModel("EDL requires one selected source stream per original: \(asset.name).")
+                }
+                timing[asset.id] = CMX3600SourceTiming(frameRate: rate, startTimecode: start,
+                    reelName: fields.reel.trimmingCharacters(in: .whitespacesAndNewlines), streamIndex: streamIndex, constantFrameRate: true)
+            }
+            let result = try CMX3600Exporter.export(project: draft.project, trackID: trackID, sourceTiming: timing)
+            if try store.saveEDL(result, snapshot: draft.project) { dismiss() }
+        } catch { errorMessage = error.localizedDescription }
+    }
+}
