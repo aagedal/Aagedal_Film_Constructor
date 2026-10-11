@@ -1,6 +1,6 @@
 # Scripted native live monitor smoke
 
-Retained from `/private/tmp/afc-live-scripted-preroll-20261012` using local FFmpeg
+Retained from `/private/tmp/afc-live-pr20-final-20261012` using local FFmpeg
 libraries and the passing barcode project's originals. Reproduce with:
 
 ```sh
@@ -15,9 +15,14 @@ and closed. Both executable and observation-validation exit codes are zero.
 Thirteen JSON records retain transport, last displayed frame, action timestamps,
 per-play scheduling counters and errors. The final record has no errors, a paused
 transport at sample 70,656/frame 44, and last displayed frame 43. Final-play-epoch
-counters include 23,552 observed render samples and 15 displayed frames; the
+counters include 23,040 observed render samples and 15 displayed frames; the
 maximum queued audio was 4096 samples. Counters reset on each explicit Play and
 are not totals across the whole run.
+
+The final exercise also enforces all scripted actions in order with their expected
+playing states. Early window close is a failure in both the executable and
+harness; 22 Python regressions cover complete/interrupted/reordered runs and
+other proof checks.
 
 The first exercise exposed negative player-node sample times during startup and
 stopped before progress. Its observations are retained separately. The fix waits

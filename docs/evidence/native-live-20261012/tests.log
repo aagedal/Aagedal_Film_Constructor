@@ -1,79 +1,78 @@
 Building for debugging...
-[Planning 130 / 185]
 [Planning deferred tasks]
 [23 / 39] NativeSequenceProof-product
 [26 / 47] NativeSequenceProof-product
 [28 / 47]
 [32 / 47] NativePlaybackRuntimeTests-product
 [37 / 47] NativeSequenceProof-product
-[39 / 47] NativeSequenceProof-product/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-b9985512/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavformat.63.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-b9985512/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavformat.63.dylib' which was built for newer version 27.0
 /Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-b9985512/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavcodec.63.dylib' which was built for newer version 27.0
 /Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-b9985512/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libswscale.10.dylib' which was built for newer version 27.0
 /Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-b9985512/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libswresample.7.dylib' which was built for newer version 27.0
 /Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-b9985512/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavutil.61.dylib' which was built for newer version 27.0
-
+[39 / 47] NativeSequenceProof-product
 [41 / 47] NativePlaybackRuntimeTests-product
-[43 / 47] NativePlaybackRuntimeTests-product
-/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-b9985512/Packages/NativePlaybackProof/Package.swift: NativePlaybackRuntimeTests-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavformat.63.dylib' which was built for newer version 27.0
+[43 / 47] NativePlaybackRuntimeTests-product/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-b9985512/Packages/NativePlaybackProof/Package.swift: NativePlaybackRuntimeTests-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavformat.63.dylib' which was built for newer version 27.0
 /Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-b9985512/Packages/NativePlaybackProof/Package.swift: NativePlaybackRuntimeTests-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavcodec.63.dylib' which was built for newer version 27.0
 /Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-b9985512/Packages/NativePlaybackProof/Package.swift: NativePlaybackRuntimeTests-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libswscale.10.dylib' which was built for newer version 27.0
 /Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-b9985512/Packages/NativePlaybackProof/Package.swift: NativePlaybackRuntimeTests-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libswresample.7.dylib' which was built for newer version 27.0
 /Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-b9985512/Packages/NativePlaybackProof/Package.swift: NativePlaybackRuntimeTests-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavutil.61.dylib' which was built for newer version 27.0
-Build complete! (2,13 sec)
-Test Suite 'All tests' started at 2026-10-12 00:28:10.335.
-Test Suite 'All tests' passed at 2026-10-12 00:28:10.340.
-	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.005) seconds
+
+Build complete! (2,03 sec)
+Test Suite 'All tests' started at 2026-10-12 00:58:57.460.
+Test Suite 'All tests' passed at 2026-10-12 00:58:57.464.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.004) seconds
 ◇ Test run started.
 ↳ Testing Library Version: 2084
 ↳ Target Platform: arm64e-apple-macos14.0
-◇ Suite NativeVideoGeometryTests started.
-◇ Suite PlaybackSessionTests started.
 ◇ Suite LivePlaybackTests started.
-◇ Test seekDiscardsAnInFlightResultAndCanReuseCachedFrames() started.
-◇ Test oversizedPayloadAndDisabledCacheAreNotRetained() started.
-◇ Test closeInvalidatesInFlightAndRejectsFutureRequests() started.
-◇ Test cancellationDiscardsRunningDecodeAndReleasesAdmission() started.
-◇ Test mixedCacheEvictsLeastRecentlyUsedWithinByteBudget() started.
-◇ Test configurationObserverIsScopedAndRemovedOnRelease() started.
-◇ Test replacementInvalidatesRunningAndQueuedReads() started.
-◇ Test invalidRequestsDoNotReachDecoder() started.
-◇ Test cancellingDuringInitializationDoesNotStartDecode() started.
-◇ Test scheduleIsBoundedAndClockCreatesAdmission() started.
+◇ Suite PlaybackSessionTests started.
+◇ Suite NativeVideoGeometryTests started.
+◇ Test liveStatisticsEncodeLifecycleFailures() started.
 ◇ Test playerStartupPrerollDoesNotEstablishOrAdvanceClock() started.
 ◇ Test invalidLimitsAndMalformedImagesAreRejected() started.
 ◇ Test finalPartialBlockAcceptsDeviceOvershoot() started.
-◇ Test liveStatisticsEncodeLifecycleFailures() started.
+◇ Test removingConfigurationObserverReleasesCallbackCaptures() started.
+◇ Test scheduleIsBoundedAndClockCreatesAdmission() started.
+◇ Test liveOutputRejectsSurroundAndChangedSampleGrid() started.
+◇ Test configurationObserverIsScopedAndRemovedOnRelease() started.
 ◇ Test starvationAndRegressingClocksFailWithoutAdvancing() started.
 ◇ Test prerollStillRejectsChangedSampleRate() started.
-◇ Test oddCenteredCropAndPaddingPreferTopLeft() started.
-◇ Test removingConfigurationObserverReleasesCallbackCaptures() started.
+◇ Test cancellingDuringInitializationDoesNotStartDecode() started.
+◇ Test oversizedPayloadAndDisabledCacheAreNotRetained() started.
+◇ Test replacementInvalidatesRunningAndQueuedReads() started.
+◇ Test replacementClearsCacheAndRejectedReplacementPreservesEpoch() started.
+◇ Test mixedCacheEvictsLeastRecentlyUsedWithinByteBudget() started.
+◇ Test seekDiscardsAnInFlightResultAndCanReuseCachedFrames() started.
 ◇ Test aspectConformRoundsAndBoundsIntermediateRaster() started.
 ◇ Test unscaledConformPadsAndCropsEachAxisWithoutStretching() started.
-◇ Test replacementClearsCacheAndRejectedReplacementPreservesEpoch() started.
-◇ Test liveOutputRejectsSurroundAndChangedSampleGrid() started.
+◇ Test cancellationDiscardsRunningDecodeAndReleasesAdmission() started.
+◇ Test invalidRequestsDoNotReachDecoder() started.
+◇ Test oddCenteredCropAndPaddingPreferTopLeft() started.
+◇ Test closeInvalidatesInFlightAndRejectsFutureRequests() started.
 ✔ Test finalPartialBlockAcceptsDeviceOvershoot() passed after 0.001 seconds.
-✔ Test oddCenteredCropAndPaddingPreferTopLeft() passed after 0.001 seconds.
-✔ Test unscaledConformPadsAndCropsEachAxisWithoutStretching() passed after 0.001 seconds.
 ✔ Test liveStatisticsEncodeLifecycleFailures() passed after 0.001 seconds.
-✔ Test scheduleIsBoundedAndClockCreatesAdmission() passed after 0.001 seconds.
-✔ Test prerollStillRejectsChangedSampleRate() passed after 0.001 seconds.
-✔ Test liveOutputRejectsSurroundAndChangedSampleGrid() passed after 0.001 seconds.
-✔ Test playerStartupPrerollDoesNotEstablishOrAdvanceClock() passed after 0.001 seconds.
-✔ Test starvationAndRegressingClocksFailWithoutAdvancing() passed after 0.001 seconds.
+✔ Test unscaledConformPadsAndCropsEachAxisWithoutStretching() passed after 0.001 seconds.
+✔ Test oddCenteredCropAndPaddingPreferTopLeft() passed after 0.001 seconds.
 ✔ Test aspectConformRoundsAndBoundsIntermediateRaster() passed after 0.001 seconds.
+✔ Test prerollStillRejectsChangedSampleRate() passed after 0.001 seconds.
+✔ Test scheduleIsBoundedAndClockCreatesAdmission() passed after 0.001 seconds.
+✔ Test playerStartupPrerollDoesNotEstablishOrAdvanceClock() passed after 0.001 seconds.
 ✔ Suite NativeVideoGeometryTests passed after 0.001 seconds.
+✔ Test liveOutputRejectsSurroundAndChangedSampleGrid() passed after 0.001 seconds.
+✔ Test starvationAndRegressingClocksFailWithoutAdvancing() passed after 0.001 seconds.
 ✔ Test removingConfigurationObserverReleasesCallbackCaptures() passed after 0.001 seconds.
 ✔ Test configurationObserverIsScopedAndRemovedOnRelease() passed after 0.001 seconds.
 ✔ Test mixedCacheEvictsLeastRecentlyUsedWithinByteBudget() passed after 0.001 seconds.
-✔ Test oversizedPayloadAndDisabledCacheAreNotRetained() passed after 0.001 seconds.
-✔ Test replacementClearsCacheAndRejectedReplacementPreservesEpoch() passed after 0.001 seconds.
-✔ Test cancellingDuringInitializationDoesNotStartDecode() passed after 0.001 seconds.
 ✔ Test invalidRequestsDoNotReachDecoder() passed after 0.001 seconds.
+✔ Test replacementClearsCacheAndRejectedReplacementPreservesEpoch() passed after 0.001 seconds.
+✔ Test oversizedPayloadAndDisabledCacheAreNotRetained() passed after 0.001 seconds.
+✔ Test cancellationDiscardsRunningDecodeAndReleasesAdmission() passed after 0.001 seconds.
 ✔ Test seekDiscardsAnInFlightResultAndCanReuseCachedFrames() passed after 0.001 seconds.
 ✔ Test closeInvalidatesInFlightAndRejectsFutureRequests() passed after 0.001 seconds.
-✔ Test cancellationDiscardsRunningDecodeAndReleasesAdmission() passed after 0.001 seconds.
-✔ Test replacementInvalidatesRunningAndQueuedReads() passed after 0.003 seconds.
+✔ Test cancellingDuringInitializationDoesNotStartDecode() passed after 0.001 seconds.
+✔ Test replacementInvalidatesRunningAndQueuedReads() passed after 0.002 seconds.
 ✔ Suite PlaybackSessionTests passed after 0.003 seconds.
-✔ Test invalidLimitsAndMalformedImagesAreRejected() passed after 0.004 seconds.
-✔ Suite LivePlaybackTests passed after 0.004 seconds.
-✔ Test run with 22 tests in 3 suites passed after 0.004 seconds.
+✔ Test invalidLimitsAndMalformedImagesAreRejected() passed after 0.003 seconds.
+✔ Suite LivePlaybackTests passed after 0.003 seconds.
+✔ Test run with 22 tests in 3 suites passed after 0.003 seconds.

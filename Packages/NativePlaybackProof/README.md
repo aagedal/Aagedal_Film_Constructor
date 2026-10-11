@@ -106,7 +106,8 @@ geometry, observer scoping/cleanup, and lifecycle-statistics serialization.
 For a repeatable exercise, add `--launch --scripted-duration 3`. This runs play,
 seek to frame zero, pause, resume and close, retaining each action. The duration
 excludes decoding/priming time. Errors or missing final records cause a failing
-harness exit status. Build-only operation opens no window. Direct executable use
+harness exit status. Scripted runs must complete every action in order; early
+window close is a failure. Build-only operation opens no window. Direct executable use
 accepts `--observations /new/path.jsonl` and refuses to overwrite existing files.
 Observations describe the player node's render clock; they do not measure acoustic
 arrival or display refresh and never set `hardwareQualified`.

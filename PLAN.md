@@ -1086,7 +1086,9 @@ launch-performance claim has been validated yet.
   This is transport evidence, not acoustic/display A/V synchronization.
 - Verification passed: EditorCore suites (one optional DTD test skipped), 17
   Python regressions, shortcut smoke, unsigned macOS Debug app build, standalone
-  native builds and 22 runtime tests. The complete nine-variant geometry proof
+  native builds and 22 runtime tests. Subsequent PR verification passed 22 Python
+  regressions after rejecting incomplete/out-of-order scripted exercises, and
+  repeated the app/core and complete live exercise on the rebased head. The complete nine-variant geometry proof
   and scripted live run use actual local FFmpeg libraries and macOS audio services.
 - Shipping-app sequence monitoring, measured A/V sync/latency, physical device
   changes, underrun recovery, broad formats/color/VFR, still alpha, sequence
