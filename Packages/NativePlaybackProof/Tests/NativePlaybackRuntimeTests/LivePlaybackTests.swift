@@ -12,6 +12,41 @@ private final class NotificationCounter: @unchecked Sendable {
 }
 
 struct LivePlaybackTests {
+    @Test func playerStartupPrerollDoesNotEstablishOrAdvanceClock() throws {
+        var clock = LivePlayerClock()
+        var queue = try LiveAudioQueue(total: 10000)
+        try queue.commit(count: 1024)
+        for sample: Int64 in [-2048, -512, -1] {
+            if let value = try clock.observe(sample: sample, rate: 48000, expectedRate: 48000) {
+                try queue.update(clock: value)
+            }
+            #expect(!clock.initialized)
+            #expect(queue.clock == 0)
+        }
+        #expect(try clock.observe(sample: 0, rate: 48000, expectedRate: 48000) == 0)
+        #expect(clock.initialized)
+        #expect(try clock.observe(sample: 256, rate: 48000, expectedRate: 48000) == 256)
+        #expect(throws: (any Error).self) {
+            try clock.observe(sample: -1, rate: 48000, expectedRate: 48000)
+        }
+        #expect(clock.initialized)
+        clock = .init() // A new explicit play starts a new node clock epoch.
+        #expect(try clock.observe(sample: -512, rate: 48000, expectedRate: 48000) == nil)
+        #expect(!clock.initialized)
+    }
+
+    @Test func prerollStillRejectsChangedSampleRate() throws {
+        var clock = LivePlayerClock()
+        #expect(throws: (any Error).self) {
+            try clock.observe(sample: -512, rate: 44100, expectedRate: 48000)
+        }
+        #expect(!clock.initialized)
+        #expect(try clock.observe(sample: 0, rate: 48000, expectedRate: 48000) == 0)
+        #expect(throws: (any Error).self) {
+            try clock.observe(sample: 128, rate: 44100, expectedRate: 48000)
+        }
+    }
+
     @Test func configurationObserverIsScopedAndRemovedOnRelease() {
         let center = NotificationCenter()
         let engine = NSObject()

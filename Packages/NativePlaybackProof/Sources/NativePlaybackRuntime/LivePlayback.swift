@@ -54,6 +54,23 @@ enum LiveOutputQualification {
     }
 }
 
+/// Player nodes can report a negative sample time during device startup pre-roll.
+/// It is unavailable time, not timeline progress. Once a clock is established,
+/// negative samples are invalid rather than another startup interval.
+struct LivePlayerClock {
+    private(set) var initialized = false
+
+    mutating func observe(sample: Int64, rate: Double, expectedRate: Double) throws -> Int64? {
+        guard rate == expectedRate else {
+            throw ProofFailure("Player clock sample rate differs from sequence")
+        }
+        if sample < 0, !initialized { return nil }
+        let value = try LiveOutputQualification.clock(sample: sample, rate: rate, expectedRate: expectedRate)
+        initialized = true
+        return value
+    }
+}
+
 public struct LivePlaybackStatistics: Sendable, Codable {
     public internal(set) var clockSamples: Int64 = 0
     public internal(set) var scheduledSamples: Int64 = 0
@@ -97,6 +114,7 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
     private let format: AVAudioFormat
     private var queue: LiveAudioQueue?
     private var startSample: Int64 = 0
+    private var playerClock = LivePlayerClock()
     private var operation = UUID()
     private var pump: Task<Void, Never>?
     private var video: Task<Void, Never>?
@@ -136,6 +154,7 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
         guard transport.plan.audioSamples > 0 else { throw ProofFailure("Cannot play an empty sequence") }
         _ = try transport.play()
         startSample = transport.sampleIndex
+        playerClock = .init()
         statistics = .init()
         queue = try LiveAudioQueue(total: transport.plan.audioSamples - startSample)
         do {
@@ -254,8 +273,8 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
     private func outputClock() throws -> Int64? {
         guard let render = player.lastRenderTime, let time = player.playerTime(forNodeTime: render),
               time.isSampleTimeValid else { return nil }
-        return try LiveOutputQualification.clock(sample: time.sampleTime, rate: time.sampleRate,
-                                                  expectedRate: format.sampleRate)
+        return try playerClock.observe(sample: time.sampleTime, rate: time.sampleRate,
+                                       expectedRate: format.sampleRate)
     }
 
     private func advance(clock: Int64, generation: UUID) throws {
