@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 
 /// Construct a native image from the selected decoded pixels. ImageIO's PNG is
 /// an inspectable capture, not evidence of a display refresh or Metal rendering.
-func writeNativeImage(rgb: Data, width: Int, height: Int, to url: URL) throws {
+public func writeNativeImage(rgb: Data, width: Int, height: Int, to url: URL) throws {
     guard let provider = CGDataProvider(data: rgb as CFData),
           let image = CGImage(width: width, height: height, bitsPerComponent: 8,
                               bitsPerPixel: 24, bytesPerRow: width * 3,
@@ -24,7 +24,8 @@ func writeNativeImage(rgb: Data, width: Int, height: Int, to url: URL) throws {
 /// Schedule bounded mixed buffers against AVAudioPlayerNode's sample clock.
 /// Offline mode exercises the actual native scheduling path without assuming an
 /// audio device is available; live CoreAudio latency and A/V sync remain untested.
-func renderNativeAudio(monitor: NativeMonitor, start: Int64, count: Int64,
+public func renderNativeAudio(monitor: NativeMonitor, start: Int64, count: Int64,
+                       presented: (Int64) throws -> Void = { _ in },
                        consume: ([Float]) throws -> Void) throws {
     guard start >= 0, count > 0, start <= monitor.plan.audioSamples,
           count <= monitor.plan.audioSamples - start else { throw ProofFailure("Invalid native audio span") }
@@ -93,6 +94,7 @@ func renderNativeAudio(monitor: NativeMonitor, start: Int64, count: Int64,
         guard engine.manualRenderingSampleTime == position else {
             throw ProofFailure("Native sample clock differs from emitted frame count")
         }
+        try presented(engine.manualRenderingSampleTime)
         try fillQueue(renderedThrough: position)
     }
 }

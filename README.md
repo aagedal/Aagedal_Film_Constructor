@@ -59,3 +59,12 @@ fixtures pass. See [the native proof evidence](docs/evidence/native-playback-202
 and [reproduction instructions](docs/media-engine-audit.md#native-sequence-fallback-proof-2026-10-09).
 The app still uses its synthetic timeline; live playback and shipping media
 dependencies remain unfinished.
+
+The native development runtime now has an asynchronous serial decoder worker,
+bounded request admission, a shared byte-limited video/audio cache, cancellation,
+and seek/edit epochs that reject stale results. EditorCore includes an exact
+sample-driven transport for play/pause/seek and frame selection. Four media
+fixtures pass asynchronous frame/sample parity and transport checks against the
+actual AVAudioEngine offline sample clock. See
+[the asynchronous proof evidence](docs/evidence/native-playback-20261011/README.md).
+This remains a development engine; live display and hardware A/V sync are next.
