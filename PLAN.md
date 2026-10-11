@@ -533,7 +533,8 @@ a compatible track, create a crossfade, and undo both operations without lost sy
 - [x] Implement progress/cancel, bounded jobs and atomic verified registration,
       retaining prior proxies until replacement succeeds.
 - [x] Add explicit proxy relinking with recorded byte identity and atomic grants/history.
-- [ ] Add a persistent resumable proxy job queue.
+- [x] Add a persisted, manually resumable proxy job queue with source validation,
+      cancellation, interrupted-publication recovery and destination-conflict handling.
 - [x] Add a document-session hires/proxy source-preview toggle with
       missing/stale-proxy status and fallback. Sequence monitoring remains open.
 - [ ] Test frame/timecode correspondence, geometry, multiple audio streams, VFR
@@ -981,8 +982,7 @@ launch-performance claim has been validated yet.
   correspondence checks at 24000/1001. Actual AVFoundation composition checks
   cover multiple original audio streams, longer audio tails, transport switching,
   grants, history, reopen, fallback and stale registration rejection.
-- Explicit proxy relinking, persistent resumable queues, large-file/VFR mappings,
-  output-file tamper detection, signed sandbox grants, native gestures and hardware
+- Large-file/VFR mappings, signed sandbox grants, native gestures and hardware
   A/V quality remain open. Source freshness uses size/mtime rather than a content
   hash. Live edited-sequence playback is still unimplemented. See
   [proxy scope and reproduction](docs/proxies.md).
@@ -1006,3 +1006,28 @@ launch-performance claim has been validated yet.
 - Verification includes core integrity and assessment regressions, real ProRes/H.264
   generation, moved-file validation, same-size/mtime tampering, and unsigned macOS
   builds. Native dialog gestures and signed sandbox grants remain unqualified.
+
+### Persistent proxy queue and pending transport checkpoint (2026-10-12)
+
+- Proxy jobs persist source snapshots/fingerprints, preset/resolution, unique
+  destinations, output-folder grants, state and verified publication metadata.
+  Reopened running jobs become interrupted and require explicit resume. Closing
+  the queue keeps jobs running; closing the document cancels them.
+- The queue supports bounded progress, cancellation, individual retries, explicit
+  fresh-file retries and safe removal. Saved verified publications recover by
+  exact-byte validation. Existing outputs without saved verification metadata
+  are preserved and require a fresh destination. Queue state uses ordinary
+  document save/autosave, remains outside timeline undo and is not a crash journal.
+- Source changes and stale completions cannot register a proxy into changed
+  media. Successful registrations remain undoable. Legacy projects decode with
+  an empty queue; invalid jobs and duplicate identities/destinations are refused.
+- Forward/pause controls now remain usable during proxy verification and loading,
+  updating pending transport intent. Reverse requires a loaded source player.
+- Final verification passed: 135 core tests, with one additional XCTest skipped;
+  nine Python regressions, shortcut smoke, project-file smoke, proxy service and
+  workspace smoke, queue lifecycle smoke, export service smoke and unsigned macOS
+  Debug builds. Queue checks cover resume/recovery, collisions, stale originals,
+  cancellation, history separation, removal and backward compatibility. Native
+  gestures, signed grants and hardware playback remain unqualified.
+- Live edited-sequence monitoring, broad-format/color/VFR qualification, actual
+  stream-copy export and release helper review remain open.

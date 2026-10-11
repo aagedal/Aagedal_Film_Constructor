@@ -111,14 +111,16 @@ extension EditorStore {
         pauseSource()
         pendingSourceTransport = preservingTransport ? (time, playing) : nil
         sourcePlayer = nil; previewImage = nil
-        guard let asset = selectedAsset, let originalURL = asset.originalURL else { return }
+        guard let asset = selectedAsset, let originalURL = asset.originalURL else { pendingSourceTransport = nil; return }
         holdAccess(originalURL)
         guard FileManager.default.isReadableFile(atPath: originalURL.path) else {
             proxyPlaybackMessage = "Original media missing"
             statusMessage = "Missing media: \(asset.name). Choose Relink in the inspector."
+            pendingSourceTransport = nil
             return
         }
         if asset.streams.isEmpty {
+            pendingSourceTransport = nil
             previewImage = NSImage(contentsOf: originalURL)
             proxyPlaybackMessage = "Original still image"
             return
@@ -129,6 +131,7 @@ extension EditorStore {
         if let proxy = asset.proxy, proxy.outputIntegrity != nil, proxyExists, fingerprint == proxy.sourceFingerprint, playbackRepresentation == .proxy {
             let representation = playbackRepresentation
             let epoch = mediaEpoch
+            pendingSourceTransport = (time, playing)
             proxyPlaybackMessage = "Verifying proxy…"
             sourcePreviewTask = Task {
                 let matches = (try? await ProxyGenerationService.validateProxyFile(proxy)) != nil
@@ -162,9 +165,9 @@ extension EditorStore {
             let player = AVPlayer(url: originalURL)
             sourcePlayer = player
             statusMessage = "Source preview: \(asset.name)"
-            if preservingTransport {
+            if pendingSourceTransport != nil || preservingTransport {
                 sourcePreviewTask = Task {
-                    await player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
+                    await player.seek(to: pendingSourceTransport?.time ?? time, toleranceBefore: .zero, toleranceAfter: .zero)
                     guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation else { return }
                     if pendingSourceTransport?.playing ?? playing { player.play() }
                     pendingSourceTransport = nil
@@ -172,6 +175,7 @@ extension EditorStore {
             }
             return
         }
+        if pendingSourceTransport == nil { pendingSourceTransport = (time, playing) }
         sourcePreviewTask = Task {
             var player: AVPlayer
             if resolution.usesProxy, let proxyURL = resolution.url {
@@ -218,7 +222,7 @@ extension EditorStore {
                 }
             } else { player = AVPlayer(url: originalURL) }
             guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation else { return }
-            await player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
+            await player.seek(to: pendingSourceTransport?.time ?? time, toleranceBefore: .zero, toleranceAfter: .zero)
             guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation else { return }
             sourcePlayer = player
             if pendingSourceTransport?.playing ?? playing { player.play() }

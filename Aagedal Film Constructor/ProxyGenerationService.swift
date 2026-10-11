@@ -67,6 +67,7 @@ actor ProxyGenerationService {
         return actual
     }
     func generate(asset: MediaAsset, preset: ProxyPreset, scaleDivisor: Int, to outputURL: URL,
+                  verified: @escaping @Sendable (MediaProxy) async throws -> Void = { _ in },
                   progress: @escaping @Sendable (SequenceExportProgress) -> Void = { _ in }) async throws -> MediaProxy {
         guard let ffmpegURL, let ffprobeURL,
               FileManager.default.isExecutableFile(atPath: ffmpegURL.path),
@@ -77,10 +78,11 @@ actor ProxyGenerationService {
         activeJobs += 1
         defer { activeJobs -= 1 }
         return try await Self.render(asset: asset, preset: preset, divisor: scaleDivisor, output: outputURL,
-                                     ffmpeg: ffmpegURL, ffprobe: ffprobeURL, progress: progress)
+                                     ffmpeg: ffmpegURL, ffprobe: ffprobeURL, verified: verified, progress: progress)
     }
     @concurrent private static func render(asset: MediaAsset, preset: ProxyPreset, divisor: Int, output: URL,
                                            ffmpeg: URL, ffprobe: URL,
+                                           verified: @escaping @Sendable (MediaProxy) async throws -> Void,
                                            progress: @escaping @Sendable (SequenceExportProgress) -> Void) async throws -> MediaProxy {
         try Task.checkCancellation()
         guard let source = asset.originalURL, source.isFileURL,
@@ -144,6 +146,8 @@ actor ProxyGenerationService {
                                 width: width, height: height, frameRate: original.rate, frameCount: count,
                                 outputIntegrity: integrity)
         try result.validate()
+        try Task.checkCancellation()
+        try await verified(result)
         try Task.checkCancellation()
         guard Darwin.link(staged.path, output.path) == 0 else {
             throw SequenceExportError.destination("Could not publish proxy: \(String(cString: strerror(errno)))")

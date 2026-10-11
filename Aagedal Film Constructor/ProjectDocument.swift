@@ -11,11 +11,13 @@ struct ProjectDocument: FileDocument {
     var project: Project
     var mediaBookmarks: [UUID: Data]
     var proxyBookmarks: [UUID: Data]
+    var proxyJobs: [ProxyGenerationJob]
 
-    init(project: Project = Project(settings: try! SequenceSettings()), mediaBookmarks: [UUID: Data] = [:], proxyBookmarks: [UUID: Data] = [:]) {
+    init(project: Project = Project(settings: try! SequenceSettings()), mediaBookmarks: [UUID: Data] = [:], proxyBookmarks: [UUID: Data] = [:], proxyJobs: [ProxyGenerationJob] = []) {
         self.project = project
         self.mediaBookmarks = mediaBookmarks
         self.proxyBookmarks = proxyBookmarks
+        self.proxyJobs = proxyJobs
     }
 
     init(configuration: ReadConfiguration) throws {
@@ -28,6 +30,8 @@ struct ProjectDocument: FileDocument {
         guard header.formatVersion == 1 else { throw ProjectFileError.unsupportedVersion(header.formatVersion) }
         let payload = try JSONDecoder().decode(Payload.self, from: data)
         try payload.project.validate()
+        try Self.validateJobs(payload.proxyJobs ?? [])
+        proxyJobs = payload.proxyJobs ?? []
         project = payload.project
         // Removed assets must not retain grants to unrelated files.
         let assetIDs = Set(project.assets.map(\.id))
@@ -42,10 +46,12 @@ struct ProjectDocument: FileDocument {
 
     func encodedData() throws -> Data {
         try project.validate()
+        try Self.validateJobs(proxyJobs)
         let assetIDs = Set(project.assets.map(\.id))
         let payload = Payload(formatVersion: 1, project: project,
                               mediaBookmarks: mediaBookmarks.filter { assetIDs.contains($0.key) },
-                              proxyBookmarks: proxyBookmarks.filter { id, _ in project.assets.contains { $0.id == id && $0.proxy != nil } })
+                              proxyBookmarks: proxyBookmarks.filter { id, _ in project.assets.contains { $0.id == id && $0.proxy != nil } },
+                              proxyJobs: proxyJobs)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return try encoder.encode(payload)
@@ -88,12 +94,21 @@ struct ProjectDocument: FileDocument {
         return url
     }
 
+    private static func validateJobs(_ jobs: [ProxyGenerationJob]) throws {
+        guard Set(jobs.map(\.id)).count == jobs.count,
+              Set(jobs.map { $0.outputURL.standardizedFileURL }).count == jobs.count else {
+            throw EditorCoreError.invalidModel("Duplicate proxy queue job identity or destination")
+        }
+        for job in jobs { try job.validate() }
+    }
+
     private struct VersionHeader: Decodable { var formatVersion: Int }
     private struct Payload: Codable {
         var formatVersion: Int
         var project: Project
         var mediaBookmarks: [UUID: Data]
         var proxyBookmarks: [UUID: Data]?
+        var proxyJobs: [ProxyGenerationJob]?
     }
 }
 

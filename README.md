@@ -46,7 +46,8 @@ The bin supports batch ProRes Proxy/H.264 creation, cancellable verified jobs,
 saved proxy references, and a hires/proxy source-preview toggle with original
 audio and missing/stale/modified fallback. Newly generated proxies have recorded
 SHA-256 hashes and can be relinked after relocation with one undoable reference/grant
-change. See [proxy scope and testing](docs/proxies.md).
+change. Proxy jobs persist with the project and can be manually resumed after
+interruption or reopening. See [proxy scope and testing](docs/proxies.md).
 A development sequence render workflow
 exports MOV/ProRes 422 HQ with PCM audio, progress, cancellation, and FFprobe
 verification when explicitly prepared helpers are bundled. PNG/JPEG stills,

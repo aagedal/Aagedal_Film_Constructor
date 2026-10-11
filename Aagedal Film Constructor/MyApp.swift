@@ -27,13 +27,19 @@ private struct DocumentWorkspace: View {
                 loaded = true
             }
             .onChange(of: store.project) { _, project in
-                if loaded { document = ProjectDocument(project: project, mediaBookmarks: store.mediaBookmarks, proxyBookmarks: store.proxyBookmarks) }
+                if loaded { document = ProjectDocument(project: project, mediaBookmarks: store.mediaBookmarks, proxyBookmarks: store.proxyBookmarks, proxyJobs: store.proxyJobs) }
             }
             .onChange(of: store.mediaBookmarks) { _, bookmarks in
-                if loaded { document = ProjectDocument(project: store.project, mediaBookmarks: bookmarks, proxyBookmarks: store.proxyBookmarks) }
+                if loaded { document = ProjectDocument(project: store.project, mediaBookmarks: bookmarks, proxyBookmarks: store.proxyBookmarks, proxyJobs: store.proxyJobs) }
             }
             .onChange(of: store.proxyBookmarks) { _, bookmarks in
-                if loaded { document = ProjectDocument(project: store.project, mediaBookmarks: store.mediaBookmarks, proxyBookmarks: bookmarks) }
+                if loaded { document = ProjectDocument(project: store.project, mediaBookmarks: store.mediaBookmarks, proxyBookmarks: bookmarks, proxyJobs: store.proxyJobs) }
+            }
+            .onChange(of: store.proxyJobs) { _, jobs in
+                if loaded { document = ProjectDocument(project: store.project, mediaBookmarks: store.mediaBookmarks, proxyBookmarks: store.proxyBookmarks, proxyJobs: jobs) }
+            }
+            .onChange(of: document.proxyJobs) { _, jobs in
+                if loaded && jobs != store.proxyJobs { store.load(document) }
             }
             .onChange(of: document.project) { _, project in
                 if loaded && project != store.project { store.load(document) }
