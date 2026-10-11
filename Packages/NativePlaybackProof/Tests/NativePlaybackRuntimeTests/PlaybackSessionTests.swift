@@ -202,3 +202,40 @@ struct PlaybackSessionTests {
         #expect(await monitor.statistics().pendingRequests == 0)
     }
 }
+
+
+struct NativeVideoGeometryTests {
+    @Test func aspectConformRoundsAndBoundsIntermediateRaster() throws {
+        let fit = try NativeVideoGeometry(sourceWidth: 240, sourceHeight: 90, width: 160, height: 90, mode: .fit)
+        #expect(fit.scaledWidth == 160 && fit.scaledHeight == 60)
+        #expect(fit.x == 0 && fit.y == 15)
+        let fill = try NativeVideoGeometry(sourceWidth: 80, sourceHeight: 90, width: 160, height: 90, mode: .fill)
+        #expect(fill.scaledWidth == 160 && fill.scaledHeight == 180)
+        #expect(fill.x == 0 && fill.y == -45)
+        let rounded = try NativeVideoGeometry(sourceWidth: 101, sourceHeight: 75, width: 160, height: 90, mode: .fit)
+        #expect(rounded.scaledWidth == 121 && rounded.scaledHeight == 90)
+        #expect(throws: ProofFailure.self) {
+            try NativeVideoGeometry(sourceWidth: 4096, sourceHeight: 1, width: 160, height: 90, mode: .fill)
+        }
+        #expect(throws: ProofFailure.self) {
+            try NativeVideoGeometry(sourceWidth: Int.max, sourceHeight: 1, width: 160, height: 90, mode: .fit)
+        }
+    }
+
+    @Test func unscaledConformPadsAndCropsEachAxisWithoutStretching() throws {
+        let geometry = try NativeVideoGeometry(sourceWidth: 6, sourceHeight: 2, width: 2, height: 6, mode: .none)
+        let source = Data((0..<12).flatMap { [UInt8($0), UInt8($0), UInt8($0)] })
+        let output = geometry.compose(source)
+        #expect(output.count == 36)
+        #expect(Array(output) == [UInt8](repeating: 0, count: 12)
+            + [2, 2, 2, 3, 3, 3, 8, 8, 8, 9, 9, 9]
+            + [UInt8](repeating: 0, count: 12))
+    }
+
+    @Test func oddCenteredCropAndPaddingPreferTopLeft() throws {
+        let crop = try NativeVideoGeometry(sourceWidth: 3, sourceHeight: 1, width: 2, height: 1, mode: .none)
+        #expect(crop.compose(Data([1, 1, 1, 2, 2, 2, 3, 3, 3])) == Data([1, 1, 1, 2, 2, 2]))
+        let pad = try NativeVideoGeometry(sourceWidth: 1, sourceHeight: 1, width: 2, height: 1, mode: .none)
+        #expect(pad.compose(Data([7, 7, 7])) == Data([7, 7, 7, 0, 0, 0]))
+    }
+}

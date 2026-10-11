@@ -40,6 +40,15 @@ int afc_decoder_video(AFCDecoder *decoder, int64_t source_frame,
                       uint8_t *rgb, size_t rgb_size,
                       char *error, size_t error_size);
 
+/** Bicubic spatial conversion of a qualified frame to a bounded RGB24 raster.
+ * This is not color-management qualification. Source PAR/orientation rejects
+ * apply identically to native-size extraction. Both dimensions are 1...4096.
+ */
+int afc_decoder_scaled_video(AFCDecoder *decoder, int width, int height, int64_t source_frame,
+                      int64_t rate_num, int64_t rate_den,
+                      uint8_t *rgb, size_t rgb_size,
+                      char *error, size_t error_size);
+
 /** Extract [start_sample, start_sample + sample_count) from the absolute source
  * sample grid. Capacity is in floats, not bytes: sample_count * source channels.
  * Requested rate must equal the source rate. EOF is an error rather than silent
