@@ -41,22 +41,53 @@ macOS 14+. On the initial file dialog choose **New Document** (or use File → N
    the same stream identities/channel layouts and sufficient source duration.
    Undo/redo relinking and save/reopen to check the restored file reference.
 
+9. Select an audio timeline component and choose **Audio source channels…** in
+   the inspector. Choose mono/stereo/5.1 or a source layout, then explicitly pick
+   a source stream/channel and sequence output for every row. Stream labels and
+   known speaker positions are shown; unknown speakers retain numbered labels.
+   **Create separate mono components** makes linked components on compatible
+   tracks. Applying changes preserves source in, duration, and linked picture.
+   The **Confirm audio track layout changes** preference controls the second
+   confirmation for track reconfiguration/creation/cleanup. Cancel leaves the
+   project untouched. Try undo/redo and save/reopen to verify maps and routing.
+   Routing several channels to one output explicitly sums them; there is no
+   automatic downmix gain or level adjustment. Changing one of several linked
+   audio components changes that component; consolidation is not yet available.
+10. Open **Settings → Keyboard Shortcuts** (⌘,). Select a command, change its key
+    and modifiers, and **Apply**. Conflicts and reserved application shortcuts
+    block Apply. Clear removes a binding after Apply; reset restores defaults.
+    Shortcuts persist across launches. Source/timeline commands respect panel
+    focus and leave text entry to native controls.
+11. Scroll and zoom the timeline to see source filmstrips and per-selected-channel
+    waveforms. Trim to check that imagery follows source in. Previews are bounded,
+    generated asynchronously for visible clips, and show placeholders for offline
+    or unsupported media. Waveforms show source amplitude before routing/gain.
+
 Current limits: AVFoundation-supported source formats; no edited-sequence
-playback, export, proxies, fades, waveforms, or filmstrips. Stills have a
+playback, export, proxies, or fades. Stills have a
 five-second source extent. Default audio assembly accepts stereo or mono
-(duplicated into stereo); other layouts await source-selection controls.
+(duplicated into stereo); other layouts need an initial-placement workflow.
+Post-insertion explicit maps support other streams/layouts on existing components.
 
 ## Verification
 
 ```sh
 scripts/verify.sh
 scripts/app-file-smoke.sh
+scripts/shortcut-smoke.sh
+scripts/timeline-preview-smoke.sh
 ```
 
-The first runs Python regressions, EditorCore tests, and an unsigned app build.
+The first runs Python regressions, shortcut model smoke, EditorCore tests, and an
+unsigned app build.
 The second compiles the actual importer, project document, and editor store into
 a temporary runner and generates its own WAV/PNG fixtures. It checks document
 validation, bookmarks, edit history, relink history, and reopen behavior. macOS
 bookmark services must be accessible; restrictive command sandboxes can block
 those services. The unsigned build verifies compilation; use Xcode's normal
 signed Run for testing sandbox grants across launches.
+
+The shortcut smoke checks defaults, conflicts, normalization and reserved bindings.
+The preview smoke generates WAV/PNG fixtures and uses development FFmpeg, when
+available, for a two-color video; it verifies channel maps, source ranges, cache
+limits and cancellation. These checks do not qualify edited-sequence playback.

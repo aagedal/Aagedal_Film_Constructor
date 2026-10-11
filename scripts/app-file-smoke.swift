@@ -145,7 +145,88 @@ struct AppFileSmoke {
         invalid["project"] = invalidProject
         try reject(JSONSerialization.data(withJSONObject: invalid), "Invalid project settings accepted")
         try exerciseWorkspace()
-        print("App file smoke passed: WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, project save/reopen, corrupt and unsupported file rejection.")
+        try exerciseAudioSelection()
+        try exerciseShortcuts()
+        print("App file smoke passed: WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, audio channel maps/routing/stale drafts, shortcut persistence/scoped dispatch, project save/reopen, corrupt and unsupported file rejection.")
+    }
+
+    @MainActor
+    static func exerciseShortcuts() throws {
+        let suite = "afc-shortcut-smoke-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let registry = EditorCommandRegistry(defaults: defaults)
+        let remapped = ShortcutBinding(key: "k", command: true, shift: true)
+        try check(registry.set(remapped, for: .splitClip) == nil, "Shortcut remapping")
+        let reloaded = EditorCommandRegistry(defaults: defaults)
+        try check(reloaded.binding(for: .splitClip) == remapped, "Shortcut persistence")
+        let previous = reloaded.binding(for: .nextFrame)
+        try check(reloaded.set(remapped, for: .nextFrame) != nil && reloaded.binding(for: .nextFrame) == previous,
+                  "Shortcut conflicts preserve existing assignment")
+        try check(reloaded.set(ShortcutBinding(key: "s", command: true), for: .splitClip) != nil,
+                  "Shortcut editor reserves document Save")
+        reloaded.reset()
+        try check(EditorCommandRegistry(defaults: defaults).binding(for: .splitClip) == EditorCommandID.splitClip.defaultBinding,
+                  "Shortcut defaults restore persistently")
+        let store = EditorStore()
+        defer { store.close() }
+        try store.registerImportedMedia(ImportedMedia(asset: MediaAsset(name: "Shortcut fixture", duration: try RationalTime(5)), bookmark: nil))
+        try check(!reloaded.isEnabled(.appendSource, store: store, scope: .timeline), "Source commands respect timeline focus")
+        reloaded.perform(.appendSource, store: store, scope: .timeline)
+        try check(store.project.tracks.isEmpty, "Command dispatch rejects mismatched panel scope")
+        reloaded.perform(.appendSource, store: store, scope: .source)
+        try check(store.project.tracks.flatMap(\.clips).count == 1, "Source command dispatch")
+        store.seek(to: 2)
+        reloaded.perform(.splitClip, store: store, scope: .timeline)
+        try check(store.project.tracks.flatMap(\.clips).count == 2, "Timeline command dispatch")
+    }
+
+    @MainActor
+    static func exerciseAudioSelection() throws {
+        let store = EditorStore()
+        defer { store.close() }
+        try store.registerImportedMedia(ImportedMedia(asset: MediaAsset(name: "Audio selection fixture", duration: try RationalTime(4), streams: [
+            MediaStream(index: 0, kind: .video),
+            MediaStream(index: 1, kind: .audio, audioLayout: .stereo),
+            MediaStream(index: 2, kind: .audio, audioLayout: .mono)
+        ]), bookmark: nil))
+        store.appendSelectedAsset()
+        let baseline = store.project
+        let audio = baseline.tracks.flatMap(\.clips).first { $0.requiredTrackKind == .audio }!
+        let picture = baseline.tracks.flatMap(\.clips).first { $0.requiredTrackKind == .video }!
+        store.selectedClipID = audio.id
+        let maps = [AudioSourceSelection(channels: [.init(streamIndex: 1, channelIndex: 1)], layout: .mono),
+                    AudioSourceSelection(channels: [.init(streamIndex: 2, channelIndex: 0)], layout: .mono)]
+        let routes = [AudioRouting(outputChannels: [0]), AudioRouting(outputChannels: [1])]
+        let preview = try store.previewAudioSelection(clipID: audio.id, selections: maps, routing: routes)
+        try check(store.project == baseline && preview.tracks.flatMap(\.clips).count == 3,
+                  "Audio source preview does not mutate the document")
+        try store.applyAudioSelection(clipID: audio.id, selections: maps, routing: routes, expectedProject: baseline)
+        let changed = store.project
+        try check(changed.tracks.flatMap(\.clips).first { $0.id == picture.id } == picture,
+                  "Audio source selection preserves linked picture")
+        try check(changed.tracks.flatMap(\.clips).allSatisfy { $0.linkGroupID == picture.linkGroupID },
+                  "Separate mono components retain linked timing")
+        store.undo()
+        try check(store.project == baseline, "One undo restores audio selection and all track changes")
+        store.redo()
+        try check(store.project == changed, "Audio source selection redo")
+        let saved = try ProjectDocument(data: ProjectDocument(project: changed).encodedData())
+        try check(saved.project == changed, "Audio maps and routes persist")
+        do {
+            try store.applyAudioSelection(clipID: audio.id, selections: maps, routing: routes, expectedProject: baseline)
+            throw SmokeError.failed("Stale audio selection draft accepted")
+        } catch EditorCoreError.invalidModel { }
+        try check(store.project == changed, "Stale selection rejection preserves document")
+        store.setAudioLayoutConfirmation(false)
+        try check(!store.project.preferences.askBeforeAudioTrackLayoutChanges, "Audio confirmation preference")
+        store.undo()
+        try check(store.project == changed, "Audio confirmation preference undo")
+        do {
+            try store.applyAudioSelection(clipID: audio.id, selections: maps, routing: [.init(outputChannels: [99]), routes[1]], expectedProject: changed)
+            throw SmokeError.failed("Invalid audio output route accepted")
+        } catch TimelineEditError.incompatibleAudioRouting { }
+        try check(store.project == changed && store.canRedo, "Rejected audio route preserves document and redo")
     }
 
     @MainActor

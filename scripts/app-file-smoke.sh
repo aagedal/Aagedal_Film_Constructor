@@ -12,5 +12,7 @@ swiftc -module-cache-path "$smoke_root/module-cache" -parse-as-library \
   "$repo_root/Aagedal Film Constructor/ProjectDocument.swift" \
   "$repo_root/Aagedal Film Constructor/MediaImporter.swift" \
   "$repo_root/Aagedal Film Constructor/EditorStore.swift" \
+  "$repo_root/Aagedal Film Constructor/ShortcutBinding.swift" \
+  "$repo_root/Aagedal Film Constructor/EditorCommandRegistry.swift" \
   "$repo_root/scripts/app-file-smoke.swift" -o "$smoke_root/file-smoke"
 DYLD_LIBRARY_PATH="$smoke_root${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" "$smoke_root/file-smoke" "$smoke_root"
