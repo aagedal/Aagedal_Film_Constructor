@@ -46,3 +46,67 @@ import Testing
     #expect(command.filterGraph.contains("aformat=sample_fmts=flt,volume=0.8:precision=float,aeval="))
     #expect(command.filterGraph.contains(":channel_layout=stereo,adelay=240000S:all=1"))
 }
+
+private func stillExportProject(url: URL) throws -> Project {
+    let settings = try SequenceSettings(width: 160, height: 90)
+    let template = TrackTemplate(kind: .video)
+    let family = TrackFamily(baseName: "Stills", template: template)
+    let asset = MediaAsset(name: "Still", originalURL: url, duration: try RationalTime(10), streams: [.init(index: 0, kind: .video)])
+    let clip = TimelineClip(assetID: asset.id, sourceRange: try TimeRange(start: .zero, duration: RationalTime(1)), timelineStart: try RationalTime(1), selection: .still)
+    return Project(settings: settings, assets: [asset], families: [family], tracks: [.init(familyID: family.id, template: template, clips: [clip])])
+}
+
+@Test func compilerClonesFiniteStillFramesAndRetainsAlphaAndScaling() throws {
+    var project = try stillExportProject(url: URL(fileURLWithPath: "/private/tmp/transparent.png"))
+    for mode in [ScalingMode.fit, .fill, .none] {
+        project.tracks[0].clips[0].scalingMode = mode
+        let command = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: URL(fileURLWithPath: "/private/tmp/still-output.mov"))
+        #expect(command.videoFrames == 48)
+        #expect(command.inputs.count == 1)
+        #expect(command.filterGraph.contains("trim=end_frame=1,loop=loop=23:size=1:start=0,settb=expr=1/24,setpts=N+24"))
+        #expect(command.filterGraph.contains("format=yuva444p"))
+        #expect(command.filterGraph.contains("gte(n,24)*lt(n,48)"))
+        #expect(!command.arguments.contains("-loop"))
+    }
+    project.assets[0].originalURL = URL(fileURLWithPath: "/private/tmp/animated.gif")
+    #expect(throws: (any Error).self) { try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: URL(fileURLWithPath: "/private/tmp/still-output.mov")) }
+    project.assets[0].originalURL = URL(fileURLWithPath: "/private/tmp/transparent.png")
+    project.tracks[0].clips[0].sourceRange.start = try RationalTime(1, 48000)
+    project.assets[0].streams = []
+    let trimmed = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: URL(fileURLWithPath: "/private/tmp/still-output.mov"))
+    #expect(trimmed.inputs[0].streamIndex == 0)
+    #expect(trimmed.filterGraph.contains("trim=end_frame=1"))
+    project.assets[0].streams = [.init(index: 0, kind: .video)]
+    project.tracks[0].clips[0].sourceRange.start = .zero
+    project.assets[0].streams[0].timeOffset = try RationalTime(1, 24)
+    #expect(throws: (any Error).self) { try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: URL(fileURLWithPath: "/private/tmp/still-output.mov")) }
+}
+
+@Test func compilerCoversSampleAlignedAudioEndsWithoutExtendingPCM() throws {
+    var project = try DemoProjectFactory.musicCollision()
+    project.assets[0].originalURL = URL(fileURLWithPath: "/private/tmp/audio.wav")
+    project.tracks[0].clips = [project.tracks[0].clips[0]]
+    project.tracks[0].clips[0].sourceRange.duration = try RationalTime(48001, 48000)
+    let command = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: URL(fileURLWithPath: "/private/tmp/audio-output.mov"))
+    #expect(command.videoFrames == 25)
+    #expect(command.audioSamples == 48001)
+    #expect(command.filterGraph.contains("trim=end_frame=25"))
+    #expect(command.filterGraph.contains("atrim=end_sample=48001"))
+}
+
+@Test func compilerRejectsNormalizedSymlinkAndHardlinkDestinationAliases() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let source = root.appendingPathComponent("source.mov")
+    try Data().write(to: source)
+    let symlink = root.appendingPathComponent("symlink.mov")
+    let hardlink = root.appendingPathComponent("hardlink.mov")
+    try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: source)
+    try FileManager.default.linkItem(at: source, to: hardlink)
+    var project = try DemoProjectFactory.musicCollision()
+    project.assets[0].originalURL = source
+    for output in [symlink, hardlink, root.appendingPathComponent("unused/../source.mov")] {
+        #expect(throws: (any Error).self) { try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: output) }
+    }
+}
