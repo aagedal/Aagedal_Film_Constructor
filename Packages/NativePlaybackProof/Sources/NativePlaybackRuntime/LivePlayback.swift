@@ -54,12 +54,32 @@ enum LiveOutputQualification {
     }
 }
 
-public struct LivePlaybackStatistics: Sendable {
+public struct LivePlaybackStatistics: Sendable, Codable {
     public internal(set) var clockSamples: Int64 = 0
     public internal(set) var scheduledSamples: Int64 = 0
     public internal(set) var displayedFrames: Int = 0
     public internal(set) var discardedFrames: Int = 0
     public internal(set) var maximumQueuedSamples: Int64 = 0
+    public internal(set) var configurationChanges: Int = 0
+    public internal(set) var unexpectedEngineStops: Int = 0
+}
+
+/// NotificationCenter retains block observers until explicitly removed. Keep the
+/// token outside actor isolation so releasing a monitor also removes its observer.
+/// The immutable token and NotificationCenter's thread-safe removal permit cleanup
+/// on whichever thread releases the last reference.
+final class LiveAudioConfigurationObserver: @unchecked Sendable {
+    private let center: NotificationCenter
+    private let token: any NSObjectProtocol
+
+    init(object: AnyObject, center: NotificationCenter = .default,
+         changed: @escaping @Sendable () -> Void) {
+        self.center = center
+        token = center.addObserver(forName: .AVAudioEngineConfigurationChange,
+                                   object: object, queue: nil) { _ in changed() }
+    }
+
+    deinit { center.removeObserver(token) }
 }
 
 /// Development hardware-output monitor. All AVAudioEngine and display mutation
@@ -83,6 +103,7 @@ public struct LivePlaybackStatistics: Sendable {
     private var requestedFrame: Int64?
     private var closed = false
     private var replacing = false
+    private var configurationObserver: LiveAudioConfigurationObserver?
 
     public init(project: Project) throws {
         let plan = try NativePlaybackPlan(TimelineRenderPlan(project: project))
@@ -97,6 +118,11 @@ public struct LivePlaybackStatistics: Sendable {
         self.format = format
         engine.attach(player)
         engine.connect(player, to: engine.mainMixerNode, format: format)
+        configurationObserver = LiveAudioConfigurationObserver(object: engine) { [weak self] in
+            // Engine notifications can originate on an audio thread. Never mutate
+            // the graph there, and do not retain the monitor while dispatching.
+            Task { @MainActor [weak self] in self?.audioConfigurationChanged() }
+        }
     }
 
     /// Prime bounded audio before starting the device. First-use source indexing
@@ -123,6 +149,13 @@ public struct LivePlaybackStatistics: Sendable {
                 let deadline = ContinuousClock.now.advanced(by: .seconds(2))
                 do {
                     while token == self.operation, self.transport.isPlaying {
+                        guard self.engine.isRunning else {
+                            self.statistics.unexpectedEngineStops += 1
+                            self.stop(observeFinalClock: false)
+                            self.engine.reset()
+                            self.failure?(ProofFailure("Live audio engine stopped unexpectedly; playback is paused. Play explicitly to restart"))
+                            break
+                        }
                         if let clock = try self.outputClock() {
                             try self.advance(clock: clock, generation: generation)
                             if !self.transport.isPlaying { break }
@@ -146,13 +179,30 @@ public struct LivePlaybackStatistics: Sendable {
 
     /// Final observed player clock is submitted before flushing scheduled audio.
     public func pause() {
-        if transport.isPlaying, let clock = try? outputClock(), let queue {
+        stop(observeFinalClock: true)
+    }
+
+    private func stop(observeFinalClock: Bool) {
+        if observeFinalClock, transport.isPlaying, let clock = try? outputClock(), let queue {
             // Never advance over unscheduled silence after a detected underrun.
             _ = try? transport.update(clockSample: min(clock, queue.scheduled), generation: transport.generation)
         }
         operation = UUID(); pump?.cancel(); pump = nil
         video?.cancel(); video = nil; requestedFrame = nil
         player.stop(); engine.stop(); transport.pause(); queue = nil
+    }
+
+    private func audioConfigurationChanged() {
+        guard !closed else { return }
+        statistics.configurationChanges += 1
+        let wasPlaying = transport.isPlaying
+        // The old node's sample-time epoch is no longer trustworthy. Preserve the
+        // last accepted transport position, cancel all work, and flush the graph.
+        stop(observeFinalClock: false)
+        engine.reset()
+        if wasPlaying {
+            failure?(ProofFailure("Live audio configuration changed; playback is paused. Play explicitly to restart"))
+        }
     }
 
     /// Seeks flush the audio node, cancel queued decodes, and reject values that
@@ -183,14 +233,21 @@ public struct LivePlaybackStatistics: Sendable {
             throw ProofFailure("Live replacement requires bounded raster and unchanged output audio format")
         }
         pause(); replacing = true
+        let token = operation
         defer { replacing = false }
         try await session.replace(project: project)
+        guard !closed else { throw CancellationError() }
+        // The session has committed the plan. Keep transport coherent, but never
+        // submit a display request from a replacement invalidated while awaiting.
         try transport.replacePlan(plan)
-        if !closed { requestVideo(token: operation) }
+        guard token == operation else { throw CancellationError() }
+        requestVideo(token: token)
     }
 
     public func close() async {
-        pause(); closed = true
+        guard !closed else { return }
+        closed = true; configurationObserver = nil
+        pause()
         await session.close()
     }
 

@@ -1,9 +1,62 @@
 import Foundation
+import AVFAudio
 import Testing
 import EditorCore
 @testable import NativePlaybackRuntime
 
+private final class NotificationCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    var count: Int { lock.withLock { value } }
+    func increment() { lock.withLock { value += 1 } }
+}
+
 struct LivePlaybackTests {
+    @Test func configurationObserverIsScopedAndRemovedOnRelease() {
+        let center = NotificationCenter()
+        let engine = NSObject()
+        let unrelated = NSObject()
+        let counter = NotificationCounter()
+        var observer: LiveAudioConfigurationObserver? = LiveAudioConfigurationObserver(
+            object: engine, center: center, changed: { counter.increment() })
+        #expect(observer != nil)
+        center.post(name: .AVAudioEngineConfigurationChange, object: unrelated)
+        center.post(name: Notification.Name("unrelated"), object: engine)
+        #expect(counter.count == 0)
+        center.post(name: .AVAudioEngineConfigurationChange, object: engine)
+        #expect(counter.count == 1)
+        observer = nil
+        center.post(name: .AVAudioEngineConfigurationChange, object: engine)
+        #expect(counter.count == 1)
+    }
+
+    @Test func removingConfigurationObserverReleasesCallbackCaptures() {
+        let center = NotificationCenter()
+        let engine = NSObject()
+        weak var retained: NotificationCounter?
+        var observer: LiveAudioConfigurationObserver?
+        do {
+            let counter = NotificationCounter()
+            retained = counter
+            observer = LiveAudioConfigurationObserver(object: engine, center: center,
+                                                      changed: { counter.increment() })
+        }
+        #expect(observer != nil)
+        #expect(retained != nil)
+        observer = nil
+        #expect(retained == nil)
+    }
+
+    @Test func liveStatisticsEncodeLifecycleFailures() throws {
+        var statistics = LivePlaybackStatistics()
+        statistics.configurationChanges = 2
+        statistics.unexpectedEngineStops = 1
+        let decoded = try JSONDecoder().decode(LivePlaybackStatistics.self,
+                                               from: JSONEncoder().encode(statistics))
+        #expect(decoded.configurationChanges == 2)
+        #expect(decoded.unexpectedEngineStops == 1)
+    }
+
     @Test func scheduleIsBoundedAndClockCreatesAdmission() throws {
         var queue = try LiveAudioQueue(total: 20000)
         for _ in 0..<4 { try queue.commit(count: 1024) }
