@@ -46,7 +46,7 @@ final class EditorCommandRegistry: ObservableObject {
             if command == .redo { NSApp.sendAction(Selector(("redo:")), to: nil, from: nil) }
             return
         }
-        guard scope == .document || command.scope == .document || scope == command.scope else { return }
+        guard command.isPlayback || scope == .document || command.scope == .document || scope == command.scope else { return }
         switch command {
         case .undo: store.undo()
         case .redo: store.redo()
@@ -56,12 +56,15 @@ final class EditorCommandRegistry: ObservableObject {
         case .previousFrame: store.stepPlayhead(frames: -1)
         case .nextFrame: store.stepPlayhead(frames: 1)
         case .deleteClip: store.deleteSelectedClip()
+        case .playReverse: store.playSourceBackwards()
+        case .pausePlayback: store.pauseSource()
+        case .playForward: store.playSourceForwards()
         }
     }
     func isEnabled(_ command: EditorCommandID, store: EditorStore?, scope: EditorCommandScope) -> Bool {
         guard let store else { return false }
         if Self.isEditingText { return command == .undo || command == .redo }
-        guard scope == .document || command.scope == .document || scope == command.scope else { return false }
+        guard command.isPlayback || scope == .document || command.scope == .document || scope == command.scope else { return false }
         switch command {
         case .undo: return store.canUndo
         case .redo: return store.canRedo
@@ -69,6 +72,7 @@ final class EditorCommandRegistry: ObservableObject {
         case .appendSource: return store.selectedAsset != nil && !store.isImporting
         case .splitClip, .deleteClip: return store.selectedClip != nil
         case .previousFrame, .nextFrame: return true
+        case .playReverse, .pausePlayback, .playForward: return store.sourcePlayer != nil
         }
     }
     private static var isEditingText: Bool { NSApp?.keyWindow?.firstResponder is NSTextView }

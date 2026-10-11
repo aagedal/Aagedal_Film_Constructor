@@ -83,6 +83,11 @@ private struct EditorCommands: Commands {
                 showMediaBin = true; showInspector = true; showTimeline = true
             }
         }
+        CommandMenu("Playback") {
+            command(.playReverse)
+            command(.pausePlayback)
+            command(.playForward)
+        }
         CommandMenu("Timeline") {
             command(.appendSource)
             command(.splitClip)

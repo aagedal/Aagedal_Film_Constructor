@@ -160,6 +160,18 @@ struct ContentView: View {
             HStack {
                 Text("Original source").font(.caption).foregroundStyle(.secondary)
                 Spacer()
+                Group {
+                    Button(action: store.playSourceBackwards) { Image(systemName: "backward.fill") }
+                        .accessibilityLabel("Play source backwards")
+                        .help("Play source backwards (silent)")
+                    Button(action: store.pauseSource) { Image(systemName: "pause.fill") }
+                        .accessibilityLabel("Pause source")
+                        .help("Pause source")
+                    Button(action: store.playSourceForwards) { Image(systemName: "play.fill") }
+                        .accessibilityLabel("Play source forwards")
+                        .help("Play source forwards")
+                }
+                .disabled(store.sourcePlayer == nil)
                 if let asset = store.selectedAsset { Text("\(asset.duration.seconds, specifier: "%.2f") seconds").font(.caption.monospacedDigit()) }
             }.padding(10)
         }

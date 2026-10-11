@@ -23,6 +23,7 @@ final class EditorStore: ObservableObject {
     @Published private var undoHistory: [Snapshot] = []
     @Published private var redoHistory: [Snapshot] = []
     private var scopedURLs: Set<URL> = []
+    private var sourceTransportTask: Task<Void, Never>?
     private var importTask: Task<Void, Never>?
     private var mediaEpoch = UUID()
 
@@ -66,7 +67,7 @@ final class EditorStore: ObservableObject {
         audioAppendAsset = nil
         importTask?.cancel()
         isImporting = false
-        sourcePlayer?.pause()
+        pauseSource()
         sourcePlayer = nil
         for url in scopedURLs { url.stopAccessingSecurityScopedResource() }
         scopedURLs.removeAll()
@@ -130,7 +131,7 @@ final class EditorStore: ObservableObject {
 
     func selectAsset(_ id: UUID) {
         selectedAssetID = id
-        sourcePlayer?.pause()
+        pauseSource()
         sourcePlayer = nil
         previewImage = nil
         guard let asset = selectedAsset, let url = asset.originalURL else { return }
@@ -142,6 +143,43 @@ final class EditorStore: ObservableObject {
         if asset.streams.isEmpty { previewImage = NSImage(contentsOf: url) }
         else { sourcePlayer = AVPlayer(url: url) }
         statusMessage = "Source preview: \(asset.name)"
+    }
+
+    func pauseSource() {
+        sourceTransportTask?.cancel()
+        sourceTransportTask = nil
+        sourcePlayer?.pause()
+    }
+
+    func playSourceForwards() {
+        pauseSource()
+        guard let player = sourcePlayer, let asset = selectedAsset else { return }
+        sourceTransportTask = Task {
+            if player.currentTime().seconds >= asset.duration.seconds - 0.001 {
+                await player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+            }
+            guard !Task.isCancelled else { return }
+            player.play()
+        }
+    }
+
+    func playSourceBackwards() {
+        pauseSource()
+        guard let player = sourcePlayer, let asset = selectedAsset else { return }
+        // Seek-based reverse works even when the source codec has no native reverse
+        // support. Keep audio paused, and allow only one outstanding seek at a time.
+        let current = player.currentTime().seconds
+        let start = current.isFinite && current > 0 ? current : asset.duration.seconds
+        sourceTransportTask = Task {
+            let began = ProcessInfo.processInfo.systemUptime
+            while !Task.isCancelled {
+                let position = max(0, start - (ProcessInfo.processInfo.systemUptime - began))
+                await player.seek(to: CMTime(seconds: position, preferredTimescale: 60000),
+                                  toleranceBefore: .zero, toleranceAfter: .zero)
+                guard !Task.isCancelled, position > 0 else { return }
+                do { try await Task.sleep(for: .milliseconds(33)) } catch { return }
+            }
+        }
     }
 
     func appendSelectedAsset() {
@@ -197,7 +235,7 @@ final class EditorStore: ObservableObject {
     }
     private func reconcileSelection() {
         if selectedClip == nil { selectedClipID = nil }
-        if selectedAsset == nil { selectedAssetID = nil; sourcePlayer?.pause(); sourcePlayer = nil; previewImage = nil }
+        if selectedAsset == nil { selectedAssetID = nil; pauseSource(); sourcePlayer = nil; previewImage = nil }
         else if let id = selectedAssetID { selectAsset(id) }
         playheadSeconds = min(playheadSeconds, duration)
     }
