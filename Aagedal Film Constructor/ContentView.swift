@@ -14,8 +14,10 @@ struct ContentView: View {
             HSplitView {
                 if showMediaBin {
                     mediaBin.frame(minWidth: 210, idealWidth: 260, maxWidth: 380)
+                        .focusedValue(\.editorCommandScope, .source)
                 }
                 sourceMonitor.frame(minWidth: 320, maxWidth: .infinity)
+                    .focusedValue(\.editorCommandScope, .source)
                 if showInspector {
                     ProjectInspector(store: store).frame(minWidth: 240, idealWidth: 270, maxWidth: 340)
                 }
@@ -163,6 +165,7 @@ private struct ProjectInspector: View {
     @State private var height = "1080"
     @State private var frameRate = "24"
     @State private var startTimecode = "00:00:00:00"
+    @State private var editingAudio = false
 
     var body: some View {
         ScrollView {
@@ -190,6 +193,10 @@ private struct ProjectInspector: View {
                                     Text("Fill").tag(ScalingMode.fill)
                                     Text("Native size").tag(ScalingMode.none)
                                 }
+                            } else {
+                                Button("Audio source channels…") { editingAudio = true }
+                                Text("\(clip.requiredAudioLayout?.channels.count ?? 0) selected channels")
+                                    .font(.caption).foregroundStyle(.secondary)
                             }
                         }.padding(5)
                     }
@@ -219,11 +226,16 @@ private struct ProjectInspector: View {
                     }.padding(5)
                 }
                 GroupBox("Editing") {
-                    Toggle("Remove empty tracks after edits", isOn: Binding(
-                        get: { store.project.preferences.automaticallyRemoveEmptyTracks },
-                        set: store.setAutomaticTrackCleanup
-                    ))
-                    .font(.callout).padding(5)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Toggle("Remove empty tracks after edits", isOn: Binding(
+                            get: { store.project.preferences.automaticallyRemoveEmptyTracks },
+                            set: store.setAutomaticTrackCleanup
+                        ))
+                        Toggle("Confirm audio track layout changes", isOn: Binding(
+                            get: { store.project.preferences.askBeforeAudioTrackLayoutChanges },
+                            set: store.setAudioLayoutConfirmation
+                        ))
+                    }.font(.callout).padding(5)
                 }
                 if let asset = store.selectedAsset {
                     GroupBox("Source file") {
@@ -238,6 +250,11 @@ private struct ProjectInspector: View {
         .onAppear { refreshClip(); refreshSettings() }
         .onChange(of: store.selectedClip) { _, _ in refreshClip() }
         .onChange(of: store.project.settings) { _, _ in refreshSettings() }
+        .sheet(isPresented: $editingAudio) {
+            if let clip = store.selectedClip, clip.requiredTrackKind == .audio {
+                AudioSourceEditor(store: store, clip: clip)
+            }
+        }
     }
 
     private func numericField(_ label: String, text: Binding<String>) -> some View {

@@ -493,10 +493,11 @@ sequence previews and renders at the same positions with exact output timing.
 - [x] Add linked drag trim handles, adjacency snapping, frame stepping, and
       sequence/start timecode controls.
 - [ ] Add live sequence transport.
-- [ ] Add asynchronous filmstrips/waveforms and fit/fill/no-scaling controls.
+- [x] Add asynchronous filmstrips/waveforms and fit/fill/no-scaling controls.
+      Scaling is persisted; sequence preview/render geometry remains unqualified.
 - [x] Expose the automatic empty-track cleanup preference.
-- [ ] Expose layout-confirmation preferences with the source-layout workflow.
-- [ ] Add a command registry and keyboard shortcut editor with conflict checks,
+- [x] Expose layout-confirmation preferences with the source-layout workflow.
+- [x] Add a command registry and keyboard shortcut editor with conflict checks,
       focus-aware dispatch, persistence, and reset-to-defaults.
 
 Completion example: edit overlapping clips, change scaling, customize a shortcut,
@@ -504,8 +505,9 @@ and save/reopen without losing placements, preferences, or source identity.
 
 ### 3. Audio components, fades, and crossfades
 
-- [ ] Support post-insertion mono, multiple mono, stereo, and surround selection.
-- [ ] Implement explicit channel maps and compatible track layout adaptation.
+- [x] Support post-insertion mono, multiple mono, stereo, and surround selection
+      on a selected component; consolidation of existing components remains open.
+- [x] Implement explicit channel maps and compatible track layout adaptation.
 - [ ] Add fade handles and linked crossfades, including drag-to-second-clip creation.
 - [ ] Handle insufficient source handles, adjacent cuts, overlapping siblings,
       layout compatibility, subsequent trims/moves, cancellation, and atomic undo.
@@ -746,3 +748,33 @@ launch-performance claim has been validated yet.
   unsigned macOS Debug build, and the expanded app-file smoke harness. Native UI
   automation reached the initial document dialog but disconnected before workspace
   interaction; manual gesture and panel-layout checks remain part of user testing.
+
+
+### Timeline previews, shortcuts, and audio source selection checkpoint (2026-10-11)
+
+- Added visible-region asynchronous video/still filmstrips and channel-mapped
+  source waveforms. Two active decoder jobs, twelve pending jobs, twelve images
+  per request, 512 waveform bins, and a 24 MB/32-entry LRU bound retained preview
+  work. Trims/zoom, source channel maps, media revisions and file fingerprints
+  invalidate stale results; offline/unsupported media retains a placeholder.
+- Added a shared command registry and Settings shortcut editor with persistent
+  remapping, clearing, defaults reset, conflict/reserved-key validation, and
+  panel/text-entry dispatch guards. Document shortcuts remain native.
+- Added atomic post-insertion source selection and explicit output routing for
+  mono, multiple mono, stereo, surround and unknown speaker layouts. The inspector
+  previews track adaptation and optionally confirms it before committing. Source
+  timing and linked picture remain intact; stale drafts and invalid routes fail
+  without changing the document. Undo/redo and persistence include all tracks/maps.
+- Collision-driven moves/trims now reuse siblings only when routing and gain
+  match the originating track, protecting differently routed mono components.
+- Initial placement of non-mono/stereo-only sources and consolidation of existing
+  separate components remain open. Waveforms describe source channels before
+  routing/gain; source monitoring still plays original media. Live edited-sequence
+  monitoring, helper packaging, fades/crossfades, proxies and export remain open.
+- Verification passed: 76 EditorCore tests (34 XCTest and 42 Swift Testing),
+  nine Python regressions, shortcut model smoke, expanded native app-file smoke,
+  generated audio/still/video preview stress smoke, and the unsigned macOS Debug
+  build. Preview checks cover duplicate cache misses, queue saturation, active
+  cancellation, same-path replacement invalidation, source/channel windows and
+  image bounds. Native workspace gestures, focus transitions, and sheet layout
+  still need manual UI testing; no live sequence-playback claim is made.

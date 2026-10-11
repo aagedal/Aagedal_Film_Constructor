@@ -17,6 +17,7 @@ final class EditorStore: ObservableObject {
     @Published var sourcePlayer: AVPlayer?
     @Published var previewImage: NSImage?
     @Published var statusMessage = "Import media to begin."
+    @Published private(set) var mediaPreviewRevision = UUID()
     private struct Snapshot { var project: Project; var bookmarks: [UUID: Data] }
     @Published private var undoHistory: [Snapshot] = []
     @Published private var redoHistory: [Snapshot] = []
@@ -32,6 +33,7 @@ final class EditorStore: ObservableObject {
 
     func load(_ document: ProjectDocument) {
         close()
+        mediaPreviewRevision = UUID()
         errorMessage = nil
         isImporting = false
         undoHistory = []; redoHistory = []
@@ -120,6 +122,7 @@ final class EditorStore: ObservableObject {
             project.assets[index].duration = imported.asset.duration
             project.assets[index].streams = imported.asset.streams
         }
+        mediaPreviewRevision = UUID()
         selectAsset(assetID)
     }
 
@@ -151,6 +154,7 @@ final class EditorStore: ObservableObject {
 
     func undo() {
         guard let previous = undoHistory.popLast() else { return }
+        if previous.project.assets != project.assets || previous.bookmarks != mediaBookmarks { mediaPreviewRevision = UUID() }
         redoHistory.append(Snapshot(project: project, bookmarks: mediaBookmarks))
         project = previous.project
         mediaBookmarks = previous.bookmarks
@@ -158,6 +162,7 @@ final class EditorStore: ObservableObject {
     }
     func redo() {
         guard let next = redoHistory.popLast() else { return }
+        if next.project.assets != project.assets || next.bookmarks != mediaBookmarks { mediaPreviewRevision = UUID() }
         undoHistory.append(Snapshot(project: project, bookmarks: mediaBookmarks))
         project = next.project
         mediaBookmarks = next.bookmarks
@@ -275,6 +280,27 @@ final class EditorStore: ObservableObject {
     }
     func setAutomaticTrackCleanup(_ enabled: Bool) {
         do { try change { $0.preferences.automaticallyRemoveEmptyTracks = enabled } } catch { report(error) }
+    }
+    func setAudioLayoutConfirmation(_ enabled: Bool) {
+        do { try change { $0.preferences.askBeforeAudioTrackLayoutChanges = enabled } } catch { report(error) }
+    }
+    /// Validate a draft on a copy before the inspector asks to commit a track change.
+    func previewAudioSelection(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting]) throws -> Project {
+        var engine = try TimelineEditEngine(project: project)
+        try engine.apply(.selectAudioSource(clipID: clipID, selections: selections, routing: routing))
+        return engine.project
+    }
+    func applyAudioSelection(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], expectedProject: Project) throws {
+        guard project == expectedProject else {
+            throw EditorCoreError.invalidModel("The project changed while editing audio. Reopen source selection to review the current clip.")
+        }
+        try change {
+            var engine = try TimelineEditEngine(project: $0)
+            try engine.apply(.selectAudioSource(clipID: clipID, selections: selections, routing: routing))
+            $0 = engine.project
+        }
+        selectedClipID = clipID
+        statusMessage = "Updated audio source channels and output routing."
     }
     private func editTime(_ seconds: Double) throws -> RationalTime {
         guard let clip = selectedClip else { return try time(seconds) }

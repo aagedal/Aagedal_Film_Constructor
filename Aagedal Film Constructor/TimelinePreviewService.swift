@@ -1,0 +1,212 @@
+import AVFoundation
+import AppKit
+import EditorCore
+import ImageIO
+
+/// Requests include the source range and channel map, so trims and zoom never reuse stale imagery.
+nonisolated struct TimelinePreviewRequest: Hashable, Sendable {
+    let url: URL
+    let selection: ClipSelection
+    let start: Double
+    let duration: Double
+    let thumbnailCount: Int
+    let waveformBins: Int
+    let revision: UUID?
+
+    init(url: URL, selection: ClipSelection, start: Double, duration: Double, thumbnailCount: Int, waveformBins: Int, revision: UUID? = nil) {
+        self.url = url
+        self.revision = revision
+        self.selection = selection
+        self.start = start
+        self.duration = duration
+        self.thumbnailCount = min(12, max(1, thumbnailCount))
+        self.waveformBins = min(512, max(1, waveformBins))
+    }
+}
+
+nonisolated private struct TimelinePreviewCacheKey: Hashable, Sendable {
+    let request: TimelinePreviewRequest
+    let modificationDate: Date?
+    let fileSize: Int?
+}
+
+nonisolated enum TimelinePreviewError: Error {
+    case invalidRequest, queueFull
+}
+
+nonisolated struct TimelinePreview: Sendable {
+    var images: [CGImage] = []
+    var peaks: [[Float]] = []
+    var byteCost: Int { images.reduce(0) { $0 + $1.bytesPerRow * $1.height } + peaks.reduce(0) { $0 + $1.count * 4 } }
+}
+
+/// Two concurrent decoders and a 24 MB LRU keep large timelines from exhausting memory.
+actor TimelinePreviewService {
+    static let shared = TimelinePreviewService()
+    private var cache: [TimelinePreviewCacheKey: TimelinePreview] = [:]
+    private var recency: [TimelinePreviewCacheKey] = []
+    private var activeDecoders = 0
+    private var pendingDecoders = 0
+    private var cacheBytes = 0
+
+    func preview(for request: TimelinePreviewRequest) async throws -> TimelinePreview {
+        try Task.checkCancellation()
+        guard request.start.isFinite, request.start >= 0, request.duration.isFinite, request.duration > 0 else {
+            throw TimelinePreviewError.invalidRequest
+        }
+        if case .audio(let selection) = request.selection {
+            guard (1...64).contains(selection.channels.count), selection.channels.allSatisfy({ $0.streamIndex >= 0 && $0.channelIndex >= 0 }) else {
+                throw TimelinePreviewError.invalidRequest
+            }
+        }
+        let key = await Self.cacheKey(for: request)
+        try Task.checkCancellation()
+        if let value = cached(key) { return value }
+        guard pendingDecoders < 12 else { throw TimelinePreviewError.queueFull }
+        pendingDecoders += 1
+        do {
+            while activeDecoders >= 2 {
+                try await Task.sleep(for: .milliseconds(30))
+            }
+            try Task.checkCancellation()
+        } catch {
+            pendingDecoders -= 1
+            throw error
+        }
+        pendingDecoders -= 1
+        if let value = cached(key) { return value }
+        activeDecoders += 1
+        defer { activeDecoders -= 1 }
+        let value = try await Self.decode(request)
+        try Task.checkCancellation()
+        if let replaced = cache.updateValue(value, forKey: key) { cacheBytes -= replaced.byteCost }
+        recency.removeAll { $0 == key }
+        recency.append(key)
+        cacheBytes += value.byteCost
+        while cacheBytes > 24 * 1_024 * 1_024 || recency.count > 32 {
+            let oldest = recency.removeFirst()
+            if let removed = cache.removeValue(forKey: oldest) { cacheBytes -= removed.byteCost }
+        }
+        return value
+    }
+
+    private func cached(_ request: TimelinePreviewCacheKey) -> TimelinePreview? {
+        guard let value = cache[request] else { return nil }
+        recency.removeAll { $0 == request }
+        recency.append(request)
+        return value
+    }
+
+    @concurrent
+    private static func cacheKey(for request: TimelinePreviewRequest) async -> TimelinePreviewCacheKey {
+        let scoped = request.url.startAccessingSecurityScopedResource()
+        defer { if scoped { request.url.stopAccessingSecurityScopedResource() } }
+        var url = request.url
+        url.removeAllCachedResourceValues()
+        let values = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
+        return TimelinePreviewCacheKey(request: request, modificationDate: values?.contentModificationDate, fileSize: values?.fileSize)
+    }
+
+    // Exposes resource accounting to the generated-media smoke check.
+    func resourceUsage() -> (active: Int, pending: Int, entries: Int, bytes: Int) {
+        (activeDecoders, pendingDecoders, cache.count, cacheBytes)
+    }
+
+    @concurrent
+    private static func decode(_ request: TimelinePreviewRequest) async throws -> TimelinePreview {
+        let scoped = request.url.startAccessingSecurityScopedResource()
+        defer { if scoped { request.url.stopAccessingSecurityScopedResource() } }
+        switch request.selection {
+        case .still:
+            try Task.checkCancellation()
+            guard let source = CGImageSourceCreateWithURL(request.url as CFURL, nil),
+                  let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceThumbnailMaxPixelSize: 180,
+                    kCGImageSourceCreateThumbnailWithTransform: true
+                  ] as CFDictionary) else { return TimelinePreview() }
+            return TimelinePreview(images: [image])
+        case .video(let streamIndex):
+            let asset = AVURLAsset(url: request.url)
+            let tracks = try await asset.load(.tracks)
+            guard tracks.indices.contains(streamIndex), tracks[streamIndex].mediaType == .video else { return TimelinePreview() }
+            let composition = AVMutableComposition()
+            guard let track = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else { return TimelinePreview() }
+            let sourceTrack = tracks[streamIndex]
+            let range = CMTimeRange(start: CMTime(seconds: request.start, preferredTimescale: 60_000), duration: CMTime(seconds: request.duration, preferredTimescale: 60_000))
+            try track.insertTimeRange(range, of: sourceTrack, at: .zero)
+            track.preferredTransform = try await sourceTrack.load(.preferredTransform)
+            let generator = AVAssetImageGenerator(asset: composition)
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: 180, height: 100)
+            generator.requestedTimeToleranceBefore = CMTime(seconds: 0.05, preferredTimescale: 600)
+            generator.requestedTimeToleranceAfter = CMTime(seconds: 0.05, preferredTimescale: 600)
+            defer { generator.cancelAllCGImageGeneration() }
+            return try await withTaskCancellationHandler {
+                var images: [CGImage] = []
+                for index in 0..<request.thumbnailCount {
+                    try Task.checkCancellation()
+                    let seconds = request.duration * (Double(index) + 0.5) / Double(request.thumbnailCount)
+                    let image = try await generator.image(at: CMTime(seconds: seconds, preferredTimescale: 60_000)).image
+                    images.append(image)
+                }
+                return TimelinePreview(images: images)
+            } onCancel: {
+                generator.cancelAllCGImageGeneration()
+            }
+        case .audio(let selection):
+            let asset = AVURLAsset(url: request.url)
+            let tracks = try await asset.load(.tracks)
+            var peaks = Array(repeating: Array(repeating: Float(0), count: request.waveformBins), count: selection.channels.count)
+            for streamIndex in Set(selection.channels.map(\.streamIndex)).sorted() {
+                try Task.checkCancellation()
+                guard tracks.indices.contains(streamIndex), tracks[streamIndex].mediaType == .audio else { continue }
+                let reader = try AVAssetReader(asset: asset)
+                reader.timeRange = CMTimeRange(start: CMTime(seconds: request.start, preferredTimescale: 60_000), duration: CMTime(seconds: request.duration, preferredTimescale: 60_000))
+                let output = AVAssetReaderTrackOutput(track: tracks[streamIndex], outputSettings: [
+                    AVFormatIDKey: kAudioFormatLinearPCM,
+                    AVLinearPCMBitDepthKey: 32,
+                    AVLinearPCMIsFloatKey: true,
+                    AVLinearPCMIsBigEndianKey: false,
+                    AVLinearPCMIsNonInterleaved: false
+                ])
+                output.alwaysCopiesSampleData = false
+                guard reader.canAdd(output) else { continue }
+                reader.add(output)
+                guard reader.startReading() else { throw reader.error ?? CocoaError(.fileReadUnknown) }
+                defer { reader.cancelReading() }
+                let channelMap = selection.channels.enumerated().filter { $0.element.streamIndex == streamIndex }
+                while let sample = output.copyNextSampleBuffer() {
+                    try Task.checkCancellation()
+                    guard let description = CMSampleBufferGetFormatDescription(sample),
+                          let format = CMAudioFormatDescriptionGetStreamBasicDescription(description),
+                          let block = CMSampleBufferGetDataBuffer(sample) else { continue }
+                    let channels = Int(format.pointee.mChannelsPerFrame)
+                    let rate = format.pointee.mSampleRate
+                    guard channels > 0, rate.isFinite, rate > 0 else { continue }
+                    let byteCount = CMBlockBufferGetDataLength(block)
+                    guard byteCount >= MemoryLayout<Float>.size, byteCount.isMultiple(of: MemoryLayout<Float>.size) else { continue }
+                    // Copy only this decoder buffer; never retain PCM for the entire clip.
+                    var samples = Array(repeating: Float(0), count: byteCount / MemoryLayout<Float>.size)
+                    let copied = samples.withUnsafeMutableBytes { bytes in
+                        CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: byteCount, destination: bytes.baseAddress!)
+                    }
+                    guard copied == kCMBlockBufferNoErr else { continue }
+                    let timestamp = CMSampleBufferGetPresentationTimeStamp(sample).seconds
+                    guard timestamp.isFinite else { continue }
+                    for frame in 0..<(samples.count / channels) {
+                        let relative = timestamp + Double(frame) / rate - request.start
+                        guard relative >= 0, relative < request.duration else { continue }
+                        let bin = min(request.waveformBins - 1, Int(relative / request.duration * Double(request.waveformBins)))
+                        for (destination, channel) in channelMap where channel.channelIndex < channels {
+                            let amplitude = abs(samples[frame * channels + channel.channelIndex])
+                            if amplitude.isFinite { peaks[destination][bin] = max(peaks[destination][bin], min(1, amplitude)) }
+                        }
+                    }
+                }
+                if reader.status == .failed { throw reader.error ?? CocoaError(.fileReadUnknown) }
+            }
+            return TimelinePreview(peaks: peaks)
+        }
+    }
+}

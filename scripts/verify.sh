@@ -6,6 +6,7 @@ mkdir -p "$build_root/module-cache"
 export CLANG_MODULE_CACHE_PATH="$build_root/module-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$build_root/module-cache"
 python3 -m unittest discover -s "$repo_root/scripts" -p 'test_*.py'
+"$repo_root/scripts/shortcut-smoke.sh"
 swift test --package-path "$repo_root/Packages/EditorCore" \
   --scratch-path "$build_root/editor-core" --cache-path "$build_root/package-cache" --disable-sandbox
 xcodebuild -project "$repo_root/Aagedal Film Constructor.xcodeproj" \

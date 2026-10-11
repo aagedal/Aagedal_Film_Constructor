@@ -1,12 +1,15 @@
 import SwiftUI
 
 @main struct MyApp: App {
+    @StateObject private var commandRegistry = EditorCommandRegistry()
     var body: some Scene {
         DocumentGroup(newDocument: ProjectDocument()) { configuration in
             DocumentWorkspace(document: configuration.$document)
         }
         .defaultSize(width: 1280, height: 800)
-        .commands { EditorCommands() }
+        .commands { EditorCommands(registry: commandRegistry) }
+
+        Settings { KeyboardShortcutSettings(registry: commandRegistry) }
     }
 }
 
@@ -51,25 +54,27 @@ extension FocusedValues {
 }
 
 private struct EditorCommands: Commands {
+    @ObservedObject var registry: EditorCommandRegistry
     @FocusedValue(\.editorStore) private var store
+    @FocusedValue(\.editorCommandScope) private var focusedScope
     @AppStorage("workspace.showMediaBin") private var showMediaBin = true
     @AppStorage("workspace.showInspector") private var showInspector = true
     @AppStorage("workspace.showTimeline") private var showTimeline = true
 
+    private var scope: EditorCommandScope { focusedScope ?? .document }
+    private func command(_ id: EditorCommandID) -> some View {
+        let binding = registry.binding(for: id)
+        return Button(id.title) { registry.perform(id, store: store, scope: scope) }
+            .keyboardShortcut(binding.keyEquivalent.map { KeyboardShortcut($0, modifiers: binding.eventModifiers) })
+            .disabled(!registry.isEnabled(id, store: store, scope: scope))
+    }
+
     var body: some Commands {
         CommandGroup(replacing: .undoRedo) {
-            Button("Undo") { store?.undo() }
-                .keyboardShortcut("z", modifiers: .command)
-                .disabled(store?.canUndo != true)
-            Button("Redo") { store?.redo() }
-                .keyboardShortcut("z", modifiers: [.command, .shift])
-                .disabled(store?.canRedo != true)
+            command(.undo)
+            command(.redo)
         }
-        CommandGroup(after: .newItem) {
-            Button("Import Media…") { store?.importMedia() }
-                .keyboardShortcut("i", modifiers: .command)
-                .disabled(store == nil || store?.isImporting == true)
-        }
+        CommandGroup(after: .newItem) { command(.importMedia) }
         CommandGroup(after: .sidebar) {
             Toggle("Show Media Bin", isOn: $showMediaBin)
             Toggle("Show Inspector", isOn: $showInspector)
@@ -79,22 +84,13 @@ private struct EditorCommands: Commands {
             }
         }
         CommandMenu("Timeline") {
-            Button("Append Selected Source") { store?.appendSelectedAsset() }
-                .keyboardShortcut("e", modifiers: .command)
-                .disabled(store?.selectedAsset == nil || store?.isImporting == true)
-            Button("Split at Playhead") { store?.splitSelectedClip() }
-                .keyboardShortcut("b", modifiers: .command)
-                .disabled(store?.selectedClip == nil)
+            command(.appendSource)
+            command(.splitClip)
             Divider()
-            Button("Previous Frame") { store?.stepPlayhead(frames: -1) }
-                .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
-                .disabled(store == nil)
-            Button("Next Frame") { store?.stepPlayhead(frames: 1) }
-                .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
-                .disabled(store == nil)
+            command(.previousFrame)
+            command(.nextFrame)
             Divider()
-            Button("Delete Selected Clip") { store?.deleteSelectedClip() }
-                .disabled(store?.selectedClip == nil)
+            command(.deleteClip)
         }
     }
 }
