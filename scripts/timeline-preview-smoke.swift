@@ -107,6 +107,62 @@ struct TimelinePreviewSmoke {
         try bitmap.representation(using: .png, properties: [:])!.write(to: stillURL)
         let still = try await TimelinePreviewService.shared.preview(for: .init(url: stillURL, selection: .still, start: 0, duration: 5, thumbnailCount: 12, waveformBins: 16))
         try check(still.images.count == 1 && still.images[0].width <= 180, "Still thumbnail bounded")
+        // Small configurable budgets exercise actual eviction with decoded images.
+        let evictionService = TimelinePreviewService(maximumCacheBytes: still.byteCost * 3, maximumCacheEntries: 2)
+        let stillRequests = (0..<3).map { _ in
+            TimelinePreviewRequest(url: stillURL, selection: .still, start: 0, duration: 5, thumbnailCount: 1, waveformBins: 16, revision: UUID())
+        }
+        let oldest = try await evictionService.preview(for: stillRequests[0])
+        let evicted = try await evictionService.preview(for: stillRequests[1])
+        let touched = try await evictionService.preview(for: stillRequests[0])
+        try check(oldest.images[0] === touched.images[0], "Cache hit reuses the retained image")
+        _ = try await evictionService.preview(for: stillRequests[2])
+        let retained = try await evictionService.preview(for: stillRequests[0])
+        try check(oldest.images[0] === retained.images[0], "LRU keeps the recently touched image")
+        let regenerated = try await evictionService.preview(for: stillRequests[1])
+        try check(evicted.images[0] !== regenerated.images[0], "LRU evicts the oldest image")
+        let evictionUsage = await evictionService.resourceUsage()
+        try check(evictionUsage.entries == 2 && evictionUsage.bytes == still.byteCost * 2, "Entry eviction accounts exact retained bytes")
+        let byteService = TimelinePreviewService(maximumCacheBytes: still.byteCost + still.byteCost / 2)
+        for request in stillRequests { _ = try await byteService.preview(for: request) }
+        let byteUsage = await byteService.resourceUsage()
+        try check(byteUsage.entries == 1 && byteUsage.bytes == still.byteCost, "Byte budget evicts images before entry limit")
+        let oversizedService = TimelinePreviewService(maximumCacheBytes: still.byteCost - 1)
+        _ = try await oversizedService.preview(for: stillRequests[0])
+        let oversizedUsage = await oversizedService.resourceUsage()
+        try check(oversizedUsage.entries == 0 && oversizedUsage.bytes == 0, "Oversized result is returned without exceeding retained budget")
+
+        // Hold both slots with long channel-mapped reads, then cancel a queued request.
+        let longURL = directory.appendingPathComponent("long.wav")
+        do {
+            let file = try AVAudioFile(forWriting: longURL, settings: format.settings)
+            for _ in 0..<15 { try file.write(from: buffer) }
+        }
+        let queuedService = TimelinePreviewService()
+        let longRequest = TimelinePreviewRequest(url: longURL, selection: .audio(manyChannels), start: 0, duration: 30, thumbnailCount: 1, waveformBins: 512)
+        let holders = (0..<2).map { _ in Task { try await queuedService.preview(for: longRequest) } }
+        for _ in 0..<500 {
+            if await queuedService.resourceUsage().active == 2 { break }
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        try check(await queuedService.resourceUsage().active == 2, "Queued cancellation fixture occupies both admission slots")
+        let waiting = Task { try await queuedService.preview(for: first) }
+        for _ in 0..<500 {
+            if await queuedService.resourceUsage().pending == 1 { break }
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        try check(await queuedService.resourceUsage().pending == 1, "Request waits for admission")
+        waiting.cancel()
+        do { _ = try await waiting.value; throw PreviewSmokeError.failed("Queued request ignored cancellation") }
+        catch is CancellationError { }
+        try check(await queuedService.resourceUsage().pending == 0, "Queued cancellation removes the waiter immediately")
+        for holder in holders { holder.cancel() }
+        for holder in holders {
+            do { _ = try await holder.value; throw PreviewSmokeError.failed("Holder ignored cancellation") }
+            catch is CancellationError { }
+        }
+        let queuedUsage = await queuedService.resourceUsage()
+        try check(queuedUsage.active == 0 && queuedUsage.pending == 0 && queuedUsage.entries == 0, "Cancellation drains admission and keeps stale results out of cache")
         let videoURL = directory.appendingPathComponent("colors.mp4")
         if FileManager.default.fileExists(atPath: videoURL.path) {
             let red = try await TimelinePreviewService.shared.preview(for: .init(url: videoURL, selection: .video(streamIndex: 0), start: 0, duration: 0.8, thumbnailCount: 2, waveformBins: 16))
@@ -119,7 +175,7 @@ struct TimelinePreviewSmoke {
         } else {
             print("Video fixture skipped: ffmpeg unavailable")
         }
-        print("Timeline preview smoke passed: source ranges, channel mapping, cache, cancellation, and bounded imagery")
+        print("Timeline preview smoke passed: source ranges, channel mapping, LRU/byte eviction, bounded admission, queued/active cancellation, and imagery")
     }
 
     static func pixel(_ image: CGImage) -> [UInt8] {
