@@ -10,6 +10,7 @@ final class EditorStore: ObservableObject {
     @Published var mediaBookmarks: [UUID: Data] = [:]
     @Published var selectedAssetID: UUID?
     @Published var selectedClipID: UUID?
+    @Published var audioAppendAsset: MediaAsset?
     @Published var playheadSeconds: Double = 0
     @Published var errorMessage: String?
     @Published var isImporting = false
@@ -62,6 +63,7 @@ final class EditorStore: ObservableObject {
 
     func close() {
         mediaEpoch = UUID()
+        audioAppendAsset = nil
         importTask?.cancel()
         isImporting = false
         sourcePlayer?.pause()
@@ -143,13 +145,38 @@ final class EditorStore: ObservableObject {
     }
 
     func appendSelectedAsset() {
-        guard let id = selectedAssetID else { return }
+        guard let asset = selectedAsset else { return }
+        if let stream = asset.streams.first(where: { $0.kind == .audio }),
+           let layout = stream.audioLayout,
+           layout != project.settings.audioLayout && !(layout.channels.count == 1 && project.settings.audioLayout == .stereo) {
+            audioAppendAsset = asset
+            return
+        }
         do {
             var ids: [UUID] = []
-            try change { ids = try $0.appendAsset(id) }
+            try change { ids = try $0.appendAsset(asset.id) }
             selectedClipID = ids.first
             statusMessage = "Added to sequence. Video and audio components edit together."
         } catch { report(error) }
+    }
+
+    func beginAudioAppend() {
+        guard let asset = selectedAsset, asset.streams.contains(where: { $0.kind == .audio }) else { return }
+        audioAppendAsset = asset
+    }
+    func previewAudioAppend(assetID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting]) throws -> Project {
+        var candidate = project
+        try candidate.appendAsset(assetID, audioSelections: selections, routing: routing)
+        return candidate
+    }
+    func applyAudioAppend(assetID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], expectedProject: Project) throws {
+        guard project == expectedProject else {
+            throw EditorCoreError.invalidModel("The project changed while selecting audio. Reopen append to review the current sequence.")
+        }
+        var ids: [UUID] = []
+        try change { ids = try $0.appendAsset(assetID, audioSelections: selections, routing: routing) }
+        selectedClipID = ids.first
+        statusMessage = "Added to sequence with the selected audio channels and output routing."
     }
 
     func undo() {

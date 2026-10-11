@@ -505,7 +505,7 @@ and save/reopen without losing placements, preferences, or source identity.
 
 ### 3. Audio components, fades, and crossfades
 
-- [x] Support post-insertion mono, multiple mono, stereo, and surround selection
+- [x] Support initial and post-insertion mono, multiple mono, stereo, and surround selection
       on a selected component, including explicit consolidation of aligned linked
       components with matching source, track family, and gain.
 - [x] Implement explicit channel maps and compatible track layout adaptation.
@@ -804,3 +804,21 @@ launch-performance claim has been validated yet.
 - Initial placement of non-mono/stereo-only assets, live edited-sequence monitoring,
   helper packaging, fades/crossfades, proxies and export remain open. Inspector
   checkbox interactions and confirmation layout still need manual UI testing.
+
+### Initial audio placement checkpoint (2026-10-11)
+
+- Added explicit source/channel/output selection before insertion, including
+  separate mono components, surround and unknown layouts, and picture-only
+  placement. Unsupported default append opens the selection sheet.
+- Preview and optional confirmation leave the document untouched; append, linked
+  picture/audio, track creation and routing commit as one undoable edit. Stale
+  drafts and invalid maps are rejected atomically. Existing track reconfiguration
+  cannot change requested routing or gain during initial placement.
+- Uses the component consolidation implementation already merged in PR #11;
+  this checkpoint adds initial placement rather than another consolidation API.
+- Added six core regressions and app-store preview/commit/history/persistence
+  checks. Verification passed: 87 EditorCore tests (45 XCTest and 42 Swift
+  Testing), nine Python regressions, shortcut smoke, expanded app-file smoke,
+  and the unsigned macOS Debug build.
+- Live sequence monitoring, helper packaging, fades/crossfades, proxies and export
+  remain open. Native sheet interactions still need manual UI testing.

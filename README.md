@@ -41,8 +41,10 @@ component. See [basic testing instructions](docs/basic-workspace.md).
 This is the first usable assembly workspace. The monitor previews original
 sources, not the edited sequence. Native timeline playback, bundled FFmpeg,
 proxies, fades, and export remain unfinished. Still images currently have a
-five-second extent; initial audio placement supports stereo and mono duplicated to stereo, with other layouts
-requiring an initial-placement workflow. Once an audio component exists, its
+five-second extent. Default append uses matching sequence layouts or mono
+duplicated to stereo; other layouts open an explicit audio selection sheet.
+Use “Append with audio selection…” in the bin to choose channels and outputs
+before insertion, or omit audio from picture. Once an audio component exists, its
 source channels and output routing can be changed in the inspector, including
 combining compatible separate components into one.
 

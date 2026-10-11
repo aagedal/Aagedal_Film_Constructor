@@ -146,8 +146,9 @@ struct AppFileSmoke {
         try reject(JSONSerialization.data(withJSONObject: invalid), "Invalid project settings accepted")
         try exerciseWorkspace()
         try exerciseAudioSelection()
+        try exerciseAudioAppend()
         try exerciseShortcuts()
-        print("App file smoke passed: WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, audio channel maps/routing/consolidation/stale drafts, shortcut persistence/scoped dispatch, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, shortcut persistence/scoped dispatch, project save/reopen, corrupt and unsupported file rejection.")
     }
 
     @MainActor
@@ -179,6 +180,46 @@ struct AppFileSmoke {
         store.seek(to: 2)
         reloaded.perform(.splitClip, store: store, scope: .timeline)
         try check(store.project.tracks.flatMap(\.clips).count == 2, "Timeline command dispatch")
+    }
+
+    @MainActor
+    static func exerciseAudioAppend() throws {
+        let store = EditorStore()
+        defer { store.close() }
+        let asset = MediaAsset(name: "Surround fixture", duration: try RationalTime(3), streams: [
+            MediaStream(index: 0, kind: .video),
+            MediaStream(index: 1, kind: .audio, audioLayout: .surround51)
+        ])
+        try store.registerImportedMedia(ImportedMedia(asset: asset, bookmark: nil))
+        let baseline = store.project
+        store.appendSelectedAsset()
+        try check(store.project == baseline && store.audioAppendAsset?.id == asset.id,
+                  "Unsupported default audio layout opens a draft without placing picture")
+        let maps = [AudioSourceSelection(channels: [.init(streamIndex: 1, channelIndex: 0)], layout: .mono),
+                    AudioSourceSelection(channels: [.init(streamIndex: 1, channelIndex: 1)], layout: .mono)]
+        let routes = [AudioRouting(outputChannels: [0]), AudioRouting(outputChannels: [1])]
+        let preview = try store.previewAudioAppend(assetID: asset.id, selections: maps, routing: routes)
+        try check(store.project == baseline && preview.tracks.flatMap(\.clips).count == 3,
+                  "Initial audio placement preview is nonmutating")
+        try store.applyAudioAppend(assetID: asset.id, selections: maps, routing: routes, expectedProject: baseline)
+        let appended = store.project
+        try check(appended.tracks.flatMap(\.clips).count == 3 &&
+                  Set(appended.tracks.flatMap(\.clips).compactMap(\.linkGroupID)).count == 1,
+                  "Explicit initial mono maps remain linked with picture")
+        let reopened = try ProjectDocument(data: ProjectDocument(project: appended).encodedData())
+        try check(reopened.project == appended, "Initial audio maps survive save/reopen")
+        store.undo()
+        try check(store.project == baseline, "One undo removes initial picture, audio, and tracks")
+        store.redo()
+        try check(store.project == appended, "Initial audio placement redo")
+        do {
+            try store.applyAudioAppend(assetID: asset.id, selections: maps, routing: routes, expectedProject: baseline)
+            throw SmokeError.failed("Stale initial audio draft accepted")
+        } catch EditorCoreError.invalidModel { }
+        try check(store.project == appended, "Stale initial audio draft preserves document")
+        try store.applyAudioAppend(assetID: asset.id, selections: [], routing: [], expectedProject: appended)
+        try check(store.project.tracks.flatMap(\.clips).count == 4 && store.duration == 6,
+                  "Explicit picture-only append omits audio")
     }
 
     @MainActor

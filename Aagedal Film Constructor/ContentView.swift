@@ -48,6 +48,10 @@ struct ContentView: View {
                 Button(action: store.appendSelectedAsset) { Label("Append to timeline", systemImage: "text.badge.plus") }
                     .disabled(store.selectedAsset == nil || store.isImporting)
                 Menu {
+                    Button("Append with audio selection…", action: store.beginAudioAppend)
+                        .disabled(store.selectedAsset?.streams.contains(where: { $0.kind == .audio }) != true || store.isImporting)
+                } label: { Label("Audio placement", systemImage: "waveform.badge.plus") }
+                Menu {
                     Toggle("Media bin", isOn: $showMediaBin)
                     Toggle("Inspector", isOn: $showInspector)
                     Toggle("Timeline", isOn: $showTimeline)
@@ -68,6 +72,9 @@ struct ContentView: View {
             }
             .font(.caption).padding(.horizontal, 12).padding(.vertical, 6)
             .background(.bar)
+        }
+        .sheet(item: $store.audioAppendAsset) { asset in
+            AudioSourceEditor(store: store, asset: asset)
         }
         .alert("Unable to complete action", isPresented: Binding(get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } })) {
             Button("OK", role: .cancel) { store.errorMessage = nil }
@@ -103,6 +110,18 @@ struct ContentView: View {
                             }
                         }
                         .padding(.vertical, 4).tag(asset.id)
+                        .contextMenu {
+                            Button("Append to timeline") {
+                                store.selectAsset(asset.id)
+                                store.appendSelectedAsset()
+                            }
+                            if asset.streams.contains(where: { $0.kind == .audio }) {
+                                Button("Append with audio selection…") {
+                                    store.selectAsset(asset.id)
+                                    store.beginAudioAppend()
+                                }
+                            }
+                        }
                     }
                 }
                 .listStyle(.inset)
