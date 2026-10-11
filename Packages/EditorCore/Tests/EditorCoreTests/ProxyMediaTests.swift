@@ -1,0 +1,87 @@
+import Foundation
+import Testing
+@testable import EditorCore
+
+private func proxyFixture() throws -> MediaProxy {
+    MediaProxy(url: URL(fileURLWithPath: "/tmp/proxy.mov"), preset: .proResProxy,
+               sourceFingerprint: .init(fileSize: 1234, modificationTime: 1700000000),
+               videoStreamIndex: 3, width: 960, height: 540, frameRate: try RationalTime(24000, 1001), frameCount: 240)
+}
+
+@Test func proxyModelsRoundTripAndLegacyAssetsDecode() throws {
+    let proxy = try proxyFixture()
+    let asset = MediaAsset(name: "Source", originalURL: URL(fileURLWithPath: "/tmp/original.mov"),
+                           duration: try RationalTime(30), streams: [.init(index: 3, kind: .video)], proxy: proxy)
+    let encoder = JSONEncoder(), decoder = JSONDecoder()
+    #expect(try decoder.decode(MediaAsset.self, from: encoder.encode(asset)) == asset)
+    var legacy = try #require(JSONSerialization.jsonObject(with: encoder.encode(asset)) as? [String: Any])
+    legacy.removeValue(forKey: "proxy")
+    #expect(try decoder.decode(MediaAsset.self, from: JSONSerialization.data(withJSONObject: legacy)).proxy == nil)
+    let project = Project(settings: try SequenceSettings(), assets: [asset])
+    #expect(try decoder.decode(Project.self, from: encoder.encode(project)) == project)
+}
+
+@Test func proxyValidationRejectsInvalidMetadataAndRemoteURLs() throws {
+    let valid = try proxyFixture()
+    try valid.validate()
+    var invalid: [MediaProxy] = []
+    for url in ["https://example.com/proxy.mov", "file://server/tmp/proxy.mov", "file:///tmp/proxy.mov?token=1", "file:///tmp/proxy.mov#fragment", "file:///"] {
+        var proxy = valid; proxy.url = try #require(URL(string: url)); invalid.append(proxy)
+    }
+    var proxy = valid; proxy.width = 0; invalid.append(proxy)
+    proxy = valid; proxy.height = 65537; invalid.append(proxy)
+    proxy = valid; proxy.videoStreamIndex = -1; invalid.append(proxy)
+    proxy = valid; proxy.frameCount = 0; invalid.append(proxy)
+    proxy = valid; proxy.frameRate = .zero; invalid.append(proxy)
+    proxy = valid; proxy.frameRate = try RationalTime(1001); invalid.append(proxy)
+    proxy = valid; proxy.frameCount = .max; invalid.append(proxy)
+    proxy = valid; proxy.sourceFingerprint.fileSize = -1; invalid.append(proxy)
+    proxy = valid; proxy.sourceFingerprint.modificationTime = .infinity; invalid.append(proxy)
+    for proxy in invalid { #expect(throws: (any Error).self) { try proxy.validate() } }
+    for proxy in invalid where proxy.sourceFingerprint.modificationTime.isFinite {
+        let data = try JSONEncoder().encode(proxy)
+        #expect(throws: (any Error).self) { try JSONDecoder().decode(MediaProxy.self, from: data) }
+    }
+    var asset = MediaAsset(name: "Source", duration: try RationalTime(30), streams: [.init(index: 3, kind: .video)], proxy: valid)
+    try Project(settings: SequenceSettings(), assets: [asset]).validate()
+    asset.proxy?.videoStreamIndex = 1
+    #expect(throws: (any Error).self) { try Project(settings: SequenceSettings(), assets: [asset]).validate() }
+    asset.streams = [.init(index: 1, kind: .audio, audioLayout: .stereo)]
+    #expect(throws: (any Error).self) { try Project(settings: SequenceSettings(), assets: [asset]).validate() }
+}
+
+@Test func proxyResolutionRequiresExistingMatchingMediaAndFallsBackToOriginal() throws {
+    let proxy = try proxyFixture()
+    let original = URL(fileURLWithPath: "/tmp/original.mov")
+    var asset = MediaAsset(name: "Source", originalURL: original, duration: try RationalTime(30),
+                           streams: [.init(index: 3, kind: .video)], proxy: proxy)
+    let fingerprint = proxy.sourceFingerprint
+    #expect(asset.resolvePlayback(representation: .original, sourceFingerprint: fingerprint, proxyExists: true) == .init(url: original, status: .original, usesProxy: false))
+    #expect(asset.resolvePlayback(representation: .proxy, sourceFingerprint: fingerprint, proxyExists: true) == .init(url: proxy.url, status: .available, usesProxy: true))
+    #expect(asset.resolvePlayback(representation: .proxy, sourceFingerprint: fingerprint, proxyExists: false) == .init(url: original, status: .missing, usesProxy: false))
+    for stale in [MediaSourceFingerprint(fileSize: 1235, modificationTime: fingerprint.modificationTime),
+                  MediaSourceFingerprint(fileSize: fingerprint.fileSize, modificationTime: fingerprint.modificationTime + 1)] {
+        #expect(asset.resolvePlayback(representation: .proxy, sourceFingerprint: stale, proxyExists: true) == .init(url: original, status: .stale, usesProxy: false))
+    }
+    #expect(asset.resolvePlayback(representation: .proxy, sourceFingerprint: nil, proxyExists: true) == .init(url: original, status: .unavailable, usesProxy: false))
+    asset.originalURL = nil
+    #expect(asset.resolvePlayback(representation: .proxy, sourceFingerprint: fingerprint, proxyExists: true) == .init(url: nil, status: .unavailable, usesProxy: false))
+    asset.originalURL = original; asset.proxy = nil
+    #expect(asset.resolvePlayback(representation: .proxy, sourceFingerprint: fingerprint, proxyExists: true).status == .unavailable)
+}
+
+@Test func proxyMetadataNeverChangesRenderPlanOrFCPXMLOriginalReferences() throws {
+    let template = TrackTemplate(kind: .video)
+    let family = TrackFamily(baseName: "Video", template: template)
+    let asset = MediaAsset(name: "Source", originalURL: URL(fileURLWithPath: "/tmp/original.mov"),
+                           duration: try RationalTime(30), streams: [.init(index: 3, kind: .video)])
+    let clip = TimelineClip(assetID: asset.id, sourceRange: try TimeRange(start: RationalTime(2), duration: RationalTime(5)), selection: .video(streamIndex: 3))
+    var project = Project(settings: try SequenceSettings(), assets: [asset], families: [family],
+                          tracks: [.init(familyID: family.id, template: template, clips: [clip])])
+    let originalPlan = try TimelineRenderPlan(project: project)
+    let originalXML = try FCPXMLExporter.export(project: project)
+    project.assets[0].proxy = try proxyFixture()
+    #expect(try TimelineRenderPlan(project: project) == originalPlan)
+    #expect(try FCPXMLExporter.export(project: project) == originalXML)
+    #expect(!originalXML.xml.contains("proxy.mov"))
+}
