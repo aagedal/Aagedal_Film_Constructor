@@ -72,10 +72,18 @@ macOS 14+. On the initial file dialog choose **New Document** (or use File → N
     generated asynchronously for visible clips, and show placeholders for offline
     or unsupported media. Waveforms show source amplitude before routing/gain.
 
+12. In the bin choose **Append with audio selection…** to choose streams, channels,
+    and outputs before insertion. Default Append opens this sheet when the source
+    layout needs explicit routing. Choose separate mono components or one mapped
+    layout, or disable audio to append picture only. Cancel leaves the project
+    unchanged. Append creates picture, audio, and tracks in one undoable edit.
+    Try a 5.1 source in a stereo sequence and explicitly map each desired channel
+    to an output.
+
 Current limits: AVFoundation-supported source formats; no edited-sequence
 playback, export, proxies, or fades. Stills have a
-five-second source extent. Default audio assembly accepts stereo or mono
-(duplicated into stereo); other layouts need an initial-placement workflow.
+five-second source extent. Default audio assembly accepts matching layouts or mono
+(duplicated into stereo); other layouts use the explicit initial selection sheet.
 Post-insertion explicit maps support other streams/layouts on existing components.
 
 ## Verification

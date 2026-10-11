@@ -17,14 +17,7 @@ public extension Project {
         guard let asset = assets.first(where: { $0.id == assetID }) else {
             throw EditorCoreError.invalidModel("Missing media asset")
         }
-        let start = try time ?? TimelineRenderPlan(project: self).duration
-        let sourceRange = try TimeRange(start: .zero, duration: asset.duration)
-        var selections: [ClipSelection] = []
-        if let video = asset.streams.first(where: { $0.kind == .video }) {
-            selections.append(.video(streamIndex: video.index))
-        } else if asset.streams.isEmpty {
-            selections.append(.still)
-        }
+        var audioSelections: [AudioSourceSelection] = []
         if let audio = asset.streams.first(where: { $0.kind == .audio }), let layout = audio.audioLayout {
             let channels: [SourceChannel]
             if layout.channels.count == 1 && settings.audioLayout == .stereo {
@@ -36,19 +29,68 @@ public extension Project {
             } else {
                 throw EditorCoreError.invalidModel("Audio layout needs an explicit channel selection before placement")
             }
-            selections.append(.audio(AudioSourceSelection(channels: channels, layout: settings.audioLayout)))
+            audioSelections.append(AudioSourceSelection(channels: channels, layout: settings.audioLayout))
         }
+        return try appendAsset(assetID, at: time, audioSelections: audioSelections,
+                               routing: audioSelections.map { _ in AudioRouting() })
+    }
+
+    /// Place picture with explicitly selected audio components and their output maps.
+    /// Empty audio selections place picture only. Every component shares one link group.
+    @discardableResult
+    mutating func appendAsset(_ assetID: UUID, at time: RationalTime? = nil,
+                              audioSelections: [AudioSourceSelection], routing: [AudioRouting]) throws -> [UUID] {
+        try validate()
+        guard let asset = assets.first(where: { $0.id == assetID }) else {
+            throw EditorCoreError.invalidModel("Missing media asset")
+        }
+        guard audioSelections.count == routing.count else {
+            throw EditorCoreError.invalidModel("Every audio selection needs an output map")
+        }
+        // Check every source and destination before constructing any tracks or clips.
+        for (selection, route) in zip(audioSelections, routing) {
+            try selection.layout.validate()
+            guard selection.channels.count == selection.layout.channels.count else {
+                throw EditorCoreError.invalidModel("Incomplete source channel map")
+            }
+            for channel in selection.channels {
+                guard let stream = asset.streams.first(where: { $0.index == channel.streamIndex && $0.kind == .audio }),
+                      let layout = stream.audioLayout, channel.channelIndex >= 0,
+                      channel.channelIndex < layout.channels.count else {
+                    throw EditorCoreError.invalidModel("Missing source audio channel")
+                }
+            }
+            if route.outputChannels.isEmpty {
+                guard selection.layout == settings.audioLayout else {
+                    throw EditorCoreError.invalidModel("An explicit output map is required for differing layouts")
+                }
+            } else {
+                guard route.outputChannels.count == selection.channels.count,
+                      route.outputChannels.allSatisfy({ $0 >= 0 && $0 < settings.audioLayout.channels.count }) else {
+                    throw EditorCoreError.invalidModel("Invalid output channel map")
+                }
+            }
+        }
+        let start = try time ?? TimelineRenderPlan(project: self).duration
+        let sourceRange = try TimeRange(start: .zero, duration: asset.duration)
+        var selections: [(ClipSelection, AudioRouting)] = []
+        if let video = asset.streams.first(where: { $0.kind == .video }) {
+            selections.append((.video(streamIndex: video.index), AudioRouting()))
+        } else if asset.streams.isEmpty {
+            selections.append((.still, AudioRouting()))
+        }
+        selections.append(contentsOf: zip(audioSelections, routing).map { (.audio($0.0), $0.1) })
         guard !selections.isEmpty else { throw EditorCoreError.invalidModel("Media has no supported streams") }
         let linkGroup = selections.count > 1 ? UUID() : nil
         var candidate = self
         var clipIDs: [UUID] = []
-        for selection in selections {
+        for (selection, route) in selections {
             let clip = TimelineClip(assetID: asset.id, sourceRange: sourceRange, timelineStart: start,
                                     selection: selection, linkGroupID: linkGroup)
-            let template = TrackTemplate(kind: clip.requiredTrackKind, audioLayout: clip.requiredAudioLayout)
+            let template = TrackTemplate(kind: clip.requiredTrackKind, audioLayout: clip.requiredAudioLayout, routing: route)
             let familyID: UUID
             if let family = candidate.families.first(where: {
-                $0.template.kind == template.kind && $0.template.audioLayout == template.audioLayout
+                $0.template == template
             }) {
                 familyID = family.id
             } else {
@@ -56,8 +98,18 @@ public extension Project {
                 candidate.families.append(family)
                 familyID = family.id
             }
+            // Existing siblings may have been reconfigured by an audio source edit.
+            // Reuse only the complete template, including routing and gain.
+            let trackID: UUID
+            if let track = candidate.tracks.first(where: { $0.familyID == familyID && $0.template == template }) {
+                trackID = track.id
+            } else {
+                let track = TimelineTrack(familyID: familyID, template: template)
+                candidate.tracks.append(track)
+                trackID = track.id
+            }
             var engine = try TimelineEditEngine(project: candidate)
-            try engine.apply(.placeInFamily(clip: clip, familyID: familyID))
+            try engine.apply(.place(clip: clip, trackID: trackID))
             candidate = engine.project
             clipIDs.append(clip.id)
         }
