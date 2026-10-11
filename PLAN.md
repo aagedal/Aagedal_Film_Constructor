@@ -456,6 +456,11 @@ rates. Track stable container stream indices and per-stream timing offsets.
 - [x] Add bounded asynchronous decoder requests, shared decoded-payload caching,
       cancellation and stale seek/edit rejection; verify exact transport against
       the native offline sample clock and independent frame/sample renders.
+- [x] Qualify bounded native video fit/fill/none against decoded spatial fixtures,
+      including odd rasters, seek/rebuild and primed plan replacement.
+- [x] Add standalone live monitor observations and scripted transport checks;
+      handle startup preroll and pause safely on audio configuration changes.
+      Acoustic/display synchronization and shipping integration remain open.
 - [x] Test adjacency, multiple overlaps, free siblings, custom names, failed edit
       rollback, exact fractional rates, DF boundaries, and preserved audio sync.
 
@@ -1057,3 +1062,34 @@ launch-performance claim has been validated yet.
   runtime tests. Hardware playback and native EDL import were not exercised.
 - See [EDL scope and usage](docs/edl-export.md) and the
   [native development package](Packages/NativePlaybackProof/README.md).
+
+### Native spatial conform and live lifecycle checkpoint (2026-10-12)
+
+- Native video now applies clip fit/fill/none with bounded bicubic scaling and
+  centered RGB padding/cropping. Source, sequence and intermediate dimensions
+  are limited to 4096 per direction. Unsupported rotation/PAR/HDR/VFR checks
+  remain explicit; still alpha and general color conformance remain open.
+- Baseline plus nine geometry variants pass all 180 synchronous/asynchronous
+  frames, 288,288 stereo samples, ten video and thirteen audio seek/rebuild cases,
+  native PNG capture, primed plan replacement and offline transport observations.
+  Active-picture checks exclude black padding. Maximum mean RGB error is 2.0;
+  maximum audio error is 0.5 s16 units. Lossless RGB source fixtures qualify this
+  spatial subset; arbitrary subsampled-source edge alignment remains open.
+- Audio-engine configuration changes and unexpected stops cancel pending work,
+  flush output and pause at the last accepted position without automatic resume.
+  Observers are removed on close/deallocation. Scripted hardware output exposed
+  negative startup node sample times; preroll now waits for a nonnegative clock
+  under the two-second deadline, while established-clock regressions still fail.
+- The standalone runner retains periodic/action/error/final JSON observations
+  and offers an explicit play/seek/pause/resume script. The three-second local
+  output exercise passed without errors, with at most 4096 queued samples.
+  This is transport evidence, not acoustic/display A/V synchronization.
+- Verification passed: EditorCore suites (one optional DTD test skipped), 17
+  Python regressions, shortcut smoke, unsigned macOS Debug app build, standalone
+  native builds and 22 runtime tests. The complete nine-variant geometry proof
+  and scripted live run use actual local FFmpeg libraries and macOS audio services.
+- Shipping-app sequence monitoring, measured A/V sync/latency, physical device
+  changes, underrun recovery, broad formats/color/VFR, still alpha, sequence
+  proxies and signed dependency packaging remain open. See retained
+  [spatial evidence](docs/evidence/native-geometry-20261012/README.md) and
+  [live transport observations](docs/evidence/native-live-20261012/README.md).

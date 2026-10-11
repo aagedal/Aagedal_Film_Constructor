@@ -18,8 +18,12 @@ source channel/routing/gain contributions with clip-relative linear or equal-pow
 edge fades and linked audio crossfades, creates CGImage/PNG captures, and
 schedules bounded buffers at AVAudioPlayerNode sample times in offline mode.
 Successful plan replacement invalidates source state; failed replacement leaves
-the previous plan usable. The raster must match the sequence and audio must have
-the same sample rate. Color/scaling, proxies and live A/V clocking await
+the previous plan usable. Video uses the clip's fit/fill/none setting: bicubic
+spatial scaling followed by centered RGB padding/cropping, with black padding.
+Source, sequence and intermediate dimensions are limited to 4096 in each
+direction; extreme fill aspect ratios can exceed this limit and fail explicitly.
+Odd spare pixels are assigned to the bottom/right. Audio must have the same sample
+rate. Still images/alpha composition, color, proxies and live A/V clocking await
 qualification. Explicit buffers/decoder counts have development limits; FFmpeg
 probing/indexing and codec memory have not been comprehensively profiled.
 
@@ -38,6 +42,12 @@ also retains gaps, standalone fades, interframe decoding and ordinary edit cases
 [the audit](../../docs/media-engine-audit.md#native-sequence-fallback-proof-2026-10-09)
 for reproduction and known runtime/packaging limitations.
 
+Use `--geometry-only` for baseline plus nine video fit/fill/none variants with
+smaller, larger and odd-sized source rasters. It retains active-picture comparisons
+that exclude black padding, and exercises seeks, PNG capture and primed plan
+replacement. See [the spatial evidence](../../docs/evidence/native-geometry-20261012/README.md).
+The default runner includes geometry as well as the original timeline cases.
+
 `NativePlaybackRuntime` now separates the reusable development monitor from the
 proof executable. `NativePlaybackSession` provides async `video`/`audio` requests
 on a serial decoder queue, with bounded pending work and a shared video/audio
@@ -50,7 +60,7 @@ EditorCore's `NativePlaybackTransport` consumes presented sample counts from the
 output clock, supports exact play/pause/seek and rejects stale clock generations.
 Decoding and scheduling do not advance it. The proof connects it to AVAudioEngine's
 offline sample clock and independently checks frame selection in Python. The
-runner now executes nine runtime tests and captures every asynchronous frame and
+runner executes runtime tests and captures every asynchronous frame and
 audio block, including seeks and primed plan replacement.
 
 See [the 2026-10-11 evidence](../../docs/evidence/native-playback-20261011/README.md).
@@ -66,6 +76,11 @@ at most one outstanding request. Seeks flush the node, invalidate decoder epochs
 and reject obsolete operation tokens immediately before scheduling or displaying.
 Pause retains the final observed sample-clock position. Starvation or a missing
 clock stops playback with an explicit error; automatic recovery is unfinished.
+Audio-engine configuration changes and unexpected engine stops also flush pending
+work and pause at the last accepted transport position. The monitor reports the
+interruption and requires explicit Play to restart; it never submits a reset
+node's clock as if it belonged to the previous playback epoch. Closing or
+releasing the monitor removes its configuration observer.
 
 Build and test with explicitly selected local libraries, capturing dependency
 hashes and command logs into a fresh directory:
@@ -77,18 +92,37 @@ python3 scripts/native-live-proof.py \
   --output /absolute/path/fresh-live-proof
 ```
 
-Add `--launch` to open the window and record its close-time scheduling/display
-counters. The project can be a completed native sequence proof's generated JSON.
+Add `--launch` to open the window and retain `live-observations.jsonl` plus a final
+observation summary in `manifest.json`. JSON records include elapsed uptime,
+transport sample/frame, the last displayed frame, per-play-epoch scheduling and
+lifecycle counters, and retained errors. `--observation-interval` sets periodic
+sampling (default 0.5 seconds). The project can be a completed native sequence
+proof's generated JSON.
 The build-only runner prints the exact executable invocation for later inspection.
 The runtime tests cover bounded scheduling, refill admission, starvation,
-regressing clocks, partial final blocks, overshoot, and RGB payload validation.
+regressing clocks, partial final blocks, overshoot, RGB payload validation,
+geometry, observer scoping/cleanup, and lifecycle-statistics serialization.
 
-This implementation has compiled and its 14 runtime tests have passed on the
-current development host. A hardware playback run has **not** been qualified.
+For a repeatable exercise, add `--launch --scripted-duration 3`. This runs play,
+seek to frame zero, pause, resume and close, retaining each action. The duration
+excludes decoding/priming time. Errors or missing final records cause a failing
+harness exit status. Build-only operation opens no window. Direct executable use
+accepts `--observations /new/path.jsonl` and refuses to overwrite existing files.
+Observations describe the player node's render clock; they do not measure acoustic
+arrival or display refresh and never set `hardwareQualified`.
+
+Negative startup node sample times are treated as preroll until the first
+nonnegative tick, under the two-second clock deadline. Negative clocks after
+startup and changed sample rates still fail explicitly.
+
+This implementation has compiled and its 22 runtime tests have passed on the
+current development host. A [scripted local output smoke](../../docs/evidence/native-live-20261012/README.md)
+completed play/seek/pause/resume without errors. Hardware synchronization has
+**not** been qualified.
 The player-node clock measures rendered samples, not acoustic speaker arrival;
 output latency is not compensated. The display is polled at 5 ms and can drop
 frames when decode finishes late; it is not synchronized to display refresh.
-There is no measured A/V sync, device-change recovery, interruption handling,
+There is no measured A/V sync or automatic device-change/underrun recovery,
 real-time decoding guarantee, or signed redistributable FFmpeg bundle. Local
 FFmpeg dylibs can require a newer macOS version than this package's deployment
 floor. This executable remains disconnected from the shipping app.
