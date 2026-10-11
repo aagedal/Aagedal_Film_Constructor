@@ -6,7 +6,12 @@ macOS 14+. On the initial file dialog choose **New Document** (or use File → N
 
 1. Import a short MOV/MP4, WAV/M4A, or PNG/JPEG using **Import**, ⌘I, or dropping files from Finder onto the workspace.
    Import inspects media asynchronously. Select each file in the bin to preview
-   the original source; video/audio use the monitor's playback controls.
+   the original source; video/audio use the monitor's playback controls. **J**
+   plays backwards with silent frame seeking, **K** pauses, and **L** plays
+   forwards at normal speed. These control the selected original source from
+   anywhere in the workspace. From the start, J begins at the source end; from
+   the end, L restarts at the beginning. Typing into text fields leaves playback
+   unchanged. Playback shortcuts can be remapped in Settings.
 2. Click **Append** or ⌘E. Video with audio creates linked components; moving,
    trimming, splitting, and deleting either component edits both. Append more
    sources to build a sequence.

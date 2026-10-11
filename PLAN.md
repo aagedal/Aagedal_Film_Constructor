@@ -879,3 +879,22 @@ launch-performance claim has been validated yet.
   transitions pass independent sample-envelope checks, asynchronous/offline audio,
   seeks and primed-plan replacement. See
   [retained crossfade evidence](docs/evidence/crossfades-20261011/README.md).
+
+### App icon and source playback shortcuts checkpoint (2026-10-11)
+
+- Added a film/assembly-track app icon with every macOS asset size and configured
+  Debug/Release to use it. A retained AppKit drawing script regenerates the assets.
+  The unsigned app bundle contains `AppIcon.icns` and its icon metadata.
+- Added remappable J/K/L commands in the Playback menu and source monitor buttons:
+  J plays backwards through silent, bounded serial seeks; K pauses; L plays
+  forwards at normal speed. J at the start begins at the source end, and L at the
+  end restarts from zero. Playback controls the selected original source across
+  workspace panels and preserves text entry. Still images have no transport.
+- Source changes and document close cancel the transport task. Reverse seeks use
+  elapsed monotonic time and keep at most one seek outstanding. Shuttle speed
+  changes, reverse audio and edited-sequence playback remain open.
+- Verification passed: 110 EditorCore tests (66 XCTest and 44 Swift Testing), nine
+  Python regressions, shortcut smoke, expanded app-file smoke and the unsigned
+  macOS Debug build. Playback smoke covers forward/pause, silent reverse, both
+  source boundaries, restart, source replacement and document-close cancellation.
+  Physical key delivery and native focus interactions still need manual UI testing.

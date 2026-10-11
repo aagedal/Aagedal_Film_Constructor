@@ -20,6 +20,7 @@ struct AppFileSmoke {
         try check(abs(audio.asset.duration.seconds - 2) < 0.001, "WAV duration")
         try check(audio.asset.streams.count == 1 && audio.asset.streams[0].audioLayout == .stereo, "WAV stereo layout")
         try check(audio.bookmark != nil, "WAV bookmark")
+        try await exerciseSourcePlayback(audio: audio)
         let still = try await MediaImporter.inspect(url: imageURL)
         try check(still.asset.streams.isEmpty && still.asset.duration.seconds == 5, "Still image import")
         let corruptURL = directory.appendingPathComponent("corrupt.png")
@@ -150,7 +151,7 @@ struct AppFileSmoke {
         try exerciseAudioFades()
         try exerciseAudioCrossfades()
         try exerciseShortcuts()
-        print("App file smoke passed: WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, project save/reopen, corrupt and unsupported file rejection.")
     }
 
     @MainActor
@@ -295,6 +296,57 @@ struct AppFileSmoke {
                                  expectedClip: importedAudio)
         try check(store.selectedClip?.fadeOut == importedAudio.fadeOut,
                   "Changing one fade preserves the opposite edge's exact imported rational duration")
+    }
+
+    @MainActor
+    static func exerciseSourcePlayback(audio: ImportedMedia) async throws {
+        let store = EditorStore()
+        defer { store.close() }
+        let suite = "afc-playback-smoke-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let registry = EditorCommandRegistry(defaults: defaults)
+        try check(!registry.isEnabled(.playForward, store: store, scope: .document), "Playback disabled without playable media")
+        try store.registerImportedMedia(audio)
+        let player = store.sourcePlayer!
+        for _ in 0..<300 where player.currentItem?.status == .unknown {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try check(player.currentItem?.status == .readyToPlay, "Playback fixture ready")
+        try check(registry.isEnabled(.playReverse, store: store, scope: .timeline), "Source playback available with timeline focus")
+        await player.seek(to: CMTime(seconds: 1, preferredTimescale: 48000), toleranceBefore: .zero, toleranceAfter: .zero)
+        registry.perform(.playReverse, store: store, scope: .timeline)
+        try await Task.sleep(for: .milliseconds(250))
+        try check(player.currentTime().seconds < 0.9 && player.rate == 0, "J seeks backwards silently")
+        registry.perform(.pausePlayback, store: store, scope: .timeline)
+        try await Task.sleep(for: .milliseconds(50))
+        let paused = player.currentTime().seconds
+        try await Task.sleep(for: .milliseconds(150))
+        try check(abs(player.currentTime().seconds - paused) < 0.01, "K cancels reverse seeking")
+        registry.perform(.playForward, store: store, scope: .timeline)
+        try await Task.sleep(for: .milliseconds(150))
+        try check(player.rate == 1, "L plays forwards")
+        registry.perform(.pausePlayback, store: store, scope: .document)
+        try check(player.rate == 0, "K pauses forward playback")
+        await player.seek(to: CMTime(seconds: 2, preferredTimescale: 48000), toleranceBefore: .zero, toleranceAfter: .zero)
+        store.playSourceForwards()
+        try await Task.sleep(for: .milliseconds(150))
+        try check(player.currentTime().seconds < 1 && player.rate == 1, "L restarts at source end")
+        store.pauseSource()
+        await player.seek(to: CMTime(seconds: 0.1, preferredTimescale: 48000), toleranceBefore: .zero, toleranceAfter: .zero)
+        store.playSourceBackwards()
+        try await Task.sleep(for: .milliseconds(250))
+        try check(player.currentTime().seconds < 0.01, "Reverse stops at source start")
+        store.playSourceBackwards()
+        try await Task.sleep(for: .milliseconds(100))
+        try check(player.currentTime().seconds > 1.7, "J starts from source end when at zero")
+        store.selectAsset(audio.asset.id)
+        try await Task.sleep(for: .milliseconds(100))
+        try check(store.sourcePlayer !== player && player.rate == 0, "Changing source cancels old transport")
+        store.playSourceBackwards()
+        store.close()
+        try await Task.sleep(for: .milliseconds(100))
+        try check(store.sourcePlayer == nil && player.rate == 0, "Closing cancels source transport")
     }
 
     @MainActor

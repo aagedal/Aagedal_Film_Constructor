@@ -40,7 +40,7 @@ struct KeyboardShortcutSettings: View {
                 }.frame(width: 270)
             }
             Button("Reset All to Defaults…") { confirmReset = true }
-            Text("Standard application and text shortcuts are reserved. Timeline and source commands respect the focused panel and do not edit clips while entering text.")
+            Text("Standard application and text shortcuts are reserved. Playback commands allow unmodified keys and control the source across workspace panels. Editor commands leave text entry unchanged.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .padding(24)

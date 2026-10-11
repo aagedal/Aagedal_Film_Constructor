@@ -33,6 +33,8 @@ new/open/save and autosave behavior. Finder file drops, persistent panel visibil
 sequence timecode and frame stepping, and an empty-track cleanup preference are
 available. Timeline clips display asynchronous filmstrips and channel waveforms;
 Settings includes persistent keyboard shortcut remapping and conflict checks.
+Source playback supports J (silent reverse), K (pause), and L (forward), with
+monitor buttons and text-entry protection. The app now includes a macOS icon.
 Audio components support explicit source/output channel selection with track
 adaptation and optional confirmation. Aligned linked audio components with the
 same source, track family, and gain can be combined into one explicitly mapped
