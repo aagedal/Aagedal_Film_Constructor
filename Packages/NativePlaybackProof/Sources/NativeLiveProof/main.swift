@@ -13,8 +13,7 @@ import NativePlaybackRuntime
             if monitor.transport.isPlaying { monitor.pause() }
             else { Task { do { try await monitor.play() } catch { monitor.failure?(error) } } }
         case 123, 124:
-            let rate = monitor.transport.plan.settings.frameRate.value
-            let step = max(1, rate.numerator / rate.denominator)
+            let step = Int64(max(1, monitor.transport.plan.settings.frameRate.nominalFramesPerSecond))
             let frame = (monitor.transport.frameIndex ?? monitor.transport.plan.videoFrames)
                 + (event.keyCode == 123 ? -step : step)
             Task { do { try await monitor.seek(toFrame: frame) } catch { monitor.failure?(error) } }

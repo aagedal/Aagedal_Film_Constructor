@@ -250,9 +250,11 @@ public struct LivePlaybackStatistics: Sendable {
             do {
                 let value = try await self.session.video(frame: frame)
                 let accepted = await self.session.accepts(value.epoch)
-                guard token == self.operation, accepted, self.transport.frameIndex == frame else {
+                // An obsolete play/seek must not mutate the new operation's counters.
+                guard token == self.operation else { return }
+                guard accepted, self.transport.frameIndex == frame else {
                     self.statistics.discardedFrames += 1
-                    if token == self.operation { self.requestedFrame = nil }
+                    self.requestedFrame = nil
                     return
                 }
                 let image = try nativeImage(rgb: value.value, width: self.transport.plan.settings.width,
