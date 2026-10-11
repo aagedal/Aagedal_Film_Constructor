@@ -4,7 +4,31 @@ import EditorCore
 // compile-render emits argv for an independently persisted development project.
 // The MPV proof runner must force --demuxer=lavf for all loaded files before capturing
 // this list. This mode compiles the actual loaded tracks, never fixture IDs.
-if CommandLine.arguments.count == 5, CommandLine.arguments[1] == "compile-render" {
+if CommandLine.arguments.count == 6, CommandLine.arguments[1] == "crossfade-fixture" {
+    let arguments = CommandLine.arguments
+    var project = try JSONDecoder().decode(Project.self, from: Data(contentsOf: URL(fileURLWithPath: arguments[2])))
+    guard arguments[4] == "overlap" || arguments[4] == "adjacent",
+          let curve = AudioFadeCurve(rawValue: arguments[5]) else {
+        fatalError("crossfade-fixture requires overlap|adjacent and linear|equalPower")
+    }
+    let rate = project.settings.frameRate
+    var outgoing = project.tracks[2].clips[0]
+    outgoing.sourceRange = try TimeRange(start: rate.time(forFrames: 30), duration: rate.time(forFrames: arguments[4] == "overlap" ? 90 : 60))
+    outgoing.timelineStart = try rate.time(forFrames: 30)
+    var incoming = outgoing
+    incoming.id = UUID()
+    incoming.sourceRange = try TimeRange(start: rate.time(forFrames: 90), duration: rate.time(forFrames: 60))
+    incoming.timelineStart = try rate.time(forFrames: 90)
+    project.tracks[2].clips = [outgoing]
+    project.tracks.append(TimelineTrack(familyID: project.tracks[2].familyID, template: project.tracks[2].template, clips: [incoming]))
+    var engine = try TimelineEditEngine(project: project)
+    try engine.apply(.setAudioCrossfade(outgoingClipID: outgoing.id, incomingClipID: incoming.id,
+                                       duration: rate.time(forFrames: 30), curve: curve))
+    project = engine.project
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    try encoder.encode(project).write(to: URL(fileURLWithPath: arguments[3]))
+} else if CommandLine.arguments.count == 5, CommandLine.arguments[1] == "compile-render" {
     let arguments = CommandLine.arguments
     let project = try JSONDecoder().decode(Project.self, from: Data(contentsOf: URL(fileURLWithPath: arguments[2])))
     let command = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project),
@@ -26,7 +50,7 @@ if CommandLine.arguments.count == 5, CommandLine.arguments[1] == "compile-render
     try encoder.encode(graph).write(to: output)
 } else {
 // Development fixture generator; emits a reviewable document and argv manifest.
-guard CommandLine.arguments.count == 2 else { fatalError("Usage: RenderPlanProof /fixture/directory OR compile-render <project.json> <output.mov> <command.json> OR resolve-mpv <project.json> <track-list.json> <primary-path> <output.json> (all sources loaded with --demuxer=lavf)") }
+guard CommandLine.arguments.count == 2 else { fatalError("Usage: RenderPlanProof /fixture/directory OR crossfade-fixture <baseline-project.json> <output-project.json> <overlap|adjacent> <linear|equalPower> OR compile-render <project.json> <output.mov> <command.json> OR resolve-mpv <project.json> <track-list.json> <primary-path> <output.json> (all sources loaded with --demuxer=lavf)") }
 let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
 let rate = try FrameRate(30000, 1001)
 let settings = try SequenceSettings(width: 160, height: 90, frameRate: rate, startTimecode: .init(frameCount: 107892, mode: .dropFrame))

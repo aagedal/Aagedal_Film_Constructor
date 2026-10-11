@@ -15,7 +15,7 @@ it is evidence gathering, not the final startup strategy.
 `NativeSequenceProof` consumes EditorCore's stateless `NativePlaybackPlan`.
 The monitor selects the frontmost opaque layer, leaves gaps black, mixes explicit
 source channel/routing/gain contributions with clip-relative linear or equal-power
-edge fades, creates CGImage/PNG captures, and
+edge fades and linked audio crossfades, creates CGImage/PNG captures, and
 schedules bounded buffers at AVAudioPlayerNode sample times in offline mode.
 Successful plan replacement invalidates source state; failed replacement leaves
 the previous plan usable. The raster must match the sequence and audio must have
@@ -28,7 +28,13 @@ explicit FFmpeg, FFprobe, pkg-config, completed barcode-fixture and fresh output
 paths. It captures the actual linked dylib hashes, commands, source identities,
 output counts, sequential parity and complete seek/rebuild cases. The fade variant
 compares overlapping edge envelopes, both curves and fractional sample durations
-against independently rendered FFmpeg PCM after a primed plan replacement. See
+against independently rendered FFmpeg PCM after a primed plan replacement.
+Linked transition variants use the actual EditorCore crossfade edit for existing
+overlaps and adjacent-cut source extensions, check every decoded sample against
+an independent waveform/envelope oracle, and seek at transition boundaries and
+inside the pair. Both equal-power and linear adjacent transitions are qualified.
+Use `--crossfades-only` to run these three variants plus baseline; the default
+also retains gaps, standalone fades, interframe decoding and ordinary edit cases. See
 [the audit](../../docs/media-engine-audit.md#native-sequence-fallback-proof-2026-10-09)
 for reproduction and known runtime/packaging limitations.
 

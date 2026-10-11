@@ -90,10 +90,26 @@ macOS 14+. On the initial file dialog choose **New Document** (or use File → N
     new inner edges. Move clips, change source channels, undo/redo, and save/reopen
     to check preservation. The source monitor still plays original audio;
     timeline fades are qualified through the separate development render/native
-    proof. Linked crossfades are unfinished.
+    proof.
+
+14. Select the outgoing audio component and choose **Incoming audio** under
+    **Linked crossfade**. Choose a duration and curve, then **Apply crossfade**.
+    You can also drag a yellow fade handle onto the second audio clip; a valid
+    target highlights yellow and linked clips show a duration badge. Release
+    commits one edit. Equal-power is the default. An existing overlap uses its exact duration;
+    adjacent cuts use available source audio beyond the cut. Insufficient handles,
+    incompatible channel layouts or output routes, and conflicting standalone
+    fades are rejected without changing the project. Original clip cuts, linked
+    picture and sequence duration remain unchanged. Remove the crossfade to
+    restore the original audio cut; try undo/redo and save/reopen. The source
+    monitor still plays original audio. Editing a participating endpoint can
+    remove its crossfade; undo restores both together. A split inside the paired
+    envelope is rejected; a split outside it removes the relation. Compatible
+    joint moves preserve the relation. Native gesture interaction and inspector
+    layout still need manual testing.
 
 Current limits: AVFoundation-supported source formats; no edited-sequence
-playback, export, proxies, or linked crossfades. Stills have a
+playback, export, or proxies. Stills have a
 five-second source extent. Default audio assembly accepts matching layouts or mono
 (duplicated into stereo); other layouts use the explicit initial selection sheet.
 Post-insertion explicit maps support other streams/layouts on existing components.

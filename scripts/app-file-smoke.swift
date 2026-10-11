@@ -148,8 +148,79 @@ struct AppFileSmoke {
         try exerciseAudioSelection()
         try exerciseAudioAppend()
         try exerciseAudioFades()
+        try exerciseAudioCrossfades()
         try exerciseShortcuts()
-        print("App file smoke passed: WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, shortcut persistence/scoped dispatch, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, project save/reopen, corrupt and unsupported file rejection.")
+    }
+
+    @MainActor
+    static func exerciseAudioCrossfades() throws {
+        let store = EditorStore()
+        defer { store.close() }
+        let outgoingAsset = MediaAsset(name: "Outgoing", duration: try RationalTime(3), streams: [MediaStream(index: 0, kind: .audio, audioLayout: .stereo)])
+        let incomingAsset = MediaAsset(name: "Incoming", duration: try RationalTime(2), streams: outgoingAsset.streams)
+        let selection = ClipSelection.audio(AudioSourceSelection(channels: [SourceChannel(streamIndex: 0, channelIndex: 0), SourceChannel(streamIndex: 0, channelIndex: 1)], layout: .stereo))
+        let outgoing = TimelineClip(assetID: outgoingAsset.id, sourceRange: try TimeRange(start: .zero, duration: RationalTime(2)), selection: selection,
+                                    fadeIn: AudioFade(duration: try RationalTime(1, 4), curve: .linear))
+        let incoming = TimelineClip(assetID: incomingAsset.id, sourceRange: try TimeRange(start: .zero, duration: RationalTime(2)), timelineStart: try RationalTime(2), selection: selection)
+        let template = TrackTemplate(kind: .audio, audioLayout: .stereo)
+        let family = TrackFamily(baseName: "Audio", template: template)
+        let baseline = Project(settings: try SequenceSettings(), assets: [outgoingAsset, incomingAsset], families: [family],
+                               tracks: [TimelineTrack(familyID: family.id, template: template, clips: [outgoing, incoming])])
+        try baseline.validate()
+        store.load(ProjectDocument(project: baseline))
+        try check(store.audioCrossfadeTargets(for: outgoing).map(\.id) == [incoming.id], "Crossfade targets include adjacent audio with one-sided handles")
+        let preview = try store.previewAudioCrossfade(outgoingClipID: outgoing.id, incomingClipID: incoming.id, seconds: 0.1234567, curve: .equalPower)
+        try check(store.project == baseline && !store.canUndo && preview.audioCrossfades.first?.duration == RationalTime(5926, 48000), "Crossfade preview is sample-aligned and does not mutate history")
+        try store.applyAudioCrossfade(outgoingClipID: outgoing.id, incomingClipID: incoming.id, seconds: 0.5, curve: .equalPower, expectedProject: baseline)
+        let linked = store.project
+        try check(linked.tracks == baseline.tracks && linked.audioCrossfades.count == 1, "Crossfade preserves editorial timing and standalone opposite-edge fades")
+        store.undo()
+        try check(store.project == baseline && !store.canUndo, "Crossfade creation is one undo transaction")
+        store.redo()
+        try check(store.project == linked, "Crossfade redo restores relation")
+        try check(try ProjectDocument(data: ProjectDocument(project: linked).encodedData()).project == linked, "Crossfade persists through document reopen")
+        var shorter = outgoingAsset
+        shorter.duration = try RationalTime(2)
+        let bookmarks = store.mediaBookmarks
+        do {
+            try store.replaceMedia(assetID: outgoingAsset.id, with: ImportedMedia(asset: shorter, bookmark: nil))
+            throw SmokeError.failed("Relink discarded required crossfade source handles")
+        } catch TimelineEditError.invalidAudioCrossfade { }
+        try check(store.project == linked && store.mediaBookmarks == bookmarks, "Relink rejection preserves crossfade document and grants")
+        store.undo()
+        try check(store.project == baseline && !store.canUndo, "Rejected relink does not add history")
+        store.redo()
+        try store.removeAudioCrossfade(linked.audioCrossfades[0].id, expectedProject: linked)
+        try check(store.project == baseline, "Removing crossfade restores unchanged clip source ranges and timing")
+        store.undo()
+        try check(store.project == linked, "Crossfade removal undo restores the link")
+        store.selectedClipID = incoming.id
+        store.moveSelectedClip(to: 3)
+        let edited = store.project
+        do {
+            try store.applyAudioCrossfade(outgoingClipID: outgoing.id, incomingClipID: incoming.id, seconds: 0.75, curve: .linear, expectedProject: linked)
+            throw SmokeError.failed("Stale crossfade draft accepted after counterpart moved")
+        } catch EditorCoreError.invalidModel { }
+        try check(store.project == edited, "Stale counterpart draft is rejected atomically")
+        store.undo()
+        try check(store.project == linked && store.canRedo, "Rejected stale draft preserves counterpart redo")
+        for invalid in [Double.nan, Double.infinity, -1, 0, 2] {
+            do {
+                try store.applyAudioCrossfade(outgoingClipID: outgoing.id, incomingClipID: incoming.id, seconds: invalid, curve: .linear, expectedProject: linked)
+                throw SmokeError.failed("Invalid crossfade duration accepted")
+            } catch EditorCoreError.invalidModel { }
+        }
+        try check(store.project == linked && store.canRedo, "Invalid crossfade drafts preserve document and history")
+        try store.applyAudioCrossfade(outgoingClipID: outgoing.id, incomingClipID: incoming.id, seconds: 0.5, curve: .equalPower, expectedProject: linked)
+        try check(store.canRedo, "No-op crossfade apply preserves redo history")
+        var singleSample = baseline
+        singleSample.assets[0].duration = try RationalTime(2).adding(RationalTime(1, 48000))
+        store.load(ProjectDocument(project: singleSample))
+        try check(store.audioCrossfadeTargets(for: outgoing).map(\.id) == [incoming.id], "Target discovery accepts exactly one sample of source handles")
+        try store.applyAudioCrossfade(outgoingClipID: outgoing.id, incomingClipID: incoming.id,
+                                     seconds: 1.0 / 48000, curve: .linear, expectedProject: singleSample)
+        try check(store.project.audioCrossfades.first?.duration == RationalTime(1, 48000), "Single-sample crossfade commits exactly")
     }
 
     @MainActor

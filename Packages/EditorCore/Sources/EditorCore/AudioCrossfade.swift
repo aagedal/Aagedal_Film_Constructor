@@ -1,0 +1,92 @@
+import Foundation
+
+/// A paired envelope with audio-only source handles. Original clip ranges remain editorial bounds.
+public struct AudioCrossfade: Identifiable, Equatable, Codable, Sendable {
+    public var id: UUID
+    public var outgoingClipID: UUID
+    public var incomingClipID: UUID
+    public var duration: RationalTime
+    public var curve: AudioFadeCurve
+    public init(id: UUID = UUID(), outgoingClipID: UUID, incomingClipID: UUID, duration: RationalTime, curve: AudioFadeCurve = .equalPower) {
+        self.id = id; self.outgoingClipID = outgoingClipID; self.incomingClipID = incomingClipID
+        self.duration = duration; self.curve = curve
+    }
+}
+
+public struct AudioCrossfadeGeometry: Equatable, Sendable {
+    public var outgoingSourceRange: TimeRange
+    public var outgoingTimelineRange: TimeRange
+    public var incomingSourceRange: TimeRange
+    public var incomingTimelineRange: TimeRange
+}
+
+extension Project {
+    /// Adjacent cuts prefer centered handles, falling back to the available side. Existing overlaps
+    /// must match the duration exactly. Handles stay inside the union of the original timeline ranges.
+    public func audioCrossfadeGeometry(for crossfade: AudioCrossfade) throws -> AudioCrossfadeGeometry {
+        let sampleDuration = try crossfade.duration.multiplied(by: Int64(settings.audioSampleRate))
+        guard sampleDuration.denominator == 1 else { throw TimelineEditError.invalidAudioCrossfade }
+        let endpoints = tracks.flatMap { track in track.clips.map { (track: track, clip: $0) } }
+        guard crossfade.duration.numerator > 0, crossfade.outgoingClipID != crossfade.incomingClipID,
+              let outgoing = endpoints.first(where: { $0.clip.id == crossfade.outgoingClipID }),
+              let incoming = endpoints.first(where: { $0.clip.id == crossfade.incomingClipID }),
+              outgoing.clip.requiredTrackKind == .audio, incoming.clip.requiredTrackKind == .audio,
+              outgoing.clip.requiredAudioLayout == incoming.clip.requiredAudioLayout,
+              outgoing.clip.fadeOut.duration == .zero, incoming.clip.fadeIn.duration == .zero,
+              let outgoingAsset = assets.first(where: { $0.id == outgoing.clip.assetID }) else {
+            throw TimelineEditError.invalidAudioCrossfade
+        }
+        func route(_ track: TimelineTrack) -> [Int] {
+            track.template.routing.outputChannels.isEmpty ? Array(0..<(track.audioLayout?.channels.count ?? 0)) : track.template.routing.outputChannels
+        }
+        guard route(outgoing.track) == route(incoming.track) else { throw TimelineEditError.invalidAudioCrossfade }
+        let a = try outgoing.clip.timelineRange(), b = try incoming.clip.timelineRange()
+        let endA = try a.end(), endB = try b.end()
+        guard try a.start.compared(to: b.start) == .orderedAscending,
+              try endA.compared(to: endB) == .orderedAscending else { throw TimelineEditError.invalidAudioCrossfade }
+        let overlap = try endA.subtracting(b.start)
+        guard overlap.numerator >= 0 else { throw TimelineEditError.invalidAudioCrossfade }
+        var left = RationalTime.zero, right = RationalTime.zero
+        if overlap.numerator > 0 {
+            guard overlap == crossfade.duration else { throw TimelineEditError.invalidAudioCrossfade }
+        } else {
+            func minimum(_ x: RationalTime, _ y: RationalTime) throws -> RationalTime {
+                try x.compared(to: y) == .orderedDescending ? y : x
+            }
+            func sampleFloor(_ time: RationalTime) throws -> RationalTime {
+                let samples = try time.multiplied(by: Int64(settings.audioSampleRate))
+                return try RationalTime(samples.numerator / samples.denominator, Int64(settings.audioSampleRate))
+            }
+            let availableLeft = try sampleFloor(minimum(incoming.clip.sourceRange.start, a.duration))
+            let availableRight = try sampleFloor(minimum(outgoingAsset.duration.subtracting(outgoing.clip.sourceRange.end()), b.duration))
+            guard try availableLeft.adding(availableRight).compared(to: crossfade.duration) != .orderedAscending else {
+                throw TimelineEditError.invalidAudioCrossfade
+            }
+            left = try minimum(RationalTime(sampleDuration.numerator / 2, Int64(settings.audioSampleRate)), availableLeft)
+            right = try minimum(crossfade.duration.subtracting(left), availableRight)
+            left = try crossfade.duration.subtracting(right)
+        }
+        return try AudioCrossfadeGeometry(
+            outgoingSourceRange: TimeRange(start: outgoing.clip.sourceRange.start, duration: outgoing.clip.sourceRange.duration.adding(right)),
+            outgoingTimelineRange: TimeRange(start: a.start, duration: a.duration.adding(right)),
+            incomingSourceRange: TimeRange(start: incoming.clip.sourceRange.start.subtracting(left), duration: incoming.clip.sourceRange.duration.adding(left)),
+            incomingTimelineRange: TimeRange(start: b.start.subtracting(left), duration: b.duration.adding(left)))
+    }
+
+    func validateAudioCrossfades() throws {
+        guard Set(audioCrossfades.map(\.id)).count == audioCrossfades.count,
+              Set(audioCrossfades.map(\.outgoingClipID)).count == audioCrossfades.count,
+              Set(audioCrossfades.map(\.incomingClipID)).count == audioCrossfades.count else {
+            throw TimelineEditError.invalidAudioCrossfade
+        }
+        for relation in audioCrossfades { _ = try audioCrossfadeGeometry(for: relation) }
+        // A middle clip can participate at both edges only while its envelopes do not overlap.
+        for incoming in audioCrossfades {
+            if let outgoing = audioCrossfades.first(where: { $0.outgoingClipID == incoming.incomingClipID }) {
+                let left = try audioCrossfadeGeometry(for: incoming).incomingTimelineRange.start.adding(incoming.duration)
+                let right = try audioCrossfadeGeometry(for: outgoing).outgoingTimelineRange.end().subtracting(outgoing.duration)
+                guard try left.compared(to: right) != .orderedDescending else { throw TimelineEditError.invalidAudioCrossfade }
+            }
+        }
+    }
+}

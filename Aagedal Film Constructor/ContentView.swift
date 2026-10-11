@@ -190,6 +190,10 @@ private struct ProjectInspector: View {
     @State private var fadeInCurve = AudioFadeCurve.linear
     @State private var fadeOutCurve = AudioFadeCurve.linear
     @State private var fadeDraftClip: TimelineClip?
+    @State private var crossfadeTargetID: UUID?
+    @State private var crossfadeDuration = "0.5"
+    @State private var crossfadeCurve = AudioFadeCurve.equalPower
+    @State private var crossfadeDraftProject: Project?
 
     var body: some View {
         ScrollView {
@@ -231,6 +235,8 @@ private struct ProjectInspector: View {
                                     .font(.caption).foregroundStyle(.secondary)
                                 Text("Sequence rendering and the development monitor use fades. Source preview plays the original audio.")
                                     .font(.caption).foregroundStyle(.secondary)
+                                Divider()
+                                crossfadeControls(clip)
                             }
                         }.padding(5)
                     }
@@ -284,6 +290,7 @@ private struct ProjectInspector: View {
         .onAppear { refreshClip(); refreshSettings() }
         .onChange(of: store.selectedClip) { _, _ in refreshClip() }
         .onChange(of: store.project.settings) { _, _ in refreshSettings() }
+        .onChange(of: store.project.audioCrossfades) { _, _ in refreshCrossfade() }
         .sheet(isPresented: $editingAudio) {
             if let clip = store.selectedClip, clip.requiredTrackKind == .audio {
                 AudioSourceEditor(store: store, clip: clip)
@@ -313,7 +320,72 @@ private struct ProjectInspector: View {
             try store.applyAudioFades(clipID: clip.id, fadeInSeconds: fadeIn, fadeInCurve: fadeInCurve,
                                      fadeOutSeconds: fadeOut, fadeOutCurve: fadeOutCurve, expectedClip: expected)
             refreshClip()
-        } catch { store.errorMessage = String(describing: error) }
+        } catch { store.errorMessage = store.audioEditErrorMessage(error) }
+    }
+    @ViewBuilder
+    private func crossfadeControls(_ clip: TimelineClip) -> some View {
+        Text("Linked crossfade").font(.subheadline.bold())
+        let targets = store.audioCrossfadeTargets(for: clip)
+        Picker("Incoming audio", selection: $crossfadeTargetID) {
+            Text("Select a clip").tag(nil as UUID?)
+            ForEach(targets) { target in
+                Text("\(store.project.assets.first { $0.id == target.assetID }?.name ?? "Audio") · \(store.project.tracks.first { $0.clips.contains { $0.id == target.id } }?.displayName(in: store.project) ?? "Track") · \(String(format: "%.3f", target.timelineStart.seconds)) s")
+                    .tag(Optional(target.id))
+            }
+        }
+        .onChange(of: crossfadeTargetID) { _, id in
+            if let existing = store.project.audioCrossfades.first(where: { $0.outgoingClipID == clip.id && $0.incomingClipID == id }) {
+                crossfadeDuration = String(existing.duration.seconds)
+                crossfadeCurve = existing.curve
+            } else if let target = targets.first(where: { $0.id == id }) {
+                let overlap = clip.timelineStart.seconds + clip.sourceRange.duration.seconds - target.timelineStart.seconds
+                crossfadeDuration = String(overlap > 0 ? overlap : 0.5)
+                crossfadeCurve = .equalPower
+            }
+            crossfadeDraftProject = store.project
+        }
+        numericField("Crossfade duration (s)", text: $crossfadeDuration)
+        fadeCurvePicker("Crossfade curve", selection: $crossfadeCurve)
+        Button("Apply crossfade") {
+            guard let target = crossfadeTargetID, let seconds = Double(crossfadeDuration), let baseline = crossfadeDraftProject else {
+                store.errorMessage = "Select incoming audio and enter a positive crossfade duration in seconds."
+                return
+            }
+            do {
+                try store.applyAudioCrossfade(outgoingClipID: clip.id, incomingClipID: target, seconds: seconds,
+                                             curve: crossfadeCurve, expectedProject: baseline)
+                refreshCrossfade()
+            } catch { store.errorMessage = store.audioEditErrorMessage(error) }
+        }.disabled(crossfadeTargetID == nil)
+        ForEach(store.project.audioCrossfades.filter { $0.outgoingClipID == clip.id || $0.incomingClipID == clip.id }) { crossfade in
+            HStack {
+                Text("\(crossfade.outgoingClipID == clip.id ? "To next" : "From previous") · \(String(format: "%.3f", crossfade.duration.seconds)) s")
+                    .font(.caption)
+                Spacer()
+                Button("Remove") {
+                    do {
+                        try store.removeAudioCrossfade(crossfade.id, expectedProject: store.project)
+                        refreshCrossfade()
+                    } catch { store.errorMessage = store.audioEditErrorMessage(error) }
+                }
+            }
+        }
+        Text(targets.isEmpty ? "No compatible incoming audio. Adjacent cuts need available source handles; overlapping clips need a matching overlap duration."
+             : "Adjacent cuts use available source handles. Overlapping audio uses its existing overlap. Editing an endpoint can remove its linked crossfade. Each edit is one undo step.")
+            .font(.caption).foregroundStyle(.secondary)
+    }
+    private func refreshCrossfade() {
+        crossfadeDraftProject = store.project
+        guard let clip = store.selectedClip else { crossfadeTargetID = nil; return }
+        if let existing = store.project.audioCrossfades.first(where: { $0.outgoingClipID == clip.id }) {
+            crossfadeTargetID = existing.incomingClipID
+            crossfadeDuration = String(existing.duration.seconds)
+            crossfadeCurve = existing.curve
+        } else {
+            crossfadeTargetID = nil
+            crossfadeDuration = "0.5"
+            crossfadeCurve = .equalPower
+        }
     }
     private func refreshClip() {
         guard let clip = store.selectedClip else { return }
@@ -325,6 +397,7 @@ private struct ProjectInspector: View {
         fadeInCurve = clip.fadeIn.curve
         fadeOutCurve = clip.fadeOut.curve
         fadeDraftClip = clip
+        refreshCrossfade()
     }
     private func refreshSettings() {
         width = String(store.project.settings.width)

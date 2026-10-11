@@ -324,6 +324,64 @@ final class EditorStore: ObservableObject {
     func proposedAudioFadeDuration(clip: TimelineClip, seconds: Double) -> Double {
         (try? audioFadeTime(seconds, clip: clip).seconds) ?? 0
     }
+    /// Offer only pairs that the edit engine can link, including source-handle validation.
+    func audioCrossfadeTargets(for clip: TimelineClip) -> [TimelineClip] {
+        guard clip.requiredTrackKind == .audio else { return [] }
+        return project.tracks.flatMap(\.clips).filter { candidate in
+            guard candidate.id != clip.id, candidate.requiredTrackKind == .audio else { return false }
+            let overlap = clip.timelineStart.seconds + clip.sourceRange.duration.seconds - candidate.timelineStart.seconds
+            let seconds = overlap > 0 ? overlap : 1 / Double(project.settings.audioSampleRate)
+            return (try? previewAudioCrossfade(outgoingClipID: clip.id, incomingClipID: candidate.id,
+                                              seconds: seconds, curve: .equalPower)) != nil
+        }.sorted { $0.timelineStart.seconds < $1.timelineStart.seconds }
+    }
+    private func crossfadeTime(_ seconds: Double) throws -> RationalTime {
+        let rate = Int64(project.settings.audioSampleRate)
+        let samples = (seconds * Double(rate)).rounded()
+        guard seconds.isFinite, seconds > 0, samples.isFinite, samples >= 1, samples < Double(Int64.max) else {
+            throw EditorCoreError.invalidModel("Enter a positive crossfade duration of at least one audio sample.")
+        }
+        return try RationalTime(Int64(samples), rate)
+    }
+    func previewAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, seconds: Double,
+                               curve: AudioFadeCurve) throws -> Project {
+        let existing = project.audioCrossfades.first { $0.outgoingClipID == outgoingClipID && $0.incomingClipID == incomingClipID }
+        let time = existing?.duration.seconds == seconds ? existing!.duration : try crossfadeTime(seconds)
+        var engine = try TimelineEditEngine(project: project)
+        do {
+            try engine.apply(.setAudioCrossfade(outgoingClipID: outgoingClipID, incomingClipID: incomingClipID,
+                                               duration: time, curve: curve))
+        } catch TimelineEditError.invalidAudioCrossfade {
+            throw EditorCoreError.invalidModel("Cannot link this audio pair. Use adjacent cuts with enough source handles or a duration matching the existing overlap. Audio layouts and output routing must match, and the linked edges must have no standalone fade.")
+        }
+        return engine.project
+    }
+    func applyAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, seconds: Double,
+                             curve: AudioFadeCurve, expectedProject: Project) throws {
+        guard project == expectedProject else {
+            throw EditorCoreError.invalidModel("The project changed while editing the crossfade. Review the current clips and try again.")
+        }
+        let draft = try previewAudioCrossfade(outgoingClipID: outgoingClipID, incomingClipID: incomingClipID,
+                                              seconds: seconds, curve: curve)
+        try change { $0 = draft }
+        selectedClipID = outgoingClipID
+        statusMessage = "Updated linked audio crossfade."
+    }
+    func removeAudioCrossfade(_ id: UUID, expectedProject: Project) throws {
+        guard project == expectedProject else {
+            throw EditorCoreError.invalidModel("The project changed while editing the crossfade. Review the current clips and try again.")
+        }
+        try change {
+            var engine = try TimelineEditEngine(project: $0)
+            try engine.apply(.removeAudioCrossfade(crossfadeID: id))
+            $0 = engine.project
+        }
+        statusMessage = "Removed linked audio crossfade."
+    }
+    func audioEditErrorMessage(_ error: Error) -> String {
+        if case EditorCoreError.invalidModel(let message) = error { return message }
+        return (error as? LocalizedError)?.errorDescription ?? String(describing: error)
+    }
     func applyAudioFades(clipID: UUID, fadeInSeconds: Double, fadeInCurve: AudioFadeCurve,
                          fadeOutSeconds: Double, fadeOutCurve: AudioFadeCurve, expectedClip: TimelineClip) throws {
         guard fadeInSeconds.isFinite, fadeOutSeconds.isFinite, fadeInSeconds >= 0, fadeOutSeconds >= 0 else {

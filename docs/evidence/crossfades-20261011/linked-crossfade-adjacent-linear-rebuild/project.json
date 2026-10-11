@@ -1,0 +1,391 @@
+{
+  "assets": [
+    {
+      "duration": {
+        "denominator": 100,
+        "numerator": 1001
+      },
+      "id": "786DB5D0-8870-4430-9503-1EFE289600ED",
+      "name": "A",
+      "originalURL": "file:///private/tmp/crossfade-render-20261011/a.mov",
+      "streams": [
+        {
+          "index": 0,
+          "kind": "video",
+          "timeOffset": {
+            "denominator": 1,
+            "numerator": 0
+          }
+        },
+        {
+          "audioLayout": {
+            "channels": [
+              "mono"
+            ]
+          },
+          "index": 1,
+          "kind": "audio",
+          "timeOffset": {
+            "denominator": 1,
+            "numerator": 0
+          }
+        },
+        {
+          "audioLayout": {
+            "channels": [
+              "mono"
+            ]
+          },
+          "index": 2,
+          "kind": "audio",
+          "timeOffset": {
+            "denominator": 1,
+            "numerator": 0
+          }
+        }
+      ]
+    },
+    {
+      "duration": {
+        "denominator": 100,
+        "numerator": 1001
+      },
+      "id": "C11FCD59-FB6B-4BF0-8C0F-A08BE50FA33B",
+      "name": "B",
+      "originalURL": "file:///private/tmp/crossfade-render-20261011/b.mov",
+      "streams": [
+        {
+          "index": 0,
+          "kind": "video",
+          "timeOffset": {
+            "denominator": 1,
+            "numerator": 0
+          }
+        }
+      ]
+    }
+  ],
+  "audioCrossfades": [
+    {
+      "curve": "linear",
+      "duration": {
+        "denominator": 1000,
+        "numerator": 1001
+      },
+      "id": "6BA41B9D-FDCE-41D0-A1BB-CB0D3E972751",
+      "incomingClipID": "272DA31D-9A24-4B46-88B3-538E77A31831",
+      "outgoingClipID": "04A22391-0069-4D25-91B5-4D19F16F627D"
+    }
+  ],
+  "families": [
+    {
+      "baseName": "Video",
+      "id": "31D5B664-CDEE-45F3-8B8E-F58470B5F542",
+      "template": {
+        "gain": 1,
+        "kind": "video",
+        "routing": {
+          "outputChannels": []
+        }
+      }
+    },
+    {
+      "baseName": "Audio",
+      "id": "64234076-48C1-4657-B240-2B68BCE9D4FE",
+      "template": {
+        "audioLayout": {
+          "channels": [
+            "left",
+            "right"
+          ]
+        },
+        "gain": 0.5,
+        "kind": "audio",
+        "routing": {
+          "outputChannels": []
+        }
+      }
+    }
+  ],
+  "preferences": {
+    "askBeforeAudioTrackLayoutChanges": true,
+    "automaticallyRemoveEmptyTracks": true
+  },
+  "settings": {
+    "audioLayout": {
+      "channels": [
+        "left",
+        "right"
+      ]
+    },
+    "audioSampleRate": 48000,
+    "frameRate": {
+      "value": {
+        "denominator": 1001,
+        "numerator": 30000
+      }
+    },
+    "height": 90,
+    "startTimecode": {
+      "frameCount": 107892,
+      "mode": "dropFrame"
+    },
+    "width": 160
+  },
+  "tracks": [
+    {
+      "clips": [
+        {
+          "assetID": "C11FCD59-FB6B-4BF0-8C0F-A08BE50FA33B",
+          "fadeIn": {
+            "curve": "linear",
+            "duration": {
+              "denominator": 1,
+              "numerator": 0
+            }
+          },
+          "fadeOut": {
+            "curve": "linear",
+            "duration": {
+              "denominator": 1,
+              "numerator": 0
+            }
+          },
+          "id": "F50FFBCD-45EB-451E-81FF-F93D239975BA",
+          "scalingMode": "fit",
+          "selection": {
+            "video": {
+              "streamIndex": 0
+            }
+          },
+          "sourceRange": {
+            "duration": {
+              "denominator": 10000,
+              "numerator": 39039
+            },
+            "start": {
+              "denominator": 500,
+              "numerator": 1001
+            }
+          },
+          "timelineStart": {
+            "denominator": 10000,
+            "numerator": 1001
+          }
+        }
+      ],
+      "familyID": "31D5B664-CDEE-45F3-8B8E-F58470B5F542",
+      "id": "06454ADA-9993-442F-892C-0DC4A174E657",
+      "retained": false,
+      "template": {
+        "gain": 1,
+        "kind": "video",
+        "routing": {
+          "outputChannels": []
+        }
+      }
+    },
+    {
+      "clips": [
+        {
+          "assetID": "786DB5D0-8870-4430-9503-1EFE289600ED",
+          "fadeIn": {
+            "curve": "linear",
+            "duration": {
+              "denominator": 1,
+              "numerator": 0
+            }
+          },
+          "fadeOut": {
+            "curve": "linear",
+            "duration": {
+              "denominator": 1,
+              "numerator": 0
+            }
+          },
+          "id": "E4A9274A-DBFB-4C0E-A6A4-C35FE388F60E",
+          "scalingMode": "fit",
+          "selection": {
+            "video": {
+              "streamIndex": 0
+            }
+          },
+          "sourceRange": {
+            "duration": {
+              "denominator": 500,
+              "numerator": 3003
+            },
+            "start": {
+              "denominator": 1000,
+              "numerator": 1001
+            }
+          },
+          "timelineStart": {
+            "denominator": 1,
+            "numerator": 0
+          }
+        }
+      ],
+      "familyID": "31D5B664-CDEE-45F3-8B8E-F58470B5F542",
+      "id": "9FBE7D63-06A6-4799-A593-51CA91E1B5B2",
+      "retained": false,
+      "template": {
+        "gain": 1,
+        "kind": "video",
+        "routing": {
+          "outputChannels": []
+        }
+      }
+    },
+    {
+      "clips": [
+        {
+          "assetID": "786DB5D0-8870-4430-9503-1EFE289600ED",
+          "fadeIn": {
+            "curve": "linear",
+            "duration": {
+              "denominator": 1,
+              "numerator": 0
+            }
+          },
+          "fadeOut": {
+            "curve": "linear",
+            "duration": {
+              "denominator": 1,
+              "numerator": 0
+            }
+          },
+          "id": "04A22391-0069-4D25-91B5-4D19F16F627D",
+          "scalingMode": "fit",
+          "selection": {
+            "audio": {
+              "_0": {
+                "channels": [
+                  {
+                    "channelIndex": 0,
+                    "streamIndex": 2
+                  },
+                  {
+                    "channelIndex": 0,
+                    "streamIndex": 1
+                  }
+                ],
+                "layout": {
+                  "channels": [
+                    "left",
+                    "right"
+                  ]
+                }
+              }
+            }
+          },
+          "sourceRange": {
+            "duration": {
+              "denominator": 500,
+              "numerator": 1001
+            },
+            "start": {
+              "denominator": 1000,
+              "numerator": 1001
+            }
+          },
+          "timelineStart": {
+            "denominator": 1000,
+            "numerator": 1001
+          }
+        }
+      ],
+      "familyID": "64234076-48C1-4657-B240-2B68BCE9D4FE",
+      "id": "F569DC93-1810-4AAF-B277-AEA643E3CFAD",
+      "retained": false,
+      "template": {
+        "audioLayout": {
+          "channels": [
+            "left",
+            "right"
+          ]
+        },
+        "gain": 0.5,
+        "kind": "audio",
+        "routing": {
+          "outputChannels": []
+        }
+      }
+    },
+    {
+      "clips": [
+        {
+          "assetID": "786DB5D0-8870-4430-9503-1EFE289600ED",
+          "fadeIn": {
+            "curve": "linear",
+            "duration": {
+              "denominator": 1,
+              "numerator": 0
+            }
+          },
+          "fadeOut": {
+            "curve": "linear",
+            "duration": {
+              "denominator": 1,
+              "numerator": 0
+            }
+          },
+          "id": "272DA31D-9A24-4B46-88B3-538E77A31831",
+          "scalingMode": "fit",
+          "selection": {
+            "audio": {
+              "_0": {
+                "channels": [
+                  {
+                    "channelIndex": 0,
+                    "streamIndex": 2
+                  },
+                  {
+                    "channelIndex": 0,
+                    "streamIndex": 1
+                  }
+                ],
+                "layout": {
+                  "channels": [
+                    "left",
+                    "right"
+                  ]
+                }
+              }
+            }
+          },
+          "sourceRange": {
+            "duration": {
+              "denominator": 500,
+              "numerator": 1001
+            },
+            "start": {
+              "denominator": 1000,
+              "numerator": 3003
+            }
+          },
+          "timelineStart": {
+            "denominator": 1000,
+            "numerator": 3003
+          }
+        }
+      ],
+      "familyID": "64234076-48C1-4657-B240-2B68BCE9D4FE",
+      "id": "67AD63A1-A226-49A0-97FF-EC269F42E4C6",
+      "retained": false,
+      "template": {
+        "audioLayout": {
+          "channels": [
+            "left",
+            "right"
+          ]
+        },
+        "gain": 0.5,
+        "kind": "audio",
+        "routing": {
+          "outputChannels": []
+        }
+      }
+    }
+  ]
+}

@@ -9,6 +9,8 @@ import copy
 import hashlib
 import json
 import os
+import math
+import struct
 from pathlib import Path
 import shlex
 import subprocess
@@ -25,6 +27,7 @@ def main():
     parser.add_argument('pkg_config', type=Path)
     parser.add_argument('fixture', type=Path)
     parser.add_argument('output', type=Path)
+    parser.add_argument('--crossfades-only', action='store_true', help='Qualify linked audio transitions and baseline only')
     args = parser.parse_args()
     for executable in (args.ffmpeg, args.ffprobe, args.pkg_config):
         if not executable.is_absolute() or not os.access(executable, os.X_OK):
@@ -44,7 +47,7 @@ def main():
         'Development dynamically linked libraries, no bundled/signed distribution',
         'Matching-raster square-pixel SDR CFR video and matching-rate PCM audio only',
         'Native CGImage/PNG captures and offline AVAudioEngine; no live display/CoreAudio A/V sync',
-        'No scaling/color/VFR conformance, compressed audio/resampling, transition crossfades or proxies',
+        'No scaling/color/VFR conformance, compressed audio/resampling, video transitions or proxies',
         'First source access qualifies all selected-stream timestamps; launch/interactive performance unmeasured'
     ]}
     commands = []
@@ -134,7 +137,7 @@ def main():
                 expected.extend(row * 90)
             result['fixtureBarcodes'].append(compare_rgb(decoded.read_bytes(), expected, 160 * 90 * 3, tolerance=4))
 
-        def evaluate(name, project, replace_from=None):
+        def evaluate(name, project, replace_from=None, crossfade_oracle=None):
             variant = root / name
             variant.mkdir()
             project_path = variant / 'project.json'
@@ -163,7 +166,9 @@ def main():
             video_cases = [(0, False), (2, False), (3, False), (60, False), (119, False),
                            (120, False), (179, False), (60, False), (15, False), (15, True)]
             audio_cases = [(0, False), (48047, False), (48048, False), (240239, False),
-                           (115315, False), (48048, False), (287264, False), (48047, True)]
+                           (115315, False), (48048, False), (287264, False),
+                           (144144, False), (120120, False), (168168, False), (192192, False),
+                           (144144, False), (48047, True)]
             if [(c['frame'], c['rebuilt']) for c in manifest['videoCaptures']] != video_cases:
                 raise ValueError('Missing, reordered or incomplete video seek/rebuild captures')
             if [(c['startSample'], c['rebuilt']) for c in manifest['audioCaptures']] != audio_cases:
@@ -217,56 +222,94 @@ def main():
                     'mixed': compare_float_audio((capture / check['mixedFile']).read_bytes(), expected, manifest['channels']),
                     'asynchronous': compare_float_audio((capture / check['asynchronousFile']).read_bytes(), expected, manifest['channels']),
                     'scheduled': compare_float_audio((capture / check['scheduledFile']).read_bytes(), expected, manifest['channels'])})
+            if crossfade_oracle is not None:
+                mode, curve = crossfade_oracle
+                # Independent source/sample oracle: both editorial source placements
+                # are continuous, so only the paired transition changes the waveform.
+                source_pcm = root / 'crossfade-source.pcm'
+                if not source_pcm.exists():
+                    ff(['-i', source_paths[0], '-filter_complex',
+                        '[0:2][0:1]amerge=inputs=2[a]', '-map', '[a]', '-c:a', 'pcm_s16le',
+                        '-f', 's16le', source_pcm], 'crossfade-source-decode.log')
+                source = source_pcm.read_bytes()
+                transition_start = 144144 if mode == 'overlap' else 120120
+                transition_end = transition_start + 48048
+                maximum = 0
+                for sample in range(command['audioSamples']):
+                    if not 48048 <= sample < 240240:
+                        envelope = 0
+                    elif transition_start <= sample < transition_end:
+                        progress = (sample - transition_start) / 48048
+                        envelope = (math.cos(progress * math.pi / 2) + math.sin(progress * math.pi / 2)) if curve == 'equalPower' else 1
+                    else:
+                        envelope = 1
+                    for channel in range(2):
+                        original = struct.unpack_from('<h', source, sample * 4 + channel * 2)[0]
+                        actual = struct.unpack_from('<h', reference_pcm, sample * 4 + channel * 2)[0]
+                        error = abs(actual - original * .5 * envelope)
+                        maximum = max(maximum, error)
+                        if error > 1.01:
+                            raise ValueError(f'Independent crossfade oracle sample {sample} channel {channel}: error {error}')
+                checked['crossfadeSampleOracle'] = {'mode': mode, 'curve': curve,
+                    'transitionSamples': [transition_start, transition_end],
+                    'samplesPerChannel': command['audioSamples'], 'maxErrorInS16Units': maximum}
             checked['artifacts'] = {str(p.relative_to(variant)): digest(p) for p in variant.rglob('*') if p.is_file()}
             result['variants'].append(checked)
             write_json(root / 'result.json', result)
             print(f"{name}: all sequential frames/samples and {len(checked['videoSeeks'])} video / {len(checked['audioSeeks'])} audio seeks pass", flush=True)
 
         evaluate('baseline', fixture_project)
-        layered = copy.deepcopy(fixture_project)
-        lower = layered['tracks'][1]['clips'][0]
-        lower['timelineStart'] = {'numerator': 1001, 'denominator': 2000}  # frame 15
-        lower['sourceRange']['duration'] = {'numerator': 1001, 'denominator': 200}  # 150 frames
-        extra = copy.deepcopy(layered['tracks'][2])
-        extra['id'] = str(uuid.uuid4()).upper()
-        extra['template']['gain'] = .25
-        extra['template']['routing']['outputChannels'] = [1, 0]
-        clip = extra['clips'][0]
-        clip['id'] = str(uuid.uuid4()).upper()
-        clip['sourceRange']['start'] = {'numerator': 0, 'denominator': 1}
-        clip['timelineStart'] = {'numerator': 1001, 'denominator': 500}  # frame 60
-        layered['tracks'].append(extra)
-        evaluate('gaps-and-audio-overlap', layered)
+        for mode, curve in [('overlap', 'equalPower'), ('adjacent', 'equalPower'), ('adjacent', 'linear')]:
+            name = f'linked-crossfade-{mode}-{curve}-rebuild'
+            path = root / (name + '-project.json')
+            run([compiler, 'crossfade-fixture', args.fixture / 'project.json', path, mode, curve], name + '-fixture.log')
+            project = json.loads(path.read_text())
+            evaluate(name, project, replace_from=fixture_project, crossfade_oracle=(mode, curve))
+        if not args.crossfades_only:
+            layered = copy.deepcopy(fixture_project)
+            lower = layered['tracks'][1]['clips'][0]
+            lower['timelineStart'] = {'numerator': 1001, 'denominator': 2000}  # frame 15
+            lower['sourceRange']['duration'] = {'numerator': 1001, 'denominator': 200}  # 150 frames
+            extra = copy.deepcopy(layered['tracks'][2])
+            extra['id'] = str(uuid.uuid4()).upper()
+            extra['template']['gain'] = .25
+            extra['template']['routing']['outputChannels'] = [1, 0]
+            clip = extra['clips'][0]
+            clip['id'] = str(uuid.uuid4()).upper()
+            clip['sourceRange']['start'] = {'numerator': 0, 'denominator': 1}
+            clip['timelineStart'] = {'numerator': 1001, 'denominator': 500}  # frame 60
+            layered['tracks'].append(extra)
+            evaluate('gaps-and-audio-overlap', layered)
 
-        # Independent native/FFmpeg sample comparison across overlapping edge
-        # envelopes, both curves, routing, irregular blocks and reverse seeks.
-        faded = copy.deepcopy(layered)
-        first = faded['tracks'][2]['clips'][0]
-        first['fadeIn'] = {'duration': {'numerator': 3, 'denominator': 1}, 'curve': 'linear'}
-        first['fadeOut'] = {'duration': {'numerator': 3, 'denominator': 1}, 'curve': 'equalPower'}
-        second = faded['tracks'][3]['clips'][0]
-        # Nonintegral sample duration exercises the exact rational fade clock.
-        second['fadeIn'] = {'duration': {'numerator': 250001, 'denominator': 96000}, 'curve': 'equalPower'}
-        second['fadeOut'] = {'duration': {'numerator': 3, 'denominator': 1}, 'curve': 'linear'}
-        evaluate('overlapping-edge-fades-rebuild', faded, replace_from=fixture_project)
+            # Independent native/FFmpeg sample comparison across overlapping edge
+            # envelopes, both curves, routing, irregular blocks and reverse seeks.
+            faded = copy.deepcopy(layered)
+            first = faded['tracks'][2]['clips'][0]
+            first['fadeIn'] = {'duration': {'numerator': 3, 'denominator': 1}, 'curve': 'linear'}
+            first['fadeOut'] = {'duration': {'numerator': 3, 'denominator': 1}, 'curve': 'equalPower'}
+            second = faded['tracks'][3]['clips'][0]
+            # Nonintegral sample duration exercises the exact rational fade clock.
+            second['fadeIn'] = {'duration': {'numerator': 250001, 'denominator': 96000}, 'curve': 'equalPower'}
+            second['fadeOut'] = {'duration': {'numerator': 3, 'denominator': 1}, 'curve': 'linear'}
+            evaluate('overlapping-edge-fades-rebuild', faded, replace_from=fixture_project)
 
-        interframe = copy.deepcopy(layered)
-        for index, asset in enumerate(interframe['assets']):
-            path = root / f'interframe-source-{index}.mov'
-            ff(['-i', source_paths[index], '-map', '0', '-c:v', 'libx264', '-preset', 'veryfast',
-                '-crf', '12', '-g', '60', '-bf', '3', '-x264-params', 'scenecut=0:open-gop=0:b-adapt=0',
-                '-pix_fmt', 'yuv420p', '-c:a', 'copy', path], f'interframe-{index}.log')
-            probe = json.loads(run([args.ffprobe, '-v', 'error', '-show_streams', '-of', 'json', path], f'interframe-{index}-probe.json', capture=True))
-            video = next(s for s in probe['streams'] if s['codec_type'] == 'video')
-            if int(video['has_b_frames']) < 1:
-                raise ValueError('Interframe control lacks reordered B frames')
-            asset['originalURL'] = path.as_uri()
-        evaluate('interframe-b-frames', interframe)
-        edited = copy.deepcopy(fixture_project)
-        edited['tracks'][0]['clips'][0]['sourceRange']['start'] = {'numerator': 1001, 'denominator': 400}  # frame 75
-        edited['tracks'][2]['template']['gain'] = .25
-        edited['tracks'][2]['template']['routing']['outputChannels'] = [1, 0]
-        evaluate('edited-plan-rebuild', edited, replace_from=fixture_project)
+            interframe = copy.deepcopy(layered)
+            for index, asset in enumerate(interframe['assets']):
+                path = root / f'interframe-source-{index}.mov'
+                ff(['-i', source_paths[index], '-map', '0', '-c:v', 'libx264', '-preset', 'veryfast',
+                    '-crf', '12', '-g', '60', '-bf', '3', '-x264-params', 'scenecut=0:open-gop=0:b-adapt=0',
+                    '-pix_fmt', 'yuv420p', '-c:a', 'copy', path], f'interframe-{index}.log')
+                probe = json.loads(run([args.ffprobe, '-v', 'error', '-show_streams', '-of', 'json', path], f'interframe-{index}-probe.json', capture=True))
+                video = next(s for s in probe['streams'] if s['codec_type'] == 'video')
+                if int(video['has_b_frames']) < 1:
+                    raise ValueError('Interframe control lacks reordered B frames')
+                asset['originalURL'] = path.as_uri()
+            evaluate('interframe-b-frames', interframe)
+            edited = copy.deepcopy(fixture_project)
+            edited['tracks'][0]['clips'][0]['sourceRange']['start'] = {'numerator': 1001, 'denominator': 400}  # frame 75
+            edited['tracks'][2]['template']['gain'] = .25
+            edited['tracks'][2]['template']['routing']['outputChannels'] = [1, 0]
+            evaluate('edited-plan-rebuild', edited, replace_from=fixture_project)
         result['passed'] = True
     except Exception as error:
         result['failure'] = f'{type(error).__name__}: {error}'

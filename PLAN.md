@@ -463,8 +463,8 @@ a cut outside any linked component rather than breaking sync. Family templates
 survive cleanup; retained tracks and custom names are respected. The app's small
 synthetic example demonstrates an extension creating a sibling and undo/redo.
 
-This is not the complete playback model: source geometry/color, bookmarks, proxy
-mappings, fades/crossfades, and ripple/attachment rules remain work for the
+This is not the complete playback model: source geometry/color, proxy
+mappings, live playback and ripple/attachment rules remain work for the
 relevant milestones. The development FFmpeg compiler now
 handles frame-aligned video layers and sample-aligned explicitly routed audio;
 it is not yet a production export service. See
@@ -473,8 +473,8 @@ standalone FFmpeg smoke proof. Headless sequential MPV parity passes for the
 qualified fixture, but exact seeking and graph rebuilding fail. The native fallback
 passes four frame/sample parity fixtures, including H.264 B-frames, video gaps,
 overlapping audio and replacement of a primed playback plan. It uses native
-CGImage captures and AVAudioEngine offline scheduling. Real-time monitoring and
-crossfades remain unqualified; no media helpers have been bundled.
+CGImage captures and AVAudioEngine offline scheduling. Real-time monitoring
+remains unqualified; no media helpers have been bundled.
 
 Completion example: extending a `Music` clip creates `Music 1` and `Music 2`
 with copied routing/static settings; undo restores the original state. A fixture
@@ -514,8 +514,8 @@ and save/reopen without losing placements, preferences, or source identity.
 - [x] Qualify standalone linear/equal-power fades, including overlapping edges,
       fractional durations, seeks and edited-plan replacement in development
       FFmpeg/native sample-parity fixtures.
-- [ ] Add linked crossfades, including drag-to-second-clip creation.
-- [ ] Handle insufficient source handles, adjacent cuts, overlapping siblings,
+- [x] Add linked crossfades, including drag-to-second-clip creation.
+- [x] Handle insufficient source handles, adjacent cuts, overlapping siblings,
       layout compatibility, subsequent trims/moves, cancellation, and atomic undo.
 - [ ] Validate output layout and monitor/render the same sample-timed mix.
 
@@ -850,3 +850,32 @@ launch-performance claim has been validated yet.
   differs by at most 1.0 s16 unit from independent FFmpeg output; all seeks,
   replacement and offline sample-clock checks pass. See
   [retained fade evidence](docs/evidence/audio-fades-20261011/README.md).
+
+### Linked audio crossfades checkpoint (2026-10-11)
+
+- Added backward-compatible paired crossfade relations with equal-power defaults,
+  editable duration/curve, inspector creation/removal and fade-handle drops onto
+  the actual second audio component. Compatible targets highlight during dragging;
+  linked clips show duration badges. Release commits one undoable transaction.
+- Existing overlaps use their exact overlap duration. Adjacent cuts derive
+  sample-aligned audio handles, centered where possible and redistributed to
+  available source media. Insufficient handles, incompatible layouts/routes,
+  conflicting standalone edge fades and overlapping chain envelopes are rejected.
+  Original clip ranges, linked picture and sequence duration remain unchanged.
+- Render plans combine both handles on middle clips and use the same paired
+  envelopes for development FFmpeg/native playback. Removal restores the original
+  audio cut. Compatible joint moves retain relations; invalid geometry or source
+  remapping dissolves affected relations atomically while preserving unrelated
+  pairs. Splits inside paired envelopes are rejected; splits outside dissolve
+  the relation. Undo restores the complete edit.
+- Added core/render tests and app smoke checks for persistence, sample alignment,
+  chains, history, stale drafts and relink rejection when source handles would be
+  lost. Native pointer gestures and inspector layout still need manual testing.
+  Live sequence playback, shipping helpers, proxies and production export remain
+  open; source monitoring continues to play original media.
+- Verification passed: 110 EditorCore tests (66 XCTest and 44 Swift Testing),
+  nine Python regressions, shortcut smoke, expanded app-file smoke, unsigned macOS
+  Debug build and eight native playback variants. Linked overlap and adjacent-cut
+  transitions pass independent sample-envelope checks, asynchronous/offline audio,
+  seeks and primed-plan replacement. See
+  [retained crossfade evidence](docs/evidence/crossfades-20261011/README.md).

@@ -535,3 +535,29 @@ observations pass. The original four variants remain passing. See
 Standalone fades are now editable and persisted in the workspace. The source
 monitor plays originals. Linked crossfades, live sequence scheduling, shipping
 helpers and the broader format/geometry matrix remain unqualified.
+
+## Linked audio crossfade parity (2026-10-11)
+
+Persisted crossfade relations now compile to paired sample-clock envelopes through
+`TimelineRenderPlan`. Existing overlaps retain their duration; adjacent cuts resolve
+available audio source handles without changing editorial clip timing or sequence
+length. Equal-power uses complementary sine/cosine gains, and linear uses
+complementary ramps. The native monitor and FFmpeg consume the same expanded
+component ranges while evaluating the envelopes independently.
+
+The development runner creates three fixtures using the actual crossfade edit:
+existing overlap with equal-power, adjacent source extension with equal-power,
+and adjacent source extension with linear. An independent source waveform oracle
+checks every decoded output sample, including the expected gain increase for
+correlated equal-power audio. All eight current proof variants pass every frame
+and sample across synchronous, asynchronous and offline AVAudioEngine output.
+Ten video and thirteen audio seeks per variant include transition boundaries,
+interior/repeated seeks and decoder rebuilding; primed plan replacement and all
+282 sample-clock observations also pass. Maximum audio error is 1.0 s16 unit and
+mean RGB error is 2.0. See [retained evidence](evidence/crossfades-20261011/README.md)
+for commands, hashes, request manifests, oracle results and limitations.
+
+This qualifies linked audio transition arithmetic and development offline parity.
+Live sequence scheduling, hardware A/V sync, shipping helpers, video transitions
+and the broader format/geometry matrix remain open. The shipping source monitor
+continues to play originals.
