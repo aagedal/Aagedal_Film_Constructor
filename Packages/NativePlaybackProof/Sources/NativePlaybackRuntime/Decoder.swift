@@ -19,14 +19,15 @@ final class SourceDecoder {
     let channels: Int
     let sampleRate: Int
 
-    init(url: URL, streamIndex: Int) throws {
+    init(url: URL, streamIndex: Int, isStill: Bool = false) throws {
         guard url.isFileURL, url.path.hasPrefix("/"),
               let index = Int32(exactly: streamIndex) else {
             throw ProofFailure("Decoder requires a local file and valid stream index")
         }
         var error = [CChar](repeating: 0, count: 1024)
         guard let pointer = url.path.withCString({ path in
-            afc_decoder_open(path, index, &error, error.count)
+            isStill ? afc_decoder_open_still(path, index, &error, error.count)
+                : afc_decoder_open(path, index, &error, error.count)
         }) else { throw ProofFailure(message(error)) }
         handle = pointer
         width = Int(afc_decoder_width(pointer))
@@ -49,6 +50,17 @@ final class SourceDecoder {
         return geometry.compose(Data(bytes))
     }
 
+    func still(width: Int, height: Int, scalingMode: ScalingMode) throws -> Data {
+        let geometry = try NativeVideoGeometry(sourceWidth: self.width, sourceHeight: self.height,
+                                               width: width, height: height, mode: scalingMode)
+        var bytes = [UInt8](repeating: 0, count: geometry.scaledWidth * geometry.scaledHeight * 4)
+        var error = [CChar](repeating: 0, count: 1024)
+        let result = afc_decoder_scaled_still(handle, Int32(geometry.scaledWidth), Int32(geometry.scaledHeight),
+                                             &bytes, bytes.count, &error, error.count)
+        guard result == 0 else { throw ProofFailure(message(error)) }
+        return geometry.compose(Data(bytes), channels: 4)
+    }
+
     public func audio(start: Int64, count: Int, sampleRate: Int) throws -> [Float] {
         guard self.sampleRate == sampleRate, channels > 0, channels <= 64,
               count > 0, count <= 65536, let cCount = Int32(exactly: count),
@@ -67,6 +79,7 @@ final class SourceDecoder {
 struct SourceKey: Hashable {
     let url: URL
     let streamIndex: Int
+    let isStill: Bool
 }
 
 /// Buffers are bounded by a frame or audio block, never the duration of a source.
@@ -94,22 +107,30 @@ public final class NativeMonitor {
 
     public func resetDecoders() { decoders.removeAll() }
 
-    private func decoder(url: URL, streamIndex: Int) throws -> SourceDecoder {
-        let key = SourceKey(url: url, streamIndex: streamIndex)
+    private func decoder(url: URL, streamIndex: Int, isStill: Bool = false) throws -> SourceDecoder {
+        let key = SourceKey(url: url, streamIndex: streamIndex, isStill: isStill)
         if let decoder = decoders[key] { return decoder }
         guard decoders.count < 64 else { throw ProofFailure("Proof limits open stream decoders to 64") }
-        let decoder = try SourceDecoder(url: url, streamIndex: streamIndex)
+        let decoder = try SourceDecoder(url: url, streamIndex: streamIndex, isStill: isStill)
         decoders[key] = decoder
         return decoder
     }
 
     public func video(frame: Int64) throws -> Data {
-        guard let request = try plan.videoFrame(at: frame) else {
-            return Data(repeating: 0, count: plan.settings.width * plan.settings.height * 3)
+        let layers = try plan.videoLayers(at: frame)
+        var output = Data(repeating: 0, count: plan.settings.width * plan.settings.height * 3)
+        for request in layers.reversed() {
+            let source = try decoder(url: request.url, streamIndex: request.streamIndex, isStill: request.isStill)
+            if request.isStill {
+                let rgba = try source.still(width: plan.settings.width, height: plan.settings.height,
+                                            scalingMode: request.scalingMode)
+                NativeStillComposition.over(rgba, onto: &output)
+            } else {
+                output = try source.video(frame: request.sourceFrame, rate: plan.settings.frameRate,
+                    width: plan.settings.width, height: plan.settings.height, scalingMode: request.scalingMode)
+            }
         }
-        return try decoder(url: request.url, streamIndex: request.streamIndex).video(
-            frame: request.sourceFrame, rate: plan.settings.frameRate,
-            width: plan.settings.width, height: plan.settings.height, scalingMode: request.scalingMode)
+        return output
     }
 
     /// Float mixing preserves explicit routing, static gain and sample-timed fades without a limiter.
@@ -171,23 +192,46 @@ struct NativeVideoGeometry {
         x = dx / 2; y = dy / 2
     }
 
-    func compose(_ rgb: Data) -> Data {
-        precondition(rgb.count == scaledWidth * scaledHeight * 3)
+    func compose(_ rgb: Data, channels: Int = 3) -> Data {
+        precondition(channels == 3 || channels == 4)
+        precondition(rgb.count == scaledWidth * scaledHeight * channels)
         if width == scaledWidth && height == scaledHeight { return rgb }
-        var output = Data(repeating: 0, count: width * height * 3)
+        var output = Data(repeating: 0, count: width * height * channels)
         let sourceX = max(0, -x), sourceY = max(0, -y)
         let destinationX = max(0, x), destinationY = max(0, y)
-        let rowBytes = min(width, scaledWidth) * 3
+        let rowBytes = min(width, scaledWidth) * channels
         let rows = min(height, scaledHeight)
         output.withUnsafeMutableBytes { destination in
             rgb.withUnsafeBytes { source in
                 for row in 0..<rows {
-                    destination.baseAddress!.advanced(by: ((destinationY + row) * width + destinationX) * 3)
-                        .copyMemory(from: source.baseAddress!.advanced(by: ((sourceY + row) * scaledWidth + sourceX) * 3),
+                    destination.baseAddress!.advanced(by: ((destinationY + row) * width + destinationX) * channels)
+                        .copyMemory(from: source.baseAddress!.advanced(by: ((sourceY + row) * scaledWidth + sourceX) * channels),
                                     byteCount: rowBytes)
                 }
             }
         }
         return output
+    }
+}
+
+/// Straight alpha over an opaque RGB background, with nearest integer rounding.
+/// This development SDR composition does not claim linear-light color management.
+enum NativeStillComposition {
+    static func over(_ rgba: Data, onto rgb: inout Data) {
+        precondition(rgba.count % 4 == 0 && rgb.count == rgba.count / 4 * 3)
+        rgb.withUnsafeMutableBytes { destination in
+            rgba.withUnsafeBytes { source in
+                let input = source.bindMemory(to: UInt8.self)
+                let output = destination.bindMemory(to: UInt8.self)
+                for pixel in 0..<(rgba.count / 4) {
+                    let alpha = Int(input[pixel * 4 + 3])
+                    for channel in 0..<3 {
+                        let foreground = Int(input[pixel * 4 + channel])
+                        let background = Int(output[pixel * 3 + channel])
+                        output[pixel * 3 + channel] = UInt8((foreground * alpha + background * (255 - alpha) + 127) / 255)
+                    }
+                }
+            }
+        }
     }
 }

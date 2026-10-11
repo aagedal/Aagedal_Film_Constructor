@@ -35,6 +35,9 @@ available. Timeline clips display asynchronous filmstrips and channel waveforms;
 Settings includes persistent keyboard shortcut remapping and conflict checks.
 Source playback supports J (silent reverse), K (pause), and L (forward), with
 monitor buttons and text-entry protection. The app now includes a macOS icon.
+Still source previews decode asynchronously with orientation and a 2048-pixel
+longest-edge limit. Timeline preview metadata and decoding share bounded admission;
+queued requests cancel without polling, and hidden clips release their previews.
 Audio components support explicit source/output channel selection with track
 adaptation and optional confirmation. Aligned linked audio components with the
 same source, track family, and gain can be combined into one explicitly mapped
@@ -134,3 +137,11 @@ the monitor. The runner retains JSON observations and offers a scripted
 play/seek/pause/resume exercise. It is separate from the shipping app. Hardware
 A/V sync, device latency and release dependency packaging remain unqualified;
 see [the native package instructions](Packages/NativePlaybackProof/README.md).
+
+The native monitor also supports a qualified single-frame PNG/JPEG subset with
+transparent PNG composition and fit/fill/none scaling. Starvation preserves the
+last accepted sample position, and explicit Play starts a fresh output-clock epoch.
+Priming cancels across pause/seek/edit/close, and abandoned monitors release their
+polling tasks. [Recovery evidence](docs/evidence/native-recovery-20261012/README.md)
+includes deterministic injected-clock tests and a successful local scripted output
+run; physical starvation recovery and acoustic/display synchronization remain open.

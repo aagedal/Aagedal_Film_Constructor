@@ -23,6 +23,14 @@ typedef struct AFCDecoder AFCDecoder;
 
 AFCDecoder *afc_decoder_open(const char *path, int stream_index,
                              char *error, size_t error_size);
+/** Qualify a single-frame PNG/JPEG pipe with one image stream. Animated images
+ * and container video disguised as images fail. The decoded image is retained
+ * once; timeline source trims have no bearing on subsequent extraction. */
+AFCDecoder *afc_decoder_open_still(const char *path, int stream_index,
+                                 char *error, size_t error_size);
+/** Bicubic straight-alpha RGBA32 still extraction. Dimensions are 1...4096. */
+int afc_decoder_scaled_still(AFCDecoder *decoder, int width, int height,
+                            uint8_t *rgba, size_t rgba_size, char *error, size_t error_size);
 void afc_decoder_close(AFCDecoder *decoder);
 int afc_decoder_width(const AFCDecoder *decoder);
 int afc_decoder_height(const AFCDecoder *decoder);

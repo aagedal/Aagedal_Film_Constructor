@@ -458,9 +458,14 @@ rates. Track stable container stream indices and per-stream timing offsets.
       the native offline sample clock and independent frame/sample renders.
 - [x] Qualify bounded native video fit/fill/none against decoded spatial fixtures,
       including odd rasters, seek/rebuild and primed plan replacement.
+- [x] Qualify single-frame PNG/JPEG native stills, transparent PNG composition,
+      fit/fill/none, synthetic source trims, seeks and primed plan replacement.
 - [x] Add standalone live monitor observations and scripted transport checks;
       handle startup preroll and pause safely on audio configuration changes.
       Acoustic/display synchronization and shipping integration remain open.
+- [x] Preserve the last accepted position on underrun, support explicit restart,
+      cancel priming across lifecycle changes and release abandoned monitors;
+      qualify these policies with injected output clocks and cancellation tests.
 - [x] Test adjacency, multiple overlaps, free siblings, custom names, failed edit
       rollback, exact fractional rates, DF boundaries, and preserved audio sync.
 
@@ -587,6 +592,9 @@ does not require implementing every proposed interchange adapter.
       dropped/duplicated conform frames, geometry, channel maps, and audio sync.
 - [ ] Measure launch-to-interaction against the two-second target in Release builds.
 - [ ] Profile large projects; bound caches and keep import/generation off the UI thread.
+- [x] Bound timeline preview metadata/decode admission, cancel queued requests
+      without polling, release hidden previews and serialize bounded still
+      source thumbnails off the main actor. Full project profiling remains open.
 
 ### After version one
 
@@ -1095,3 +1103,43 @@ launch-performance claim has been validated yet.
   proxies and signed dependency packaging remain open. See retained
   [spatial evidence](docs/evidence/native-geometry-20261012/README.md) and
   [live transport observations](docs/evidence/native-live-20261012/README.md).
+
+
+### Native stills, live recovery and preview admission checkpoint (2026-10-12)
+
+- Native playback now accepts single-frame PNG/JPEG stills with synthetic source
+  trims, fit/fill/none geometry and straight-alpha PNG composition over lower
+  layers. Actual demuxer/codec identity and single-frame extent are checked;
+  ambiguous, animated/multiple-frame images and alpha-bearing motion video are
+  refused. General color management and image-format qualification remain open.
+- Baseline plus twelve PNG/JPEG variants pass every synchronous/asynchronous
+  decoded frame/sample, ten video and thirteen audio seeks per variant, native
+  PNG capture and primed plan replacement. Separate no-scaling alpha oracles
+  exercise transparent, partial and opaque pixels. The complete ten-case prior
+  geometry suite also passes after these changes.
+- Live starvation now pauses at the last accepted sample without rereading or
+  clamping a rejected clock. Explicit Play resets the output-clock epoch. Final
+  manual Pause uses the same clock validation. Owned priming work cancels across
+  pause/seek/replacement/close/caller cancellation; polling tasks release abandoned
+  monitors. Injected clock/device tests verify recovery policy, not physical
+  starvation or acoustic/display synchronization.
+- Timeline preview admission bounds metadata fingerprinting and decoding together
+  to two active jobs and twelve FIFO waiters. Cancellation removes queued work
+  without polling. Existing 24 MB/32-entry cache limits now have real eviction
+  regressions; disappearing clips release retained previews.
+- Still source previews use a serial off-main-actor ImageIO decoder, apply
+  orientation and retain at most a 2048-pixel longest edge. Import validates with
+  64-pixel thumbnails. Selection/document epochs reject obsolete results.
+- Verification passed: 146 core tests with one optional DTD test skipped, 22 Python
+  regressions, shortcut smoke, app-file and timeline-preview smokes, proxy queue
+  and workspace smokes, unsigned macOS Debug build and 32 native runtime tests.
+  Actual scripted macOS output completed play/seek/pause/resume/close with no errors
+  and at most 4096 queued samples. macOS media/bookmark/audio checks required
+  services outside the restrictive command sandbox.
+- Retained pixel/cache limits do not bound ImageIO/FFmpeg probing or codec scratch
+  memory. Native source decoder buffers are outside the async output-cache budget.
+  Shipping sequence monitoring, dependency packaging, full project/launch profiling,
+  measured hardware recovery/latency/A/V sync and broad color/VFR remain open. See
+  [still parity evidence](docs/evidence/native-stills-20261012/README.md),
+  [live recovery evidence](docs/evidence/native-recovery-20261012/README.md) and
+  [native package reproduction](Packages/NativePlaybackProof/README.md).

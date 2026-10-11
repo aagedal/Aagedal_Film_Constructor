@@ -1,0 +1,2673 @@
+{
+  "asynchronousCacheBytes" : 122880,
+  "asynchronousPendingRequests" : 0,
+  "audioCaptures" : [
+    {
+      "asynchronousFile" : "async-audio-seek-0-0.f32",
+      "mixedFile" : "audio-seek-0-0-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-0-0-scheduled.f32",
+      "startSample" : 0
+    },
+    {
+      "asynchronousFile" : "async-audio-seek-1-48047.f32",
+      "mixedFile" : "audio-seek-1-48047-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 0,
+          "destinationChannel" : 0,
+          "destinationOffset" : 1,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2047,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        },
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 0,
+          "destinationChannel" : 1,
+          "destinationOffset" : 1,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2047,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-1-48047-scheduled.f32",
+      "startSample" : 48047
+    },
+    {
+      "asynchronousFile" : "async-audio-seek-2-48048.f32",
+      "mixedFile" : "audio-seek-2-48048-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 0,
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        },
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 0,
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-2-48048-scheduled.f32",
+      "startSample" : 48048
+    },
+    {
+      "asynchronousFile" : "async-audio-seek-3-240239.f32",
+      "mixedFile" : "audio-seek-3-240239-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 192191,
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 1,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 240239,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        },
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 192191,
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 1,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 240239,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-3-240239-scheduled.f32",
+      "startSample" : 240239
+    },
+    {
+      "asynchronousFile" : "async-audio-seek-4-115315.f32",
+      "mixedFile" : "audio-seek-4-115315-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 67267,
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 115315,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        },
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 67267,
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 115315,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-4-115315-scheduled.f32",
+      "startSample" : 115315
+    },
+    {
+      "asynchronousFile" : "async-audio-seek-5-48048.f32",
+      "mixedFile" : "audio-seek-5-48048-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 0,
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        },
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 0,
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-5-48048-scheduled.f32",
+      "startSample" : 48048
+    },
+    {
+      "asynchronousFile" : "async-audio-seek-6-287264.f32",
+      "mixedFile" : "audio-seek-6-287264-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+
+      ],
+      "sampleCount" : 1024,
+      "scheduledFile" : "audio-seek-6-287264-scheduled.f32",
+      "startSample" : 287264
+    },
+    {
+      "asynchronousFile" : "async-audio-seek-7-144144.f32",
+      "mixedFile" : "audio-seek-7-144144-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 96096,
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 144144,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        },
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 96096,
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 144144,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-7-144144-scheduled.f32",
+      "startSample" : 144144
+    },
+    {
+      "asynchronousFile" : "async-audio-seek-8-120120.f32",
+      "mixedFile" : "audio-seek-8-120120-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 72072,
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 120120,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        },
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 72072,
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 120120,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-8-120120-scheduled.f32",
+      "startSample" : 120120
+    },
+    {
+      "asynchronousFile" : "async-audio-seek-9-168168.f32",
+      "mixedFile" : "audio-seek-9-168168-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 120120,
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 168168,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        },
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 120120,
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 168168,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-9-168168-scheduled.f32",
+      "startSample" : 168168
+    },
+    {
+      "asynchronousFile" : "async-audio-seek-10-192192.f32",
+      "mixedFile" : "audio-seek-10-192192-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 144144,
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 192192,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        },
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 144144,
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 192192,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-10-192192-scheduled.f32",
+      "startSample" : 192192
+    },
+    {
+      "asynchronousFile" : "async-audio-seek-11-144144.f32",
+      "mixedFile" : "audio-seek-11-144144-mixed.f32",
+      "rebuilt" : false,
+      "requests" : [
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 96096,
+          "destinationChannel" : 0,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 144144,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        },
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 96096,
+          "destinationChannel" : 1,
+          "destinationOffset" : 0,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2048,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 144144,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-11-144144-scheduled.f32",
+      "startSample" : 144144
+    },
+    {
+      "asynchronousFile" : "async-audio-seek-12-48047.f32",
+      "mixedFile" : "audio-seek-12-48047-mixed.f32",
+      "rebuilt" : true,
+      "requests" : [
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 0,
+          "destinationChannel" : 0,
+          "destinationOffset" : 1,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2047,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 2,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        },
+        {
+          "clipDuration" : {
+            "denominator" : 250,
+            "numerator" : 1001
+          },
+          "clipID" : "1A3247F3-338C-4999-9820-83E053C422C0",
+          "clipSampleOffset" : 0,
+          "destinationChannel" : 1,
+          "destinationOffset" : 1,
+          "fadeIn" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "fadeOut" : {
+            "curve" : "linear",
+            "duration" : {
+              "denominator" : 1,
+              "numerator" : 0
+            }
+          },
+          "gain" : 0.5,
+          "sampleCount" : 2047,
+          "sampleRate" : 48000,
+          "sourceChannel" : 0,
+          "sourceStartSample" : 48048,
+          "streamIndex" : 1,
+          "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+        }
+      ],
+      "sampleCount" : 2048,
+      "scheduledFile" : "audio-seek-12-48047-scheduled.f32",
+      "startSample" : 48047
+    }
+  ],
+  "audioSamples" : 288288,
+  "channels" : 2,
+  "height" : 90,
+  "initialPlanReplaced" : true,
+  "libraryVersion" : "9.0.2",
+  "sampleRate" : 48000,
+  "transportClock" : [
+    {
+      "frame" : 0,
+      "playing" : true,
+      "presentedSamples" : 1024,
+      "sample" : 1024
+    },
+    {
+      "frame" : 1,
+      "playing" : true,
+      "presentedSamples" : 2048,
+      "sample" : 2048
+    },
+    {
+      "frame" : 1,
+      "playing" : true,
+      "presentedSamples" : 3072,
+      "sample" : 3072
+    },
+    {
+      "frame" : 2,
+      "playing" : true,
+      "presentedSamples" : 4096,
+      "sample" : 4096
+    },
+    {
+      "frame" : 3,
+      "playing" : true,
+      "presentedSamples" : 5120,
+      "sample" : 5120
+    },
+    {
+      "frame" : 3,
+      "playing" : true,
+      "presentedSamples" : 6144,
+      "sample" : 6144
+    },
+    {
+      "frame" : 4,
+      "playing" : true,
+      "presentedSamples" : 7168,
+      "sample" : 7168
+    },
+    {
+      "frame" : 5,
+      "playing" : true,
+      "presentedSamples" : 8192,
+      "sample" : 8192
+    },
+    {
+      "frame" : 5,
+      "playing" : true,
+      "presentedSamples" : 9216,
+      "sample" : 9216
+    },
+    {
+      "frame" : 6,
+      "playing" : true,
+      "presentedSamples" : 10240,
+      "sample" : 10240
+    },
+    {
+      "frame" : 7,
+      "playing" : true,
+      "presentedSamples" : 11264,
+      "sample" : 11264
+    },
+    {
+      "frame" : 7,
+      "playing" : true,
+      "presentedSamples" : 12288,
+      "sample" : 12288
+    },
+    {
+      "frame" : 8,
+      "playing" : true,
+      "presentedSamples" : 13312,
+      "sample" : 13312
+    },
+    {
+      "frame" : 8,
+      "playing" : true,
+      "presentedSamples" : 14336,
+      "sample" : 14336
+    },
+    {
+      "frame" : 9,
+      "playing" : true,
+      "presentedSamples" : 15360,
+      "sample" : 15360
+    },
+    {
+      "frame" : 10,
+      "playing" : true,
+      "presentedSamples" : 16384,
+      "sample" : 16384
+    },
+    {
+      "frame" : 10,
+      "playing" : true,
+      "presentedSamples" : 17408,
+      "sample" : 17408
+    },
+    {
+      "frame" : 11,
+      "playing" : true,
+      "presentedSamples" : 18432,
+      "sample" : 18432
+    },
+    {
+      "frame" : 12,
+      "playing" : true,
+      "presentedSamples" : 19456,
+      "sample" : 19456
+    },
+    {
+      "frame" : 12,
+      "playing" : true,
+      "presentedSamples" : 20480,
+      "sample" : 20480
+    },
+    {
+      "frame" : 13,
+      "playing" : true,
+      "presentedSamples" : 21504,
+      "sample" : 21504
+    },
+    {
+      "frame" : 14,
+      "playing" : true,
+      "presentedSamples" : 22528,
+      "sample" : 22528
+    },
+    {
+      "frame" : 14,
+      "playing" : true,
+      "presentedSamples" : 23552,
+      "sample" : 23552
+    },
+    {
+      "frame" : 15,
+      "playing" : true,
+      "presentedSamples" : 24576,
+      "sample" : 24576
+    },
+    {
+      "frame" : 15,
+      "playing" : true,
+      "presentedSamples" : 25600,
+      "sample" : 25600
+    },
+    {
+      "frame" : 16,
+      "playing" : true,
+      "presentedSamples" : 26624,
+      "sample" : 26624
+    },
+    {
+      "frame" : 17,
+      "playing" : true,
+      "presentedSamples" : 27648,
+      "sample" : 27648
+    },
+    {
+      "frame" : 17,
+      "playing" : true,
+      "presentedSamples" : 28672,
+      "sample" : 28672
+    },
+    {
+      "frame" : 18,
+      "playing" : true,
+      "presentedSamples" : 29696,
+      "sample" : 29696
+    },
+    {
+      "frame" : 19,
+      "playing" : true,
+      "presentedSamples" : 30720,
+      "sample" : 30720
+    },
+    {
+      "frame" : 19,
+      "playing" : true,
+      "presentedSamples" : 31744,
+      "sample" : 31744
+    },
+    {
+      "frame" : 20,
+      "playing" : true,
+      "presentedSamples" : 32768,
+      "sample" : 32768
+    },
+    {
+      "frame" : 21,
+      "playing" : true,
+      "presentedSamples" : 33792,
+      "sample" : 33792
+    },
+    {
+      "frame" : 21,
+      "playing" : true,
+      "presentedSamples" : 34816,
+      "sample" : 34816
+    },
+    {
+      "frame" : 22,
+      "playing" : true,
+      "presentedSamples" : 35840,
+      "sample" : 35840
+    },
+    {
+      "frame" : 23,
+      "playing" : true,
+      "presentedSamples" : 36864,
+      "sample" : 36864
+    },
+    {
+      "frame" : 23,
+      "playing" : true,
+      "presentedSamples" : 37888,
+      "sample" : 37888
+    },
+    {
+      "frame" : 24,
+      "playing" : true,
+      "presentedSamples" : 38912,
+      "sample" : 38912
+    },
+    {
+      "frame" : 24,
+      "playing" : true,
+      "presentedSamples" : 39936,
+      "sample" : 39936
+    },
+    {
+      "frame" : 25,
+      "playing" : true,
+      "presentedSamples" : 40960,
+      "sample" : 40960
+    },
+    {
+      "frame" : 26,
+      "playing" : true,
+      "presentedSamples" : 41984,
+      "sample" : 41984
+    },
+    {
+      "frame" : 26,
+      "playing" : true,
+      "presentedSamples" : 43008,
+      "sample" : 43008
+    },
+    {
+      "frame" : 27,
+      "playing" : true,
+      "presentedSamples" : 44032,
+      "sample" : 44032
+    },
+    {
+      "frame" : 28,
+      "playing" : true,
+      "presentedSamples" : 45056,
+      "sample" : 45056
+    },
+    {
+      "frame" : 28,
+      "playing" : true,
+      "presentedSamples" : 46080,
+      "sample" : 46080
+    },
+    {
+      "frame" : 29,
+      "playing" : true,
+      "presentedSamples" : 47104,
+      "sample" : 47104
+    },
+    {
+      "frame" : 30,
+      "playing" : true,
+      "presentedSamples" : 48128,
+      "sample" : 48128
+    },
+    {
+      "frame" : 30,
+      "playing" : true,
+      "presentedSamples" : 49152,
+      "sample" : 49152
+    },
+    {
+      "frame" : 31,
+      "playing" : true,
+      "presentedSamples" : 50176,
+      "sample" : 50176
+    },
+    {
+      "frame" : 31,
+      "playing" : true,
+      "presentedSamples" : 51200,
+      "sample" : 51200
+    },
+    {
+      "frame" : 32,
+      "playing" : true,
+      "presentedSamples" : 52224,
+      "sample" : 52224
+    },
+    {
+      "frame" : 33,
+      "playing" : true,
+      "presentedSamples" : 53248,
+      "sample" : 53248
+    },
+    {
+      "frame" : 33,
+      "playing" : true,
+      "presentedSamples" : 54272,
+      "sample" : 54272
+    },
+    {
+      "frame" : 34,
+      "playing" : true,
+      "presentedSamples" : 55296,
+      "sample" : 55296
+    },
+    {
+      "frame" : 35,
+      "playing" : true,
+      "presentedSamples" : 56320,
+      "sample" : 56320
+    },
+    {
+      "frame" : 35,
+      "playing" : true,
+      "presentedSamples" : 57344,
+      "sample" : 57344
+    },
+    {
+      "frame" : 36,
+      "playing" : true,
+      "presentedSamples" : 58368,
+      "sample" : 58368
+    },
+    {
+      "frame" : 37,
+      "playing" : true,
+      "presentedSamples" : 59392,
+      "sample" : 59392
+    },
+    {
+      "frame" : 37,
+      "playing" : true,
+      "presentedSamples" : 60416,
+      "sample" : 60416
+    },
+    {
+      "frame" : 38,
+      "playing" : true,
+      "presentedSamples" : 61440,
+      "sample" : 61440
+    },
+    {
+      "frame" : 39,
+      "playing" : true,
+      "presentedSamples" : 62464,
+      "sample" : 62464
+    },
+    {
+      "frame" : 39,
+      "playing" : true,
+      "presentedSamples" : 63488,
+      "sample" : 63488
+    },
+    {
+      "frame" : 40,
+      "playing" : true,
+      "presentedSamples" : 64512,
+      "sample" : 64512
+    },
+    {
+      "frame" : 40,
+      "playing" : true,
+      "presentedSamples" : 65536,
+      "sample" : 65536
+    },
+    {
+      "frame" : 41,
+      "playing" : true,
+      "presentedSamples" : 66560,
+      "sample" : 66560
+    },
+    {
+      "frame" : 42,
+      "playing" : true,
+      "presentedSamples" : 67584,
+      "sample" : 67584
+    },
+    {
+      "frame" : 42,
+      "playing" : true,
+      "presentedSamples" : 68608,
+      "sample" : 68608
+    },
+    {
+      "frame" : 43,
+      "playing" : true,
+      "presentedSamples" : 69632,
+      "sample" : 69632
+    },
+    {
+      "frame" : 44,
+      "playing" : true,
+      "presentedSamples" : 70656,
+      "sample" : 70656
+    },
+    {
+      "frame" : 44,
+      "playing" : true,
+      "presentedSamples" : 71680,
+      "sample" : 71680
+    },
+    {
+      "frame" : 45,
+      "playing" : true,
+      "presentedSamples" : 72704,
+      "sample" : 72704
+    },
+    {
+      "frame" : 46,
+      "playing" : true,
+      "presentedSamples" : 73728,
+      "sample" : 73728
+    },
+    {
+      "frame" : 46,
+      "playing" : true,
+      "presentedSamples" : 74752,
+      "sample" : 74752
+    },
+    {
+      "frame" : 47,
+      "playing" : true,
+      "presentedSamples" : 75776,
+      "sample" : 75776
+    },
+    {
+      "frame" : 47,
+      "playing" : true,
+      "presentedSamples" : 76800,
+      "sample" : 76800
+    },
+    {
+      "frame" : 48,
+      "playing" : true,
+      "presentedSamples" : 77824,
+      "sample" : 77824
+    },
+    {
+      "frame" : 49,
+      "playing" : true,
+      "presentedSamples" : 78848,
+      "sample" : 78848
+    },
+    {
+      "frame" : 49,
+      "playing" : true,
+      "presentedSamples" : 79872,
+      "sample" : 79872
+    },
+    {
+      "frame" : 50,
+      "playing" : true,
+      "presentedSamples" : 80896,
+      "sample" : 80896
+    },
+    {
+      "frame" : 51,
+      "playing" : true,
+      "presentedSamples" : 81920,
+      "sample" : 81920
+    },
+    {
+      "frame" : 51,
+      "playing" : true,
+      "presentedSamples" : 82944,
+      "sample" : 82944
+    },
+    {
+      "frame" : 52,
+      "playing" : true,
+      "presentedSamples" : 83968,
+      "sample" : 83968
+    },
+    {
+      "frame" : 53,
+      "playing" : true,
+      "presentedSamples" : 84992,
+      "sample" : 84992
+    },
+    {
+      "frame" : 53,
+      "playing" : true,
+      "presentedSamples" : 86016,
+      "sample" : 86016
+    },
+    {
+      "frame" : 54,
+      "playing" : true,
+      "presentedSamples" : 87040,
+      "sample" : 87040
+    },
+    {
+      "frame" : 54,
+      "playing" : true,
+      "presentedSamples" : 88064,
+      "sample" : 88064
+    },
+    {
+      "frame" : 55,
+      "playing" : true,
+      "presentedSamples" : 89088,
+      "sample" : 89088
+    },
+    {
+      "frame" : 56,
+      "playing" : true,
+      "presentedSamples" : 90112,
+      "sample" : 90112
+    },
+    {
+      "frame" : 56,
+      "playing" : true,
+      "presentedSamples" : 91136,
+      "sample" : 91136
+    },
+    {
+      "frame" : 57,
+      "playing" : true,
+      "presentedSamples" : 92160,
+      "sample" : 92160
+    },
+    {
+      "frame" : 58,
+      "playing" : true,
+      "presentedSamples" : 93184,
+      "sample" : 93184
+    },
+    {
+      "frame" : 58,
+      "playing" : true,
+      "presentedSamples" : 94208,
+      "sample" : 94208
+    },
+    {
+      "frame" : 59,
+      "playing" : true,
+      "presentedSamples" : 95232,
+      "sample" : 95232
+    },
+    {
+      "frame" : 60,
+      "playing" : true,
+      "presentedSamples" : 96256,
+      "sample" : 96256
+    },
+    {
+      "frame" : 60,
+      "playing" : true,
+      "presentedSamples" : 97280,
+      "sample" : 97280
+    },
+    {
+      "frame" : 61,
+      "playing" : true,
+      "presentedSamples" : 98304,
+      "sample" : 98304
+    },
+    {
+      "frame" : 62,
+      "playing" : true,
+      "presentedSamples" : 99328,
+      "sample" : 99328
+    },
+    {
+      "frame" : 62,
+      "playing" : true,
+      "presentedSamples" : 100352,
+      "sample" : 100352
+    },
+    {
+      "frame" : 63,
+      "playing" : true,
+      "presentedSamples" : 101376,
+      "sample" : 101376
+    },
+    {
+      "frame" : 63,
+      "playing" : true,
+      "presentedSamples" : 102400,
+      "sample" : 102400
+    },
+    {
+      "frame" : 64,
+      "playing" : true,
+      "presentedSamples" : 103424,
+      "sample" : 103424
+    },
+    {
+      "frame" : 65,
+      "playing" : true,
+      "presentedSamples" : 104448,
+      "sample" : 104448
+    },
+    {
+      "frame" : 65,
+      "playing" : true,
+      "presentedSamples" : 105472,
+      "sample" : 105472
+    },
+    {
+      "frame" : 66,
+      "playing" : true,
+      "presentedSamples" : 106496,
+      "sample" : 106496
+    },
+    {
+      "frame" : 67,
+      "playing" : true,
+      "presentedSamples" : 107520,
+      "sample" : 107520
+    },
+    {
+      "frame" : 67,
+      "playing" : true,
+      "presentedSamples" : 108544,
+      "sample" : 108544
+    },
+    {
+      "frame" : 68,
+      "playing" : true,
+      "presentedSamples" : 109568,
+      "sample" : 109568
+    },
+    {
+      "frame" : 69,
+      "playing" : true,
+      "presentedSamples" : 110592,
+      "sample" : 110592
+    },
+    {
+      "frame" : 69,
+      "playing" : true,
+      "presentedSamples" : 111616,
+      "sample" : 111616
+    },
+    {
+      "frame" : 70,
+      "playing" : true,
+      "presentedSamples" : 112640,
+      "sample" : 112640
+    },
+    {
+      "frame" : 70,
+      "playing" : true,
+      "presentedSamples" : 113664,
+      "sample" : 113664
+    },
+    {
+      "frame" : 71,
+      "playing" : true,
+      "presentedSamples" : 114688,
+      "sample" : 114688
+    },
+    {
+      "frame" : 72,
+      "playing" : true,
+      "presentedSamples" : 115712,
+      "sample" : 115712
+    },
+    {
+      "frame" : 72,
+      "playing" : true,
+      "presentedSamples" : 116736,
+      "sample" : 116736
+    },
+    {
+      "frame" : 73,
+      "playing" : true,
+      "presentedSamples" : 117760,
+      "sample" : 117760
+    },
+    {
+      "frame" : 74,
+      "playing" : true,
+      "presentedSamples" : 118784,
+      "sample" : 118784
+    },
+    {
+      "frame" : 74,
+      "playing" : true,
+      "presentedSamples" : 119808,
+      "sample" : 119808
+    },
+    {
+      "frame" : 75,
+      "playing" : true,
+      "presentedSamples" : 120832,
+      "sample" : 120832
+    },
+    {
+      "frame" : 76,
+      "playing" : true,
+      "presentedSamples" : 121856,
+      "sample" : 121856
+    },
+    {
+      "frame" : 76,
+      "playing" : true,
+      "presentedSamples" : 122880,
+      "sample" : 122880
+    },
+    {
+      "frame" : 77,
+      "playing" : true,
+      "presentedSamples" : 123904,
+      "sample" : 123904
+    },
+    {
+      "frame" : 78,
+      "playing" : true,
+      "presentedSamples" : 124928,
+      "sample" : 124928
+    },
+    {
+      "frame" : 78,
+      "playing" : true,
+      "presentedSamples" : 125952,
+      "sample" : 125952
+    },
+    {
+      "frame" : 79,
+      "playing" : true,
+      "presentedSamples" : 126976,
+      "sample" : 126976
+    },
+    {
+      "frame" : 79,
+      "playing" : true,
+      "presentedSamples" : 128000,
+      "sample" : 128000
+    },
+    {
+      "frame" : 80,
+      "playing" : true,
+      "presentedSamples" : 129024,
+      "sample" : 129024
+    },
+    {
+      "frame" : 81,
+      "playing" : true,
+      "presentedSamples" : 130048,
+      "sample" : 130048
+    },
+    {
+      "frame" : 81,
+      "playing" : true,
+      "presentedSamples" : 131072,
+      "sample" : 131072
+    },
+    {
+      "frame" : 82,
+      "playing" : true,
+      "presentedSamples" : 132096,
+      "sample" : 132096
+    },
+    {
+      "frame" : 83,
+      "playing" : true,
+      "presentedSamples" : 133120,
+      "sample" : 133120
+    },
+    {
+      "frame" : 83,
+      "playing" : true,
+      "presentedSamples" : 134144,
+      "sample" : 134144
+    },
+    {
+      "frame" : 84,
+      "playing" : true,
+      "presentedSamples" : 135168,
+      "sample" : 135168
+    },
+    {
+      "frame" : 85,
+      "playing" : true,
+      "presentedSamples" : 136192,
+      "sample" : 136192
+    },
+    {
+      "frame" : 85,
+      "playing" : true,
+      "presentedSamples" : 137216,
+      "sample" : 137216
+    },
+    {
+      "frame" : 86,
+      "playing" : true,
+      "presentedSamples" : 138240,
+      "sample" : 138240
+    },
+    {
+      "frame" : 86,
+      "playing" : true,
+      "presentedSamples" : 139264,
+      "sample" : 139264
+    },
+    {
+      "frame" : 87,
+      "playing" : true,
+      "presentedSamples" : 140288,
+      "sample" : 140288
+    },
+    {
+      "frame" : 88,
+      "playing" : true,
+      "presentedSamples" : 141312,
+      "sample" : 141312
+    },
+    {
+      "frame" : 88,
+      "playing" : true,
+      "presentedSamples" : 142336,
+      "sample" : 142336
+    },
+    {
+      "frame" : 89,
+      "playing" : true,
+      "presentedSamples" : 143360,
+      "sample" : 143360
+    },
+    {
+      "frame" : 90,
+      "playing" : true,
+      "presentedSamples" : 144384,
+      "sample" : 144384
+    },
+    {
+      "frame" : 90,
+      "playing" : true,
+      "presentedSamples" : 145408,
+      "sample" : 145408
+    },
+    {
+      "frame" : 91,
+      "playing" : true,
+      "presentedSamples" : 146432,
+      "sample" : 146432
+    },
+    {
+      "frame" : 92,
+      "playing" : true,
+      "presentedSamples" : 147456,
+      "sample" : 147456
+    },
+    {
+      "frame" : 92,
+      "playing" : true,
+      "presentedSamples" : 148480,
+      "sample" : 148480
+    },
+    {
+      "frame" : 93,
+      "playing" : true,
+      "presentedSamples" : 149504,
+      "sample" : 149504
+    },
+    {
+      "frame" : 93,
+      "playing" : true,
+      "presentedSamples" : 150528,
+      "sample" : 150528
+    },
+    {
+      "frame" : 94,
+      "playing" : true,
+      "presentedSamples" : 151552,
+      "sample" : 151552
+    },
+    {
+      "frame" : 95,
+      "playing" : true,
+      "presentedSamples" : 152576,
+      "sample" : 152576
+    },
+    {
+      "frame" : 95,
+      "playing" : true,
+      "presentedSamples" : 153600,
+      "sample" : 153600
+    },
+    {
+      "frame" : 96,
+      "playing" : true,
+      "presentedSamples" : 154624,
+      "sample" : 154624
+    },
+    {
+      "frame" : 97,
+      "playing" : true,
+      "presentedSamples" : 155648,
+      "sample" : 155648
+    },
+    {
+      "frame" : 97,
+      "playing" : true,
+      "presentedSamples" : 156672,
+      "sample" : 156672
+    },
+    {
+      "frame" : 98,
+      "playing" : true,
+      "presentedSamples" : 157696,
+      "sample" : 157696
+    },
+    {
+      "frame" : 99,
+      "playing" : true,
+      "presentedSamples" : 158720,
+      "sample" : 158720
+    },
+    {
+      "frame" : 99,
+      "playing" : true,
+      "presentedSamples" : 159744,
+      "sample" : 159744
+    },
+    {
+      "frame" : 100,
+      "playing" : true,
+      "presentedSamples" : 160768,
+      "sample" : 160768
+    },
+    {
+      "frame" : 101,
+      "playing" : true,
+      "presentedSamples" : 161792,
+      "sample" : 161792
+    },
+    {
+      "frame" : 101,
+      "playing" : true,
+      "presentedSamples" : 162816,
+      "sample" : 162816
+    },
+    {
+      "frame" : 102,
+      "playing" : true,
+      "presentedSamples" : 163840,
+      "sample" : 163840
+    },
+    {
+      "frame" : 102,
+      "playing" : true,
+      "presentedSamples" : 164864,
+      "sample" : 164864
+    },
+    {
+      "frame" : 103,
+      "playing" : true,
+      "presentedSamples" : 165888,
+      "sample" : 165888
+    },
+    {
+      "frame" : 104,
+      "playing" : true,
+      "presentedSamples" : 166912,
+      "sample" : 166912
+    },
+    {
+      "frame" : 104,
+      "playing" : true,
+      "presentedSamples" : 167936,
+      "sample" : 167936
+    },
+    {
+      "frame" : 105,
+      "playing" : true,
+      "presentedSamples" : 168960,
+      "sample" : 168960
+    },
+    {
+      "frame" : 106,
+      "playing" : true,
+      "presentedSamples" : 169984,
+      "sample" : 169984
+    },
+    {
+      "frame" : 106,
+      "playing" : true,
+      "presentedSamples" : 171008,
+      "sample" : 171008
+    },
+    {
+      "frame" : 107,
+      "playing" : true,
+      "presentedSamples" : 172032,
+      "sample" : 172032
+    },
+    {
+      "frame" : 108,
+      "playing" : true,
+      "presentedSamples" : 173056,
+      "sample" : 173056
+    },
+    {
+      "frame" : 108,
+      "playing" : true,
+      "presentedSamples" : 174080,
+      "sample" : 174080
+    },
+    {
+      "frame" : 109,
+      "playing" : true,
+      "presentedSamples" : 175104,
+      "sample" : 175104
+    },
+    {
+      "frame" : 109,
+      "playing" : true,
+      "presentedSamples" : 176128,
+      "sample" : 176128
+    },
+    {
+      "frame" : 110,
+      "playing" : true,
+      "presentedSamples" : 177152,
+      "sample" : 177152
+    },
+    {
+      "frame" : 111,
+      "playing" : true,
+      "presentedSamples" : 178176,
+      "sample" : 178176
+    },
+    {
+      "frame" : 111,
+      "playing" : true,
+      "presentedSamples" : 179200,
+      "sample" : 179200
+    },
+    {
+      "frame" : 112,
+      "playing" : true,
+      "presentedSamples" : 180224,
+      "sample" : 180224
+    },
+    {
+      "frame" : 113,
+      "playing" : true,
+      "presentedSamples" : 181248,
+      "sample" : 181248
+    },
+    {
+      "frame" : 113,
+      "playing" : true,
+      "presentedSamples" : 182272,
+      "sample" : 182272
+    },
+    {
+      "frame" : 114,
+      "playing" : true,
+      "presentedSamples" : 183296,
+      "sample" : 183296
+    },
+    {
+      "frame" : 115,
+      "playing" : true,
+      "presentedSamples" : 184320,
+      "sample" : 184320
+    },
+    {
+      "frame" : 115,
+      "playing" : true,
+      "presentedSamples" : 185344,
+      "sample" : 185344
+    },
+    {
+      "frame" : 116,
+      "playing" : true,
+      "presentedSamples" : 186368,
+      "sample" : 186368
+    },
+    {
+      "frame" : 117,
+      "playing" : true,
+      "presentedSamples" : 187392,
+      "sample" : 187392
+    },
+    {
+      "frame" : 117,
+      "playing" : true,
+      "presentedSamples" : 188416,
+      "sample" : 188416
+    },
+    {
+      "frame" : 118,
+      "playing" : true,
+      "presentedSamples" : 189440,
+      "sample" : 189440
+    },
+    {
+      "frame" : 118,
+      "playing" : true,
+      "presentedSamples" : 190464,
+      "sample" : 190464
+    },
+    {
+      "frame" : 119,
+      "playing" : true,
+      "presentedSamples" : 191488,
+      "sample" : 191488
+    },
+    {
+      "frame" : 120,
+      "playing" : true,
+      "presentedSamples" : 192512,
+      "sample" : 192512
+    },
+    {
+      "frame" : 120,
+      "playing" : true,
+      "presentedSamples" : 193536,
+      "sample" : 193536
+    },
+    {
+      "frame" : 121,
+      "playing" : true,
+      "presentedSamples" : 194560,
+      "sample" : 194560
+    },
+    {
+      "frame" : 122,
+      "playing" : true,
+      "presentedSamples" : 195584,
+      "sample" : 195584
+    },
+    {
+      "frame" : 122,
+      "playing" : true,
+      "presentedSamples" : 196608,
+      "sample" : 196608
+    },
+    {
+      "frame" : 123,
+      "playing" : true,
+      "presentedSamples" : 197632,
+      "sample" : 197632
+    },
+    {
+      "frame" : 124,
+      "playing" : true,
+      "presentedSamples" : 198656,
+      "sample" : 198656
+    },
+    {
+      "frame" : 124,
+      "playing" : true,
+      "presentedSamples" : 199680,
+      "sample" : 199680
+    },
+    {
+      "frame" : 125,
+      "playing" : true,
+      "presentedSamples" : 200704,
+      "sample" : 200704
+    },
+    {
+      "frame" : 125,
+      "playing" : true,
+      "presentedSamples" : 201728,
+      "sample" : 201728
+    },
+    {
+      "frame" : 126,
+      "playing" : true,
+      "presentedSamples" : 202752,
+      "sample" : 202752
+    },
+    {
+      "frame" : 127,
+      "playing" : true,
+      "presentedSamples" : 203776,
+      "sample" : 203776
+    },
+    {
+      "frame" : 127,
+      "playing" : true,
+      "presentedSamples" : 204800,
+      "sample" : 204800
+    },
+    {
+      "frame" : 128,
+      "playing" : true,
+      "presentedSamples" : 205824,
+      "sample" : 205824
+    },
+    {
+      "frame" : 129,
+      "playing" : true,
+      "presentedSamples" : 206848,
+      "sample" : 206848
+    },
+    {
+      "frame" : 129,
+      "playing" : true,
+      "presentedSamples" : 207872,
+      "sample" : 207872
+    },
+    {
+      "frame" : 130,
+      "playing" : true,
+      "presentedSamples" : 208896,
+      "sample" : 208896
+    },
+    {
+      "frame" : 131,
+      "playing" : true,
+      "presentedSamples" : 209920,
+      "sample" : 209920
+    },
+    {
+      "frame" : 131,
+      "playing" : true,
+      "presentedSamples" : 210944,
+      "sample" : 210944
+    },
+    {
+      "frame" : 132,
+      "playing" : true,
+      "presentedSamples" : 211968,
+      "sample" : 211968
+    },
+    {
+      "frame" : 132,
+      "playing" : true,
+      "presentedSamples" : 212992,
+      "sample" : 212992
+    },
+    {
+      "frame" : 133,
+      "playing" : true,
+      "presentedSamples" : 214016,
+      "sample" : 214016
+    },
+    {
+      "frame" : 134,
+      "playing" : true,
+      "presentedSamples" : 215040,
+      "sample" : 215040
+    },
+    {
+      "frame" : 134,
+      "playing" : true,
+      "presentedSamples" : 216064,
+      "sample" : 216064
+    },
+    {
+      "frame" : 135,
+      "playing" : true,
+      "presentedSamples" : 217088,
+      "sample" : 217088
+    },
+    {
+      "frame" : 136,
+      "playing" : true,
+      "presentedSamples" : 218112,
+      "sample" : 218112
+    },
+    {
+      "frame" : 136,
+      "playing" : true,
+      "presentedSamples" : 219136,
+      "sample" : 219136
+    },
+    {
+      "frame" : 137,
+      "playing" : true,
+      "presentedSamples" : 220160,
+      "sample" : 220160
+    },
+    {
+      "frame" : 138,
+      "playing" : true,
+      "presentedSamples" : 221184,
+      "sample" : 221184
+    },
+    {
+      "frame" : 138,
+      "playing" : true,
+      "presentedSamples" : 222208,
+      "sample" : 222208
+    },
+    {
+      "frame" : 139,
+      "playing" : true,
+      "presentedSamples" : 223232,
+      "sample" : 223232
+    },
+    {
+      "frame" : 140,
+      "playing" : true,
+      "presentedSamples" : 224256,
+      "sample" : 224256
+    },
+    {
+      "frame" : 140,
+      "playing" : true,
+      "presentedSamples" : 225280,
+      "sample" : 225280
+    },
+    {
+      "frame" : 141,
+      "playing" : true,
+      "presentedSamples" : 226304,
+      "sample" : 226304
+    },
+    {
+      "frame" : 141,
+      "playing" : true,
+      "presentedSamples" : 227328,
+      "sample" : 227328
+    },
+    {
+      "frame" : 142,
+      "playing" : true,
+      "presentedSamples" : 228352,
+      "sample" : 228352
+    },
+    {
+      "frame" : 143,
+      "playing" : true,
+      "presentedSamples" : 229376,
+      "sample" : 229376
+    },
+    {
+      "frame" : 143,
+      "playing" : true,
+      "presentedSamples" : 230400,
+      "sample" : 230400
+    },
+    {
+      "frame" : 144,
+      "playing" : true,
+      "presentedSamples" : 231424,
+      "sample" : 231424
+    },
+    {
+      "frame" : 145,
+      "playing" : true,
+      "presentedSamples" : 232448,
+      "sample" : 232448
+    },
+    {
+      "frame" : 145,
+      "playing" : true,
+      "presentedSamples" : 233472,
+      "sample" : 233472
+    },
+    {
+      "frame" : 146,
+      "playing" : true,
+      "presentedSamples" : 234496,
+      "sample" : 234496
+    },
+    {
+      "frame" : 147,
+      "playing" : true,
+      "presentedSamples" : 235520,
+      "sample" : 235520
+    },
+    {
+      "frame" : 147,
+      "playing" : true,
+      "presentedSamples" : 236544,
+      "sample" : 236544
+    },
+    {
+      "frame" : 148,
+      "playing" : true,
+      "presentedSamples" : 237568,
+      "sample" : 237568
+    },
+    {
+      "frame" : 148,
+      "playing" : true,
+      "presentedSamples" : 238592,
+      "sample" : 238592
+    },
+    {
+      "frame" : 149,
+      "playing" : true,
+      "presentedSamples" : 239616,
+      "sample" : 239616
+    },
+    {
+      "frame" : 150,
+      "playing" : true,
+      "presentedSamples" : 240640,
+      "sample" : 240640
+    },
+    {
+      "frame" : 150,
+      "playing" : true,
+      "presentedSamples" : 241664,
+      "sample" : 241664
+    },
+    {
+      "frame" : 151,
+      "playing" : true,
+      "presentedSamples" : 242688,
+      "sample" : 242688
+    },
+    {
+      "frame" : 152,
+      "playing" : true,
+      "presentedSamples" : 243712,
+      "sample" : 243712
+    },
+    {
+      "frame" : 152,
+      "playing" : true,
+      "presentedSamples" : 244736,
+      "sample" : 244736
+    },
+    {
+      "frame" : 153,
+      "playing" : true,
+      "presentedSamples" : 245760,
+      "sample" : 245760
+    },
+    {
+      "frame" : 154,
+      "playing" : true,
+      "presentedSamples" : 246784,
+      "sample" : 246784
+    },
+    {
+      "frame" : 154,
+      "playing" : true,
+      "presentedSamples" : 247808,
+      "sample" : 247808
+    },
+    {
+      "frame" : 155,
+      "playing" : true,
+      "presentedSamples" : 248832,
+      "sample" : 248832
+    },
+    {
+      "frame" : 156,
+      "playing" : true,
+      "presentedSamples" : 249856,
+      "sample" : 249856
+    },
+    {
+      "frame" : 156,
+      "playing" : true,
+      "presentedSamples" : 250880,
+      "sample" : 250880
+    },
+    {
+      "frame" : 157,
+      "playing" : true,
+      "presentedSamples" : 251904,
+      "sample" : 251904
+    },
+    {
+      "frame" : 157,
+      "playing" : true,
+      "presentedSamples" : 252928,
+      "sample" : 252928
+    },
+    {
+      "frame" : 158,
+      "playing" : true,
+      "presentedSamples" : 253952,
+      "sample" : 253952
+    },
+    {
+      "frame" : 159,
+      "playing" : true,
+      "presentedSamples" : 254976,
+      "sample" : 254976
+    },
+    {
+      "frame" : 159,
+      "playing" : true,
+      "presentedSamples" : 256000,
+      "sample" : 256000
+    },
+    {
+      "frame" : 160,
+      "playing" : true,
+      "presentedSamples" : 257024,
+      "sample" : 257024
+    },
+    {
+      "frame" : 161,
+      "playing" : true,
+      "presentedSamples" : 258048,
+      "sample" : 258048
+    },
+    {
+      "frame" : 161,
+      "playing" : true,
+      "presentedSamples" : 259072,
+      "sample" : 259072
+    },
+    {
+      "frame" : 162,
+      "playing" : true,
+      "presentedSamples" : 260096,
+      "sample" : 260096
+    },
+    {
+      "frame" : 163,
+      "playing" : true,
+      "presentedSamples" : 261120,
+      "sample" : 261120
+    },
+    {
+      "frame" : 163,
+      "playing" : true,
+      "presentedSamples" : 262144,
+      "sample" : 262144
+    },
+    {
+      "frame" : 164,
+      "playing" : true,
+      "presentedSamples" : 263168,
+      "sample" : 263168
+    },
+    {
+      "frame" : 164,
+      "playing" : true,
+      "presentedSamples" : 264192,
+      "sample" : 264192
+    },
+    {
+      "frame" : 165,
+      "playing" : true,
+      "presentedSamples" : 265216,
+      "sample" : 265216
+    },
+    {
+      "frame" : 166,
+      "playing" : true,
+      "presentedSamples" : 266240,
+      "sample" : 266240
+    },
+    {
+      "frame" : 166,
+      "playing" : true,
+      "presentedSamples" : 267264,
+      "sample" : 267264
+    },
+    {
+      "frame" : 167,
+      "playing" : true,
+      "presentedSamples" : 268288,
+      "sample" : 268288
+    },
+    {
+      "frame" : 168,
+      "playing" : true,
+      "presentedSamples" : 269312,
+      "sample" : 269312
+    },
+    {
+      "frame" : 168,
+      "playing" : true,
+      "presentedSamples" : 270336,
+      "sample" : 270336
+    },
+    {
+      "frame" : 169,
+      "playing" : true,
+      "presentedSamples" : 271360,
+      "sample" : 271360
+    },
+    {
+      "frame" : 170,
+      "playing" : true,
+      "presentedSamples" : 272384,
+      "sample" : 272384
+    },
+    {
+      "frame" : 170,
+      "playing" : true,
+      "presentedSamples" : 273408,
+      "sample" : 273408
+    },
+    {
+      "frame" : 171,
+      "playing" : true,
+      "presentedSamples" : 274432,
+      "sample" : 274432
+    },
+    {
+      "frame" : 171,
+      "playing" : true,
+      "presentedSamples" : 275456,
+      "sample" : 275456
+    },
+    {
+      "frame" : 172,
+      "playing" : true,
+      "presentedSamples" : 276480,
+      "sample" : 276480
+    },
+    {
+      "frame" : 173,
+      "playing" : true,
+      "presentedSamples" : 277504,
+      "sample" : 277504
+    },
+    {
+      "frame" : 173,
+      "playing" : true,
+      "presentedSamples" : 278528,
+      "sample" : 278528
+    },
+    {
+      "frame" : 174,
+      "playing" : true,
+      "presentedSamples" : 279552,
+      "sample" : 279552
+    },
+    {
+      "frame" : 175,
+      "playing" : true,
+      "presentedSamples" : 280576,
+      "sample" : 280576
+    },
+    {
+      "frame" : 175,
+      "playing" : true,
+      "presentedSamples" : 281600,
+      "sample" : 281600
+    },
+    {
+      "frame" : 176,
+      "playing" : true,
+      "presentedSamples" : 282624,
+      "sample" : 282624
+    },
+    {
+      "frame" : 177,
+      "playing" : true,
+      "presentedSamples" : 283648,
+      "sample" : 283648
+    },
+    {
+      "frame" : 177,
+      "playing" : true,
+      "presentedSamples" : 284672,
+      "sample" : 284672
+    },
+    {
+      "frame" : 178,
+      "playing" : true,
+      "presentedSamples" : 285696,
+      "sample" : 285696
+    },
+    {
+      "frame" : 179,
+      "playing" : true,
+      "presentedSamples" : 286720,
+      "sample" : 286720
+    },
+    {
+      "frame" : 179,
+      "playing" : true,
+      "presentedSamples" : 287744,
+      "sample" : 287744
+    },
+    {
+      "playing" : false,
+      "presentedSamples" : 288288,
+      "sample" : 288288
+    }
+  ],
+  "videoCaptures" : [
+    {
+      "asynchronousFile" : "async-seek-0-frame-0.rgb",
+      "frame" : 0,
+      "pngFile" : "seek-0-frame-0.png",
+      "rebuilt" : false,
+      "request" : {
+        "clipID" : "505719D5-555E-4616-9055-B593EF7FB8EF",
+        "isStill" : false,
+        "scalingMode" : "fit",
+        "sourceFrame" : 30,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+      },
+      "rgbFile" : "seek-0-frame-0.rgb"
+    },
+    {
+      "asynchronousFile" : "async-seek-1-frame-2.rgb",
+      "frame" : 2,
+      "pngFile" : "seek-1-frame-2.png",
+      "rebuilt" : false,
+      "request" : {
+        "clipID" : "505719D5-555E-4616-9055-B593EF7FB8EF",
+        "isStill" : false,
+        "scalingMode" : "fit",
+        "sourceFrame" : 32,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+      },
+      "rgbFile" : "seek-1-frame-2.rgb"
+    },
+    {
+      "asynchronousFile" : "async-seek-2-frame-3.rgb",
+      "frame" : 3,
+      "pngFile" : "seek-2-frame-3.png",
+      "rebuilt" : false,
+      "request" : {
+        "clipID" : "6E65C026-4778-4653-A2D6-A4CF5BFECA58",
+        "isStill" : true,
+        "scalingMode" : "fill",
+        "sourceFrame" : 0,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/afc-native-stills-qualified-20261012\/still-source-240x90.png"
+      },
+      "rgbFile" : "seek-2-frame-3.rgb"
+    },
+    {
+      "asynchronousFile" : "async-seek-3-frame-60.rgb",
+      "frame" : 60,
+      "pngFile" : "seek-3-frame-60.png",
+      "rebuilt" : false,
+      "request" : {
+        "clipID" : "6E65C026-4778-4653-A2D6-A4CF5BFECA58",
+        "isStill" : true,
+        "scalingMode" : "fill",
+        "sourceFrame" : 0,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/afc-native-stills-qualified-20261012\/still-source-240x90.png"
+      },
+      "rgbFile" : "seek-3-frame-60.rgb"
+    },
+    {
+      "asynchronousFile" : "async-seek-4-frame-119.rgb",
+      "frame" : 119,
+      "pngFile" : "seek-4-frame-119.png",
+      "rebuilt" : false,
+      "request" : {
+        "clipID" : "6E65C026-4778-4653-A2D6-A4CF5BFECA58",
+        "isStill" : true,
+        "scalingMode" : "fill",
+        "sourceFrame" : 0,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/afc-native-stills-qualified-20261012\/still-source-240x90.png"
+      },
+      "rgbFile" : "seek-4-frame-119.rgb"
+    },
+    {
+      "asynchronousFile" : "async-seek-5-frame-120.rgb",
+      "frame" : 120,
+      "pngFile" : "seek-5-frame-120.png",
+      "rebuilt" : false,
+      "request" : {
+        "clipID" : "505719D5-555E-4616-9055-B593EF7FB8EF",
+        "isStill" : false,
+        "scalingMode" : "fit",
+        "sourceFrame" : 150,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+      },
+      "rgbFile" : "seek-5-frame-120.rgb"
+    },
+    {
+      "asynchronousFile" : "async-seek-6-frame-179.rgb",
+      "frame" : 179,
+      "pngFile" : "seek-6-frame-179.png",
+      "rebuilt" : false,
+      "request" : {
+        "clipID" : "505719D5-555E-4616-9055-B593EF7FB8EF",
+        "isStill" : false,
+        "scalingMode" : "fit",
+        "sourceFrame" : 209,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/film-barcode-render-20261009\/a.mov"
+      },
+      "rgbFile" : "seek-6-frame-179.rgb"
+    },
+    {
+      "asynchronousFile" : "async-seek-7-frame-60.rgb",
+      "frame" : 60,
+      "pngFile" : "seek-7-frame-60.png",
+      "rebuilt" : false,
+      "request" : {
+        "clipID" : "6E65C026-4778-4653-A2D6-A4CF5BFECA58",
+        "isStill" : true,
+        "scalingMode" : "fill",
+        "sourceFrame" : 0,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/afc-native-stills-qualified-20261012\/still-source-240x90.png"
+      },
+      "rgbFile" : "seek-7-frame-60.rgb"
+    },
+    {
+      "asynchronousFile" : "async-seek-8-frame-15.rgb",
+      "frame" : 15,
+      "pngFile" : "seek-8-frame-15.png",
+      "rebuilt" : false,
+      "request" : {
+        "clipID" : "6E65C026-4778-4653-A2D6-A4CF5BFECA58",
+        "isStill" : true,
+        "scalingMode" : "fill",
+        "sourceFrame" : 0,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/afc-native-stills-qualified-20261012\/still-source-240x90.png"
+      },
+      "rgbFile" : "seek-8-frame-15.rgb"
+    },
+    {
+      "asynchronousFile" : "async-seek-9-frame-15.rgb",
+      "frame" : 15,
+      "pngFile" : "seek-9-frame-15.png",
+      "rebuilt" : true,
+      "request" : {
+        "clipID" : "6E65C026-4778-4653-A2D6-A4CF5BFECA58",
+        "isStill" : true,
+        "scalingMode" : "fill",
+        "sourceFrame" : 0,
+        "streamIndex" : 0,
+        "url" : "file:\/\/\/private\/tmp\/afc-native-stills-qualified-20261012\/still-source-240x90.png"
+      },
+      "rgbFile" : "seek-9-frame-15.rgb"
+    }
+  ],
+  "videoFrames" : 180,
+  "width" : 160
+}

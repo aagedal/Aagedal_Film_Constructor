@@ -1,0 +1,44 @@
+Building for debugging...
+[Planning deferred tasks]
+[38 / 71]
+[40 / 72] CNativeDecoder
+[49 / 85]
+[62 / 138]
+[65 / 138]
+[70 / 138]
+[74 / 138]
+[78 / 138]
+[81 / 138]
+[86 / 138]
+[87 / 138]
+[88 / 138]
+[89 / 138]
+[108 / 138] EditorCore
+[109 / 138] EditorCore
+[115 / 139] EditorCore
+[117 / 139] NativePlaybackRuntime
+[130 / 166]
+[134 / 166]
+[137 / 166]
+[138 / 166]
+[144 / 166] NativePlaybackRuntime
+[156 / 168] NativePlaybackRuntime
+[156 / 168] NativeSequenceProof-product
+[168 / 186]
+[173 / 186]
+[173 / 186] NativePlaybackRuntime
+[175 / 186] NativeSequenceProof-product
+[179 / 186] NativeSequenceProof-product
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-626e4801/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavformat.63.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-626e4801/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavcodec.63.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-626e4801/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libswscale.10.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-626e4801/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libswresample.7.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-626e4801/Packages/NativePlaybackProof/Package.swift: NativeSequenceProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavutil.61.dylib' which was built for newer version 27.0
+[182 / 186] NativeLiveProof-product
+[184 / 186] NativeLiveProof-product
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-626e4801/Packages/NativePlaybackProof/Package.swift: NativeLiveProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavformat.63.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-626e4801/Packages/NativePlaybackProof/Package.swift: NativeLiveProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavcodec.63.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-626e4801/Packages/NativePlaybackProof/Package.swift: NativeLiveProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libswscale.10.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-626e4801/Packages/NativePlaybackProof/Package.swift: NativeLiveProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libswresample.7.dylib' which was built for newer version 27.0
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3code-626e4801/Packages/NativePlaybackProof/Package.swift: NativeLiveProof-product: ld: warning: building for macOS-14.0, but linking with dylib '/opt/homebrew/opt/ffmpeg/lib/libavutil.61.dylib' which was built for newer version 27.0
+Build complete! (9,78 sec)
