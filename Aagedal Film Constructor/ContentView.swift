@@ -1,127 +1,210 @@
 import SwiftUI
+import AVKit
 import EditorCore
 
-/// A small model exerciser while the media engine is evaluated.
 struct ContentView: View {
-    @State private var engine: TimelineEditEngine?
-    @State private var errorMessage: String?
-    @State private var demoClipID: UUID?
+    @ObservedObject var store: EditorStore
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Timeline prototype")
-                .font(.largeTitle)
-            Text("Extend a clip into its neighbour to create a sibling track. Each edit can be undone as one action.")
-                .foregroundStyle(.secondary)
-            HStack {
-                Button("Extend Music clip") { extendClip() }
-                    .disabled(!canExtend)
-                Button("Undo") { engine?.undo() }
-                    .disabled(engine?.canUndo != true)
-                Button("Redo") { engine?.redo() }
-                    .disabled(engine?.canRedo != true)
-                Spacer()
-                Button("Reset example") { loadExample() }
+        VSplitView {
+            HSplitView {
+                mediaBin.frame(minWidth: 210, idealWidth: 260, maxWidth: 380)
+                sourceMonitor.frame(minWidth: 320, maxWidth: .infinity)
+                ProjectInspector(store: store).frame(minWidth: 240, idealWidth: 270, maxWidth: 340)
             }
-            if let project = engine?.project {
-                HStack {
-                    Text("1920 × 1080 · 30000/1001 fps")
-                    Spacer()
-                    Text("Synthetic audio components · no media playback")
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                ScrollView(.horizontal) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 0) {
-                            Color.clear.frame(width: 130, height: 20)
-                            ForEach(0..<9) { second in
-                                Text("\(second)s").font(.caption.monospacedDigit())
-                                    .frame(width: 70, alignment: .leading)
-                            }
-                        }
-                        ForEach(project.tracks) { track in
-                            HStack(spacing: 0) {
-                                VStack(alignment: .leading) {
-                                    Text(track.displayName(in: project)).font(.headline)
-                                    Text("Gain \(track.template.gain, specifier: "%.2f")")
-                                        .font(.caption).foregroundStyle(.secondary)
-                                }
-                                .frame(width: 130, alignment: .leading)
-                                ZStack(alignment: .leading) {
-                                    RoundedRectangle(cornerRadius: 6).fill(.quaternary)
-                                    ForEach(track.clips) { clip in
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(clip.id == demoClipID ? Color.teal : Color.indigo)
-                                            .overlay(alignment: .leading) {
-                                                Text(clip.id == demoClipID ? "Music A" : "Music B")
-                                                    .font(.caption.bold()).foregroundStyle(.white)
-                                                    .padding(.leading, 8)
-                                            }
-                                            .frame(width: clip.sourceRange.duration.seconds * 70)
-                                            .offset(x: clip.timelineStart.seconds * 70)
-                                    }
-                                }
-                                .frame(width: 630, height: 54)
-                            }
-                        }
-                    }
-                }
-                Spacer()
-                Text("Routing, gain, and source ranges live in EditorCore. This example uses generated project data; importing and monitoring media are upcoming milestones.")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red).textSelection(.enabled)
+            .frame(minHeight: 260)
+            TimelineView(store: store).frame(minHeight: 220, idealHeight: 320)
+        }
+        .frame(minWidth: 960, minHeight: 600)
+        .toolbar {
+            ToolbarItemGroup {
+                Button(action: store.importMedia) { Label("Import media", systemImage: "plus.rectangle.on.folder") }
+                    .disabled(store.isImporting)
+                Button(action: store.appendSelectedAsset) { Label("Append to timeline", systemImage: "text.badge.plus") }
+                    .disabled(store.selectedAsset == nil || store.isImporting)
             }
         }
-        .padding(24)
-        .frame(minWidth: 850, minHeight: 400)
-        .task { if engine == nil { loadExample() } }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            HStack {
+                if store.isImporting { ProgressView().controlSize(.small) }
+                Text(store.statusMessage).lineLimit(1)
+                Spacer()
+                Text("Source preview · timeline playback coming next").foregroundStyle(.secondary)
+            }
+            .font(.caption).padding(.horizontal, 12).padding(.vertical, 6)
+            .background(.bar)
+        }
+        .alert("Unable to complete action", isPresented: Binding(get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } })) {
+            Button("OK", role: .cancel) { store.errorMessage = nil }
+        } message: { Text(store.errorMessage ?? "") }
     }
 
-    private var canExtend: Bool {
-        guard let id = demoClipID,
-              let clip = engine?.project.tracks.flatMap(\.clips).first(where: { $0.id == id }) else { return false }
-        return clip.sourceRange.duration.seconds < 6
+    private var mediaBin: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Media").font(.headline)
+                Spacer()
+                Text("\(store.project.assets.count)").foregroundStyle(.secondary)
+            }.padding(12)
+            Divider()
+            if store.project.assets.isEmpty {
+                ContentUnavailableView {
+                    Label("Import your media", systemImage: "folder.badge.plus")
+                } description: {
+                    Text("Add video, audio, or still images to start a sequence.")
+                } actions: {
+                    Button("Import media…", action: store.importMedia).disabled(store.isImporting)
+                }
+                .frame(maxHeight: .infinity)
+            } else {
+                List(selection: Binding(get: { store.selectedAssetID }, set: { if let id = $0 { store.selectAsset(id) } })) {
+                    ForEach(store.project.assets) { asset in
+                        HStack(alignment: .top, spacing: 9) {
+                            Image(systemName: assetIcon(asset)).foregroundStyle(.secondary).frame(width: 20)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(asset.name).lineLimit(2)
+                                Text("\(asset.duration.seconds, specifier: "%.2f") s · \(assetKind(asset))")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4).tag(asset.id)
+                    }
+                }
+                .listStyle(.inset)
+            }
+            Divider()
+            HStack {
+                Button("Import…", action: store.importMedia).disabled(store.isImporting)
+                Spacer()
+                Button("Append", action: store.appendSelectedAsset).disabled(store.selectedAsset == nil || store.isImporting)
+            }.padding(10)
+        }
     }
 
-    private func loadExample() {
-        do {
-            let template = TrackTemplate(kind: .audio, audioLayout: .stereo, gain: 0.8)
-            let family = TrackFamily(baseName: "Music", template: template)
-            let asset = MediaAsset(name: "Synthetic music", duration: try RationalTime(20), streams: [
-                MediaStream(index: 0, kind: .audio, audioLayout: .stereo)
-            ])
-            let selection = ClipSelection.audio(AudioSourceSelection(channels: [
-                SourceChannel(streamIndex: 0, channelIndex: 0),
-                SourceChannel(streamIndex: 0, channelIndex: 1)
-            ], layout: .stereo))
-            let first = TimelineClip(assetID: asset.id,
-                                     sourceRange: try TimeRange(start: .zero, duration: RationalTime(3)),
-                                     selection: selection)
-            let second = TimelineClip(assetID: asset.id,
-                                      sourceRange: try TimeRange(start: RationalTime(8), duration: RationalTime(3)),
-                                      timelineStart: try RationalTime(4), selection: selection)
-            let track = TimelineTrack(familyID: family.id, template: template, clips: [first, second])
-            let settings = try SequenceSettings(frameRate: FrameRate(30000, 1001))
-            engine = try TimelineEditEngine(project: Project(settings: settings, assets: [asset], families: [family], tracks: [track]))
-            demoClipID = first.id
-            errorMessage = nil
-        } catch { errorMessage = String(describing: error) }
+    private var sourceMonitor: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Source monitor").font(.headline)
+                Spacer()
+                Text(store.selectedAsset?.name ?? "No source selected").foregroundStyle(.secondary).lineLimit(1)
+            }.padding(12)
+            ZStack {
+                Color.black
+                if let image = store.previewImage {
+                    Image(nsImage: image).resizable().scaledToFit().padding(12)
+                } else if let player = store.sourcePlayer {
+                    VideoPlayer(player: player)
+                } else {
+                    VStack(spacing: 10) {
+                        Image(systemName: "play.rectangle").font(.system(size: 38))
+                        Text(store.selectedAsset == nil ? "Select media to preview" : "Source preview unavailable")
+                        if store.selectedAsset != nil { Button("Relink media…", action: store.relinkSelectedAsset) }
+                    }.foregroundStyle(.white.opacity(0.7))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            HStack {
+                Text("Original source").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                if let asset = store.selectedAsset { Text("\(asset.duration.seconds, specifier: "%.2f") seconds").font(.caption.monospacedDigit()) }
+            }.padding(10)
+        }
     }
 
-    private func extendClip() {
-        guard let id = demoClipID else { return }
-        do {
-            try engine?.apply(.trim(clipID: id,
-                                    sourceRange: TimeRange(start: .zero, duration: RationalTime(6)),
-                                    timelineStart: .zero))
-            errorMessage = nil
-        } catch { errorMessage = String(describing: error) }
+    private func assetIcon(_ asset: MediaAsset) -> String {
+        if asset.streams.contains(where: { $0.kind == .video }) { return "film" }
+        return asset.streams.isEmpty ? "photo" : "waveform"
+    }
+    private func assetKind(_ asset: MediaAsset) -> String {
+        if asset.streams.contains(where: { $0.kind == .video }) { return "Video" }
+        return asset.streams.isEmpty ? "Still image" : "Audio"
     }
 }
 
-#Preview {
-    ContentView()
+private struct ProjectInspector: View {
+    @ObservedObject var store: EditorStore
+    @State private var sourceStart = "0"
+    @State private var clipDuration = "0"
+    @State private var timelineStart = "0"
+    @State private var width = "1920"
+    @State private var height = "1080"
+    @State private var frameRate = "24"
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Inspector").font(.headline)
+                if let clip = store.selectedClip {
+                    GroupBox("Selected clip") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(store.project.assets.first(where: { $0.id == clip.assetID })?.name ?? "Media").font(.subheadline.bold())
+                            numericField("Timeline start (s)", text: $timelineStart)
+                            Button("Move clip") {
+                                guard let value = Double(timelineStart), value.isFinite, value >= 0 else { store.errorMessage = "Enter a valid timeline start in seconds."; return }
+                                store.moveSelectedClip(to: value)
+                            }
+                            Divider()
+                            numericField("Source in (s)", text: $sourceStart)
+                            numericField("Duration (s)", text: $clipDuration)
+                            Button("Apply trim") {
+                                guard let start = Double(sourceStart), let duration = Double(clipDuration), start.isFinite, duration.isFinite, start >= 0, duration > 0 else { store.errorMessage = "Enter a nonnegative source in and a positive duration in seconds."; return }
+                                store.trimSelectedClip(start: start, duration: duration)
+                            }
+                            if clip.requiredTrackKind == .video {
+                                Picker("Scaling", selection: Binding(get: { clip.scalingMode }, set: store.setScalingMode)) {
+                                    Text("Fit").tag(ScalingMode.fit)
+                                    Text("Fill").tag(ScalingMode.fill)
+                                    Text("Native size").tag(ScalingMode.none)
+                                }
+                            }
+                        }.padding(5)
+                    }
+                } else {
+                    Text("Select a timeline clip to edit its timing.").font(.callout).foregroundStyle(.secondary)
+                }
+                GroupBox("Sequence") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        numericField("Width", text: $width)
+                        numericField("Height", text: $height)
+                        numericField("Frames / second", text: $frameRate)
+                        Button("Apply settings") {
+                            guard let w = Int(width), let h = Int(height), let rate = Double(frameRate), rate.isFinite else { store.errorMessage = "Enter valid dimensions and a frame rate."; return }
+                            store.updateSequence(width: w, height: h, frameRate: rate)
+                        }
+                        Text("\(store.project.settings.audioSampleRate) Hz · \(store.project.settings.audioLayout.channels.count) output channels")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }.padding(5)
+                }
+                if let asset = store.selectedAsset {
+                    GroupBox("Source file") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(asset.originalURL?.path ?? "No file reference").font(.caption).textSelection(.enabled)
+                            Button("Relink media…", action: store.relinkSelectedAsset)
+                        }.frame(maxWidth: .infinity, alignment: .leading).padding(5)
+                    }
+                }
+            }.padding(12)
+        }
+        .onAppear { refreshClip(); refreshSettings() }
+        .onChange(of: store.selectedClip) { _, _ in refreshClip() }
+        .onChange(of: store.project.settings) { _, _ in refreshSettings() }
+    }
+
+    private func numericField(_ label: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            TextField(label, text: text).textFieldStyle(.roundedBorder)
+        }
+    }
+    private func refreshClip() {
+        guard let clip = store.selectedClip else { return }
+        sourceStart = String(clip.sourceRange.start.seconds)
+        clipDuration = String(clip.sourceRange.duration.seconds)
+        timelineStart = String(clip.timelineStart.seconds)
+    }
+    private func refreshSettings() {
+        width = String(store.project.settings.width)
+        height = String(store.project.settings.height)
+        frameRate = String(format: "%.6g", store.project.settings.frameRate.value.seconds)
+    }
 }

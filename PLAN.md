@@ -7,8 +7,9 @@ rebuilding fail. The native FFmpeg-library fallback now passes decoded video/aud
 seeks, edited-plan replacement, native image captures and AVAudioEngine offline
 parity for qualified fixtures. Bounded asynchronous decoding, stale-result
 rejection and exact sample-driven transport now pass the same fixtures and native
-offline clock checks. Live playback, helper packaging and the full workspace
-remain in progress.
+offline clock checks. Milestone 2 now has a basic assembly workspace with source
+preview, media import, project documents, and linked editing. Live sequence
+playback, helper packaging, and the remaining workspace features stay in progress.
 This plan records the intended product and implementation order; unchecked
 items remain planned capabilities.
 
@@ -481,10 +482,14 @@ sequence previews and renders at the same positions with exact output timing.
 
 ### 2. Native workspace, persistence, and shortcuts
 
-- [ ] Build the specified top-left bin, middle monitor, top-right inspector, and
-      full-width bottom-half timeline, with panel resizing and visibility controls.
-- [ ] Add sandboxed import, save/open, autosave, relinking, and sequence setup.
-- [ ] Connect drag/trim/split/delete, snapping, selection, transport, and timecode.
+- [x] Build the top-left bin, middle source monitor, top-right inspector, and
+      full-width timeline with resizable panels.
+- [ ] Add panel visibility controls and edited-sequence monitoring.
+- [x] Add sandboxed AVFoundation import, versioned project save/open, native
+      DocumentGroup autosave, validated relinking, and basic sequence setup.
+- [x] Connect horizontal drag/move, inspector trim, split/delete, selection, and
+      atomic linked-component undo/redo; video edits snap to sequence frames.
+- [ ] Add drag trim handles, adjacency snapping, sequence transport, and timecode.
 - [ ] Add asynchronous filmstrips/waveforms and fit/fill/no-scaling controls.
 - [ ] Expose cleanup and layout-confirmation preferences.
 - [ ] Add a command registry and keyboard shortcut editor with conflict checks,
@@ -696,3 +701,24 @@ launch-performance claim has been validated yet.
 - Live display/audio scheduling, latency/underrun recovery, helper packaging and
   broader format coverage remain open. Milestone 1 remains in progress. See
   [the evidence](docs/evidence/native-playback-20261011/README.md).
+
+### Basic assembly workspace checkpoint (2026-10-11)
+
+- Replaced synthetic UI with a resizable bin/source monitor/inspector/timeline.
+  AVFoundation probes run asynchronously off the main actor; AVKit previews
+  original video/audio and the monitor displays stills. Edited-sequence playback
+  remains unavailable, and AVFoundation format coverage is the current limit.
+- Added `.afcproject` versioned JSON documents, validated decoding, native
+  document commands/autosave, security-scoped bookmarks and required entitlements.
+  Document reload resets editor state; relinking checks stream identities/layouts
+  and source bounds, with locations and grants restored together by undo/redo.
+- Added atomic core asset registration/assembly, linked A/V placement, mono to
+  stereo mapping, sibling collision placement, basic sequence/scaling controls,
+  horizontal move, numeric trims, split/delete, and focus-scoped default commands.
+- Added eight assembly/persistence regressions plus a generated WAV/PNG app smoke
+  harness covering real importer/document/store paths, import/relink grant undo,
+  save/reopen, bookmark resolution, failed relink, reload, and corrupt/schema/model
+  rejection. Core tests and macOS Debug build pass; see `docs/basic-workspace.md`.
+- Timeline playback, FFmpeg packaging, filmstrips/waveforms, fading/proxies/export,
+  full source audio selection, panel visibility, and shortcut customization remain
+  unchecked. Basic workflow testing is ready; full v1 acceptance is not complete.
