@@ -8,6 +8,15 @@ import UniformTypeIdentifiers
 final class EditorStore: ObservableObject {
     @Published var project: Project = Project(settings: try! SequenceSettings())
     @Published var mediaBookmarks: [UUID: Data] = [:]
+    @Published var proxyBookmarks: [UUID: Data] = [:]
+    @Published var selectedAssetIDs: Set<UUID> = []
+    @Published var proxyCreationDraft: ProxyCreationDraft?
+    @Published var playbackRepresentation: PlaybackRepresentation = .original
+    @Published var proxyPlaybackMessage = "Original source"
+    var pendingSourceTransport: (time: CMTime, playing: Bool)?
+    var sourceRevisions: [UUID: UUID] = [:]
+    var sourcePreviewTask: Task<Void, Never>?
+    var proxyGenerationTask: Task<Void, Never>?
     @Published var selectedAssetID: UUID?
     @Published var selectedClipID: UUID?
     @Published var audioAppendAsset: MediaAsset?
@@ -20,13 +29,13 @@ final class EditorStore: ObservableObject {
     @Published var previewImage: NSImage?
     @Published var statusMessage = "Import media to begin."
     @Published private(set) var mediaPreviewRevision = UUID()
-    private struct Snapshot { var project: Project; var bookmarks: [UUID: Data] }
+    private struct Snapshot { var project: Project; var bookmarks: [UUID: Data]; var proxyBookmarks: [UUID: Data] }
     @Published private var undoHistory: [Snapshot] = []
     @Published private var redoHistory: [Snapshot] = []
     private var scopedURLs: Set<URL> = []
     private var sourceTransportTask: Task<Void, Never>?
     private var importTask: Task<Void, Never>?
-    private var mediaEpoch = UUID()
+    var mediaEpoch = UUID()
 
     var canUndo: Bool { !undoHistory.isEmpty }
     var canRedo: Bool { !redoHistory.isEmpty }
@@ -40,11 +49,13 @@ final class EditorStore: ObservableObject {
         errorMessage = nil
         isImporting = false
         undoHistory = []; redoHistory = []
-        selectedAssetID = nil; selectedClipID = nil; playheadSeconds = 0
+        selectedAssetIDs = []; selectedAssetID = nil; selectedClipID = nil; playheadSeconds = 0
         previewImage = nil
         statusMessage = "Import media to begin."
         project = document.project
         mediaBookmarks = document.mediaBookmarks
+        proxyBookmarks = document.proxyBookmarks
+        resolveProxyBookmarks()
         for index in project.assets.indices {
             let id = project.assets[index].id
             if let bookmark = mediaBookmarks[id] {
@@ -59,7 +70,7 @@ final class EditorStore: ObservableObject {
         }
     }
 
-    private func holdAccess(_ url: URL) {
+    func holdAccess(_ url: URL) {
         if !scopedURLs.contains(url), url.startAccessingSecurityScopedResource() { scopedURLs.insert(url) }
     }
 
@@ -68,6 +79,12 @@ final class EditorStore: ObservableObject {
         audioAppendAsset = nil
         renderExportDraft = nil
         importTask?.cancel()
+        sourcePreviewTask?.cancel()
+        proxyGenerationTask?.cancel()
+        proxyGenerationTask = nil
+        sourceRevisions.removeAll()
+        pendingSourceTransport = nil
+        proxyCreationDraft = nil
         isImporting = false
         pauseSource()
         sourcePlayer = nil
@@ -121,36 +138,41 @@ final class EditorStore: ObservableObject {
               imported.asset.streams.map(\.audioLayout) == asset.streams.map(\.audioLayout) else {
             throw EditorCoreError.invalidModel("Replacement media must have matching stream identities and channel layouts.")
         }
-        try change(bookmarkUpdates: [assetID: imported.bookmark]) { project in
+        try change(bookmarkUpdates: [assetID: imported.bookmark], proxyBookmarkUpdates: [assetID: nil]) { project in
             guard let index = project.assets.firstIndex(where: { $0.id == assetID }) else { return }
+            project.assets[index].proxy = nil
             project.assets[index].originalURL = imported.asset.originalURL
             project.assets[index].duration = imported.asset.duration
             project.assets[index].streams = imported.asset.streams
         }
+        sourceRevisions[assetID] = UUID()
         mediaPreviewRevision = UUID()
         selectAsset(assetID)
     }
 
     func selectAsset(_ id: UUID) {
         selectedAssetID = id
-        pauseSource()
-        sourcePlayer = nil
-        previewImage = nil
-        guard let asset = selectedAsset, let url = asset.originalURL else { return }
-        holdAccess(url)
-        guard FileManager.default.isReadableFile(atPath: url.path) else {
-            statusMessage = "Missing media: \(asset.name). Choose Relink in the inspector."
-            return
+        selectedAssetIDs = [id]
+        refreshSourcePreview()
+    }
+
+    func selectAssets(_ ids: Set<UUID>) {
+        let added = ids.subtracting(selectedAssetIDs)
+        selectedAssetIDs = ids
+        if let id = project.assets.first(where: { added.contains($0.id) })?.id ?? selectedAssetID.flatMap({ ids.contains($0) ? $0 : nil }) ?? project.assets.first(where: { ids.contains($0.id) })?.id {
+            if id != selectedAssetID { selectedAssetID = id; refreshSourcePreview() }
+        } else {
+            selectedAssetID = nil
+            sourcePreviewTask?.cancel()
+            pauseSource(); sourcePlayer = nil; previewImage = nil
         }
-        if asset.streams.isEmpty { previewImage = NSImage(contentsOf: url) }
-        else { sourcePlayer = AVPlayer(url: url) }
-        statusMessage = "Source preview: \(asset.name)"
     }
 
     func pauseSource() {
         sourceTransportTask?.cancel()
         sourceTransportTask = nil
         sourcePlayer?.pause()
+        if let pending = pendingSourceTransport { pendingSourceTransport = (pending.time, false) }
     }
 
     func playSourceForwards() {
@@ -222,37 +244,42 @@ final class EditorStore: ObservableObject {
     func undo() {
         guard let previous = undoHistory.popLast() else { return }
         if previous.project.assets != project.assets || previous.bookmarks != mediaBookmarks { mediaPreviewRevision = UUID() }
-        redoHistory.append(Snapshot(project: project, bookmarks: mediaBookmarks))
+        redoHistory.append(Snapshot(project: project, bookmarks: mediaBookmarks, proxyBookmarks: proxyBookmarks))
         project = previous.project
         mediaBookmarks = previous.bookmarks
+        proxyBookmarks = previous.proxyBookmarks
         reconcileSelection()
     }
     func redo() {
         guard let next = redoHistory.popLast() else { return }
         if next.project.assets != project.assets || next.bookmarks != mediaBookmarks { mediaPreviewRevision = UUID() }
-        undoHistory.append(Snapshot(project: project, bookmarks: mediaBookmarks))
+        undoHistory.append(Snapshot(project: project, bookmarks: mediaBookmarks, proxyBookmarks: proxyBookmarks))
         project = next.project
         mediaBookmarks = next.bookmarks
+        proxyBookmarks = next.proxyBookmarks
         reconcileSelection()
     }
     private func reconcileSelection() {
         if selectedClip == nil { selectedClipID = nil }
         if selectedAsset == nil { selectedAssetID = nil; pauseSource(); sourcePlayer = nil; previewImage = nil }
-        else if let id = selectedAssetID { selectAsset(id) }
+        else { selectedAssetIDs = selectedAssetIDs.intersection(Set(project.assets.map(\.id))); refreshSourcePreview() }
         playheadSeconds = min(playheadSeconds, duration)
     }
-    private func change(bookmarkUpdates: [UUID: Data?] = [:], _ mutation: (inout Project) throws -> Void) throws {
+    func change(bookmarkUpdates: [UUID: Data?] = [:], proxyBookmarkUpdates: [UUID: Data?] = [:], _ mutation: (inout Project) throws -> Void) throws {
         var candidate = project
         try mutation(&candidate)
         try candidate.validate()
         var candidateBookmarks = mediaBookmarks
         for (id, bookmark) in bookmarkUpdates { candidateBookmarks[id] = bookmark }
-        guard candidate != project || candidateBookmarks != mediaBookmarks else { return }
-        undoHistory.append(Snapshot(project: project, bookmarks: mediaBookmarks))
+        var candidateProxyBookmarks = proxyBookmarks
+        for (id, bookmark) in proxyBookmarkUpdates { candidateProxyBookmarks[id] = bookmark }
+        guard candidate != project || candidateBookmarks != mediaBookmarks || candidateProxyBookmarks != proxyBookmarks else { return }
+        undoHistory.append(Snapshot(project: project, bookmarks: mediaBookmarks, proxyBookmarks: proxyBookmarks))
         if undoHistory.count > 100 { undoHistory.removeFirst() }
         redoHistory.removeAll()
         project = candidate
         mediaBookmarks = candidateBookmarks
+        proxyBookmarks = candidateProxyBookmarks
         errorMessage = nil
     }
     private func edit(_ command: EditCommand) {

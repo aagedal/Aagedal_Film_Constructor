@@ -23,6 +23,7 @@ struct AppFileSmoke {
         try await exerciseSourcePlayback(audio: audio)
         let still = try await MediaImporter.inspect(url: imageURL)
         try check(still.asset.streams.isEmpty && still.asset.duration.seconds == 5, "Still image import")
+        try exerciseProxyDocument(directory: directory)
         let corruptURL = directory.appendingPathComponent("corrupt.png")
         try Data("invalid image".utf8).write(to: corruptURL)
         do {
@@ -85,7 +86,7 @@ struct AppFileSmoke {
                   "Empty sequence export fails without opening a draft")
         emptyExport.close()
 
-        var document = ProjectDocument(project: store.project, mediaBookmarks: store.mediaBookmarks)
+        var document = ProjectDocument(project: store.project, mediaBookmarks: store.mediaBookmarks, proxyBookmarks: store.proxyBookmarks)
         document.mediaBookmarks[UUID()] = Data([1, 2, 3])
         let projectURL = directory.appendingPathComponent("roundtrip.afcproject")
         try document.encodedData().write(to: projectURL)
@@ -597,6 +598,57 @@ struct AppFileSmoke {
         reopened.load(persisted)
         try check(reopened.project == store.project && reopened.playheadTimecode == "01:00:00;00",
                   "Sequence frame rate and start timecode survive document reopen")
+    }
+
+    @MainActor
+    static func exerciseProxyDocument(directory: URL) throws {
+        // Persistence fixtures only: media decoding is exercised by proxy-service-smoke.
+        let original = directory.appendingPathComponent("proxy-document-original.mov")
+        let derived = directory.appendingPathComponent("proxy-document-derived.mov")
+        try Data("original grant fixture".utf8).write(to: original)
+        try Data("proxy grant fixture".utf8).write(to: derived)
+        let proxy = MediaProxy(url: derived, preset: .proResProxy,
+                               sourceFingerprint: try ProxyGenerationService.fingerprint(for: original),
+                               videoStreamIndex: 0, width: 80, height: 48,
+                               frameRate: try RationalTime(24), frameCount: 48)
+        let asset = MediaAsset(name: "Proxy persistence fixture", originalURL: original,
+                               duration: try RationalTime(2), streams: [.init(index: 0, kind: .video)], proxy: proxy)
+        let grantOptions: URL.BookmarkCreationOptions = [.withSecurityScope, .securityScopeAllowOnlyReadAccess]
+        let originalGrant = try original.bookmarkData(options: grantOptions, includingResourceValuesForKeys: nil, relativeTo: nil)
+        let proxyGrant = try derived.bookmarkData(options: grantOptions, includingResourceValuesForKeys: nil, relativeTo: nil)
+        var document = ProjectDocument(project: Project(settings: try SequenceSettings(), assets: [asset]),
+                                       mediaBookmarks: [asset.id: originalGrant], proxyBookmarks: [asset.id: proxyGrant, UUID(): Data([0])])
+        var decoded = try ProjectDocument(data: document.encodedData())
+        try check(decoded.project == document.project && decoded.proxyBookmarks == [asset.id: proxyGrant],
+                  "Proxy references/grants survive save and unrelated grants are pruned")
+        try check(try decoded.resolveProxyURL(for: asset.id)?.resolvingSymlinksInPath() == derived.resolvingSymlinksInPath(),
+                  "Proxy grant resolves independently of the original")
+        try check(try decoded.resolveMediaURL(for: asset.id)?.resolvingSymlinksInPath() == original.resolvingSymlinksInPath(),
+                  "Proxy grant never redirects original media")
+        try check(try decoded.resolveProxyURL(for: UUID()) == nil, "Unknown proxy grant resolution")
+        document.project.assets[0].proxy = nil
+        let removed = try ProjectDocument(data: document.encodedData())
+        try check(removed.proxyBookmarks.isEmpty, "Removed proxies do not retain sandbox grants")
+        var legacy = try JSONSerialization.jsonObject(with: removed.encodedData()) as! [String: Any]
+        legacy.removeValue(forKey: "proxyBookmarks")
+        let backward = try ProjectDocument(data: JSONSerialization.data(withJSONObject: legacy))
+        try check(backward.proxyBookmarks.isEmpty && backward.project == removed.project,
+                  "Existing version-one projects without proxy bookmarks still open")
+        let reopened = EditorStore()
+        defer { reopened.close() }
+        reopened.load(decoded)
+        try check(reopened.proxyBookmarks[asset.id] != nil && reopened.project.assets[0].proxy != nil,
+                  "Editor reopen retains separate proxy access")
+        let replacement = MediaAsset(name: asset.name, originalURL: original, duration: asset.duration, streams: asset.streams)
+        try reopened.replaceMedia(assetID: asset.id, with: ImportedMedia(asset: replacement, bookmark: originalGrant))
+        try check(reopened.project.assets[0].proxy == nil && reopened.proxyBookmarks.isEmpty,
+                  "Explicit original relinking invalidates derived media even with matching file metadata")
+        reopened.undo()
+        try check(reopened.project.assets[0].proxy != nil && reopened.proxyBookmarks[asset.id] != nil,
+                  "Undo relinking restores both proxy identity and grant")
+        reopened.redo()
+        try check(reopened.project.assets[0].proxy == nil && reopened.proxyBookmarks.isEmpty,
+                  "Redo relinking removes the previous derived media")
     }
 
     static func check(_ condition: Bool, _ message: String) throws {

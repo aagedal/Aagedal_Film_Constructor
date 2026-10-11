@@ -27,16 +27,22 @@ private struct DocumentWorkspace: View {
                 loaded = true
             }
             .onChange(of: store.project) { _, project in
-                if loaded { document = ProjectDocument(project: project, mediaBookmarks: store.mediaBookmarks) }
+                if loaded { document = ProjectDocument(project: project, mediaBookmarks: store.mediaBookmarks, proxyBookmarks: store.proxyBookmarks) }
             }
             .onChange(of: store.mediaBookmarks) { _, bookmarks in
-                if loaded { document = ProjectDocument(project: store.project, mediaBookmarks: bookmarks) }
+                if loaded { document = ProjectDocument(project: store.project, mediaBookmarks: bookmarks, proxyBookmarks: store.proxyBookmarks) }
+            }
+            .onChange(of: store.proxyBookmarks) { _, bookmarks in
+                if loaded { document = ProjectDocument(project: store.project, mediaBookmarks: store.mediaBookmarks, proxyBookmarks: bookmarks) }
             }
             .onChange(of: document.project) { _, project in
                 if loaded && project != store.project { store.load(document) }
             }
             .onChange(of: document.mediaBookmarks) { _, bookmarks in
                 if loaded && bookmarks != store.mediaBookmarks { store.load(document) }
+            }
+            .onChange(of: document.proxyBookmarks) { _, bookmarks in
+                if loaded && bookmarks != store.proxyBookmarks { store.load(document) }
             }
             .onDisappear { store.close() }
     }

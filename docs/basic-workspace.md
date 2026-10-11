@@ -134,8 +134,17 @@ macOS 14+. On the initial file dialog choose **New Document** (or use File → N
     refused before saving, with specific reasons. Keep originals available to
     the receiving editor. Native Final Cut Pro/Resolve import remains unverified.
 
+17. Select several video sources in the bin, right-click a selected item and
+    choose **Create proxies…**. Choose ProRes Proxy (default) or H.264 and a
+    resolution, then an output folder. Cancel a batch midway, check completed
+    jobs remain usable, and retry remaining assets. Switch **Hires / Proxy** at
+    a nonzero source position, including during playback. Check visible fallback
+    status after moving a proxy or changing its original; undo proxy registration
+    and save/reopen to check separate media grants. Outputs and exports retain
+    originals. See [qualification limits and tests](proxies.md).
+
 Current limits: AVFoundation-supported source formats; no edited-sequence
-playback or proxies. Rendering is a qualified development subset; shipping
+playback. Proxies and rendering are qualified development subsets; shipping
 helper provenance, signed sandbox execution, source geometry/color/VFR and
 native interchange import remain open. Stills have a
 five-second source extent. Default audio assembly accepts matching layouts or mono
@@ -150,6 +159,8 @@ scripts/app-file-smoke.sh
 scripts/shortcut-smoke.sh
 scripts/timeline-preview-smoke.sh
 scripts/export-service-smoke.sh
+scripts/proxy-service-smoke.sh
+scripts/proxy-workspace-smoke.sh
 ```
 
 The first runs Python regressions, shortcut model smoke, EditorCore tests, and an

@@ -78,6 +78,9 @@ struct ContentView: View {
             .font(.caption).padding(.horizontal, 12).padding(.vertical, 6)
             .background(.bar)
         }
+        .sheet(item: $store.proxyCreationDraft) { draft in
+            ProxyCreationView(store: store, draft: draft)
+        }
         .sheet(item: $store.audioAppendAsset) { asset in
             AudioSourceEditor(store: store, asset: asset)
         }
@@ -107,7 +110,7 @@ struct ContentView: View {
                 }
                 .frame(maxHeight: .infinity)
             } else {
-                List(selection: Binding(get: { store.selectedAssetID }, set: { if let id = $0 { store.selectAsset(id) } })) {
+                List(selection: Binding(get: { store.selectedAssetIDs }, set: store.selectAssets)) {
                     ForEach(store.project.assets) { asset in
                         HStack(alignment: .top, spacing: 9) {
                             Image(systemName: assetIcon(asset)).foregroundStyle(.secondary).frame(width: 20)
@@ -119,6 +122,8 @@ struct ContentView: View {
                         }
                         .padding(.vertical, 4).tag(asset.id)
                         .contextMenu {
+                            Button("Create proxies…") { store.beginProxyCreation(assetID: asset.id) }
+                                .disabled(!asset.streams.contains(where: { $0.kind == .video }) || store.proxyGenerationTask != nil)
                             Button("Append to timeline") {
                                 store.selectAsset(asset.id)
                                 store.appendSelectedAsset()
@@ -166,7 +171,11 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             HStack {
-                Text("Original source").font(.caption).foregroundStyle(.secondary)
+                Picker("Playback", selection: Binding(get: { store.playbackRepresentation }, set: store.setPlaybackRepresentation)) {
+                    Text("Hires").tag(PlaybackRepresentation.original)
+                    Text("Proxy").tag(PlaybackRepresentation.proxy)
+                }.pickerStyle(.segmented).frame(width: 140)
+                Text(store.proxyPlaybackMessage).font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Group {
                     Button(action: store.playSourceBackwards) { Image(systemName: "backward.fill") }
