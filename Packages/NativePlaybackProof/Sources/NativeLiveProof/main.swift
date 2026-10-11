@@ -83,6 +83,8 @@ struct LiveObservation: Encodable {
     private let start = ProcessInfo.processInfo.systemUptime
     private var sampling: Task<Void, Never>?
     private var script: Task<Void, Never>?
+    private var scriptedRun = false
+    private var scriptCompleted = false
     private var closing = false
     private var finished = false
     private var terminationRequested = false
@@ -115,6 +117,7 @@ struct LiveObservation: Encodable {
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
             let options = try LiveOptions(arguments: Array(CommandLine.arguments.dropFirst()))
+            scriptedRun = options.scriptedDuration != nil
             if let url = options.observations {
                 let descriptor = Darwin.open(url.path, O_WRONLY | O_CREAT | O_EXCL, mode_t(0o600))
                 guard descriptor >= 0 else {
@@ -164,6 +167,7 @@ struct LiveObservation: Encodable {
                         try await Task.sleep(for: .seconds(duration / 6))
                         try await monitor.play(); self.record("script-resume")
                         try await Task.sleep(for: .seconds(duration / 6))
+                        self.scriptCompleted = true
                         self.window?.close()
                     }
                 } catch is CancellationError {
@@ -190,6 +194,9 @@ struct LiveObservation: Encodable {
 
     private func finish() {
         guard !closing else { return }
+        if scriptedRun, !scriptCompleted {
+            failed(ProofFailure("Scripted live run closed before completing all actions"))
+        }
         closing = true; sampling?.cancel(); script?.cancel()
         Task {
             if let monitor { await monitor.close(); record("closed") }

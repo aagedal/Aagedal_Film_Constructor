@@ -22,11 +22,11 @@ class ObservationTests(unittest.TestCase):
         value.update(changes)
         return value
 
-    def read(self, records):
+    def read(self, records, scripted=False):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'observations.jsonl'
             path.write_text(''.join(json.dumps(record) + '\n' for record in records))
-            return proof.read_observations(path)
+            return proof.read_observations(path, scripted=scripted)
 
     def test_retains_final_statistics_and_errors(self):
         final = self.record(errors=['Live audio underrun'])
@@ -47,6 +47,43 @@ class ObservationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.read([self.record(event='sample', elapsed=2), self.record(elapsed=1)])
 
+    def scripted_records(self):
+        actions = [('opened', False), ('initial-seek', False), ('script-play', True),
+                   ('script-seek', True), ('script-pause', False), ('script-resume', True),
+                   ('closed', False)]
+        return [self.record(event=event, elapsed=index, isPlaying=playing)
+                for index, (event, playing) in enumerate(actions)]
+
+    def test_complete_script_with_periodic_samples(self):
+        records = self.scripted_records()
+        records.insert(3, self.record(event='sample', elapsed=2.5, isPlaying=True))
+        self.assertEqual(self.read(records, scripted=True)['recordCount'], 8)
+
+    def test_truncated_script_fails_but_manual_close_is_allowed(self):
+        complete = self.scripted_records()
+        for length in range(1, len(complete) - 1):
+            records = complete[:length] + [complete[-1]]
+            with self.subTest(length=length), self.assertRaisesRegex(ValueError, 'all actions in order'):
+                self.read(records, scripted=True)
+            self.assertEqual(self.read(records)['final']['event'], 'closed')
+
+    def test_out_of_order_or_repeated_script_actions_fail(self):
+        for variant in ['swap', 'repeat']:
+            records = self.scripted_records()
+            if variant == 'swap':
+                records[3]['event'], records[4]['event'] = records[4]['event'], records[3]['event']
+            else:
+                records.insert(3, self.record(event='script-play', elapsed=2.5, isPlaying=True))
+            with self.subTest(variant=variant), self.assertRaisesRegex(ValueError, 'all actions in order'):
+                self.read(records, scripted=True)
+
+    def test_script_actions_require_expected_playing_state(self):
+        for index in range(7):
+            records = self.scripted_records()
+            records[index]['isPlaying'] = not records[index]['isPlaying']
+            with self.subTest(index=index), self.assertRaisesRegex(ValueError, 'playing state'):
+                self.read(records, scripted=True)
+
     def test_positive_seconds(self):
         self.assertEqual(proof.positive_seconds('0.25'), 0.25)
         for value in ['0', '-1', 'nan', 'inf']:
@@ -56,6 +93,7 @@ class ObservationTests(unittest.TestCase):
 
 class HarnessTests(unittest.TestCase):
     record = ObservationTests.record
+    scripted_records = ObservationTests.scripted_records
     def run_harness(self, launch=False, records=None, scripted=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -109,11 +147,18 @@ class HarnessTests(unittest.TestCase):
 
     def test_scripted_launch_retains_final_record(self):
         commands, manifest, exit_code = self.run_harness(launch=True,
-            records=[self.record()], scripted=True)
+            records=self.scripted_records(), scripted=True)
         self.assertIn('--scripted-duration', commands[-1])
         self.assertEqual(manifest['observations']['final']['statistics'], {'clockSamples': 42})
         self.assertFalse(manifest['hardwareQualified'])
         self.assertEqual(exit_code, 0)
+
+    def test_truncated_script_launch_fails_even_with_final_closed_record(self):
+        _, manifest, exit_code = self.run_harness(launch=True,
+            records=[self.record(event='opened', elapsed=0, isPlaying=False), self.record()],
+            scripted=True)
+        self.assertEqual(exit_code, 1)
+        self.assertIn('all actions in order', manifest['observationError'])
 
     def test_missing_final_or_errors_fail_run(self):
         for records in [None, [self.record(event='sample')], [self.record(errors=['underrun'])]]:

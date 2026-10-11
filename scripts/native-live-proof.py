@@ -21,7 +21,7 @@ def positive_seconds(value):
     return seconds
 
 
-def read_observations(path):
+def read_observations(path, scripted=False):
     """Require a complete run; observations alone never qualify physical output."""
     records = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
     if not records or not isinstance(records[-1], dict) or records[-1].get('event') != 'closed':
@@ -39,6 +39,18 @@ def read_observations(path):
                 or not all(isinstance(error, str) for error in record['errors'])):
             raise ValueError('Invalid live observation record')
         previous = elapsed
+    if scripted:
+        states = [('opened', False), ('initial-seek', False), ('script-play', True),
+                  ('script-seek', True), ('script-pause', False), ('script-resume', True),
+                  ('closed', False)]
+        actions = [record for record in records
+                   if record.get('event') in dict(states)
+                   or str(record.get('event', '')).startswith('script-')]
+        if [record.get('event') for record in actions] != [event for event, _ in states]:
+            raise ValueError('Scripted live run did not complete all actions in order')
+        for record, (event, playing) in zip(actions, states):
+            if record.get('isPlaying') is not playing:
+                raise ValueError(f'Scripted live action {event} has unexpected playing state')
     return {'recordCount': len(records), 'final': records[-1]}
 
 
@@ -109,7 +121,7 @@ def main():
         manifest['exitCode'] = result.returncode
         exit_code = result.returncode
         try:
-            manifest['observations'] = read_observations(observation_path)
+            manifest['observations'] = read_observations(observation_path, scripted=args.scripted_duration is not None)
             if manifest['observations']['final']['errors']:
                 exit_code = exit_code or 1
         except (OSError, ValueError, TypeError) as error:
