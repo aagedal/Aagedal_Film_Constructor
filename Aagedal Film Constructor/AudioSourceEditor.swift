@@ -48,7 +48,7 @@ struct AudioSourceEditor: View {
             Text(asset.name).foregroundStyle(.secondary)
             Text("Choose each source channel and its sequence output. Other linked components keep their source selections and timing.")
                 .font(.callout)
-            Picker("Component layout", selection: $layout) {
+            Picker("Component layout", selection: Binding(get: { layout }, set: changeLayout)) {
                 ForEach(layouts, id: \.self) { value in Text(layoutName(value)).tag(value) }
             }
             Toggle("Create separate mono components", isOn: $separateMono)
@@ -61,11 +61,17 @@ struct AudioSourceEditor: View {
                         HStack(alignment: .top) {
                             Text(speakerName(layout.channels[index], index: index)).frame(width: 95, alignment: .leading)
                             VStack(alignment: .leading, spacing: 6) {
-                                Picker("Source", selection: $channels[index]) {
+                                Picker("Source", selection: Binding(
+                                    get: { channels.indices.contains(index) ? channels[index] : unassigned },
+                                    set: { if channels.indices.contains(index) { channels[index] = $0 } }
+                                )) {
                                     Text("Choose source channel").tag(unassigned)
                                     ForEach(availableChannels, id: \.self) { channel in Text(channelName(channel)).tag(channel) }
                                 }
-                                Picker("Output", selection: $destinations[index]) {
+                                Picker("Output", selection: Binding(
+                                    get: { destinations.indices.contains(index) ? destinations[index] : -1 },
+                                    set: { if destinations.indices.contains(index) { destinations[index] = $0 } }
+                                )) {
                                     Text("Choose sequence output").tag(-1)
                                     ForEach(originalProject.settings.audioLayout.channels.indices, id: \.self) { output in
                                         Text(speakerName(originalProject.settings.audioLayout.channels[output], index: output)).tag(output)
@@ -87,16 +93,19 @@ struct AudioSourceEditor: View {
             }
         }
         .padding(24).frame(width: 620)
-        .onChange(of: layout) { _, value in
-            let count = value.channels.count
-            channels = Array(channels.prefix(count)) + Array(repeating: unassigned, count: max(0, count - channels.count))
-            destinations = Array(destinations.prefix(count)) + Array(repeating: -1, count: max(0, count - destinations.count))
-            if count < 2 { separateMono = false }
-        }
         .alert("Change audio tracks?", isPresented: Binding(get: { confirmationMessage != nil }, set: { if !$0 { confirmationMessage = nil } })) {
             Button("Cancel", role: .cancel) { confirmationMessage = nil }
             Button("Apply") { commit() }
         } message: { Text(confirmationMessage ?? "") }
+    }
+
+    private func changeLayout(_ value: ChannelLayout) {
+        // Resize every map in the picker transaction, before SwiftUI renders the new layout.
+        let count = value.channels.count
+        channels = Array(channels.prefix(count)) + Array(repeating: unassigned, count: max(0, count - channels.count))
+        destinations = Array(destinations.prefix(count)) + Array(repeating: -1, count: max(0, count - destinations.count))
+        layout = value
+        if count < 2 { separateMono = false }
     }
 
     private func prepare() {
