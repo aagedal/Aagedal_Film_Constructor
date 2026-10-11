@@ -26,10 +26,12 @@ interchange plans, Media Converter/Player reuse audits, and implementation miles
 
 The macOS app now has a resizable media bin, source monitor, inspector, and
 multitrack timeline. Import AVFoundation-supported video/audio and still images,
-preview sources, append linked video/audio, move/trim/split/delete clips, undo/redo,
+preview sources, append linked video/audio, drag move/trim with snapping, split/delete clips, undo/redo,
 and save/reopen `.afcproject` documents. Media access is retained with sandbox
 bookmarks; missing originals can be relinked. DocumentGroup supplies native
-new/open/save and autosave behavior. See [basic testing instructions](docs/basic-workspace.md).
+new/open/save and autosave behavior. Finder file drops, persistent panel visibility,
+sequence timecode and frame stepping, and an empty-track cleanup preference are
+available. See [basic testing instructions](docs/basic-workspace.md).
 
 This is the first usable assembly workspace. The monitor previews original
 sources, not the edited sequence. Native timeline playback, bundled FFmpeg,

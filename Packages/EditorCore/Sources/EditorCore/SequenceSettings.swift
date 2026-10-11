@@ -26,6 +26,40 @@ public struct Timecode: Hashable, Codable, Sendable {
     public init(frameCount: Int64 = 0, mode: TimecodeMode = .nonDropFrame) {
         self.frameCount = frameCount; self.mode = mode
     }
+    /// Parses a 24-hour SMPTE label. The final separator selects non-drop (`:`)
+    /// or drop-frame (`;`) mode; skipped drop-frame labels are rejected.
+    public init(parsing label: String, rate: FrameRate) throws {
+        let bytes = Array(label.utf8)
+        let frameDigits = max(2, String(max(0, rate.nominalFramesPerSecond - 1)).count)
+        guard bytes.count == 9 + frameDigits,
+              bytes[2] == 58, bytes[5] == 58,
+              bytes[8] == 58 || bytes[8] == 59 else { throw EditorCoreError.invalidTimecode }
+        func number(_ range: Range<Int>) throws -> Int64 {
+            var result: Int64 = 0
+            for index in range {
+                guard bytes[index] >= 48, bytes[index] <= 57 else { throw EditorCoreError.invalidTimecode }
+                result = result * 10 + Int64(bytes[index] - 48)
+            }
+            return result
+        }
+        let hours = try number(0..<2)
+        let minutes = try number(3..<5)
+        let seconds = try number(6..<8)
+        let frames = try number(9..<bytes.count)
+        let fps = Int64(rate.nominalFramesPerSecond)
+        let mode: TimecodeMode = bytes[8] == 59 ? .dropFrame : .nonDropFrame
+        guard hours < 24, minutes < 60, seconds < 60, frames < fps,
+              mode != .dropFrame || rate.supportsDropFrame else { throw EditorCoreError.invalidTimecode }
+        var count = ((hours * 60 + minutes) * 60 + seconds) * fps + frames
+        if mode == .dropFrame {
+            let dropped = fps / 15
+            guard minutes % 10 == 0 || seconds != 0 || frames >= dropped else { throw EditorCoreError.invalidTimecode }
+            let totalMinutes = hours * 60 + minutes
+            count -= dropped * (totalMinutes - totalMinutes / 10)
+        }
+        self.init(frameCount: count, mode: mode)
+        try validate(rate: rate)
+    }
     public func validate(rate: FrameRate) throws {
         guard frameCount >= 0, rate.nominalFramesPerSecond > 0,
               mode != .dropFrame || rate.supportsDropFrame else { throw EditorCoreError.invalidTimecode }
@@ -48,7 +82,8 @@ public struct Timecode: Hashable, Codable, Sendable {
         let seconds = count / fps % 60
         let minutes = count / (fps * 60) % 60
         let hours = count / (fps * 3600) % 24
-        return String(format: "%02lld:%02lld:%02lld%@%02lld", hours, minutes, seconds, mode == .dropFrame ? ";" : ":", frames)
+        let frameDigits = max(2, String(fps - 1).count)
+        return String(format: "%02lld:%02lld:%02lld%@%0*lld", hours, minutes, seconds, mode == .dropFrame ? ";" : ":", frameDigits, frames)
     }
 }
 public struct SequenceSettings: Equatable, Codable, Sendable {
@@ -71,5 +106,19 @@ public struct SequenceSettings: Equatable, Codable, Sendable {
     public func validate() throws {
         guard width > 0, height > 0, width <= 65536, height <= 65536, audioSampleRate > 0, audioSampleRate <= 768000 else { throw EditorCoreError.invalidSettings }
         try audioLayout.validate(); try startTimecode.validate(rate: frameRate)
+    }
+    /// Timecode of the frame containing a nonnegative sequence position.
+    /// Start timecode is a display offset and does not change sequence timing.
+    public func timecode(at position: RationalTime) throws -> Timecode {
+        try startTimecode.validate(rate: frameRate)
+        guard position.numerator >= 0 else { throw EditorCoreError.invalidTime }
+        let frames = try position.multiplied(by: frameRate.value)
+        let offset = frames.numerator / frames.denominator
+        let count = startTimecode.frameCount.addingReportingOverflow(offset)
+        guard !count.overflow else { throw EditorCoreError.overflow }
+        return Timecode(frameCount: count.partialValue, mode: startTimecode.mode)
+    }
+    public func formattedTimecode(at position: RationalTime) throws -> String {
+        try timecode(at: position).formatted(rate: frameRate)
     }
 }

@@ -52,6 +52,9 @@ extension FocusedValues {
 
 private struct EditorCommands: Commands {
     @FocusedValue(\.editorStore) private var store
+    @AppStorage("workspace.showMediaBin") private var showMediaBin = true
+    @AppStorage("workspace.showInspector") private var showInspector = true
+    @AppStorage("workspace.showTimeline") private var showTimeline = true
 
     var body: some Commands {
         CommandGroup(replacing: .undoRedo) {
@@ -67,6 +70,14 @@ private struct EditorCommands: Commands {
                 .keyboardShortcut("i", modifiers: .command)
                 .disabled(store == nil || store?.isImporting == true)
         }
+        CommandGroup(after: .sidebar) {
+            Toggle("Show Media Bin", isOn: $showMediaBin)
+            Toggle("Show Inspector", isOn: $showInspector)
+            Toggle("Show Timeline", isOn: $showTimeline)
+            Button("Show All Workspace Panels") {
+                showMediaBin = true; showInspector = true; showTimeline = true
+            }
+        }
         CommandMenu("Timeline") {
             Button("Append Selected Source") { store?.appendSelectedAsset() }
                 .keyboardShortcut("e", modifiers: .command)
@@ -74,6 +85,14 @@ private struct EditorCommands: Commands {
             Button("Split at Playhead") { store?.splitSelectedClip() }
                 .keyboardShortcut("b", modifiers: .command)
                 .disabled(store?.selectedClip == nil)
+            Divider()
+            Button("Previous Frame") { store?.stepPlayhead(frames: -1) }
+                .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
+                .disabled(store == nil)
+            Button("Next Frame") { store?.stepPlayhead(frames: 1) }
+                .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+                .disabled(store == nil)
+            Divider()
             Button("Delete Selected Clip") { store?.deleteSelectedClip() }
                 .disabled(store?.selectedClip == nil)
         }

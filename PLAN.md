@@ -484,14 +484,18 @@ sequence previews and renders at the same positions with exact output timing.
 
 - [x] Build the top-left bin, middle source monitor, top-right inspector, and
       full-width timeline with resizable panels.
-- [ ] Add panel visibility controls and edited-sequence monitoring.
+- [x] Add persistent panel visibility controls in the toolbar and View menu.
+- [ ] Add edited-sequence monitoring.
 - [x] Add sandboxed AVFoundation import, versioned project save/open, native
       DocumentGroup autosave, validated relinking, and basic sequence setup.
 - [x] Connect horizontal drag/move, inspector trim, split/delete, selection, and
       atomic linked-component undo/redo; video edits snap to sequence frames.
-- [ ] Add drag trim handles, adjacency snapping, sequence transport, and timecode.
+- [x] Add linked drag trim handles, adjacency snapping, frame stepping, and
+      sequence/start timecode controls.
+- [ ] Add live sequence transport.
 - [ ] Add asynchronous filmstrips/waveforms and fit/fill/no-scaling controls.
-- [ ] Expose cleanup and layout-confirmation preferences.
+- [x] Expose the automatic empty-track cleanup preference.
+- [ ] Expose layout-confirmation preferences with the source-layout workflow.
 - [ ] Add a command registry and keyboard shortcut editor with conflict checks,
       focus-aware dispatch, persistence, and reset-to-defaults.
 
@@ -722,3 +726,23 @@ launch-performance claim has been validated yet.
 - Timeline playback, FFmpeg packaging, filmstrips/waveforms, fading/proxies/export,
   full source audio selection, panel visibility, and shortcut customization remain
   unchecked. Basic workflow testing is ready; full v1 acceptance is not complete.
+
+### Workspace editing controls checkpoint (2026-10-11)
+
+- Added Finder URL drops through the same asynchronous importer as the file
+  panel, persistent panel visibility controls, and project-persisted automatic
+  empty-track cleanup controls.
+- Clip-edge gestures preview locally and commit one linked edit on release.
+  Shared geometry clamps trim deltas to all linked source/timeline bounds and
+  preserves at least one sequence frame for video. The magnet toggle snaps moves
+  and trims to other clip edges and the playhead within eight screen pixels.
+- Added strict non-drop/drop-frame timecode parsing, skipped-label rejection,
+  exact containing-frame formatting with sequence start offset, start timecode
+  editing, go-to-timecode, and previous/next frame navigation. These navigate edit positions;
+  live edited-sequence playback remains unfinished.
+- Added core timecode/gesture regressions and app/store smoke coverage for linked
+  trims, boundaries, undo/redo, timecode persistence, and cleanup. Verification
+  passed: 9 Python regressions, 42 Swift Testing cases plus 27 XCTest cases,
+  unsigned macOS Debug build, and the expanded app-file smoke harness. Native UI
+  automation reached the initial document dialog but disconnected before workspace
+  interaction; manual gesture and panel-layout checks remain part of user testing.

@@ -4,24 +4,57 @@ import EditorCore
 
 struct ContentView: View {
     @ObservedObject var store: EditorStore
+    @AppStorage("workspace.showMediaBin") private var showMediaBin = true
+    @AppStorage("workspace.showInspector") private var showInspector = true
+    @AppStorage("workspace.showTimeline") private var showTimeline = true
+    @State private var isDropTargeted = false
 
     var body: some View {
         VSplitView {
             HSplitView {
-                mediaBin.frame(minWidth: 210, idealWidth: 260, maxWidth: 380)
+                if showMediaBin {
+                    mediaBin.frame(minWidth: 210, idealWidth: 260, maxWidth: 380)
+                }
                 sourceMonitor.frame(minWidth: 320, maxWidth: .infinity)
-                ProjectInspector(store: store).frame(minWidth: 240, idealWidth: 270, maxWidth: 340)
+                if showInspector {
+                    ProjectInspector(store: store).frame(minWidth: 240, idealWidth: 270, maxWidth: 340)
+                }
             }
             .frame(minHeight: 260)
-            TimelineView(store: store).frame(minHeight: 220, idealHeight: 320)
+            if showTimeline {
+                TimelineView(store: store).frame(minHeight: 220, idealHeight: 320)
+            }
         }
         .frame(minWidth: 960, minHeight: 600)
+        .dropDestination(for: URL.self) { urls, _ in
+            let files = urls.filter(\.isFileURL)
+            guard !files.isEmpty, !store.isImporting else { return false }
+            store.importMedia(urls: files)
+            return true
+        } isTargeted: { isDropTargeted = $0 }
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color.accentColor, lineWidth: 3)
+                    .allowsHitTesting(false)
+            }
+        }
         .toolbar {
             ToolbarItemGroup {
                 Button(action: store.importMedia) { Label("Import media", systemImage: "plus.rectangle.on.folder") }
                     .disabled(store.isImporting)
                 Button(action: store.appendSelectedAsset) { Label("Append to timeline", systemImage: "text.badge.plus") }
                     .disabled(store.selectedAsset == nil || store.isImporting)
+                Menu {
+                    Toggle("Media bin", isOn: $showMediaBin)
+                    Toggle("Inspector", isOn: $showInspector)
+                    Toggle("Timeline", isOn: $showTimeline)
+                    Divider()
+                    Button("Show all panels") {
+                        showMediaBin = true; showInspector = true; showTimeline = true
+                    }
+                } label: { Label("Panels", systemImage: "rectangle.3.group") }
+                .help("Show or hide workspace panels")
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -51,7 +84,7 @@ struct ContentView: View {
                 ContentUnavailableView {
                     Label("Import your media", systemImage: "folder.badge.plus")
                 } description: {
-                    Text("Add video, audio, or still images to start a sequence.")
+                    Text("Import or drop video, audio, or still images here to start a sequence.")
                 } actions: {
                     Button("Import media…", action: store.importMedia).disabled(store.isImporting)
                 }
@@ -129,6 +162,7 @@ private struct ProjectInspector: View {
     @State private var width = "1920"
     @State private var height = "1080"
     @State private var frameRate = "24"
+    @State private var startTimecode = "00:00:00:00"
 
     var body: some View {
         ScrollView {
@@ -171,9 +205,25 @@ private struct ProjectInspector: View {
                             guard let w = Int(width), let h = Int(height), let rate = Double(frameRate), rate.isFinite else { store.errorMessage = "Enter valid dimensions and a frame rate."; return }
                             store.updateSequence(width: w, height: h, frameRate: rate)
                         }
+                        Divider()
+                        numericField("Start timecode", text: $startTimecode)
+                        Button("Apply timecode") {
+                            do {
+                                store.updateStartTimecode(try Timecode(parsing: startTimecode, rate: store.project.settings.frameRate))
+                            } catch {
+                                store.errorMessage = "Enter valid HH:MM:SS:FF timecode, or HH:MM:SS;FF for drop frame at 29.97/59.94 fps."
+                            }
+                        }
                         Text("\(store.project.settings.audioSampleRate) Hz · \(store.project.settings.audioLayout.channels.count) output channels")
                             .font(.caption).foregroundStyle(.secondary)
                     }.padding(5)
+                }
+                GroupBox("Editing") {
+                    Toggle("Remove empty tracks after edits", isOn: Binding(
+                        get: { store.project.preferences.automaticallyRemoveEmptyTracks },
+                        set: store.setAutomaticTrackCleanup
+                    ))
+                    .font(.callout).padding(5)
                 }
                 if let asset = store.selectedAsset {
                     GroupBox("Source file") {
@@ -206,5 +256,6 @@ private struct ProjectInspector: View {
         width = String(store.project.settings.width)
         height = String(store.project.settings.height)
         frameRate = String(format: "%.6g", store.project.settings.frameRate.value.seconds)
+        startTimecode = (try? store.project.settings.startTimecode.formatted(rate: store.project.settings.frameRate)) ?? "00:00:00:00"
     }
 }
