@@ -1,7 +1,7 @@
 import struct
 import unittest
 
-from native_parity import compare_float_audio, compare_rgb
+from native_parity import compare_float_audio, compare_rgb, compare_rgb_region
 
 
 class NativeParityTests(unittest.TestCase):
@@ -30,6 +30,17 @@ class NativeParityTests(unittest.TestCase):
                                      struct.pack('<hh', 0, 0), 2)
         self.assertEqual(result['samplesPerChannel'], 1)
         self.assertEqual(result['maxErrorInS16Units'], .5)
+
+    def test_padding_cannot_hide_active_picture_mismatch(self):
+        # A narrow picture occupies one column: the whole-frame mean passes,
+        # while the active-picture error correctly fails.
+        actual = bytes(300)
+        expected = b''.join(bytes(12) + bytes([192] * 3) + bytes(15) for _ in range(10))
+        compare_rgb(actual, expected, 300, tolerance=20)
+        with self.assertRaises(ValueError):
+            compare_rgb_region(actual, expected, 10, 10, (4, 0, 1, 10), tolerance=20)
+        with self.assertRaises(ValueError):
+            compare_rgb_region(actual, expected, 10, 10, (10, 0, 1, 10))
 
 
 if __name__ == '__main__':
