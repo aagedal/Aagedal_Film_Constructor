@@ -12,6 +12,7 @@ struct ProxyCreationView: View {
     @State private var errorMessage: String?
 
     var body: some View {
+        let availablePresets = ProxyGenerationService.availablePresets()
         if queued {
             ProxyQueueView(store: store)
         } else {
@@ -21,7 +22,7 @@ struct ProxyCreationView: View {
                     .foregroundStyle(.secondary)
                 Picker("Codec", selection: $preset) {
                     Text("ProRes Proxy").tag(ProxyPreset.proResProxy)
-                    Text("H.264").tag(ProxyPreset.h264)
+                    Text("H.264").tag(ProxyPreset.h264).disabled(!availablePresets.contains(.h264))
                 }
                 Picker("Resolution", selection: $scaleDivisor) {
                     Text("Full").tag(1)
@@ -35,6 +36,8 @@ struct ProxyCreationView: View {
                 let helpers = SequenceExportService.helperAvailability()
                 if !helpers.isAvailable {
                     Label(helpers.message, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+                } else if !availablePresets.contains(.h264) {
+                    Text("This helper build does not include the H.264 proxy encoder.").font(.caption).foregroundStyle(.secondary)
                 }
                 if let errorMessage {
                     Text(errorMessage).foregroundStyle(.red).textSelection(.enabled)
@@ -43,7 +46,7 @@ struct ProxyCreationView: View {
                     Spacer()
                     Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                     Button("Choose output folder…", action: enqueue)
-                        .disabled(!helpers.isAvailable || store.proxyGenerationTask != nil || store.isRelinkingProxy)
+                        .disabled(!helpers.isAvailable || !availablePresets.contains(preset) || store.proxyGenerationTask != nil || store.isRelinkingProxy)
                         .keyboardShortcut(.defaultAction)
                 }
             }.padding(24).frame(width: 550)

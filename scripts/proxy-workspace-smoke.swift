@@ -74,6 +74,20 @@ struct ProxyWorkspaceSmoke {
         let resumedAfterVerification = try await awaitPlayer(reopened)
         try check(resumedAfterVerification.rate > 0, "Forward during verification resumes playback")
         reopened.pauseSource()
+        // Removing selected media cancels pending preview work and transport intent.
+        let removed = EditorStore()
+        try removed.registerImportedMedia(imported)
+        let pending = Task<Void, Never> { @MainActor in
+            do { try await Task.sleep(for: .seconds(60)) } catch { }
+        }
+        removed.sourcePreviewTask = pending
+        removed.pendingSourceTransport = (position, true)
+        removed.undo()
+        try check(pending.isCancelled && removed.sourcePreviewTask == nil && removed.pendingSourceTransport == nil,
+                  "Undo removing selected media cancels pending seeks and playback intent")
+        try check(removed.sourcePlayer == nil && removed.selectedAssetIDs.isEmpty,
+                  "Undo removing selected media clears player and bin selection")
+        removed.close()
         reopened.sourceRevisions[imported.asset.id] = UUID()
         do {
             try reopened.registerProxy(proxy, for: imported.asset, epoch: reopened.mediaEpoch, sourceRevision: nil)

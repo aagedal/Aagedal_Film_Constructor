@@ -286,7 +286,14 @@ final class EditorStore: ObservableObject {
     }
     private func reconcileSelection() {
         if selectedClip == nil { selectedClipID = nil }
-        if selectedAsset == nil { selectedAssetID = nil; pauseSource(); sourcePlayer = nil; previewImage = nil }
+        selectedAssetIDs.formIntersection(Set(project.assets.map(\.id)))
+        if selectedAsset == nil {
+            selectedAssetID = nil
+            sourcePreviewTask?.cancel()
+            sourcePreviewTask = nil
+            pendingSourceTransport = nil
+            pauseSource(); sourcePlayer = nil; previewImage = nil
+        }
         else { selectedAssetIDs = selectedAssetIDs.intersection(Set(project.assets.map(\.id))); refreshSourcePreview() }
         playheadSeconds = min(playheadSeconds, duration)
     }

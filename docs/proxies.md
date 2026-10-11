@@ -27,7 +27,8 @@ outside timeline edit undo; successful proxy registration remains undoable.
 The application uses explicitly bundled FFmpeg/FFprobe helpers; ordinary builds
 contain none. See [helper preparation](media-helper-packaging.md). H.264 requires
 the selected build's `libx264` encoder, in addition to the baseline render-helper
-capabilities. A missing encoder fails the job and leaves existing proxies intact.
+capabilities. The creation dialog disables H.264 when the prepared helper bundle's
+verified encoder listing lacks `libx264`.
 
 Each output gets a unique MOV filename. Generation uses private staging, checks
 the result, and publishes without replacing an existing file. An existing proxy

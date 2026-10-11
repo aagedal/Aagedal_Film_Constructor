@@ -14,6 +14,20 @@ enum ProxySmokeFailure: Error { case failed(String) }
             Darwin.exit(1)
         }
         let directory = URL(fileURLWithPath: CommandLine.arguments[1])
+        let bundleURL = directory.appendingPathComponent("Capabilities.bundle")
+        let resources = bundleURL.appendingPathComponent("Contents/Resources/Helpers")
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+        let info = ["CFBundleIdentifier": "com.aagedal.proxy.capability-smoke", "CFBundlePackageType": "BNDL"]
+        try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
+            .write(to: bundleURL.appendingPathComponent("Contents/Info.plist"))
+        guard let bundle = Bundle(url: bundleURL) else { throw ProxySmokeFailure.failed("Cannot load fixture helper bundle") }
+        let encoderList = resources.appendingPathComponent("encoders.txt")
+        try " VFS... prores_ks ProRes encoder\n".write(to: encoderList, atomically: true, encoding: .utf8)
+        try check(ProxyGenerationService.availablePresets(bundle: bundle) == [.proResProxy],
+                  "Accepted baseline helpers do not offer unsupported H264")
+        try " VFS... prores_ks ProRes encoder\n V....D libx264 H264 encoder\n".write(to: encoderList, atomically: true, encoding: .utf8)
+        try check(ProxyGenerationService.availablePresets(bundle: bundle) == [.proResProxy, .h264],
+                  "H264 appears only when the prepared encoder listing includes libx264")
         let ffmpeg = URL(fileURLWithPath: CommandLine.arguments[2])
         let ffprobe = URL(fileURLWithPath: CommandLine.arguments[3])
         func asset(_ name: String) throws -> MediaAsset {
