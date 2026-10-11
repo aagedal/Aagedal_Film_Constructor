@@ -1,0 +1,48 @@
+warning: /Users/truls.aagedal/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/truls.aagedal/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+Building for debugging...
+[Planning deferred tasks]
+[33 / 64]
+[34 / 65] EditorCore
+[44 / 115]
+[49 / 115]
+[52 / 115]
+[53 / 115]
+[57 / 115]
+[60 / 115]
+[65 / 115]
+[66 / 115]
+[67 / 115]
+[68 / 115]
+[84 / 115] EditorCore
+[95 / 116] RenderPlanProof-product
+[97 / 118] RenderPlanProof-product
+[98 / 118] EditorCore
+[99 / 118] EditorCore
+[106 / 119] RenderPlanProof-product
+[108 / 119] EditorCoreTests-product
+[125 / 168]
+[130 / 168]
+[135 / 168]
+[138 / 168]
+[141 / 168]
+[142 / 168]
+[157 / 168] EditorCoreTests-product
+[162 / 168] EditorCoreTests-product
+[164 / 168] EditorCoreTests-product
+Build complete! (11,19 sec)
+Test Suite 'Selected tests' started at 2026-10-11 23:17:54.272.
+Test Suite 'EditorCoreTests.xctest' started at 2026-10-11 23:17:54.277.
+Test Suite 'CrossfadeRenderTests' started at 2026-10-11 23:17:54.277.
+Test Case '-[EditorCoreTests.CrossfadeRenderTests testAdjacentCenteredHandlesAndRepeatedSeeksUseExpandedSourceBounds]' started.
+Test Case '-[EditorCoreTests.CrossfadeRenderTests testAdjacentCenteredHandlesAndRepeatedSeeksUseExpandedSourceBounds]' passed (0.001 seconds).
+Test Case '-[EditorCoreTests.CrossfadeRenderTests testOddSampleAdjacentHandlesAndLinearComplementAreExact]' started.
+Test Case '-[EditorCoreTests.CrossfadeRenderTests testOddSampleAdjacentHandlesAndLinearComplementAreExact]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.CrossfadeRenderTests testOverlapUsesComplementarySampleEnvelopesWithoutShorteningSequence]' started.
+Test Case '-[EditorCoreTests.CrossfadeRenderTests testOverlapUsesComplementarySampleEnvelopesWithoutShorteningSequence]' passed (0.000 seconds).
+Test Suite 'CrossfadeRenderTests' passed at 2026-10-11 23:17:54.279.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'EditorCoreTests.xctest' passed at 2026-10-11 23:17:54.279.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'Selected tests' passed at 2026-10-11 23:17:54.279.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.007) seconds

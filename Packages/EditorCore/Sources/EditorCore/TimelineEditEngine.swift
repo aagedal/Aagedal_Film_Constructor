@@ -12,6 +12,8 @@ public enum EditCommand: Sendable {
     case split(clipID: UUID, at: RationalTime)
     case delete(clipID: UUID)
     /// Change only the selected audio component, preserving linked components.
+    case setAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, duration: RationalTime, curve: AudioFadeCurve = .equalPower)
+    case removeAudioCrossfade(crossfadeID: UUID)
     case setAudioFades(clipID: UUID, fadeIn: AudioFade, fadeOut: AudioFade)
     /// Replace one audio component with explicitly mapped components, preserving linked picture/timing.
     case selectAudioSource(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting])
@@ -22,7 +24,19 @@ public enum EditCommand: Sendable {
 public enum TimelineEditError: Error, Equatable, Sendable {
     case missingClip, missingTrack, missingFamily, incompatibleTrack, duplicateClip
     case invalidSplit, unsupportedLinkedSplit
+    case invalidAudioCrossfade, missingAudioCrossfade
     case invalidAudioSelection, incompatibleAudioRouting, incompatibleAudioConsolidation
+}
+
+extension TimelineEditError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .invalidAudioCrossfade:
+            return "Choose ordered audio clips with compatible layouts and routing. Existing overlaps must match the crossfade duration; adjacent cuts need sufficient source handles. Paired edges must be free of independent fades and durations must use whole audio samples."
+        case .missingAudioCrossfade: return "The audio crossfade no longer exists."
+        default: return nil
+        }
+    }
 }
 
 /// Value snapshots make placement, sibling creation and cleanup one atomic history entry.
@@ -42,6 +56,10 @@ public struct TimelineEditEngine: Sendable {
     public mutating func apply(_ command: EditCommand) throws {
         var candidate = project
         try Self.perform(command, in: &candidate)
+        switch command {
+        case .setAudioCrossfade, .removeAudioCrossfade: break
+        default: Self.dissolveInvalidCrossfades(in: &candidate, previous: project)
+        }
         try commit(candidate)
     }
 
@@ -51,6 +69,7 @@ public struct TimelineEditEngine: Sendable {
     public mutating func selectAudioSource(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting]) throws -> [UUID] {
         var candidate = project
         let ids = try Self.selectAudioSource(clipID: clipID, selections: selections, routing: routing, in: &candidate)
+        Self.dissolveInvalidCrossfades(in: &candidate, previous: project)
         try commit(candidate)
         return ids
     }
@@ -58,6 +77,34 @@ public struct TimelineEditEngine: Sendable {
     /// The selected identity survives; only the explicitly listed additional components are removed.
     public mutating func consolidateAudioSources(clipID: UUID, replacingClipIDs: [UUID], selection: AudioSourceSelection, routing: AudioRouting) throws {
         try apply(.consolidateAudioSources(clipID: clipID, replacingClipIDs: replacingClipIDs, selection: selection, routing: routing))
+    }
+
+    /// Dissolution removes only derived paired envelopes/handles. Standalone edge fades are preserved.
+    /// Source remapping dissolves the relation even if timing remains compatible; unchanged mappings
+    /// and jointly moved linked endpoints retain it while its geometry remains valid.
+    private static func dissolveInvalidCrossfades(in candidate: inout Project, previous: Project) {
+        let oldClips = previous.tracks.flatMap(\.clips)
+        let newClips = candidate.tracks.flatMap(\.clips)
+        let surviving = candidate.audioCrossfades.filter { relation in
+            for id in [relation.outgoingClipID, relation.incomingClipID] {
+                guard let old = oldClips.first(where: { $0.id == id }),
+                      let new = newClips.first(where: { $0.id == id }),
+                      old.selection == new.selection, old.assetID == new.assetID else { return false }
+            }
+            return (try? candidate.audioCrossfadeGeometry(for: relation)) != nil
+        }
+        candidate.audioCrossfades = surviving
+        // Dissolve only the two conflicting edges; unrelated relations remain untouched.
+        var conflicts: Set<UUID> = []
+        for incoming in surviving {
+            if let outgoing = surviving.first(where: { $0.outgoingClipID == incoming.incomingClipID }),
+               let left = try? candidate.audioCrossfadeGeometry(for: incoming).incomingTimelineRange.start.adding(incoming.duration),
+               let right = try? candidate.audioCrossfadeGeometry(for: outgoing).outgoingTimelineRange.end().subtracting(outgoing.duration),
+               (try? left.compared(to: right)) == .orderedDescending {
+                conflicts.insert(incoming.id); conflicts.insert(outgoing.id)
+            }
+        }
+        candidate.audioCrossfades.removeAll { conflicts.contains($0.id) }
     }
 
     private mutating func commit(_ proposed: Project) throws {
@@ -241,6 +288,17 @@ public struct TimelineEditEngine: Sendable {
             }
         case .split(let clipID, let at):
             let components = try linked(to: clipID, in: project)
+            let ids = Set(components.map { $0.clip.id })
+            for relation in project.audioCrossfades where ids.contains(relation.outgoingClipID) || ids.contains(relation.incomingClipID) {
+                let geometry = try project.audioCrossfadeGeometry(for: relation)
+                let fadeStart = geometry.incomingTimelineRange.start
+                let fadeEnd = try fadeStart.adding(relation.duration)
+                guard try at.compared(to: fadeStart) != .orderedDescending || at.compared(to: fadeEnd) != .orderedAscending else {
+                    throw TimelineEditError.invalidSplit
+                }
+            }
+            // Split outside paired envelopes dissolves the pair, preserving standalone outer fades.
+            project.audioCrossfades.removeAll { ids.contains($0.outgoingClipID) || ids.contains($0.incomingClipID) }
             let rightGroup = components.first?.clip.linkGroupID == nil ? nil : UUID()
             remove(Set(components.map { $0.clip.id }), from: &project)
             for component in components {
@@ -267,6 +325,16 @@ public struct TimelineEditEngine: Sendable {
                 try place(left, on: component.trackID, in: &project)
                 try place(right, on: component.trackID, in: &project)
             }
+        case .setAudioCrossfade(let outgoingID, let incomingID, let duration, let curve):
+            if let index = project.audioCrossfades.firstIndex(where: { $0.outgoingClipID == outgoingID && $0.incomingClipID == incomingID }) {
+                project.audioCrossfades[index].duration = duration
+                project.audioCrossfades[index].curve = curve
+            } else {
+                project.audioCrossfades.append(AudioCrossfade(outgoingClipID: outgoingID, incomingClipID: incomingID, duration: duration, curve: curve))
+            }
+        case .removeAudioCrossfade(let id):
+            guard let index = project.audioCrossfades.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingAudioCrossfade }
+            project.audioCrossfades.remove(at: index)
         case .setAudioFades(let clipID, let fadeIn, let fadeOut):
             guard let trackIndex = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
                   let clipIndex = project.tracks[trackIndex].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }

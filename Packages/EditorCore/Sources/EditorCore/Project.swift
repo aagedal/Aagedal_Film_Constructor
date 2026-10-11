@@ -6,9 +6,10 @@ public struct Project: Equatable, Codable, Sendable {
     public var families: [TrackFamily]
     /// Frontmost video track first. Render consumers must preserve this explicit order.
     public var tracks: [TimelineTrack]
+    public var audioCrossfades: [AudioCrossfade]
     public var preferences: EditorPreferences
-    public init(settings: SequenceSettings, assets: [MediaAsset] = [], families: [TrackFamily] = [], tracks: [TimelineTrack] = [], preferences: EditorPreferences = .init()) {
-        self.settings = settings; self.assets = assets; self.families = families; self.tracks = tracks; self.preferences = preferences
+    public init(settings: SequenceSettings, assets: [MediaAsset] = [], families: [TrackFamily] = [], tracks: [TimelineTrack] = [], preferences: EditorPreferences = .init(), audioCrossfades: [AudioCrossfade] = []) {
+        self.settings = settings; self.assets = assets; self.families = families; self.tracks = tracks; self.preferences = preferences; self.audioCrossfades = audioCrossfades
     }
     /// Validate at document decoding/edit commit boundaries; mutable value models can represent an in-progress edit.
     public func validate() throws {
@@ -17,6 +18,7 @@ public struct Project: Equatable, Codable, Sendable {
             guard Set(ids).count == ids.count else { throw EditorCoreError.invalidModel("Duplicate identity") }
         }
         try unique(assets.map(\.id)); try unique(families.map(\.id)); try unique(tracks.map(\.id)); try unique(tracks.flatMap { $0.clips.map(\.id) })
+        try validateAudioCrossfades()
         for asset in assets {
             guard asset.duration.numerator > 0, Set(asset.streams.map(\.index)).count == asset.streams.count else { throw EditorCoreError.invalidModel("Invalid asset duration or stream identities") }
             for stream in asset.streams {
@@ -71,10 +73,10 @@ public struct Project: Equatable, Codable, Sendable {
             guard template.audioLayout == settings.audioLayout else { throw EditorCoreError.invalidModel("An explicit output map is required for differing layouts") }
         }
     }
-    private enum CodingKeys: String, CodingKey { case settings, assets, families, tracks, preferences }
+    private enum CodingKeys: String, CodingKey { case settings, assets, families, tracks, preferences, audioCrossfades }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.init(settings: try c.decode(SequenceSettings.self, forKey: .settings), assets: try c.decode([MediaAsset].self, forKey: .assets), families: try c.decode([TrackFamily].self, forKey: .families), tracks: try c.decode([TimelineTrack].self, forKey: .tracks), preferences: try c.decode(EditorPreferences.self, forKey: .preferences))
+        self.init(settings: try c.decode(SequenceSettings.self, forKey: .settings), assets: try c.decode([MediaAsset].self, forKey: .assets), families: try c.decode([TrackFamily].self, forKey: .families), tracks: try c.decode([TimelineTrack].self, forKey: .tracks), preferences: try c.decode(EditorPreferences.self, forKey: .preferences), audioCrossfades: try c.decodeIfPresent([AudioCrossfade].self, forKey: .audioCrossfades) ?? [])
         try validate()
     }
 }
@@ -115,7 +117,23 @@ public struct TimelineRenderPlan: Equatable, Sendable {
                 let clipEnd = try range.end()
                 if try clipEnd.compared(to: end) == .orderedDescending { end = clipEnd }
                 let asset = project.assets.first { $0.id == clip.assetID }!
-                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: clip.sourceRange, timelineRange: range, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain, fadeIn: clip.fadeIn, fadeOut: clip.fadeOut))
+                var sourceRange = clip.sourceRange
+                var renderRange = range
+                var fadeIn = clip.fadeIn, fadeOut = clip.fadeOut
+                if let incoming = project.audioCrossfades.first(where: { $0.incomingClipID == clip.id }) {
+                    let geometry = try project.audioCrossfadeGeometry(for: incoming)
+                    sourceRange = geometry.incomingSourceRange
+                    renderRange = geometry.incomingTimelineRange
+                    fadeIn = AudioFade(duration: incoming.duration, curve: incoming.curve)
+                }
+                if let outgoing = project.audioCrossfades.first(where: { $0.outgoingClipID == clip.id }) {
+                    let geometry = try project.audioCrossfadeGeometry(for: outgoing)
+                    let extensionDuration = try geometry.outgoingSourceRange.duration.subtracting(clip.sourceRange.duration)
+                    sourceRange.duration = try sourceRange.duration.adding(extensionDuration)
+                    renderRange.duration = try renderRange.duration.adding(extensionDuration)
+                    fadeOut = AudioFade(duration: outgoing.duration, curve: outgoing.curve)
+                }
+                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain, fadeIn: fadeIn, fadeOut: fadeOut))
             }
         }
         components = result; duration = end

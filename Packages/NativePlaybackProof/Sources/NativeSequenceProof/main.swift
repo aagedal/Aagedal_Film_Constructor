@@ -153,7 +153,7 @@ func executeProof(projectURL: URL, output: URL, replacementURL: URL?) async thro
             pngFile: pngName, asynchronousFile: asyncName, request: try plan.videoFrame(at: frame)))
     }
     var audioCaptures: [AudioCapture] = []
-    let seekSamples: [Int64] = [0, 48047, 48048, 240239, 115315, 48048, plan.audioSamples - 1024, 48047]
+    let seekSamples: [Int64] = [0, 48047, 48048, 240239, 115315, 48048, plan.audioSamples - 1024, 144144, 120120, 168168, 192192, 144144, 48047]
     for (index, sample) in seekSamples.enumerated() where sample >= 0 && sample < plan.audioSamples {
         let count = Int(min(2048, plan.audioSamples - sample))
         let rebuilt = index == seekSamples.count - 1

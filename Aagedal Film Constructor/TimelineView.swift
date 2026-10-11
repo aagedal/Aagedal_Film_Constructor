@@ -8,6 +8,8 @@ struct TimelineView: View {
     @State private var showingTimecodeEntry = false
     @State private var timecodeEntry = ""
     @State private var viewport = CGRect.zero
+    @State private var clipFrames: [UUID: CGRect] = [:]
+    @State private var crossfadeHoverID: UUID?
     private let labelWidth: CGFloat = 145
     private var visibleDuration: Double { max(20, store.duration + 5) }
     private var canvasWidth: CGFloat { max(650, visibleDuration * pixelsPerSecond) }
@@ -133,7 +135,33 @@ struct TimelineView: View {
                         store.selectedClipID = clip.id
                         store.trimSelectedClip(edge: edge, delta: delta)
                     },
+                    project: store.project,
                     proposedFade: { store.proposedAudioFadeDuration(clip: clip, seconds: $0) },
+                    crossfadeHighlighted: crossfadeHoverID == clip.id,
+                    reportFrame: { frame in
+                        if frame.isNull { clipFrames.removeValue(forKey: clip.id) }
+                        else { clipFrames[clip.id] = frame }
+                    },
+                    hoverFade: { edge, point, seconds in
+                        crossfadeHoverID = point.flatMap { crossfadeDrop(clip: clip, edge: edge, point: $0, seconds: seconds)?.target.id }
+                    },
+                    linkFade: { edge, point, seconds, baseline in
+                        crossfadeHoverID = nil
+                        guard let drop = crossfadeDrop(clip: clip, edge: edge, point: point, seconds: seconds) else {
+                            if viewport.contains(point), store.project.tracks.flatMap(\.clips).contains(where: {
+                                $0.id != clip.id && $0.requiredTrackKind == .audio && clipFrames[$0.id]?.contains(point) == true
+                            }) {
+                                store.errorMessage = "Cannot link this audio pair. Use adjacent cuts with enough source handles or compatible overlapping audio. Audio layouts and output routing must match; linked edges cannot also have standalone fades."
+                                return true
+                            }
+                            return false
+                        }
+                        do {
+                            try store.applyAudioCrossfade(outgoingClipID: drop.outgoing.id, incomingClipID: drop.incoming.id,
+                                seconds: drop.seconds, curve: .equalPower, expectedProject: baseline)
+                        } catch { store.errorMessage = store.audioEditErrorMessage(error) }
+                        return true
+                    },
                     setFade: { edge, seconds, expected in
                         do {
                             try store.applyAudioFades(clipID: clip.id,
@@ -141,12 +169,25 @@ struct TimelineView: View {
                                 fadeInCurve: expected.fadeIn.curve,
                                 fadeOutSeconds: edge == .trailing ? seconds : expected.fadeOut.duration.seconds,
                                 fadeOutCurve: expected.fadeOut.curve, expectedClip: expected)
-                        } catch { store.errorMessage = String(describing: error) }
+                        } catch { store.errorMessage = store.audioEditErrorMessage(error) }
                     })
                 .offset(x: clip.timelineStart.seconds * pixelsPerSecond, y: 6)
             }
             playhead(height: 64).allowsHitTesting(false)
         }.frame(width: canvasWidth, height: 64)
+    }
+
+    private func crossfadeDrop(clip: TimelineClip, edge: TimelineTrimEdge, point: CGPoint, seconds: Double)
+        -> (target: TimelineClip, outgoing: TimelineClip, incoming: TimelineClip, seconds: Double)? {
+        guard viewport.contains(point) else { return nil }
+        let clips = store.project.tracks.flatMap(\.clips)
+        guard let target = clips.first(where: { $0.id != clip.id && $0.requiredTrackKind == .audio && clipFrames[$0.id]?.contains(point) == true }) else { return nil }
+        let outgoing = edge == .trailing ? clip : target
+        let incoming = edge == .trailing ? target : clip
+        let overlap = outgoing.timelineStart.seconds + outgoing.sourceRange.duration.seconds - incoming.timelineStart.seconds
+        let duration = overlap > 0 ? overlap : max(1 / Double(store.project.settings.audioSampleRate), seconds)
+        guard (try? store.previewAudioCrossfade(outgoingClipID: outgoing.id, incomingClipID: incoming.id, seconds: duration, curve: .equalPower)) != nil else { return nil }
+        return (target, outgoing, incoming, duration)
     }
 
     private func playhead(height: CGFloat) -> some View {
@@ -171,7 +212,12 @@ private struct TimelineClipView: View {
     let move: (Double) -> Void
     let proposedTrim: (TimelineTrimEdge, Double) -> Double
     let trim: (TimelineTrimEdge, Double) -> Void
+    let project: Project
     let proposedFade: (Double) -> Double
+    let crossfadeHighlighted: Bool
+    let reportFrame: (CGRect) -> Void
+    let hoverFade: (TimelineTrimEdge, CGPoint?, Double) -> Void
+    let linkFade: (TimelineTrimEdge, CGPoint, Double, Project) -> Bool
     let setFade: (TimelineTrimEdge, Double, TimelineClip) -> Void
     @GestureState private var dragOffset: CGFloat = 0
     @GestureState private var leadingDelta = 0.0
@@ -179,6 +225,7 @@ private struct TimelineClipView: View {
     @GestureState private var fadeInPreview: Double?
     @GestureState private var fadeOutPreview: Double?
     @State private var fadeGestureClip: TimelineClip?
+    @State private var fadeGestureProject: Project?
     @State private var clipFrame = CGRect.zero
     @State private var preview: TimelinePreview?
     @State private var loadedRequest: TimelinePreviewRequest?
@@ -213,13 +260,28 @@ private struct TimelineClipView: View {
                 }.foregroundStyle(.white).padding(.horizontal, 12)
                     .shadow(color: .black.opacity(0.9), radius: 2)
             }
-            .overlay { RoundedRectangle(cornerRadius: 5).strokeBorder(selected ? Color.orange : Color.white.opacity(0.15), lineWidth: selected ? 2 : 1) }
+            .overlay { RoundedRectangle(cornerRadius: 5).strokeBorder(crossfadeHighlighted ? Color.yellow : selected ? Color.orange : Color.white.opacity(0.15), lineWidth: crossfadeHighlighted || selected ? 2 : 1) }
             .overlay {
                 if clip.requiredTrackKind == .audio { fadeEnvelope.allowsHitTesting(false) }
             }
+            .overlay(alignment: .bottomTrailing) {
+                if let crossfade = project.audioCrossfades.first(where: { $0.outgoingClipID == clip.id || $0.incomingClipID == clip.id }) {
+                    Label("\(crossfade.duration.seconds, specifier: "%.2f") s", systemImage: "link")
+                        .font(.caption2).foregroundStyle(.yellow).padding(4)
+                        .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 3))
+                        .help("Linked audio crossfade; edit or remove in the inspector")
+                        .allowsHitTesting(false)
+                }
+            }
             .frame(width: clipWidth, height: 52)
             .clipped()
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { clipFrame = $0 }
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { clipFrame = $0; reportFrame($0) }
+            .onDisappear {
+                reportFrame(.null)
+                hoverFade(.leading, nil, 0)
+                fadeGestureClip = nil
+                fadeGestureProject = nil
+            }
             .task(id: previewRequest) {
                 let request = previewRequest
                 preview = nil
@@ -263,10 +325,10 @@ private struct TimelineClipView: View {
                 }
             }
             .onChange(of: fadeInPreview) { _, value in
-                if value == nil && fadeOutPreview == nil { fadeGestureClip = nil }
+                if value == nil && fadeOutPreview == nil { fadeGestureClip = nil; fadeGestureProject = nil; hoverFade(.leading, nil, 0) }
             }
             .onChange(of: fadeOutPreview) { _, value in
-                if value == nil && fadeInPreview == nil { fadeGestureClip = nil }
+                if value == nil && fadeInPreview == nil { fadeGestureClip = nil; fadeGestureProject = nil; hoverFade(.leading, nil, 0) }
             }
             .offset(x: dragOffset + leadingDelta * pixelsPerSecond)
             .help(clip.requiredTrackKind == .audio
@@ -313,18 +375,25 @@ private struct TimelineClipView: View {
                     let delta = value.translation.width / pixelsPerSecond * (edge == .leading ? 1 : -1)
                     state = proposedFade(start + delta)
                 }
-                .onChanged { _ in
-                    if fadeGestureClip == nil { fadeGestureClip = clip }
+                .onChanged { value in
+                    if fadeGestureClip == nil { fadeGestureClip = clip; fadeGestureProject = project }
+                    let original = fadeGestureClip ?? clip
+                    let start = edge == .leading ? original.fadeIn.duration.seconds : original.fadeOut.duration.seconds
+                    let delta = value.translation.width / pixelsPerSecond * (edge == .leading ? 1 : -1)
+                    hoverFade(edge, value.location, abs(start + delta) * 2)
                     select()
                 }
                 .onEnded { value in
                     let original = fadeGestureClip ?? clip
                     let start = edge == .leading ? original.fadeIn.duration.seconds : original.fadeOut.duration.seconds
                     let delta = value.translation.width / pixelsPerSecond * (edge == .leading ? 1 : -1)
-                    setFade(edge, proposedFade(start + delta), original)
+                    if !linkFade(edge, value.location, abs(start + delta) * 2, fadeGestureProject ?? project) {
+                        setFade(edge, proposedFade(start + delta), original)
+                    }
                     fadeGestureClip = nil
+                    fadeGestureProject = nil
                 })
-            .help(edge == .leading ? "Drag to set audio fade in" : "Drag to set audio fade out")
+            .help(edge == .leading ? "Drag inward to fade in; drop onto another audio clip to link it" : "Drag inward to fade out; drop onto incoming audio to link it")
             .accessibilityLabel(edge == .leading ? "Audio fade in handle" : "Audio fade out handle")
     }
 

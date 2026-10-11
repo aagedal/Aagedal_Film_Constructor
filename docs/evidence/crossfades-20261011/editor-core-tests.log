@@ -1,0 +1,271 @@
+warning: /Users/truls.aagedal/Library/org.swift.swiftpm/configuration is not accessible or not writable, disabling user-level cache features.
+warning: /Users/truls.aagedal/Library/org.swift.swiftpm/security is not accessible or not writable, disabling user-level cache features.
+warning: /Users/truls.aagedal/Library/Caches/org.swift.swiftpm is not accessible or not writable, disabling user-level cache features.
+warning: 'editorcore': failed storing manifest for 'editorcore' in cache: attempt to write a readonly database
+Building for debugging...
+[2 / 6] EditorCore
+[4 / 8] EditorCore
+[7 / 11] EditorCore
+[13 / 16] EditorCore
+[14 / 18] EditorCoreTests-product
+[29 / 33] EditorCoreTests-product
+[35 / 37] EditorCoreTests-product
+[39 / 43] RenderPlanProof-product
+[42 / 45] RenderPlanProof-product
+[44 / 45] RenderPlanProof-product
+Build complete! (3,96 sec)
+Test Suite 'All tests' started at 2026-10-11 23:18:49.063.
+Test Suite 'EditorCoreTests.xctest' started at 2026-10-11 23:18:49.067.
+Test Suite 'AudioCrossfadeTests' started at 2026-10-11 23:18:49.067.
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testAdjacentVirtualHandlesDurationAndAtomicHistory]' started.
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testAdjacentVirtualHandlesDurationAndAtomicHistory]' passed (0.001 seconds).
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testChainCombinesBothSourceHandlesAndRejectsIntersectingEnvelopes]' started.
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testChainCombinesBothSourceHandlesAndRejectsIntersectingEnvelopes]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testDissolvingEditedChainPreservesUnrelatedPair]' started.
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testDissolvingEditedChainPreservesUnrelatedPair]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testExistingOverlapRequiresExactComplementaryWindow]' started.
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testExistingOverlapRequiresExactComplementaryWindow]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testInvalidRequestsDoNotMutateHistoryOrDocument]' started.
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testInvalidRequestsDoNotMutateHistoryOrDocument]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testJointLinkedMoveAndNoOpPreserveRelation]' started.
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testJointLinkedMoveAndNoOpPreserveRelation]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testMoveDeleteTrimAndFadesDissolveAtomically]' started.
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testMoveDeleteTrimAndFadesDissolveAtomically]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testRoundTripLegacyAndMalformedRelations]' started.
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testRoundTripLegacyAndMalformedRelations]' passed (0.001 seconds).
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testSourceHandleFallbackAndOddSamples]' started.
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testSourceHandleFallbackAndOddSamples]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testSourceRemappingDissolvesAndUndoRestoresWhileNoOpPreserves]' started.
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testSourceRemappingDissolvesAndUndoRestoresWhileNoOpPreserves]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testSplitRejectsPartialPairAndDissolvesOutsideEnvelope]' started.
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testSplitRejectsPartialPairAndDissolvesOutsideEnvelope]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testStandaloneEdgesAndEffectiveRouting]' started.
+Test Case '-[EditorCoreTests.AudioCrossfadeTests testStandaloneEdgesAndEffectiveRouting]' passed (0.000 seconds).
+Test Suite 'AudioCrossfadeTests' passed at 2026-10-11 23:18:49.072.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+Test Suite 'AudioFadeTests' started at 2026-10-11 23:18:49.072.
+Test Case '-[EditorCoreTests.AudioFadeTests testAtomicFadeEditIndependentOverlapUndoRedoAndInvalidValues]' started.
+Test Case '-[EditorCoreTests.AudioFadeTests testAtomicFadeEditIndependentOverlapUndoRedoAndInvalidValues]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioFadeTests testAudioOnlyFadeEditDoesNotChangeLinkedAudioOrVideo]' started.
+Test Case '-[EditorCoreTests.AudioFadeTests testAudioOnlyFadeEditDoesNotChangeLinkedAudioOrVideo]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioFadeTests testExactSampleEnvelopeEndpointsCurvesAndOverlap]' started.
+Test Case '-[EditorCoreTests.AudioFadeTests testExactSampleEnvelopeEndpointsCurvesAndOverlap]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioFadeTests testProjectRoundTripAndLegacyClipDefaults]' started.
+Test Case '-[EditorCoreTests.AudioFadeTests testProjectRoundTripAndLegacyClipDefaults]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioFadeTests testSourceSelectionsPreserveFadesAndConsolidationRejectsDifferentEnvelopes]' started.
+Test Case '-[EditorCoreTests.AudioFadeTests testSourceSelectionsPreserveFadesAndConsolidationRejectsDifferentEnvelopes]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioFadeTests testTrimClampsAndSplitRetainsOuterEnvelopeOrRejectsPartialFade]' started.
+Test Case '-[EditorCoreTests.AudioFadeTests testTrimClampsAndSplitRetainsOuterEnvelopeOrRejectsPartialFade]' passed (0.001 seconds).
+Test Suite 'AudioFadeTests' passed at 2026-10-11 23:18:49.074.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'AudioSourceSelectionTests' started at 2026-10-11 23:18:49.074.
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testConsolidateMonoToSurroundPreservesPictureTimingGainIdentityAndHistory]' started.
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testConsolidateMonoToSurroundPreservesPictureTimingGainIdentityAndHistory]' passed (0.001 seconds).
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testConsolidationCleanupHonorsRetainedTracksAndPreference]' started.
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testConsolidationCleanupHonorsRetainedTracksAndPreference]' passed (0.001 seconds).
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testConsolidationOnlyRemovesExplicitComponentsAndPreservesOccupiedTrack]' started.
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testConsolidationOnlyRemovesExplicitComponentsAndPreservesOccupiedTrack]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testConsolidationRejectsAmbiguousComponentsWithoutMutatingHistory]' started.
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testConsolidationRejectsAmbiguousComponentsWithoutMutatingHistory]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testExplicitMultipleMonoAndSurroundMapsReachRenderPlanUnchanged]' started.
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testExplicitMultipleMonoAndSurroundMapsReachRenderPlanUnchanged]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testInvalidConsolidationIDsAndMappingPreserveRedo]' started.
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testInvalidConsolidationIDsAndMappingPreserveRedo]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testInvalidRouteAndSourceRollBackIncludingRedoAndCreatedSiblings]' started.
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testInvalidRouteAndSourceRollBackIncludingRedoAndCreatedSiblings]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testLinkedMonoCollisionMoveAndTrimPreserveEachRouteAndGain]' started.
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testLinkedMonoCollisionMoveAndTrimPreserveEachRouteAndGain]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testMatchingFreeSiblingReusePreservesIndependentSettings]' started.
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testMatchingFreeSiblingReusePreservesIndependentSettings]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testSeparateMonoComponentsRemainLinkedAndMoveWithPicture]' started.
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testSeparateMonoComponentsRemainLinkedAndMoveWithPicture]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testSharedTrackCreatesSiblingCopiesGainAndLeavesOtherClipIntact]' started.
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testSharedTrackCreatesSiblingCopiesGainAndLeavesOtherClipIntact]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testSoloReconfigurationPreservesIdentityTimingSettingsAndHistory]' started.
+Test Case '-[EditorCoreTests.AudioSourceSelectionTests testSoloReconfigurationPreservesIdentityTimingSettingsAndHistory]' passed (0.000 seconds).
+Test Suite 'AudioSourceSelectionTests' passed at 2026-10-11 23:18:49.077.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'CrossfadeRenderTests' started at 2026-10-11 23:18:49.077.
+Test Case '-[EditorCoreTests.CrossfadeRenderTests testAdjacentCenteredHandlesAndRepeatedSeeksUseExpandedSourceBounds]' started.
+Test Case '-[EditorCoreTests.CrossfadeRenderTests testAdjacentCenteredHandlesAndRepeatedSeeksUseExpandedSourceBounds]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.CrossfadeRenderTests testOddSampleAdjacentHandlesAndLinearComplementAreExact]' started.
+Test Case '-[EditorCoreTests.CrossfadeRenderTests testOddSampleAdjacentHandlesAndLinearComplementAreExact]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.CrossfadeRenderTests testOverlapUsesComplementarySampleEnvelopesWithoutShorteningSequence]' started.
+Test Case '-[EditorCoreTests.CrossfadeRenderTests testOverlapUsesComplementarySampleEnvelopesWithoutShorteningSequence]' passed (0.000 seconds).
+Test Suite 'CrossfadeRenderTests' passed at 2026-10-11 23:18:49.078.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'ProjectAssemblyTests' started at 2026-10-11 23:18:49.078.
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testAppendPlacesLinkedPictureAndSoundAndReusesTracks]' started.
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testAppendPlacesLinkedPictureAndSoundAndReusesTracks]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testDecodeRejectsInvalidDocumentReferencesAndOverlap]' started.
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testDecodeRejectsInvalidDocumentReferencesAndOverlap]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testEmptyExplicitAudioSelectionPlacesPictureOnlyAndRejectsAudioOnly]' started.
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testEmptyExplicitAudioSelectionPlacesPictureOnlyAndRejectsAudioOnly]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testExplicitPlacementCreatesSiblingsAndPreservesExistingTimes]' started.
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testExplicitPlacementCreatesSiblingsAndPreservesExistingTimes]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testExplicitPlacementRejectsAllInvalidMapsAtomically]' started.
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testExplicitPlacementRejectsAllInvalidMapsAtomically]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testExplicitSplitMonoPlacementPreservesRoutingAndLinksEveryComponent]' started.
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testExplicitSplitMonoPlacementPreservesRoutingAndLinksEveryComponent]' passed (0.001 seconds).
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testExplicitStereoSelectionCanSpanMonoStreams]' started.
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testExplicitStereoSelectionCanSpanMonoStreams]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testFailedImportsAndPlacementAreAtomic]' started.
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testFailedImportsAndPlacementAreAtomic]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testMonoSourceIsExplicitlyDuplicatedToStereo]' started.
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testMonoSourceIsExplicitlyDuplicatedToStereo]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testPlacementDoesNotInheritExistingFamilyGain]' started.
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testPlacementDoesNotInheritExistingFamilyGain]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testPlacementDoesNotReuseReconfiguredTrackRoutingOrGain]' started.
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testPlacementDoesNotReuseReconfiguredTrackRoutingOrGain]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testProjectFileRoundTripPreservesLocationsAndLinkedEdits]' started.
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testProjectFileRoundTripPreservesLocationsAndLinkedEdits]' passed (0.005 seconds).
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testRelinkPreservesAssetIdentityAndTimeline]' started.
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testRelinkPreservesAssetIdentityAndTimeline]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testStillAndAudioOnlyAssetsHaveSingleUnlinkedComponents]' started.
+Test Case '-[EditorCoreTests.ProjectAssemblyTests testStillAndAudioOnlyAssetsHaveSingleUnlinkedComponents]' passed (0.000 seconds).
+Test Suite 'ProjectAssemblyTests' passed at 2026-10-11 23:18:49.088.
+	 Executed 14 tests, with 0 failures (0 unexpected) in 0.009 (0.009) seconds
+Test Suite 'TimelineEditEngineTests' started at 2026-10-11 23:18:49.088.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testAdjacentPlacementUsesExistingTrackAndTrimCollisionIsAtomic]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testAdjacentPlacementUsesExistingTrackAndTrimCollisionIsAtomic]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testCleanupCollapsesNamesRetainsTemplateAndRecreatesFamily]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testCleanupCollapsesNamesRetainsTemplateAndRecreatesFamily]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testCollisionReusesFirstFreeCompatibleSiblingInSameFamily]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testCollisionReusesFirstFreeCompatibleSiblingInSameFamily]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testCollisionSkipsFreeSiblingWithIncompatibleLayout]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testCollisionSkipsFreeSiblingWithIncompatibleLayout]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testCommitValidationFailureRollsBackCreatedSiblingAndHistory]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testCommitValidationFailureRollsBackCreatedSiblingAndHistory]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testCustomNameSurvivesSiblingCreationCleanupAndHistory]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testCustomNameSurvivesSiblingCreationCleanupAndHistory]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testFailedEditRestoresProjectAndPreservesRedo]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testFailedEditRestoresProjectAndPreservesRedo]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testFailedLinkedMoveAndSplitRestoreAllComponents]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testFailedLinkedMoveAndSplitRestoreAllComponents]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testFailedLinkedTrimDiscardsSiblingAndEveryComponentChange]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testFailedLinkedTrimDiscardsSiblingAndEveryComponentChange]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testFractionalAdjacencyFitsGapButOneFrameOverlapCreatesSibling]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testFractionalAdjacencyFitsGapButOneFrameOverlapCreatesSibling]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testFractionalLinkedCollisionMoveAndTrimKeepRelativeOffsets]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testFractionalLinkedCollisionMoveAndTrimKeepRelativeOffsets]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testFreeSiblingReuseAndIndependentCopiedSettings]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testFreeSiblingReuseAndIndependentCopiedSettings]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testLinkedMoveSplitTrimAndDeletePreserveAVSync]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testLinkedMoveSplitTrimAndDeletePreserveAVSync]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testMultipleOverlapsCreateSiblingWithoutMovingOtherClips]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testMultipleOverlapsCreateSiblingWithoutMovingOtherClips]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testRetainedTracksAndDisabledCleanupKeepSettings]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testRetainedTracksAndDisabledCleanupKeepSettings]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testSplitPreservesExactSourceContinuityAndUndo]' started.
+Test Case '-[EditorCoreTests.TimelineEditEngineTests testSplitPreservesExactSourceContinuityAndUndo]' passed (0.000 seconds).
+Test Suite 'TimelineEditEngineTests' passed at 2026-10-11 23:18:49.090.
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'TimelineGestureTests' started at 2026-10-11 23:18:49.090.
+Test Case '-[EditorCoreTests.TimelineGestureTests testLinkedTrimBoundsUseEveryComponentAndFrameGrid]' started.
+Test Case '-[EditorCoreTests.TimelineGestureTests testLinkedTrimBoundsUseEveryComponentAndFrameGrid]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineGestureTests testSnappingChoosesNearestLeadingOrTrailingEdge]' started.
+Test Case '-[EditorCoreTests.TimelineGestureTests testSnappingChoosesNearestLeadingOrTrailingEdge]' passed (0.000 seconds).
+Test Case '-[EditorCoreTests.TimelineGestureTests testSourceBoundsBetweenFramesRoundInward]' started.
+Test Case '-[EditorCoreTests.TimelineGestureTests testSourceBoundsBetweenFramesRoundInward]' passed (0.000 seconds).
+Test Suite 'TimelineGestureTests' passed at 2026-10-11 23:18:49.091.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'EditorCoreTests.xctest' passed at 2026-10-11 23:18:49.091.
+	 Executed 66 tests, with 0 failures (0 unexpected) in 0.021 (0.024) seconds
+Test Suite 'All tests' passed at 2026-10-11 23:18:49.091.
+	 Executed 66 tests, with 0 failures (0 unexpected) in 0.021 (0.028) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite NativePlaybackPlanTests started.
+◇ Test timecodeRoundTripsAtAllSupportedNominalWidths() started.
+◇ Test rationalCanonicalArithmeticAndOverflow() started.
+◇ Test mpvResolverRejectsMissingAmbiguousAndInvalidMetadata() started.
+◇ Suite NativePlaybackTransportTests started.
+◇ Test mpvTrackListDecodesRuntimeNamesAndOptionalMetadata() started.
+◇ Test compilerKeepsPathsAsArgumentsAndRejectsSubsampleEdits() started.
+◇ Test compilerFadesRetainExactSubsampleDurationBeforeTimelineDelay() started.
+◇ Test mpvResolvedRepeatedInputsCompileToSplitGraph() started.
+◇ Test compilerRefusesUnqualifiedMediaAndDestinations() started.
+◇ Test fractionalFrameArithmeticAndDropFrameMinuteExceptions() started.
+◇ Test renderPlanPreservesAbsolutePositionsSourceMapsAndLayers() started.
+◇ Test parsesDropFrameMinuteAndDayBoundaries() started.
+◇ Test sequenceTimecodeUsesExactFramesAndDisplayOffset() started.
+◇ Test mpvResolverMatchesFileIndexAndKindWithoutEnumeration() started.
+◇ Test mpvGraphRejectsAliasedSourceBindings() started.
+◇ Test parsesNonDropTimecodeAndRejectsMalformedLabels() started.
+◇ Test mpvGraphRequiresUnambiguousPositiveTrackIDs() started.
+◇ Test decodedExactTimeRejectsInvalidDenominator() started.
+◇ Test exactFrameRateAndDropFrameBoundaries() started.
+◇ Test mpvGraphSharesExportFiltersAndSplitsRepeatedStreams() started.
+◇ Test mpvResolverRejectsAliasedTracksAcrossStreamsAndFiles() started.
+◇ Test nativeFadeRequestsUseClipRelativeClockAcrossChannelsAndSeeks() started.
+◇ Test projectRejectsMissingIdentityAndUnknownChannelMapping() started.
+◇ Test exactFractionalTimingAndHalfOpenVideoLayers() started.
+◇ Test adjacencyAndProjectRoundTrip() started.
+◇ Test uncoveredVideoAndAudioRemainBlackAndSilent() started.
+◇ Test reverseAndRepeatedSeeksHaveNoSchedulingState() started.
+◇ Test rejectsInvalidAudioBlockRangesAndOverflow() started.
+◇ Test validatesHiddenSourcesAndRejectsStillsAndNonlocalOriginals() started.
+◇ Test rejectsMalformedSelectionsRoutingRangesAndStreams() started.
+◇ Test sourceChannelIndicesAndAdditiveRoutingArePreserved() started.
+◇ Test overlappingAudioTracksReturnEveryContributionInLayerOrder() started.
+◇ Test requestPayloadsRoundTripThroughCodable() started.
+◇ Test fractionalFinalAudioSampleIsCeiledWithoutDrift() started.
+◇ Test fixtureAudioPreservesAbsoluteSamplesSeparateStreamsAndGain() started.
+◇ Test audioBlockSpansTwoCutsAndASilentGapWithExplicitSwap() started.
+◇ Test rejectsEmptySequenceAndArithmeticOverflow() started.
+◇ Test presentedSamplesSelectExactFractionalRateFrames() started.
+◇ Test pauseAndResumeUseNewDeviceAnchorsWithoutElapsedWallTime() started.
+◇ Test fractionalSequenceEndClampsAndPlayRestarts() started.
+◇ Test rejectsUnsupportedGridAlignmentAndOutputSettings() started.
+◇ Test seeksPreserveFractionalSampleAnchorAndRejectOldCallbacks() started.
+◇ Test invalidCurrentClockAndArithmeticFailureLeaveStateUnchanged() started.
+◇ Test manyUpdatesEqualOneUpdateAndIntegerRateEndIsExact() started.
+◇ Test seekClampsAndReplacementAlwaysPausesAtZero() started.
+✔ Test mpvResolverMatchesFileIndexAndKindWithoutEnumeration() passed after 0.001 seconds.
+✔ Test rationalCanonicalArithmeticAndOverflow() passed after 0.001 seconds.
+✔ Test sequenceTimecodeUsesExactFramesAndDisplayOffset() passed after 0.001 seconds.
+✔ Test renderPlanPreservesAbsolutePositionsSourceMapsAndLayers() passed after 0.001 seconds.
+✔ Test decodedExactTimeRejectsInvalidDenominator() passed after 0.001 seconds.
+✔ Test exactFrameRateAndDropFrameBoundaries() passed after 0.001 seconds.
+✔ Test timecodeRoundTripsAtAllSupportedNominalWidths() passed after 0.001 seconds.
+✔ Test mpvGraphRejectsAliasedSourceBindings() passed after 0.001 seconds.
+✔ Test uncoveredVideoAndAudioRemainBlackAndSilent() passed after 0.001 seconds.
+✔ Test mpvResolverRejectsAliasedTracksAcrossStreamsAndFiles() passed after 0.001 seconds.
+✔ Test fractionalFrameArithmeticAndDropFrameMinuteExceptions() passed after 0.001 seconds.
+✔ Test nativeFadeRequestsUseClipRelativeClockAcrossChannelsAndSeeks() passed after 0.001 seconds.
+✔ Test reverseAndRepeatedSeeksHaveNoSchedulingState() passed after 0.001 seconds.
+✔ Test mpvResolvedRepeatedInputsCompileToSplitGraph() passed after 0.001 seconds.
+✔ Test compilerFadesRetainExactSubsampleDurationBeforeTimelineDelay() passed after 0.001 seconds.
+✔ Test exactFractionalTimingAndHalfOpenVideoLayers() passed after 0.001 seconds.
+✔ Test mpvGraphSharesExportFiltersAndSplitsRepeatedStreams() passed after 0.001 seconds.
+✔ Test projectRejectsMissingIdentityAndUnknownChannelMapping() passed after 0.001 seconds.
+✔ Test sourceChannelIndicesAndAdditiveRoutingArePreserved() passed after 0.001 seconds.
+✔ Test overlappingAudioTracksReturnEveryContributionInLayerOrder() passed after 0.001 seconds.
+✔ Test fractionalFinalAudioSampleIsCeiledWithoutDrift() passed after 0.001 seconds.
+✔ Test rejectsInvalidAudioBlockRangesAndOverflow() passed after 0.001 seconds.
+✔ Test compilerKeepsPathsAsArgumentsAndRejectsSubsampleEdits() passed after 0.001 seconds.
+✔ Test parsesNonDropTimecodeAndRejectsMalformedLabels() passed after 0.001 seconds.
+✔ Test presentedSamplesSelectExactFractionalRateFrames() passed after 0.001 seconds.
+✔ Test requestPayloadsRoundTripThroughCodable() passed after 0.001 seconds.
+✔ Test pauseAndResumeUseNewDeviceAnchorsWithoutElapsedWallTime() passed after 0.001 seconds.
+✔ Test mpvGraphRequiresUnambiguousPositiveTrackIDs() passed after 0.001 seconds.
+✔ Test fixtureAudioPreservesAbsoluteSamplesSeparateStreamsAndGain() passed after 0.001 seconds.
+✔ Test audioBlockSpansTwoCutsAndASilentGapWithExplicitSwap() passed after 0.001 seconds.
+✔ Test rejectsEmptySequenceAndArithmeticOverflow() passed after 0.001 seconds.
+✔ Test fractionalSequenceEndClampsAndPlayRestarts() passed after 0.001 seconds.
+✔ Test mpvTrackListDecodesRuntimeNamesAndOptionalMetadata() passed after 0.002 seconds.
+✔ Test mpvResolverRejectsMissingAmbiguousAndInvalidMetadata() passed after 0.002 seconds.
+✔ Test compilerRefusesUnqualifiedMediaAndDestinations() passed after 0.002 seconds.
+✔ Test seeksPreserveFractionalSampleAnchorAndRejectOldCallbacks() passed after 0.001 seconds.
+✔ Test seekClampsAndReplacementAlwaysPausesAtZero() passed after 0.001 seconds.
+✔ Test invalidCurrentClockAndArithmeticFailureLeaveStateUnchanged() passed after 0.001 seconds.
+✔ Test adjacencyAndProjectRoundTrip() passed after 0.001 seconds.
+✔ Test rejectsMalformedSelectionsRoutingRangesAndStreams() passed after 0.001 seconds.
+✔ Test validatesHiddenSourcesAndRejectsStillsAndNonlocalOriginals() passed after 0.001 seconds.
+✔ Test manyUpdatesEqualOneUpdateAndIntegerRateEndIsExact() passed after 0.001 seconds.
+✔ Suite NativePlaybackTransportTests passed after 0.002 seconds.
+✔ Test rejectsUnsupportedGridAlignmentAndOutputSettings() passed after 0.001 seconds.
+✔ Suite NativePlaybackPlanTests passed after 0.002 seconds.
+✔ Test parsesDropFrameMinuteAndDayBoundaries() passed after 0.059 seconds.
+✔ Test run with 44 tests in 2 suites passed after 0.059 seconds.
