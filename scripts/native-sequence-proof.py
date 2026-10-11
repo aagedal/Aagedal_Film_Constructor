@@ -105,6 +105,8 @@ def main():
         run(['git', '-C', repo, 'status', '--short'], 'git-status.txt')
         run(['swift', 'build', '--package-path', repo / 'Packages/NativePlaybackProof',
              '--scratch-path', root / 'build', '--cache-path', root / 'cache', '--disable-sandbox', *flags], 'build.log')
+        run(['swift', 'test', '--package-path', repo / 'Packages/NativePlaybackProof',
+             '--scratch-path', root / 'build', '--cache-path', root / 'cache', '--disable-sandbox', *flags], 'runtime-tests.log')
         native = root / 'build/debug/NativeSequenceProof'
         identities['nativeExecutable'] = {'path': str(native), 'sha256': digest(native)}
         run(['otool', '-L', native], 'native-dependencies.txt')
@@ -170,6 +172,18 @@ def main():
                 raise ValueError('Truncated audio seek span')
             if (manifest['videoFrames'], manifest['audioSamples']) != (command['videoFrames'], command['audioSamples']):
                 raise ValueError('Native and independent render compiler output counts differ')
+            if not 0 <= manifest['asynchronousCacheBytes'] <= 128 * 1024 or manifest['asynchronousPendingRequests'] != 0:
+                raise ValueError('Asynchronous cache/admission bounds failed')
+            clock = manifest['transportClock']
+            expected_counts = list(range(1024, manifest['audioSamples'], 1024)) + [manifest['audioSamples']]
+            if [c['presentedSamples'] for c in clock] != expected_counts:
+                raise ValueError('Incomplete native sample-clock observations')
+            for observation in clock:
+                sample = observation['presentedSamples']
+                ended = sample == manifest['audioSamples']
+                expected_frame = None if ended else sample * 30000 // (48000 * 1001)
+                if (observation.get('frame'), observation['sample'], observation['playing']) != (expected_frame, sample, not ended):
+                    raise ValueError('Native transport differs from independent exact sample/frame clock')
             size = manifest['width'] * manifest['height'] * 3
             reference_rgb, reference_pcm = (variant / 'reference.rgb').read_bytes(), (variant / 'reference.pcm').read_bytes()
             if len(reference_rgb) != size * command['videoFrames'] or len(reference_pcm) != 2 * manifest['channels'] * command['audioSamples']:
@@ -177,6 +191,11 @@ def main():
             checked = {'name': name, 'libraryVersion': manifest['libraryVersion'],
                 'initialPlanReplaced': manifest['initialPlanReplaced'],
                 'sequentialVideo': compare_rgb((capture / 'native.rgb').read_bytes(), reference_rgb, size),
+                'asynchronousVideo': compare_rgb((capture / 'asynchronous.rgb').read_bytes(), reference_rgb, size),
+                'asynchronousAudio': compare_float_audio((capture / 'asynchronous.f32').read_bytes(), reference_pcm, manifest['channels']),
+                'asynchronousCacheBytes': manifest['asynchronousCacheBytes'],
+                'asynchronousPendingRequests': manifest['asynchronousPendingRequests'],
+                'transportClockObservations': len(clock),
                 'mixedAudio': compare_float_audio((capture / 'mixed.f32').read_bytes(), reference_pcm, manifest['channels']),
                 'scheduledAudio': compare_float_audio((capture / 'scheduled.f32').read_bytes(), reference_pcm, manifest['channels']),
                 'videoSeeks': [], 'audioSeeks': []}
@@ -188,13 +207,15 @@ def main():
                 ff(['-i', capture / check['pngFile'], '-pix_fmt', 'rgb24', '-f', 'rawvideo', decoded], name + f'-png-{index}.log')
                 png = compare_rgb(decoded.read_bytes(), expected, size)
                 checked['videoSeeks'].append({'frame': check['frame'], 'rebuilt': check['rebuilt'],
-                                              'raw': raw, 'nativePNG': png})
+                                              'raw': raw, 'nativePNG': png,
+                                              'asynchronous': compare_rgb((capture / check['asynchronousFile']).read_bytes(), expected, size)})
             for check in manifest['audioCaptures']:
                 offset = check['startSample'] * 2 * manifest['channels']
                 length = check['sampleCount'] * 2 * manifest['channels']
                 expected = reference_pcm[offset:offset + length]
                 checked['audioSeeks'].append({'startSample': check['startSample'], 'rebuilt': check['rebuilt'],
                     'mixed': compare_float_audio((capture / check['mixedFile']).read_bytes(), expected, manifest['channels']),
+                    'asynchronous': compare_float_audio((capture / check['asynchronousFile']).read_bytes(), expected, manifest['channels']),
                     'scheduled': compare_float_audio((capture / check['scheduledFile']).read_bytes(), expected, manifest['channels'])})
             checked['artifacts'] = {str(p.relative_to(variant)): digest(p) for p in variant.rglob('*') if p.is_file()}
             result['variants'].append(checked)

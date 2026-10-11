@@ -468,3 +468,48 @@ and production packaging remain open. Milestone 1 remains in progress.
 Reviewable evidence is in [docs/evidence/native-playback-20261009](evidence/native-playback-20261009/README.md).
 All 47 EditorCore tests and 9 Python tests pass; the unsigned macOS Debug app build
 passes. No new application media workflow is claimed by this development proof.
+
+
+## Asynchronous native monitor and exact transport (2026-10-11)
+
+The native proof now separates decoder ownership/output into a development
+`NativePlaybackRuntime` target. `NativePlaybackSession` compiles a plan without
+media I/O and sends decoding to one serial queue. The actor admits at most four
+pending requests by default, returns `busy` at saturation, and retains at most
+8 MiB of shared video/audio LRU payloads by default. The integration proof uses
+128 KiB to exercise eviction. Source decoder teardown also occurs on the worker.
+This is separate from the shipping app dependency graph.
+
+Results carry an epoch UUID. A seek invalidates pending work and previously
+returned values, while retaining valid cached payloads for the unchanged plan.
+Consumers must check `accepts` immediately before presentation. Successful plan
+replacement clears the cache and invalidates old decoding; failed compilation
+retains the prior epoch, plan and cache. Task cancellation is checked before
+initialization, before decode and after decode; obsolete completed results never
+enter the cache. A running C decoder call or full timestamp qualification cannot
+be interrupted. Request slots stay occupied until those calls complete, so
+repeated seeks cannot create an unbounded decoder backlog. Cleanup requests are
+coalesced and close is idempotent.
+
+`NativePlaybackTransport` is independent of decoding and advances only from
+presented sample counts at the plan sample rate. It preserves an exact rational
+seek anchor, derives the current output frame without floating-point drift,
+rejects old generations and regressing current clock counts, and stops at exact
+sequence duration rather than exposing a ceiled final sample as extra time.
+Offline rendering now feeds this transport with AVAudioEngine's actual
+`manualRenderingSampleTime`; Python independently checks every observed frame.
+This is evidence for clock arithmetic and offline output, not live A/V sync.
+
+Reproduction uses the same render-plan and native-sequence proof commands above.
+The native runner now also executes the development runtime's nine tests and
+validates asynchronous sequential/seek captures in all four variants. The run at
+`/private/tmp/film-native-async-verified-20261011` passes every frame/sample and
+282 clock observations per variant. Maximum RGB error is 2.0, maximum audio
+error 0.75 s16 units, retained cache 90,112 bytes, final pending work zero.
+[Retained evidence](evidence/native-playback-20261011/README.md) includes commands,
+actual dependency/source hashes, comparison results, runtime tests and complete
+per-variant native request/clock manifests.
+
+Live native display refresh and hardware output scheduling, latency/underrun
+recovery, full-stream qualification cost, codec memory, format/rate/geometry
+coverage, crossfades and macOS 14-compatible shipping dependencies remain open.

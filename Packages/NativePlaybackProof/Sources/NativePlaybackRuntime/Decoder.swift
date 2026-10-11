@@ -2,9 +2,9 @@ import Foundation
 import CNativeDecoder
 import EditorCore
 
-struct ProofFailure: Error, CustomStringConvertible {
-    let description: String
-    init(_ message: String) { description = message }
+public struct ProofFailure: Error, CustomStringConvertible {
+    public let description: String
+    public init(_ message: String) { description = message }
 }
 
 private func message(_ chars: [CChar]) -> String {
@@ -37,7 +37,7 @@ final class SourceDecoder {
 
     deinit { afc_decoder_close(handle) }
 
-    func video(frame: Int64, rate: FrameRate, width: Int, height: Int) throws -> Data {
+    public func video(frame: Int64, rate: FrameRate, width: Int, height: Int) throws -> Data {
         // Geometry is intentionally narrow until metadata and scaling are qualified.
         guard self.width == width, self.height == height, width <= 4096, height <= 4096 else {
             throw ProofFailure("Proof requires source raster equal to sequence raster (maximum 4096²)")
@@ -50,7 +50,7 @@ final class SourceDecoder {
         return Data(bytes)
     }
 
-    func audio(start: Int64, count: Int, sampleRate: Int) throws -> [Float] {
+    public func audio(start: Int64, count: Int, sampleRate: Int) throws -> [Float] {
         guard self.sampleRate == sampleRate, channels > 0, channels <= 64,
               count > 0, count <= 65536, let cCount = Int32(exactly: count),
               let cRate = Int32(exactly: sampleRate) else {
@@ -71,11 +71,11 @@ struct SourceKey: Hashable {
 }
 
 /// Buffers are bounded by a frame or audio block, never the duration of a source.
-final class NativeMonitor {
-    private(set) var plan: NativePlaybackPlan
+public final class NativeMonitor {
+    public private(set) var plan: NativePlaybackPlan
     private var decoders: [SourceKey: SourceDecoder] = [:]
 
-    init(project: Project) throws {
+    public init(project: Project) throws {
         plan = try NativePlaybackPlan(TimelineRenderPlan(project: project))
         guard plan.settings.width <= 4096, plan.settings.height <= 4096 else {
             throw ProofFailure("Proof limits sequence raster to 4096²")
@@ -84,7 +84,7 @@ final class NativeMonitor {
 
     /// Compile and validate before swapping; a failed edit keeps the prior plan
     /// and decoders. Successful replacement invalidates all decoded source state.
-    func replace(project: Project) throws {
+    public func replace(project: Project) throws {
         let replacement = try NativePlaybackPlan(TimelineRenderPlan(project: project))
         guard replacement.settings.width <= 4096, replacement.settings.height <= 4096 else {
             throw ProofFailure("Proof limits sequence raster to 4096²")
@@ -93,7 +93,7 @@ final class NativeMonitor {
         resetDecoders()
     }
 
-    func resetDecoders() { decoders.removeAll() }
+    public func resetDecoders() { decoders.removeAll() }
 
     private func decoder(url: URL, streamIndex: Int) throws -> SourceDecoder {
         let key = SourceKey(url: url, streamIndex: streamIndex)
@@ -104,7 +104,7 @@ final class NativeMonitor {
         return decoder
     }
 
-    func video(frame: Int64) throws -> Data {
+    public func video(frame: Int64) throws -> Data {
         guard let request = try plan.videoFrame(at: frame) else {
             return Data(repeating: 0, count: plan.settings.width * plan.settings.height * 3)
         }
@@ -114,7 +114,7 @@ final class NativeMonitor {
     }
 
     /// Float mixing preserves explicit routing and static gain without a limiter.
-    func audio(start: Int64, count: Int) throws -> [Float] {
+    public func audio(start: Int64, count: Int) throws -> [Float] {
         let requests = try plan.audioBlock(startSample: start, sampleCount: count)
         let channels = plan.settings.audioLayout.channels.count
         var output = [Float](repeating: 0, count: count * channels)

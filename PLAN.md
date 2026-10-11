@@ -5,8 +5,10 @@ subset of its render plan into FFmpeg, with decoded-frame/sample integration
 evidence. Headless sequential MPV parity passes, but exact seeking and graph
 rebuilding fail. The native FFmpeg-library fallback now passes decoded video/audio
 seeks, edited-plan replacement, native image captures and AVAudioEngine offline
-parity for qualified fixtures. Live playback, helper packaging and the full
-workspace remain in progress.
+parity for qualified fixtures. Bounded asynchronous decoding, stale-result
+rejection and exact sample-driven transport now pass the same fixtures and native
+offline clock checks. Live playback, helper packaging and the full workspace
+remain in progress.
 This plan records the intended product and implementation order; unchecked
 items remain planned capabilities.
 
@@ -446,6 +448,9 @@ rates. Track stable container stream indices and per-stream timing offsets.
 - [x] Prototype the native FFmpeg-library fallback after MPV seek failure; verify
       exact frame/sample requests, forward/backward seeks, decoder rebuilding,
       edited-plan invalidation and native offline output against rendered fixtures.
+- [x] Add bounded asynchronous decoder requests, shared decoded-payload caching,
+      cancellation and stale seek/edit rejection; verify exact transport against
+      the native offline sample clock and independent frame/sample renders.
 - [x] Test adjacency, multiple overlaps, free siblings, custom names, failed edit
       rollback, exact fractional rates, DF boundaries, and preserved audio sync.
 
@@ -664,3 +669,30 @@ launch-performance claim has been validated yet.
   crossfades, format/rate/geometry coverage and macOS 14-compatible shipping
   dependencies remain open. Milestone 1 remains in progress.
 - Reproduction and evidence: [native media-engine audit](docs/media-engine-audit.md#native-sequence-fallback-proof-2026-10-09).
+
+
+### Asynchronous native playback verification (2026-10-11)
+
+- Added exact sample-driven play/pause/seek transport with seven tests covering
+  fractional anchors, frame boundaries, stale clock callbacks, monotonic counts,
+  exact-end clamping, replacement and checked failure rollback.
+- Extracted the development decoder/output into `NativePlaybackRuntime`. A
+  serial worker keeps media I/O off the caller executor; its actor session bounds
+  pending requests and shares a byte-limited LRU across video/audio. Seek/edit
+  epochs invalidate queued work and prevent stale results from entering the cache
+  or being accepted for presentation. Cleanup jobs are coalesced.
+- Nine runtime tests cover cancellation during decode/initialization, saturated
+  admission, queued read rejection, repeated replacements, close, rejected edits,
+  invalid requests and mixed-cache eviction. A running FFmpeg call cannot yet be
+  interrupted; cancellation skips pending calls and discards obsolete output.
+- 54 EditorCore tests, nine runtime tests, nine Python tests and the unsigned
+  macOS Debug app build pass. The app still uses its synthetic timeline.
+- Four actual media variants pass asynchronous parity for every 180 frames and
+  288,288 stereo samples, ten video and eight audio seeks each, plus replacement
+  of primed decoder state. Every variant passes 282 actual AVAudioEngine offline
+  clock observations checked against independent exact frame arithmetic.
+- Retained payload cache is 90,112 bytes under a 131,072-byte test limit; pending
+  requests finish at zero. Internal codec/index memory remains unprofiled.
+- Live display/audio scheduling, latency/underrun recovery, helper packaging and
+  broader format coverage remain open. Milestone 1 remains in progress. See
+  [the evidence](docs/evidence/native-playback-20261011/README.md).

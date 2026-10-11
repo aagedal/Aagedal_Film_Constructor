@@ -28,3 +28,21 @@ paths. It captures the actual linked dylib hashes, commands, source identities,
 output counts, sequential parity and complete seek/rebuild cases. See
 [the audit](../../docs/media-engine-audit.md#native-sequence-fallback-proof-2026-10-09)
 for reproduction and known runtime/packaging limitations.
+
+`NativePlaybackRuntime` now separates the reusable development monitor from the
+proof executable. `NativePlaybackSession` provides async `video`/`audio` requests
+on a serial decoder queue, with bounded pending work and a shared video/audio
+LRU byte budget. Call `invalidate()` before seeking and `replace(project:)` after
+an edit. Returned values carry an epoch; check `accepts(value.epoch)` immediately
+before presentation. `close()` cancels obsolete queued work and releases decoder
+state. Cancellation cannot interrupt an already-running FFmpeg call.
+
+EditorCore's `NativePlaybackTransport` consumes presented sample counts from the
+output clock, supports exact play/pause/seek and rejects stale clock generations.
+Decoding and scheduling do not advance it. The proof connects it to AVAudioEngine's
+offline sample clock and independently checks frame selection in Python. The
+runner now executes nine runtime tests and captures every asynchronous frame and
+audio block, including seeks and primed plan replacement.
+
+See [the 2026-10-11 evidence](../../docs/evidence/native-playback-20261011/README.md).
+This does not qualify hardware clocking, live display, latency or underrun recovery.

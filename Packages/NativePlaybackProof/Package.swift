@@ -10,8 +10,11 @@ let package = Package(
     targets: [
         .systemLibrary(name: "CFFmpeg", pkgConfig: "libavformat"),
         .target(name: "CNativeDecoder", dependencies: ["CFFmpeg"]),
-        .executableTarget(name: "NativeSequenceProof", dependencies: [
+        .target(name: "NativePlaybackRuntime", dependencies: [
             "CNativeDecoder", .product(name: "EditorCore", package: "EditorCore")
-        ])
+        ]),
+        .executableTarget(name: "NativeSequenceProof", dependencies: ["NativePlaybackRuntime", "CNativeDecoder",
+            .product(name: "EditorCore", package: "EditorCore")]),
+        .testTarget(name: "NativePlaybackRuntimeTests", dependencies: ["NativePlaybackRuntime"])
     ]
 )
