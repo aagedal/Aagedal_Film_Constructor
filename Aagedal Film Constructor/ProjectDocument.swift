@@ -10,10 +10,12 @@ struct ProjectDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.filmConstructorProject] }
     var project: Project
     var mediaBookmarks: [UUID: Data]
+    var proxyBookmarks: [UUID: Data]
 
-    init(project: Project = Project(settings: try! SequenceSettings()), mediaBookmarks: [UUID: Data] = [:]) {
+    init(project: Project = Project(settings: try! SequenceSettings()), mediaBookmarks: [UUID: Data] = [:], proxyBookmarks: [UUID: Data] = [:]) {
         self.project = project
         self.mediaBookmarks = mediaBookmarks
+        self.proxyBookmarks = proxyBookmarks
     }
 
     init(configuration: ReadConfiguration) throws {
@@ -30,6 +32,8 @@ struct ProjectDocument: FileDocument {
         // Removed assets must not retain grants to unrelated files.
         let assetIDs = Set(project.assets.map(\.id))
         mediaBookmarks = payload.mediaBookmarks.filter { assetIDs.contains($0.key) }
+        let proxyAssetIDs = Set(project.assets.filter { $0.proxy != nil }.map(\.id))
+        proxyBookmarks = (payload.proxyBookmarks ?? [:]).filter { proxyAssetIDs.contains($0.key) }
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
@@ -40,7 +44,8 @@ struct ProjectDocument: FileDocument {
         try project.validate()
         let assetIDs = Set(project.assets.map(\.id))
         let payload = Payload(formatVersion: 1, project: project,
-                              mediaBookmarks: mediaBookmarks.filter { assetIDs.contains($0.key) })
+                              mediaBookmarks: mediaBookmarks.filter { assetIDs.contains($0.key) },
+                              proxyBookmarks: proxyBookmarks.filter { id, _ in project.assets.contains { $0.id == id && $0.proxy != nil } })
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return try encoder.encode(payload)
@@ -64,11 +69,31 @@ struct ProjectDocument: FileDocument {
         return url
     }
 
+    /// Proxy grants are independent of originals, so replacing either representation
+    /// cannot redirect the other when the project is reopened.
+    mutating func resolveProxyURL(for assetID: UUID) throws -> URL? {
+        guard let index = project.assets.firstIndex(where: { $0.id == assetID }),
+              project.assets[index].proxy != nil else { return nil }
+        guard let bookmark = proxyBookmarks[assetID] else { return project.assets[index].proxy?.url }
+        var stale = false
+        let url = try URL(resolvingBookmarkData: bookmark, options: [.withSecurityScope, .withoutUI],
+                          relativeTo: nil, bookmarkDataIsStale: &stale)
+        if stale {
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            proxyBookmarks[assetID] = try url.bookmarkData(options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
+                                                         includingResourceValuesForKeys: nil, relativeTo: nil)
+        }
+        project.assets[index].proxy?.url = url
+        return url
+    }
+
     private struct VersionHeader: Decodable { var formatVersion: Int }
     private struct Payload: Codable {
         var formatVersion: Int
         var project: Project
         var mediaBookmarks: [UUID: Data]
+        var proxyBookmarks: [UUID: Data]?
     }
 }
 

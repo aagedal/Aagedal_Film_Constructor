@@ -40,9 +40,12 @@ adaptation and optional confirmation. Aligned linked audio components with the
 same source, track family, and gain can be combined into one explicitly mapped
 component. See [basic testing instructions](docs/basic-workspace.md).
 
-This is the first usable assembly workspace. The monitor previews original
-sources, not the edited sequence. Native timeline playback, release media-helper
-packaging, and proxies remain unfinished. A development sequence render workflow
+This is the first usable assembly workspace. The monitor previews sources;
+native timeline playback and release media-helper packaging remain unfinished.
+The bin supports batch ProRes Proxy/H.264 creation, cancellable verified jobs,
+saved proxy references, and a hires/proxy source-preview toggle with original
+audio and missing/stale fallback. See [proxy scope and testing](docs/proxies.md).
+A development sequence render workflow
 exports MOV/ProRes 422 HQ with PCM audio, progress, cancellation, and FFprobe
 verification when explicitly prepared helpers are bundled. PNG/JPEG stills,
 layered video, channel maps, gain, fades and crossfades are supported within the
@@ -96,7 +99,7 @@ AVAudioEngine offline output, and replacement of an already-used edit plan again
 independent FFmpeg renders. Barcode, video-gap, overlapping-audio and H.264 B-frame
 fixtures pass. See [the native proof evidence](docs/evidence/native-playback-20261009/README.md)
 and [reproduction instructions](docs/media-engine-audit.md#native-sequence-fallback-proof-2026-10-09).
-The assembly workspace now imports real media; live sequence playback and shipping
+The assembly workspace imports real media and supports qualified source proxies; live sequence playback and shipping
 media dependencies remain unfinished.
 
 The native development runtime now has an asynchronous serial decoder worker,

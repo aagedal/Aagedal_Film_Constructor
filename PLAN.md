@@ -9,8 +9,10 @@ parity for qualified fixtures. Bounded asynchronous decoding, stale-result
 rejection and exact sample-driven transport now pass the same fixtures and native
 offline clock checks. Milestone 2 now has a basic assembly workspace with source
 preview, media import, project documents, and linked editing. Live sequence
-playback, release helper packaging, proxies and full export qualification stay
-in progress. A scoped render workflow now has progress/cancellation, verified
+playback, release helper packaging and full export qualification stay
+in progress. Project-bin proxies now have a scoped constant-frame-rate workflow
+and source-preview switching; full proxy qualification remains open.
+A scoped render workflow now has progress/cancellation, verified
 publication and opt-in helper packaging; FCPXML has a validated structural subset.
 This plan records the intended product and implementation order; unchecked
 items remain planned capabilities.
@@ -526,12 +528,23 @@ a compatible track, create a crossfade, and undo both operations without lost sy
 
 ### 4. Project-bin proxy workflow
 
-- [ ] Add batch right-click proxy creation with ProRes Proxy default and H.264 option.
-- [ ] Implement progress/cancel, bounded jobs, atomic registration, and relinking.
-- [ ] Add the hires/proxy toggle with missing/stale-proxy status and fallback.
+- [x] Add batch right-click proxy creation with ProRes Proxy default and H.264 option
+      for the qualified constant-frame-rate video subset.
+- [x] Implement progress/cancel, bounded jobs and atomic verified registration,
+      retaining prior proxies until replacement succeeds.
+- [ ] Add explicit proxy relinking and a persistent resumable job queue.
+- [x] Add a document-session hires/proxy source-preview toggle with
+      missing/stale-proxy status and fallback. Sequence monitoring remains open.
 - [ ] Test frame/timecode correspondence, geometry, multiple audio streams, VFR
       mapping, switching at a nonzero playhead, and save/reopen.
 - [ ] Verify proxy playback does not change edits and final exports use originals.
+
+The scoped workflow preserves original edit coordinates and keeps original audio
+in source preview. Proxy references and independent sandbox bookmarks persist
+and are restored by undo/redo. Original relinking clears derived references
+atomically; missing proxies can be regenerated. See [proxy scope](docs/proxies.md)
+for timestamp/raster qualification, probe limits, metadata fingerprints and
+remaining signed/native playback checks.
 
 ### 5. Sequence export and interchange
 
@@ -934,3 +947,38 @@ launch-performance claim has been validated yet.
 - Live edited-sequence monitoring, proxies, stream-copy export, full geometry/color/
   VFR qualification, native interchange import and release helper review remain
   open. No production media compatibility or completed v1 acceptance is claimed.
+
+### Qualified project-bin proxy checkpoint (2026-10-11)
+
+- Added batch selection and right-click proxy creation with ProRes Proxy default,
+  optional H.264, full/half/quarter raster, output-folder grants, per-asset progress,
+  cancellation and failure summaries. Each batch runs sequentially; the shared
+  service admits at most two jobs across windows and reports excess requests.
+- Generation scans all original and proxy frame timestamps with exact rational
+  arithmetic. It verifies selected stream identity, zero-based CFR timing, codec/
+  profile, raster/aspect, frame count, available source timecode and known SDR
+  color tags before atomic no-overwrite publication. VFR, offset/rotated/anamorphic,
+  HDR and full-range sources are refused. Probe output remains bounded to 2 MB.
+- Added backward-compatible persisted proxy metadata and separate sandbox grants.
+  Successful registration is undoable; previous proxies remain registered until
+  replacements verify. Relinking originals invalidates their proxies atomically.
+  Document/source revisions prevent stale jobs from registering into changed media.
+- Added document-session hires/proxy source switching, preserving nonzero position
+  and forward-play intent across rapid asynchronous switches. Native composition
+  uses proxy picture and all original audio tracks, including audio tails beyond
+  picture. Missing/stale/unusable proxies visibly fall back to originals. Timeline
+  edits, source previews in the timeline, render plans and interchange use originals.
+- Fixed a confirmed Foundation subprocess hang by removing redundant synchronous
+  `waitUntilExit` after asynchronous termination polling. Cancellation still
+  escalates termination, drains bounded pipes and verifies child reaping.
+- Verification passed: 125 EditorCore tests, nine Python regressions, shortcut
+  smoke, expanded app-file smoke, existing export smoke, proxy service/workspace
+  smoke and unsigned macOS Debug build. Both codecs pass all 24 decoded frame
+  correspondence checks at 24000/1001. Actual AVFoundation composition checks
+  cover multiple original audio streams, longer audio tails, transport switching,
+  grants, history, reopen, fallback and stale registration rejection.
+- Explicit proxy relinking, persistent resumable queues, large-file/VFR mappings,
+  output-file tamper detection, signed sandbox grants, native gestures and hardware
+  A/V quality remain open. Source freshness uses size/mtime rather than a content
+  hash. Live edited-sequence playback is still unimplemented. See
+  [proxy scope and reproduction](docs/proxies.md).

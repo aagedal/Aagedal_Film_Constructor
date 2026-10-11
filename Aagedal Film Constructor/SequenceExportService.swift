@@ -201,7 +201,7 @@ actor SequenceExportService {
 }
 
 /// Pipes are drained concurrently; retained diagnostics and probe output have fixed limits.
-nonisolated private final class ExportProcess: @unchecked Sendable {
+nonisolated final class ExportProcess: @unchecked Sendable {
     private let lock = NSLock()
     private let process = Process()
     private var cancelled = false
@@ -267,7 +267,8 @@ nonisolated private final class ExportProcess: @unchecked Sendable {
                 // Cancellation must not skip process reaping or reader cleanup.
                 await Task.detached { try? await Task.sleep(for: .milliseconds(20)) }.value
             }
-            runner.process.waitUntilExit()
+            // Foundation reaps the child before isRunning becomes false. Calling
+            // waitUntilExit here can hang when an async task resumed on a different run loop.
             while runner.remainingReaders() > 0 { await Task.detached { try? await Task.sleep(for: .milliseconds(10)) }.value }
             try Task.checkCancellation()
             guard runner.process.terminationStatus == 0 else {
