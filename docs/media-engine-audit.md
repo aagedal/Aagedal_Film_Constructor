@@ -513,3 +513,25 @@ per-variant native request/clock manifests.
 Live native display refresh and hardware output scheduling, latency/underrun
 recovery, full-stream qualification cost, codec memory, format/rate/geometry
 coverage, crossfades and macOS 14-compatible shipping dependencies remain open.
+
+
+## Standalone audio fade parity (2026-10-11)
+
+The canonical render plan now includes independent per-component fade-in/out
+edges with exact rational durations and linear/equal-power curves. The native
+monitor evaluates both at clip-relative sample positions; FFmpeg emits the same
+sample-index expressions after source trimming, before timeline placement.
+Overlapping edges multiply, with no limiter or automatic normalization.
+
+A fifth proof variant replaces a primed baseline plan with overlapping routed
+clips, both curves, overlapping edge durations and a fractional-sample fade.
+All 180 frames and 288,288 stereo samples per channel pass synchronous,
+asynchronous and AVAudioEngine offline comparisons against FFmpeg. Ten video
+and eight audio seeks, including backward seeks and rebuilding, also pass.
+Maximum audio error is 1.0 s16 unit and mean RGB error is 2.0; all 282 clock
+observations pass. The original four variants remain passing. See
+[retained evidence](evidence/audio-fades-20261011/README.md).
+
+Standalone fades are now editable and persisted in the workspace. The source
+monitor plays originals. Linked crossfades, live sequence scheduling, shipping
+helpers and the broader format/geometry matrix remain unqualified.

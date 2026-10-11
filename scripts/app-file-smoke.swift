@@ -147,8 +147,83 @@ struct AppFileSmoke {
         try exerciseWorkspace()
         try exerciseAudioSelection()
         try exerciseAudioAppend()
+        try exerciseAudioFades()
         try exerciseShortcuts()
-        print("App file smoke passed: WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, shortcut persistence/scoped dispatch, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, shortcut persistence/scoped dispatch, project save/reopen, corrupt and unsupported file rejection.")
+    }
+
+    @MainActor
+    static func exerciseAudioFades() throws {
+        let store = EditorStore()
+        defer { store.close() }
+        try store.registerImportedMedia(ImportedMedia(asset: MediaAsset(name: "Fade fixture", duration: try RationalTime(4), streams: [
+            MediaStream(index: 0, kind: .video),
+            MediaStream(index: 1, kind: .audio, audioLayout: .stereo)
+        ]), bookmark: nil))
+        store.appendSelectedAsset()
+        let baseline = store.project
+        let audio = baseline.tracks.flatMap(\.clips).first { $0.requiredTrackKind == .audio }!
+        let picture = baseline.tracks.flatMap(\.clips).first { $0.requiredTrackKind == .video }!
+        let proposed = store.proposedAudioFadeDuration(clip: audio, seconds: 0.1234567)
+        try check(abs(proposed - 5926.0 / 48000) < 1e-12,
+                  "Linked audio fades use audio sample alignment rather than picture frames")
+        try check(store.project == baseline && store.proposedAudioFadeDuration(clip: audio, seconds: -2) == 0 &&
+                  store.proposedAudioFadeDuration(clip: audio, seconds: 100) == 4,
+                  "Local fade preview clamps independently without mutating history")
+        try store.applyAudioFades(clipID: audio.id, fadeInSeconds: proposed, fadeInCurve: .equalPower,
+                                 fadeOutSeconds: 3.5, fadeOutCurve: .linear, expectedClip: audio)
+        let changed = store.project
+        let faded = changed.tracks.flatMap(\.clips).first { $0.id == audio.id }!
+        try check(faded.fadeIn.duration == RationalTime(5926, 48000) && faded.fadeIn.curve == .equalPower &&
+                  faded.fadeOut.duration == RationalTime(7, 2), "Fade commit preserves rational samples and curves")
+        try check(changed.tracks.flatMap(\.clips).first { $0.id == picture.id } == picture,
+                  "Audio fade edit preserves linked picture")
+        store.undo()
+        try check(store.project == baseline, "One undo restores both audio fades")
+        store.redo()
+        try check(store.project == changed, "Audio fades redo")
+        try check(try ProjectDocument(data: ProjectDocument(project: changed).encodedData()).project == changed,
+                  "Audio fades persist through project save and reopen")
+        store.undo()
+        do {
+            try store.applyAudioFades(clipID: audio.id, fadeInSeconds: 1, fadeInCurve: .linear,
+                                     fadeOutSeconds: 1, fadeOutCurve: .linear, expectedClip: faded)
+            throw SmokeError.failed("Stale audio fade draft accepted")
+        } catch EditorCoreError.invalidModel { }
+        for invalid in [-1.0, Double.nan, Double.infinity] {
+            do {
+                try store.applyAudioFades(clipID: audio.id, fadeInSeconds: invalid, fadeInCurve: .linear,
+                                         fadeOutSeconds: 0, fadeOutCurve: .linear, expectedClip: audio)
+                throw SmokeError.failed("Invalid fade duration accepted")
+            } catch EditorCoreError.invalidTime { }
+        }
+        try check(store.project == baseline && store.canRedo, "Rejected fade edits preserve the document and redo history")
+        try store.applyAudioFades(clipID: audio.id, fadeInSeconds: 0, fadeInCurve: .linear,
+                                 fadeOutSeconds: 0, fadeOutCurve: .linear, expectedClip: audio)
+        try check(store.canRedo, "No-op fade commit preserves redo history")
+        try store.applyAudioFades(clipID: audio.id, fadeInSeconds: 3, fadeInCurve: .equalPower,
+                                 fadeOutSeconds: 3, fadeOutCurve: .equalPower, expectedClip: audio)
+        let overlap = store.selectedClip!
+        try check(overlap.fadeIn.duration.seconds == 3 && overlap.fadeOut.duration.seconds == 3,
+                  "Fade durations may overlap independently")
+        let fractional = TimelineClip(assetID: audio.assetID, sourceRange: try TimeRange(start: .zero, duration: RationalTime(1, 7)),
+                                      timelineStart: .zero, selection: audio.selection)
+        let bound = store.proposedAudioFadeDuration(clip: fractional, seconds: 1)
+        try check(abs(bound - 6857.0 / 48000) < 1e-12 && bound < 1.0 / 7,
+                  "Fade clamp floors a fractional duration to the last complete sample")
+        var imported = store.project
+        for track in imported.tracks.indices {
+            if let index = imported.tracks[track].clips.firstIndex(where: { $0.id == audio.id }) {
+                imported.tracks[track].clips[index].fadeOut.duration = try RationalTime(1, 7)
+            }
+        }
+        store.load(ProjectDocument(project: imported))
+        let importedAudio = imported.tracks.flatMap(\.clips).first { $0.id == audio.id }!
+        try store.applyAudioFades(clipID: audio.id, fadeInSeconds: 1, fadeInCurve: .linear,
+                                 fadeOutSeconds: importedAudio.fadeOut.duration.seconds, fadeOutCurve: importedAudio.fadeOut.curve,
+                                 expectedClip: importedAudio)
+        try check(store.selectedClip?.fadeOut == importedAudio.fadeOut,
+                  "Changing one fade preserves the opposite edge's exact imported rational duration")
     }
 
     @MainActor

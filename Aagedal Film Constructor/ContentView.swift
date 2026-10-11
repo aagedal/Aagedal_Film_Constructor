@@ -185,6 +185,11 @@ private struct ProjectInspector: View {
     @State private var frameRate = "24"
     @State private var startTimecode = "00:00:00:00"
     @State private var editingAudio = false
+    @State private var fadeInDuration = "0"
+    @State private var fadeOutDuration = "0"
+    @State private var fadeInCurve = AudioFadeCurve.linear
+    @State private var fadeOutCurve = AudioFadeCurve.linear
+    @State private var fadeDraftClip: TimelineClip?
 
     var body: some View {
         ScrollView {
@@ -215,6 +220,16 @@ private struct ProjectInspector: View {
                             } else {
                                 Button("Audio source channels…") { editingAudio = true }
                                 Text("\(clip.requiredAudioLayout?.channels.count ?? 0) selected channels")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                Divider()
+                                numericField("Fade in (s)", text: $fadeInDuration)
+                                fadeCurvePicker("Fade in curve", selection: $fadeInCurve)
+                                numericField("Fade out (s)", text: $fadeOutDuration)
+                                fadeCurvePicker("Fade out curve", selection: $fadeOutCurve)
+                                Button("Apply fades") { applyFades(clip) }
+                                Text("Fades apply to this audio component. Durations may overlap.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                Text("Sequence rendering and the development monitor use fades. Source preview plays the original audio.")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                         }.padding(5)
@@ -282,11 +297,34 @@ private struct ProjectInspector: View {
             TextField(label, text: text).textFieldStyle(.roundedBorder)
         }
     }
+    private func fadeCurvePicker(_ label: String, selection: Binding<AudioFadeCurve>) -> some View {
+        Picker(label, selection: selection) {
+            Text("Linear").tag(AudioFadeCurve.linear)
+            Text("Equal power").tag(AudioFadeCurve.equalPower)
+        }
+    }
+    private func applyFades(_ clip: TimelineClip) {
+        guard let fadeIn = Double(fadeInDuration), let fadeOut = Double(fadeOutDuration),
+              fadeIn.isFinite, fadeOut.isFinite, fadeIn >= 0, fadeOut >= 0, let expected = fadeDraftClip else {
+            store.errorMessage = "Enter nonnegative fade durations in seconds."
+            return
+        }
+        do {
+            try store.applyAudioFades(clipID: clip.id, fadeInSeconds: fadeIn, fadeInCurve: fadeInCurve,
+                                     fadeOutSeconds: fadeOut, fadeOutCurve: fadeOutCurve, expectedClip: expected)
+            refreshClip()
+        } catch { store.errorMessage = String(describing: error) }
+    }
     private func refreshClip() {
         guard let clip = store.selectedClip else { return }
         sourceStart = String(clip.sourceRange.start.seconds)
         clipDuration = String(clip.sourceRange.duration.seconds)
         timelineStart = String(clip.timelineStart.seconds)
+        fadeInDuration = String(clip.fadeIn.duration.seconds)
+        fadeOutDuration = String(clip.fadeOut.duration.seconds)
+        fadeInCurve = clip.fadeIn.curve
+        fadeOutCurve = clip.fadeOut.curve
+        fadeDraftClip = clip
     }
     private func refreshSettings() {
         width = String(store.project.settings.width)

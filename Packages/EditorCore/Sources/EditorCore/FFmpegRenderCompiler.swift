@@ -56,6 +56,8 @@ public enum FFmpegRenderCompiler {
                 throw EditorCoreError.invalidModel("Missing original or output aliases a source")
             }
             try component.sourceRange.validate(); try component.timelineRange.validate()
+            try component.fadeIn.validate(duration: component.sourceRange.duration)
+            try component.fadeOut.validate(duration: component.sourceRange.duration)
             guard component.sourceRange.duration == component.timelineRange.duration,
                   try component.timelineRange.end().compared(to: plan.duration) != .orderedDescending,
                   component.gain.isFinite, component.gain >= 0 else {
@@ -74,6 +76,9 @@ public enum FFmpegRenderCompiler {
             case .still:
                 throw EditorCoreError.invalidModel("Still-image export is not qualified by this prototype")
             case .video(let stream):
+                guard component.fadeIn.duration == .zero && component.fadeOut.duration == .zero else {
+                    throw EditorCoreError.invalidModel("Only audio clips support fades")
+                }
                 let start = try integral(component.sourceRange.start.multiplied(by: settings.frameRate.value), "Video source in must align to sequence frames")
                 let count = try integral(component.sourceRange.duration.multiplied(by: settings.frameRate.value), "Video duration must align to sequence frames")
                 let placement = try integral(component.timelineRange.start.multiplied(by: settings.frameRate.value), "Video placement must align to frames")
@@ -103,13 +108,14 @@ public enum FFmpegRenderCompiler {
                 let start = try integral(component.sourceRange.start.multiplied(by: Int64(settings.audioSampleRate)), "Audio in must align to samples")
                 let end = try integral(component.sourceRange.end().multiplied(by: Int64(settings.audioSampleRate)), "Audio out must align to samples")
                 let delay = try integral(component.timelineRange.start.multiplied(by: Int64(settings.audioSampleRate)), "Audio placement must align to samples")
+                let envelope = try audioEnvelope(component, sampleCount: end - start, sampleRate: settings.audioSampleRate, layout: layout)
                 for (channel, sourceChannel) in selection.channels.enumerated() {
                     guard let stream = component.sourceStreams.first(where: { $0.index == sourceChannel.streamIndex }), let sourceLayout = stream.audioLayout,
                           sourceLayout.channels.indices.contains(sourceChannel.channelIndex) else { throw EditorCoreError.invalidModel("Invalid source channel") }
                     let source = try input(sourceChannel.streamIndex, kind: .audio)
                     let map = settings.audioLayout.channels.indices.map { "c\($0)=\($0 == routing[channel] ? "c\(sourceChannel.channelIndex)" : "0*c\(sourceChannel.channelIndex)")" }.joined(separator: "|")
                     let label = "a\(index)c\(channel)"
-                    graph.append("\(source)aresample=\(settings.audioSampleRate),atrim=start_sample=\(start):end_sample=\(end),asetpts=PTS-STARTPTS,pan=\(layout)|\(map),volume=\(component.gain),adelay=\(delay)S:all=1[\(label)]")
+                    graph.append("\(source)aresample=\(settings.audioSampleRate),atrim=start_sample=\(start):end_sample=\(end),asetpts=PTS-STARTPTS,pan=\(layout)|\(map),aformat=sample_fmts=flt,volume=\(component.gain):precision=float\(envelope),adelay=\(delay)S:all=1[\(label)]")
                     audioLabels.append(label)
                 }
             }
@@ -119,6 +125,27 @@ public enum FFmpegRenderCompiler {
         let filterGraph = graph.joined(separator: ";")
         arguments += ["-filter_complex", filterGraph, "-map", "[video]", "-map", "[audio]", "-r", rate, "-fps_mode", "cfr", "-c:v", "prores_ks", "-profile:v", "3", "-pix_fmt", "yuv422p10le", "-c:a", "pcm_s24le", "-ar", String(settings.audioSampleRate), "-ac", String(settings.audioLayout.channels.count), "-video_track_timescale", String(settings.frameRate.value.numerator), "-timecode", try settings.startTimecode.formatted(rate: settings.frameRate), outputURL.path]
         return FFmpegRenderCommand(inputs: inputs, arguments: arguments, filterGraph: filterGraph, videoFrames: frames, audioSamples: samples)
+    }
+    /// aeval's n begins at zero after trim, before timeline delay. The rational
+    /// denominators retain sub-sample fade durations without rounding either edge.
+    private static func audioEnvelope(_ component: TimelineRenderPlan.Component, sampleCount: Int64,
+                                      sampleRate: Int, layout: String) throws -> String {
+        func edge(_ fade: AudioFade, position: String) throws -> String? {
+            guard fade.duration != .zero else { return nil }
+            let samples = try fade.duration.multiplied(by: Int64(sampleRate))
+            let progress = "min(1,max(0,(\(position))*\(samples.denominator)/\(samples.numerator)))"
+            switch fade.curve {
+            case .linear: return progress
+            case .equalPower: return "sin(PI/2*(\(progress)))"
+            }
+        }
+        let edges = try [edge(component.fadeIn, position: "n"),
+                         edge(component.fadeOut, position: "\(sampleCount)-n")].compactMap { $0 }
+        guard !edges.isEmpty else { return "" }
+        let expression = edges.joined(separator: "*")
+        let channels = layout == "mono" ? 1 : 2
+        let values = (0..<channels).map { "val(\($0))*(\(expression))" }.joined(separator: "|")
+        return ",aeval=exprs='\(values)':channel_layout=\(layout)"
     }
     private static func fraction(_ time: RationalTime) -> String { "\(time.numerator)/\(time.denominator)" }
     private static func integral(_ time: RationalTime, _ message: String) throws -> Int64 {

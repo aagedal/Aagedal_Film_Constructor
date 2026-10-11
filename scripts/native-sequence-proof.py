@@ -44,7 +44,7 @@ def main():
         'Development dynamically linked libraries, no bundled/signed distribution',
         'Matching-raster square-pixel SDR CFR video and matching-rate PCM audio only',
         'Native CGImage/PNG captures and offline AVAudioEngine; no live display/CoreAudio A/V sync',
-        'No scaling/color/VFR conformance, compressed audio/resampling, fades/crossfades or proxies',
+        'No scaling/color/VFR conformance, compressed audio/resampling, transition crossfades or proxies',
         'First source access qualifies all selected-stream timestamps; launch/interactive performance unmeasured'
     ]}
     commands = []
@@ -237,6 +237,18 @@ def main():
         clip['timelineStart'] = {'numerator': 1001, 'denominator': 500}  # frame 60
         layered['tracks'].append(extra)
         evaluate('gaps-and-audio-overlap', layered)
+
+        # Independent native/FFmpeg sample comparison across overlapping edge
+        # envelopes, both curves, routing, irregular blocks and reverse seeks.
+        faded = copy.deepcopy(layered)
+        first = faded['tracks'][2]['clips'][0]
+        first['fadeIn'] = {'duration': {'numerator': 3, 'denominator': 1}, 'curve': 'linear'}
+        first['fadeOut'] = {'duration': {'numerator': 3, 'denominator': 1}, 'curve': 'equalPower'}
+        second = faded['tracks'][3]['clips'][0]
+        # Nonintegral sample duration exercises the exact rational fade clock.
+        second['fadeIn'] = {'duration': {'numerator': 250001, 'denominator': 96000}, 'curve': 'equalPower'}
+        second['fadeOut'] = {'duration': {'numerator': 3, 'denominator': 1}, 'curve': 'linear'}
+        evaluate('overlapping-edge-fades-rebuild', faded, replace_from=fixture_project)
 
         interframe = copy.deepcopy(layered)
         for index, asset in enumerate(interframe['assets']):

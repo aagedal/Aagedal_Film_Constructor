@@ -71,8 +71,20 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
     public var selection: ClipSelection
     public var scalingMode: ScalingMode
     public var linkGroupID: UUID?
-    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil) {
-        self.id = id; self.assetID = assetID; self.sourceRange = sourceRange; self.timelineStart = timelineStart; self.selection = selection; self.scalingMode = scalingMode; self.linkGroupID = linkGroupID
+    public var fadeIn: AudioFade
+    public var fadeOut: AudioFade
+    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init()) {
+        self.id = id; self.assetID = assetID; self.sourceRange = sourceRange; self.timelineStart = timelineStart; self.selection = selection; self.scalingMode = scalingMode; self.linkGroupID = linkGroupID; self.fadeIn = fadeIn; self.fadeOut = fadeOut
+    }
+    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut }
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(id: try c.decode(UUID.self, forKey: .id), assetID: try c.decode(UUID.self, forKey: .assetID),
+                  sourceRange: try c.decode(TimeRange.self, forKey: .sourceRange), timelineStart: try c.decode(RationalTime.self, forKey: .timelineStart),
+                  selection: try c.decode(ClipSelection.self, forKey: .selection), scalingMode: try c.decode(ScalingMode.self, forKey: .scalingMode),
+                  linkGroupID: try c.decodeIfPresent(UUID.self, forKey: .linkGroupID),
+                  fadeIn: try c.decodeIfPresent(AudioFade.self, forKey: .fadeIn) ?? .init(),
+                  fadeOut: try c.decodeIfPresent(AudioFade.self, forKey: .fadeOut) ?? .init())
     }
     public var requiredTrackKind: TrackKind { if case .audio = selection { return .audio }; return .video }
     public var requiredAudioLayout: ChannelLayout? { if case .audio(let selection) = selection { return selection.layout }; return nil }

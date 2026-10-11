@@ -40,7 +40,9 @@ component. See [basic testing instructions](docs/basic-workspace.md).
 
 This is the first usable assembly workspace. The monitor previews original
 sources, not the edited sequence. Native timeline playback, bundled FFmpeg,
-proxies, fades, and export remain unfinished. Still images currently have a
+proxies, linked crossfades, and export remain unfinished. Standalone audio fades
+have timeline handles and inspector duration/curve controls; edits persist and
+support undo/redo. The source monitor plays original audio without timeline fades. Still images currently have a
 five-second extent. Default append uses matching sequence layouts or mono
 duplicated to stereo; other layouts open an explicit audio selection sheet.
 Use “Append with audio selection…” in the bin to choose channels and outputs

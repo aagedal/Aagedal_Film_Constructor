@@ -311,6 +311,41 @@ final class EditorStore: ObservableObject {
     func setAudioLayoutConfirmation(_ enabled: Bool) {
         do { try change { $0.preferences.askBeforeAudioTrackLayoutChanges = enabled } } catch { report(error) }
     }
+    /// Fades use the audio sample grid even when their clip is linked to picture.
+    private func audioFadeTime(_ seconds: Double, clip: TimelineClip) throws -> RationalTime {
+        guard seconds.isFinite else { throw EditorCoreError.invalidTime }
+        let rate = Int64(project.settings.audioSampleRate)
+        let extent = try clip.sourceRange.duration.multiplied(by: rate)
+        let maximum = extent.numerator / extent.denominator
+        let samples = min(Double(maximum), max(0, seconds * Double(rate))).rounded()
+        guard samples.isFinite, samples < Double(Int64.max) else { throw EditorCoreError.invalidTime }
+        return try RationalTime(min(maximum, Int64(samples)), rate)
+    }
+    func proposedAudioFadeDuration(clip: TimelineClip, seconds: Double) -> Double {
+        (try? audioFadeTime(seconds, clip: clip).seconds) ?? 0
+    }
+    func applyAudioFades(clipID: UUID, fadeInSeconds: Double, fadeInCurve: AudioFadeCurve,
+                         fadeOutSeconds: Double, fadeOutCurve: AudioFadeCurve, expectedClip: TimelineClip) throws {
+        guard fadeInSeconds.isFinite, fadeOutSeconds.isFinite, fadeInSeconds >= 0, fadeOutSeconds >= 0 else {
+            throw EditorCoreError.invalidTime
+        }
+        guard let clip = project.tracks.flatMap(\.clips).first(where: { $0.id == clipID }), clip == expectedClip,
+              clip.requiredTrackKind == .audio else {
+            throw EditorCoreError.invalidModel("The audio clip changed while editing fades. Review its current settings and try again.")
+        }
+        // Preserve exact persisted times on the untouched edge, including imported rational values.
+        let inTime = fadeInSeconds == clip.fadeIn.duration.seconds ? clip.fadeIn.duration : try audioFadeTime(fadeInSeconds, clip: clip)
+        let outTime = fadeOutSeconds == clip.fadeOut.duration.seconds ? clip.fadeOut.duration : try audioFadeTime(fadeOutSeconds, clip: clip)
+        let fadeIn = AudioFade(duration: inTime, curve: fadeInCurve)
+        let fadeOut = AudioFade(duration: outTime, curve: fadeOutCurve)
+        try change {
+            var engine = try TimelineEditEngine(project: $0)
+            try engine.apply(.setAudioFades(clipID: clipID, fadeIn: fadeIn, fadeOut: fadeOut))
+            $0 = engine.project
+        }
+        selectedClipID = clipID
+        statusMessage = "Updated audio fades."
+    }
     /// Validate a draft on a copy before the inspector asks to commit a track change.
     func previewAudioSelection(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], replacingClipIDs: [UUID] = []) throws -> Project {
         var engine = try TimelineEditEngine(project: project)
