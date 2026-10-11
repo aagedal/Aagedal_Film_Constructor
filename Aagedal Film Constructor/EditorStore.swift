@@ -206,6 +206,43 @@ final class EditorStore: ObservableObject {
         }
     }
 
+    func pauseSource() {
+        sourceTransportTask?.cancel()
+        sourceTransportTask = nil
+        sourcePlayer?.pause()
+    }
+
+    func playSourceForwards() {
+        pauseSource()
+        guard let player = sourcePlayer, let asset = selectedAsset else { return }
+        sourceTransportTask = Task {
+            if player.currentTime().seconds >= asset.duration.seconds - 0.001 {
+                await player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+            }
+            guard !Task.isCancelled else { return }
+            player.play()
+        }
+    }
+
+    func playSourceBackwards() {
+        pauseSource()
+        guard let player = sourcePlayer, let asset = selectedAsset else { return }
+        // Seek-based reverse works even when the source codec has no native reverse
+        // support. Keep audio paused, and allow only one outstanding seek at a time.
+        let current = player.currentTime().seconds
+        let start = current.isFinite && current > 0 ? current : asset.duration.seconds
+        sourceTransportTask = Task {
+            let began = ProcessInfo.processInfo.systemUptime
+            while !Task.isCancelled {
+                let position = max(0, start - (ProcessInfo.processInfo.systemUptime - began))
+                await player.seek(to: CMTime(seconds: position, preferredTimescale: 60000),
+                                  toleranceBefore: .zero, toleranceAfter: .zero)
+                guard !Task.isCancelled, position > 0 else { return }
+                do { try await Task.sleep(for: .milliseconds(33)) } catch { return }
+            }
+        }
+    }
+
     func appendSelectedAsset() {
         guard let asset = selectedAsset else { return }
         if let stream = asset.streams.first(where: { $0.kind == .audio }),
