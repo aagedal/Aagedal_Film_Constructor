@@ -24,16 +24,31 @@ interchange plans, Media Converter/Player reuse audits, and implementation miles
 
 ### Current implementation
 
-The macOS app includes a synthetic timeline prototype: extend the Music clip
-to create a sibling track, then undo/redo the complete edit. It does not yet
-import or play media. `Packages/EditorCore` is the independent Swift 6 timeline
-model and editing engine, with regression tests. The app targets macOS 14+;
-the inherited project format requires a compatible Xcode (verified with Xcode 27).
+The macOS app now has a resizable media bin, source monitor, inspector, and
+multitrack timeline. Import AVFoundation-supported video/audio and still images,
+preview sources, append linked video/audio, move/trim/split/delete clips, undo/redo,
+and save/reopen `.afcproject` documents. Media access is retained with sandbox
+bookmarks; missing originals can be relinked. DocumentGroup supplies native
+new/open/save and autosave behavior. See [basic testing instructions](docs/basic-workspace.md).
+
+This is the first usable assembly workspace. The monitor previews original
+sources, not the edited sequence. Native timeline playback, bundled FFmpeg,
+waveforms/filmstrips, proxies, fades, export, and shortcut customization remain
+unfinished. Still images currently have a five-second extent; initial audio
+placement supports stereo and mono duplicated to stereo, with other layouts
+requiring future source-selection controls.
+
+`Packages/EditorCore` is the independent Swift 6 timeline model and editing
+engine. The app targets macOS 14+; the inherited project format requires a
+compatible Xcode (verified with Xcode 27).
 
 Run `scripts/verify.sh` to test the core and build the app without signing.
-For the core alone, run `swift test --package-path Packages/EditorCore`.
+Run `scripts/app-file-smoke.sh` to generate WAV/PNG fixtures and verify import,
+editing, bookmarks, relink undo, project round trips, and malformed-file rejection.
+The bookmark smoke checks need macOS services available outside restrictive tool
+sandboxes. For the core alone, run `swift test --package-path Packages/EditorCore`.
 See [the media audit](docs/media-engine-audit.md) for the development-only FFmpeg
-proof, packaging gaps, and the next MPV parity experiment.
+proof and packaging gaps.
 
 The core now includes a development FFmpeg render-plan compiler and a persisted
 fixture integration proof. Run `scripts/render-plan-proof.py` with explicit
@@ -57,8 +72,8 @@ AVAudioEngine offline output, and replacement of an already-used edit plan again
 independent FFmpeg renders. Barcode, video-gap, overlapping-audio and H.264 B-frame
 fixtures pass. See [the native proof evidence](docs/evidence/native-playback-20261009/README.md)
 and [reproduction instructions](docs/media-engine-audit.md#native-sequence-fallback-proof-2026-10-09).
-The app still uses its synthetic timeline; live playback and shipping media
-dependencies remain unfinished.
+The assembly workspace now imports real media; live sequence playback and shipping
+media dependencies remain unfinished.
 
 The native development runtime now has an asynchronous serial decoder worker,
 bounded request admission, a shared byte-limited video/audio cache, cancellation,
