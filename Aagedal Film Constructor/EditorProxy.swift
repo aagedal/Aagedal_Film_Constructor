@@ -144,7 +144,8 @@ extension EditorStore {
             } else { player = AVPlayer(url: originalURL) }
             guard !Task.isCancelled, epoch == mediaEpoch, selectedAssetID == asset.id, representation == playbackRepresentation else { return }
             await player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, epoch == mediaEpoch, selectedAssetID == asset.id,
+                  representation == playbackRepresentation else { return }
             sourcePlayer = player
             if pendingSourceTransport?.playing ?? playing { player.play() }
             pendingSourceTransport = nil

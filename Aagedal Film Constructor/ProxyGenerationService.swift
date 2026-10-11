@@ -5,6 +5,17 @@ import EditorCore
 /// Generates a separate, verified video rendition. Originals and existing proxies are never replaced.
 actor ProxyGenerationService {
     static let shared = ProxyGenerationService()
+    /// Prepared bundles retain their verified encoder listing alongside the helpers.
+    nonisolated static func availablePresets(bundle: Bundle = .main) -> [ProxyPreset] {
+        guard let url = bundle.resourceURL?.appendingPathComponent("Helpers/encoders.txt"),
+              let listing = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        let encoders = Set(listing.split(separator: "\n").compactMap { line -> String? in
+            let fields = line.split(whereSeparator: \.isWhitespace)
+            guard fields.count >= 2, fields[0].count == 6 else { return nil }
+            return String(fields[1])
+        })
+        return ProxyPreset.allCases.filter { encoders.contains($0 == .proResProxy ? "prores_ks" : "libx264") }
+    }
     private let ffmpegURL: URL?
     private let ffprobeURL: URL?
     private var activeJobs = 0

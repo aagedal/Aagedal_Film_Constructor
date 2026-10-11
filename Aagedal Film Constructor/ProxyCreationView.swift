@@ -17,13 +17,14 @@ struct ProxyCreationView: View {
     @State private var finished = false
 
     var body: some View {
+        let availablePresets = ProxyGenerationService.availablePresets()
         VStack(alignment: .leading, spacing: 16) {
             Text("Create proxies").font(.title2.bold())
             Text("\(draft.assets.count) video source\(draft.assets.count == 1 ? "" : "s"). Proxy picture uses original audio in the source monitor. Timeline previews and exports use originals.")
                 .foregroundStyle(.secondary)
             Picker("Codec", selection: $preset) {
                 Text("ProRes Proxy").tag(ProxyPreset.proResProxy)
-                Text("H.264").tag(ProxyPreset.h264)
+                Text("H.264").tag(ProxyPreset.h264).disabled(!availablePresets.contains(.h264))
             }.disabled(running || finished)
             Picker("Resolution", selection: $scaleDivisor) {
                 Text("Full").tag(1)
@@ -34,6 +35,9 @@ struct ProxyCreationView: View {
                 .font(.caption).foregroundStyle(.secondary)
             let helpers = SequenceExportService.helperAvailability()
             if !helpers.isAvailable { Label(helpers.message, systemImage: "exclamationmark.triangle").foregroundStyle(.orange) }
+            else if !availablePresets.contains(.h264) {
+                Text("This helper build does not include the H.264 proxy encoder.").font(.caption).foregroundStyle(.secondary)
+            }
             if running {
                 ProgressView(value: fraction)
                 Text(cancelling ? "Cancelling…" : stage).font(.caption)
@@ -50,7 +54,8 @@ struct ProxyCreationView: View {
                 } else {
                     Button(finished ? "Done" : "Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                     if !finished {
-                        Button("Choose output folder…", action: start).disabled(!helpers.isAvailable).keyboardShortcut(.defaultAction)
+                        Button("Choose output folder…", action: start)
+                            .disabled(!helpers.isAvailable || !availablePresets.contains(preset)).keyboardShortcut(.defaultAction)
                     }
                 }
             }

@@ -59,6 +59,21 @@ struct ProxyWorkspaceSmoke {
         let forward = try await awaitPlayer(reopened)
         try check(forward.rate > 0, "Rapid switches preserve forward play intent")
         reopened.pauseSource()
+        // Removing the selected import must cancel all pending preview work, even
+        // when that work has already advanced from composition loading into seeking.
+        let removed = EditorStore()
+        try removed.registerImportedMedia(imported)
+        let pending = Task<Void, Never> { @MainActor in
+            do { try await Task.sleep(for: .seconds(60)) } catch { }
+        }
+        removed.sourcePreviewTask = pending
+        removed.pendingSourceTransport = (position, true)
+        removed.undo()
+        try check(pending.isCancelled && removed.sourcePreviewTask == nil && removed.pendingSourceTransport == nil,
+                  "Undo removing selected media cancels pending seeks and playback intent")
+        try check(removed.sourcePlayer == nil && removed.selectedAssetIDs.isEmpty,
+                  "Undo removing selected media clears player and bin selection")
+        removed.close()
         reopened.sourceRevisions[imported.asset.id] = UUID()
         do {
             try reopened.registerProxy(proxy, for: imported.asset, epoch: reopened.mediaEpoch, sourceRevision: nil)
