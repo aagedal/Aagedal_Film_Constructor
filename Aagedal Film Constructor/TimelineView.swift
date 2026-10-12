@@ -123,7 +123,7 @@ struct TimelineView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { location in store.seek(to: max(0, min(store.duration, location.x / pixelsPerSecond))) }
             ForEach(track.clips) { clip in
-                TimelineClipView(clip: clip, asset: store.project.assets.first(where: { $0.id == clip.assetID }), selected: store.selectedClipID == clip.id, pixelsPerSecond: pixelsPerSecond, viewport: viewport, previewRevision: store.mediaPreviewRevision,
+                TimelineClipView(clip: clip, asset: store.asset(id: clip.assetID), selected: store.selectedClipID == clip.id, pixelsPerSecond: pixelsPerSecond, viewport: viewport, previewRevision: store.mediaPreviewRevision,
                     select: { store.selectedClipID = clip.id },
                     proposedMove: { store.proposedMove(clip: clip, to: $0, tolerance: 8 / pixelsPerSecond) },
                     move: { seconds in

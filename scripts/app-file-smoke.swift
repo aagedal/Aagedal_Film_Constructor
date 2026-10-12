@@ -23,6 +23,7 @@ struct AppFileSmoke {
         try await exerciseSourcePlayback(audio: audio)
         let still = try await MediaImporter.inspect(url: imageURL)
         try check(still.asset.streams.isEmpty && still.asset.duration.seconds == 5, "Still image import")
+        try exerciseDerivedProjectValues(asset: still.asset)
         try await exerciseStillPreview(directory: directory, still: still, audio: audio)
         try exerciseProxyDocument(directory: directory)
         let corruptURL = directory.appendingPathComponent("corrupt.png")
@@ -737,6 +738,33 @@ struct AppFileSmoke {
         store.selectAssets([])
         await deselected?.value
         try check(store.previewImage == nil && store.selectedAsset == nil, "Deselection rejects pending still preview")
+    }
+
+    @MainActor
+    static func exerciseDerivedProjectValues(asset: MediaAsset) throws {
+        let store = EditorStore()
+        defer { store.close() }
+        store.project.assets = [asset]
+        store.selectedAssetID = asset.id
+        try check(store.duration == 0 && store.selectedAsset == asset, "Empty sequence derived values")
+        var ids: [UUID] = []
+        try store.change { ids = try $0.appendAsset(asset.id) }
+        store.selectedClipID = ids[0]
+        let originalClip = store.selectedClip!
+        try check(store.duration == 5 && store.selectedClip?.assetID == asset.id, "Append invalidates derived values")
+        store.project.assets[0].name = "Renamed source"
+        store.project.tracks[0].clips[0].scalingMode = .fill
+        try check(store.selectedAsset?.name == "Renamed source" && store.asset(id: asset.id)?.name == "Renamed source"
+                  && store.selectedClip?.scalingMode == .fill, "Nested project mutations invalidate lookup caches")
+        try store.change { $0.tracks[0].clips[0].timelineStart = try RationalTime(3) }
+        try check(store.duration == 8, "Moved clip invalidates cached duration")
+        store.undo()
+        try check(store.duration == 5 && store.selectedClip?.timelineStart == originalClip.timelineStart, "Undo invalidates derived values")
+        store.redo()
+        try check(store.duration == 8, "Redo invalidates derived values")
+        store.load(ProjectDocument())
+        try check(store.duration == 0 && store.asset(id: asset.id) == nil && store.selectedClip == nil,
+                  "Document replacement discards old derived values")
     }
 
     static func check(_ condition: Bool, _ message: String) throws {
