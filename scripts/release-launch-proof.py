@@ -46,7 +46,7 @@ def main():
     manifest = {'schemaVersion': 2, 'configuration': 'Release',
                 'environment': {'platform': platform.platform(), 'machine': platform.machine(),
                                 'xcode': subprocess.check_output(['xcodebuild', '-version'], text=True).strip()},
-                'sourceHashes': {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in [repo / 'Aagedal Film Constructor/MyApp.swift', repo / 'Aagedal Film Constructor/LaunchWorkspaceCoordinator.swift', Path(__file__).resolve()]},
+                'sourceHashes': {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in [repo / 'Aagedal Film Constructor/MyApp.swift', repo / 'Aagedal Film Constructor/LaunchWorkspaceCoordinator.swift', repo / 'Aagedal Film Constructor/TimelineView.swift', repo / 'Aagedal Film Constructor/TimelineClipVisibility.swift', Path(__file__).resolve()]},
                 'method': 'Launch Services request to harness receipt of loaded visible key document-window marker and synthetic AppKit button mouse-event action',
                 'limitations': ['unsigned local bundle', 'no physical input or compositor timestamp',
                                 'first run is fresh preferences, not purged OS caches; subsequent runs are warm OS caches with fresh preferences',

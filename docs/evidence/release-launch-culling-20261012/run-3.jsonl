@@ -1,0 +1,7 @@
+{"event":"application_did_finish_launching","pid":40500,"uptimeSeconds":433696.58930575004,"windowNumber":-1}
+{"event":"nondefault_launch","pid":40500,"uptimeSeconds":433696.58975800005,"windowNumber":-1}
+{"assetCount":2,"clipCount":3000,"event":"workspace_loaded","pid":40500,"savedDocument":true,"trackCount":3,"uptimeSeconds":433696.79773737502,"windowNumber":-1}
+{"event":"probe_attached","pid":40500,"uptimeSeconds":433696.86333016667,"windowNumber":37812}
+{"applicationActive":true,"event":"readiness_gate_changed","hasBounds":true,"hasDocument":true,"key":true,"pid":40500,"uptimeSeconds":433697.06988491671,"visible":true,"windowNumber":37812}
+{"event":"workspace_visible","pid":40500,"uptimeSeconds":433697.07023837505,"windowNumber":37812}
+{"event":"scripted_interaction_processed","pid":40500,"uptimeSeconds":433697.07513616671,"windowNumber":37812}

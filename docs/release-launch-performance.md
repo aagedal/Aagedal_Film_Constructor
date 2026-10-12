@@ -91,6 +91,22 @@ and initial layout; it cannot qualify media-ready launch or playback.
 The [reliability and populated-document follow-up](evidence/release-launch-reliability-20261012/README.md)
 retains five-of-five valid empty launches at 1.153–1.259 seconds (median 1.171)
 and five-of-five valid 3,000-clip offline saved-project launches at 4.106–4.784
-seconds (median 4.500). The latter fails the two-second target. Gate diagnostics
+seconds (median 4.500) before timeline clip culling. That populated run fails the two-second target. Gate diagnostics
 and retrying the deferred click improve the measurement, but these samples do not
 prove the earlier key-window timeout is eliminated or qualify cold packaged launch.
+
+Timeline lanes now create only clips intersecting the horizontal viewport plus
+200 pixels of overscan. A bounded first-layout range avoids mounting the whole
+project before scroll geometry arrives. Canvas widths, ruler and scroll extents
+still use the full project duration. Selected clips and active move, trim and fade
+gestures stay mounted outside the viewport; gesture reset/cancellation releases the
+active pin. Existing clip disappearance cancels previews and clears geometry.
+
+The [same 3,000-clip offline workload after culling](evidence/release-launch-culling-20261012/RESULTS.md)
+processed five-of-five native probe actions in 0.769–1.191 seconds (median 0.844),
+compared with 4.106–4.784 seconds (median 4.500) before culling. All five saved
+workspaces confirmed their 2 assets, 3 tracks and 3,000 clips. These local samples
+pass the two-second synthetic-control target, while cold packaged launch, ordinary
+editing controls and media-ready acceptance remain open. Run
+`scripts/timeline-visibility-smoke.sh` for first-layout, scroll-coordinate, edge,
+zoom, overscan and pinned-interaction policy checks; it is included in `verify.sh`.

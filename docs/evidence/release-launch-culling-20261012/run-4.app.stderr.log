@@ -1,0 +1,7 @@
+2026-10-12 21:18:37.364 Aagedal Film Constructor[40533:16507558] ApplePersistenceIgnoreState: Existing state will not be touched. New state will be written to /var/folders/pv/f8g9jgrd7px_0xvh3kxgmyg40000gp/T/dev.aagedal.launchproof.25a8a6ee868a41628bc72bd1c745029b.run4.savedState
+2026-10-12 21:18:39.150 Aagedal Film Constructor[40533:16507599] +[NSXPCSharedListener endpointForReply:withListenerName:replyErrorCode:]: an error occurred while attempting to obtain endpoint for listener '': Connection interrupted
+2026-10-12 21:18:39.150 Aagedal Film Constructor[40533:16507599] failed to warm up class NSOpenAndSavePanelService in service com.apple.appkit.xpc.openAndSavePanelService due to Error Domain=NSXPCSharedListenerErrorDomain Code=2 "<dictionary: 0x1e9504b08> { count = 1, transaction: 0, voucher = 0x0, contents =
+	"XPCErrorDescription" => <string: 0x1e9504c70> { string cache = 0x0, length = 22, contents = "Connection interrupted" }
+} for listener for whole-service management; BEFORE ASSIGNING A BUG TO ANYONE ELSE, search backward for earlier logging regarding service/extension 'com.apple.appkit.xpc.openAndSavePanelService'" UserInfo={NSDebugDescription=<dictionary: 0x1e9504b08> { count = 1, transaction: 0, voucher = 0x0, contents =
+	"XPCErrorDescription" => <string: 0x1e9504c70> { string cache = 0x0, length = 22, contents = "Connection interrupted" }
+} for listener for whole-service management; BEFORE ASSIGNING A BUG TO ANYONE ELSE, search backward for earlier logging regarding service/extension 'com.apple.appkit.xpc.openAndSavePanelService'}

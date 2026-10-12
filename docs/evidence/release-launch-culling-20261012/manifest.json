@@ -1,0 +1,596 @@
+{
+  "schemaVersion": 2,
+  "configuration": "Release",
+  "environment": {
+    "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "xcode": "Xcode 27.0\nBuild version 27A266a"
+  },
+  "sourceHashes": {
+    "Aagedal Film Constructor/MyApp.swift": "ab0f792abcb4575c1fcd795d5140473148c583069b41735a55433883b9abc40a",
+    "Aagedal Film Constructor/LaunchWorkspaceCoordinator.swift": "baa0535a47acaca30bac40887f6ef5894394740acf903ed565b8bdd63a2e40d4",
+    "Aagedal Film Constructor/TimelineView.swift": "65cbbf533ce4c22cecc63e462c7d8fcf081c337f5fd90fc0c56c88af22472e5c",
+    "Aagedal Film Constructor/TimelineClipVisibility.swift": "ac3fed4982aba2a3bb41edc6c28c542c44feaa9f986f2eeda152e741e1d5f1d2",
+    "scripts/release-launch-proof.py": "3c6c3ddbe8e94717affe91633f8f3be244b840a07d2d03410cd33ea285b56284"
+  },
+  "method": "Launch Services request to harness receipt of loaded visible key document-window marker and synthetic AppKit button mouse-event action",
+  "limitations": [
+    "unsigned local bundle",
+    "no physical input or compositor timestamp",
+    "first run is fresh preferences, not purged OS caches; subsequent runs are warm OS caches with fresh preferences",
+    "synthetic probe control; no ordinary editing or shipping sandbox/notarization acceptance"
+  ],
+  "workspace": {
+    "kind": "saved-project",
+    "sourceName": "afc-launch-offline-3000.afcproject",
+    "sourceSHA256": "2e4559225ad328d22bf0e576469220df4e45603ee7edaf7e445dbd34c8c985ed",
+    "expectedCounts": {
+      "assetCount": 2,
+      "trackCount": 3,
+      "clipCount": 3000
+    }
+  },
+  "buildCommand": [
+    "xcodebuild",
+    "-project",
+    "/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-9abfc13d/Aagedal Film Constructor.xcodeproj",
+    "-scheme",
+    "Aagedal Film Constructor",
+    "-configuration",
+    "Release",
+    "-derivedDataPath",
+    "/var/folders/pv/f8g9jgrd7px_0xvh3kxgmyg40000gp/T/afc-release-launch-umvqf9b0/DerivedData",
+    "CODE_SIGNING_ALLOWED=NO",
+    "PRODUCT_BUNDLE_IDENTIFIER=dev.aagedal.launchproof.25a8a6ee868a41628bc72bd1c745029b",
+    "AFC_MEDIA_HELPER_DIR=",
+    "build"
+  ],
+  "executableSHA256": "dc5b75cc284a4c5b426d7a913ddaabbc3f0678e3acf18a3183180b03cba94eac",
+  "bundledHelpers": [],
+  "samples": [
+    {
+      "run": 1,
+      "cacheCondition": "first-process/fresh-preferences",
+      "bundleIdentifier": "dev.aagedal.launchproof.25a8a6ee868a41628bc72bd1c745029b.run1",
+      "events": [
+        {
+          "event": "application_did_finish_launching",
+          "pid": 40463,
+          "uptimeSeconds": 433694.709054125,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.6372283330420032
+        },
+        {
+          "event": "nondefault_launch",
+          "pid": 40463,
+          "uptimeSeconds": 433694.709460125,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.6372365829884075
+        },
+        {
+          "assetCount": 2,
+          "clipCount": 3000,
+          "event": "workspace_loaded",
+          "pid": 40463,
+          "savedDocument": true,
+          "trackCount": 3,
+          "uptimeSeconds": 433694.91488750005,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.8444094160222448
+        },
+        {
+          "event": "probe_attached",
+          "pid": 40463,
+          "uptimeSeconds": 433694.9845840834,
+          "windowNumber": 37802,
+          "observedSecondsAfterSpawn": 0.9109841249883175
+        },
+        {
+          "applicationActive": true,
+          "event": "readiness_gate_changed",
+          "hasBounds": true,
+          "hasDocument": true,
+          "key": true,
+          "pid": 40463,
+          "uptimeSeconds": 433695.22325783334,
+          "visible": true,
+          "windowNumber": 37802,
+          "observedSecondsAfterSpawn": 1.1637358750449494
+        },
+        {
+          "event": "workspace_visible",
+          "pid": 40463,
+          "uptimeSeconds": 433695.24444408336,
+          "windowNumber": 37802,
+          "observedSecondsAfterSpawn": 1.1760114160133526
+        },
+        {
+          "event": "scripted_interaction_processed",
+          "pid": 40463,
+          "uptimeSeconds": 433695.263443625,
+          "windowNumber": 37802,
+          "observedSecondsAfterSpawn": 1.191308833018411
+        }
+      ],
+      "launchCommand": [
+        "/usr/bin/open",
+        "-n",
+        "-W",
+        "--env",
+        "AFC_LAUNCH_PROBE_LOG=/private/tmp/afc-launch-culled-offline-3000-v2/run-1.jsonl",
+        "--stderr",
+        "/private/tmp/afc-launch-culled-offline-3000-v2/run-1.app.stderr.log",
+        "-a",
+        "/var/folders/pv/f8g9jgrd7px_0xvh3kxgmyg40000gp/T/afc-release-launch-umvqf9b0/Run1.app",
+        "/var/folders/pv/f8g9jgrd7px_0xvh3kxgmyg40000gp/T/afc-release-launch-umvqf9b0/Run1/afc-launch-offline-3000.afcproject",
+        "--args",
+        "-ApplePersistenceIgnoreState",
+        "YES"
+      ],
+      "interactionObserved": true,
+      "lastReadinessGate": {
+        "applicationActive": true,
+        "event": "readiness_gate_changed",
+        "hasBounds": true,
+        "hasDocument": true,
+        "key": true,
+        "pid": 40463,
+        "uptimeSeconds": 433695.22325783334,
+        "visible": true,
+        "windowNumber": 37802,
+        "observedSecondsAfterSpawn": 1.1637358750449494
+      },
+      "workspaceLoaded": {
+        "assetCount": 2,
+        "clipCount": 3000,
+        "event": "workspace_loaded",
+        "pid": 40463,
+        "savedDocument": true,
+        "trackCount": 3,
+        "uptimeSeconds": 433694.91488750005,
+        "windowNumber": -1,
+        "observedSecondsAfterSpawn": 0.8444094160222448
+      },
+      "exitBeforeCleanup": null,
+      "forcedTerminationPIDs": [],
+      "savedStateExists": false
+    },
+    {
+      "run": 2,
+      "cacheCondition": "warm-OS-cache/fresh-preferences",
+      "bundleIdentifier": "dev.aagedal.launchproof.25a8a6ee868a41628bc72bd1c745029b.run2",
+      "events": [
+        {
+          "event": "application_did_finish_launching",
+          "pid": 40490,
+          "uptimeSeconds": 433695.72895825,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.3855986670241691
+        },
+        {
+          "event": "nondefault_launch",
+          "pid": 40490,
+          "uptimeSeconds": 433695.7293845,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.3856052920455113
+        },
+        {
+          "assetCount": 2,
+          "clipCount": 3000,
+          "event": "workspace_loaded",
+          "pid": 40490,
+          "savedDocument": true,
+          "trackCount": 3,
+          "uptimeSeconds": 433695.9075492917,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.5668999589979649
+        },
+        {
+          "event": "probe_attached",
+          "pid": 40490,
+          "uptimeSeconds": 433695.9707450417,
+          "windowNumber": 37807,
+          "observedSecondsAfterSpawn": 0.6206011670292355
+        },
+        {
+          "applicationActive": true,
+          "event": "readiness_gate_changed",
+          "hasBounds": true,
+          "hasDocument": true,
+          "key": true,
+          "pid": 40490,
+          "uptimeSeconds": 433696.12935445836,
+          "visible": true,
+          "windowNumber": 37807,
+          "observedSecondsAfterSpawn": 0.7918616250390187
+        },
+        {
+          "event": "workspace_visible",
+          "pid": 40490,
+          "uptimeSeconds": 433696.15404683334,
+          "windowNumber": 37807,
+          "observedSecondsAfterSpawn": 0.8070052500115708
+        },
+        {
+          "event": "scripted_interaction_processed",
+          "pid": 40490,
+          "uptimeSeconds": 433696.1668165,
+          "windowNumber": 37807,
+          "observedSecondsAfterSpawn": 0.8213729170383886
+        }
+      ],
+      "launchCommand": [
+        "/usr/bin/open",
+        "-n",
+        "-W",
+        "--env",
+        "AFC_LAUNCH_PROBE_LOG=/private/tmp/afc-launch-culled-offline-3000-v2/run-2.jsonl",
+        "--stderr",
+        "/private/tmp/afc-launch-culled-offline-3000-v2/run-2.app.stderr.log",
+        "-a",
+        "/var/folders/pv/f8g9jgrd7px_0xvh3kxgmyg40000gp/T/afc-release-launch-umvqf9b0/Run2.app",
+        "/var/folders/pv/f8g9jgrd7px_0xvh3kxgmyg40000gp/T/afc-release-launch-umvqf9b0/Run2/afc-launch-offline-3000.afcproject",
+        "--args",
+        "-ApplePersistenceIgnoreState",
+        "YES"
+      ],
+      "interactionObserved": true,
+      "lastReadinessGate": {
+        "applicationActive": true,
+        "event": "readiness_gate_changed",
+        "hasBounds": true,
+        "hasDocument": true,
+        "key": true,
+        "pid": 40490,
+        "uptimeSeconds": 433696.12935445836,
+        "visible": true,
+        "windowNumber": 37807,
+        "observedSecondsAfterSpawn": 0.7918616250390187
+      },
+      "workspaceLoaded": {
+        "assetCount": 2,
+        "clipCount": 3000,
+        "event": "workspace_loaded",
+        "pid": 40490,
+        "savedDocument": true,
+        "trackCount": 3,
+        "uptimeSeconds": 433695.9075492917,
+        "windowNumber": -1,
+        "observedSecondsAfterSpawn": 0.5668999589979649
+      },
+      "exitBeforeCleanup": null,
+      "forcedTerminationPIDs": [],
+      "savedStateExists": false
+    },
+    {
+      "run": 3,
+      "cacheCondition": "warm-OS-cache/fresh-preferences",
+      "bundleIdentifier": "dev.aagedal.launchproof.25a8a6ee868a41628bc72bd1c745029b.run3",
+      "events": [
+        {
+          "event": "application_did_finish_launching",
+          "pid": 40500,
+          "uptimeSeconds": 433696.58930575004,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.3609371669590473
+        },
+        {
+          "event": "nondefault_launch",
+          "pid": 40500,
+          "uptimeSeconds": 433696.58975800005,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.360942791972775
+        },
+        {
+          "assetCount": 2,
+          "clipCount": 3000,
+          "event": "workspace_loaded",
+          "pid": 40500,
+          "savedDocument": true,
+          "trackCount": 3,
+          "uptimeSeconds": 433696.797737375,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.5716947499895468
+        },
+        {
+          "event": "probe_attached",
+          "pid": 40500,
+          "uptimeSeconds": 433696.86333016667,
+          "windowNumber": 37812,
+          "observedSecondsAfterSpawn": 0.6429681669687852
+        },
+        {
+          "applicationActive": true,
+          "event": "readiness_gate_changed",
+          "hasBounds": true,
+          "hasDocument": true,
+          "key": true,
+          "pid": 40500,
+          "uptimeSeconds": 433697.0698849167,
+          "visible": true,
+          "windowNumber": 37812,
+          "observedSecondsAfterSpawn": 0.850423707976006
+        },
+        {
+          "event": "workspace_visible",
+          "pid": 40500,
+          "uptimeSeconds": 433697.07023837505,
+          "windowNumber": 37812,
+          "observedSecondsAfterSpawn": 0.8504268329706974
+        },
+        {
+          "event": "scripted_interaction_processed",
+          "pid": 40500,
+          "uptimeSeconds": 433697.0751361667,
+          "windowNumber": 37812,
+          "observedSecondsAfterSpawn": 0.8504280829802155
+        }
+      ],
+      "launchCommand": [
+        "/usr/bin/open",
+        "-n",
+        "-W",
+        "--env",
+        "AFC_LAUNCH_PROBE_LOG=/private/tmp/afc-launch-culled-offline-3000-v2/run-3.jsonl",
+        "--stderr",
+        "/private/tmp/afc-launch-culled-offline-3000-v2/run-3.app.stderr.log",
+        "-a",
+        "/var/folders/pv/f8g9jgrd7px_0xvh3kxgmyg40000gp/T/afc-release-launch-umvqf9b0/Run3.app",
+        "/var/folders/pv/f8g9jgrd7px_0xvh3kxgmyg40000gp/T/afc-release-launch-umvqf9b0/Run3/afc-launch-offline-3000.afcproject",
+        "--args",
+        "-ApplePersistenceIgnoreState",
+        "YES"
+      ],
+      "interactionObserved": true,
+      "lastReadinessGate": {
+        "applicationActive": true,
+        "event": "readiness_gate_changed",
+        "hasBounds": true,
+        "hasDocument": true,
+        "key": true,
+        "pid": 40500,
+        "uptimeSeconds": 433697.0698849167,
+        "visible": true,
+        "windowNumber": 37812,
+        "observedSecondsAfterSpawn": 0.850423707976006
+      },
+      "workspaceLoaded": {
+        "assetCount": 2,
+        "clipCount": 3000,
+        "event": "workspace_loaded",
+        "pid": 40500,
+        "savedDocument": true,
+        "trackCount": 3,
+        "uptimeSeconds": 433696.797737375,
+        "windowNumber": -1,
+        "observedSecondsAfterSpawn": 0.5716947499895468
+      },
+      "exitBeforeCleanup": null,
+      "forcedTerminationPIDs": [],
+      "savedStateExists": false
+    },
+    {
+      "run": 4,
+      "cacheCondition": "warm-OS-cache/fresh-preferences",
+      "bundleIdentifier": "dev.aagedal.launchproof.25a8a6ee868a41628bc72bd1c745029b.run4",
+      "events": [
+        {
+          "event": "application_did_finish_launching",
+          "pid": 40533,
+          "uptimeSeconds": 433697.4910714584,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.36988974997075275
+        },
+        {
+          "event": "nondefault_launch",
+          "pid": 40533,
+          "uptimeSeconds": 433697.49145620834,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.36989433399867266
+        },
+        {
+          "assetCount": 2,
+          "clipCount": 3000,
+          "event": "workspace_loaded",
+          "pid": 40533,
+          "savedDocument": true,
+          "trackCount": 3,
+          "uptimeSeconds": 433697.676541,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.5479152500047348
+        },
+        {
+          "event": "probe_attached",
+          "pid": 40533,
+          "uptimeSeconds": 433697.74092525005,
+          "windowNumber": 37818,
+          "observedSecondsAfterSpawn": 0.6240239169565029
+        },
+        {
+          "applicationActive": true,
+          "event": "readiness_gate_changed",
+          "hasBounds": true,
+          "hasDocument": true,
+          "key": true,
+          "pid": 40533,
+          "uptimeSeconds": 433697.96239733335,
+          "visible": true,
+          "windowNumber": 37818,
+          "observedSecondsAfterSpawn": 0.8436951669864357
+        },
+        {
+          "event": "workspace_visible",
+          "pid": 40533,
+          "uptimeSeconds": 433697.9627210834,
+          "windowNumber": 37818,
+          "observedSecondsAfterSpawn": 0.8437213749857619
+        },
+        {
+          "event": "scripted_interaction_processed",
+          "pid": 40533,
+          "uptimeSeconds": 433697.967882125,
+          "windowNumber": 37818,
+          "observedSecondsAfterSpawn": 0.8437269589630887
+        }
+      ],
+      "launchCommand": [
+        "/usr/bin/open",
+        "-n",
+        "-W",
+        "--env",
+        "AFC_LAUNCH_PROBE_LOG=/private/tmp/afc-launch-culled-offline-3000-v2/run-4.jsonl",
+        "--stderr",
+        "/private/tmp/afc-launch-culled-offline-3000-v2/run-4.app.stderr.log",
+        "-a",
+        "/var/folders/pv/f8g9jgrd7px_0xvh3kxgmyg40000gp/T/afc-release-launch-umvqf9b0/Run4.app",
+        "/var/folders/pv/f8g9jgrd7px_0xvh3kxgmyg40000gp/T/afc-release-launch-umvqf9b0/Run4/afc-launch-offline-3000.afcproject",
+        "--args",
+        "-ApplePersistenceIgnoreState",
+        "YES"
+      ],
+      "interactionObserved": true,
+      "lastReadinessGate": {
+        "applicationActive": true,
+        "event": "readiness_gate_changed",
+        "hasBounds": true,
+        "hasDocument": true,
+        "key": true,
+        "pid": 40533,
+        "uptimeSeconds": 433697.96239733335,
+        "visible": true,
+        "windowNumber": 37818,
+        "observedSecondsAfterSpawn": 0.8436951669864357
+      },
+      "workspaceLoaded": {
+        "assetCount": 2,
+        "clipCount": 3000,
+        "event": "workspace_loaded",
+        "pid": 40533,
+        "savedDocument": true,
+        "trackCount": 3,
+        "uptimeSeconds": 433697.676541,
+        "windowNumber": -1,
+        "observedSecondsAfterSpawn": 0.5479152500047348
+      },
+      "exitBeforeCleanup": null,
+      "forcedTerminationPIDs": [],
+      "savedStateExists": false
+    },
+    {
+      "run": 5,
+      "cacheCondition": "warm-OS-cache/fresh-preferences",
+      "bundleIdentifier": "dev.aagedal.launchproof.25a8a6ee868a41628bc72bd1c745029b.run5",
+      "events": [
+        {
+          "event": "application_did_finish_launching",
+          "pid": 40552,
+          "uptimeSeconds": 433698.3254456667,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.31588012498104945
+        },
+        {
+          "event": "nondefault_launch",
+          "pid": 40552,
+          "uptimeSeconds": 433698.3258736667,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.3158929590135813
+        },
+        {
+          "assetCount": 2,
+          "clipCount": 3000,
+          "event": "workspace_loaded",
+          "pid": 40552,
+          "savedDocument": true,
+          "trackCount": 3,
+          "uptimeSeconds": 433698.5042101667,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.48993745900224894
+        },
+        {
+          "event": "probe_attached",
+          "pid": 40552,
+          "uptimeSeconds": 433698.5698043334,
+          "windowNumber": 37824,
+          "observedSecondsAfterSpawn": 0.5579896249691956
+        },
+        {
+          "applicationActive": true,
+          "event": "readiness_gate_changed",
+          "hasBounds": true,
+          "hasDocument": true,
+          "key": true,
+          "pid": 40552,
+          "uptimeSeconds": 433698.7650265417,
+          "visible": true,
+          "windowNumber": 37824,
+          "observedSecondsAfterSpawn": 0.7534025839995593
+        },
+        {
+          "event": "workspace_visible",
+          "pid": 40552,
+          "uptimeSeconds": 433698.76530412503,
+          "windowNumber": 37824,
+          "observedSecondsAfterSpawn": 0.7534057919983752
+        },
+        {
+          "event": "scripted_interaction_processed",
+          "pid": 40552,
+          "uptimeSeconds": 433698.78676595836,
+          "windowNumber": 37824,
+          "observedSecondsAfterSpawn": 0.7685954589978792
+        }
+      ],
+      "launchCommand": [
+        "/usr/bin/open",
+        "-n",
+        "-W",
+        "--env",
+        "AFC_LAUNCH_PROBE_LOG=/private/tmp/afc-launch-culled-offline-3000-v2/run-5.jsonl",
+        "--stderr",
+        "/private/tmp/afc-launch-culled-offline-3000-v2/run-5.app.stderr.log",
+        "-a",
+        "/var/folders/pv/f8g9jgrd7px_0xvh3kxgmyg40000gp/T/afc-release-launch-umvqf9b0/Run5.app",
+        "/var/folders/pv/f8g9jgrd7px_0xvh3kxgmyg40000gp/T/afc-release-launch-umvqf9b0/Run5/afc-launch-offline-3000.afcproject",
+        "--args",
+        "-ApplePersistenceIgnoreState",
+        "YES"
+      ],
+      "interactionObserved": true,
+      "lastReadinessGate": {
+        "applicationActive": true,
+        "event": "readiness_gate_changed",
+        "hasBounds": true,
+        "hasDocument": true,
+        "key": true,
+        "pid": 40552,
+        "uptimeSeconds": 433698.7650265417,
+        "visible": true,
+        "windowNumber": 37824,
+        "observedSecondsAfterSpawn": 0.7534025839995593
+      },
+      "workspaceLoaded": {
+        "assetCount": 2,
+        "clipCount": 3000,
+        "event": "workspace_loaded",
+        "pid": 40552,
+        "savedDocument": true,
+        "trackCount": 3,
+        "uptimeSeconds": 433698.5042101667,
+        "windowNumber": -1,
+        "observedSecondsAfterSpawn": 0.48993745900224894
+      },
+      "exitBeforeCleanup": null,
+      "forcedTerminationPIDs": [],
+      "savedStateExists": false
+    }
+  ],
+  "failures": [],
+  "validRuns": 5,
+  "requestedRuns": 5,
+  "allRunsUnderTwoSeconds": true,
+  "scriptedInteractionSeconds": {
+    "min": 0.7685954589978792,
+    "median": 0.8437269589630887,
+    "max": 1.191308833018411
+  }
+}
