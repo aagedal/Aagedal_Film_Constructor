@@ -31,7 +31,8 @@ struct ContentView: View {
         .frame(minWidth: 960, minHeight: 600)
         .dropDestination(for: URL.self) { urls, _ in
             let files = urls.filter(\.isFileURL)
-            guard !files.isEmpty, !store.isImporting else { return false }
+            guard !files.isEmpty, !store.isImporting, store.audioAppendAsset == nil,
+                  store.renderExportDraft == nil, store.edlExportDraft == nil else { return false }
             store.importMedia(urls: files)
             return true
         } isTargeted: { isDropTargeted = $0 }

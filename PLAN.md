@@ -1274,3 +1274,27 @@ launch-performance claim has been validated yet.
 - Physical device switching, measured A/V timing, shipping-app sequence playback
   and release dependency packaging remain open. See retained
   [output route evidence](docs/evidence/native-output-route-20261012/README.md).
+
+### Direct timeline Finder drops checkpoint (2026-10-12)
+
+- Empty launch/reopen still suppresses the document Open panel and automatically
+  creates an ordinary untitled editing workspace. Startup policy smoke passes;
+  no project name or save location is needed before importing or placing media.
+- Finder drops onto the timeline now import and place media, starting at zero
+  for an empty timeline or at the frame-aligned drop position on its canvas.
+  Canvas/viewport geometry accounts for both scroll offsets. Toolbar drops use
+  the playhead. Files in a batch follow one another by their exact durations.
+- Compatible target tracks are honored; occupied tracks create collision
+  siblings. Import, bookmark and placement are one undoable action per file.
+  Failed files leave no bin/clip/bookmark entry and do not advance the cursor;
+  incompatible audio provides explicit channel-selection guidance. Document
+  replacement/close cancels obsolete imports. Other workspace drops remain
+  bin-only imports.
+- Real WAV/PNG smoke checks cover ordered placement, exact captured fractional
+  time, undo/redo grants, target placement/order/fallback, overlap siblings,
+  failed audio in a mixed batch and stale-document cancellation. Startup and
+  shortcut smokes and unsigned macOS Debug build pass.
+- Native visual startup and Finder gesture inspection remain unverified: the
+  computer-use pipe closed before responding, Apple events were unauthorized,
+  and the read-only window query could not produce a window capture. The isolated
+  app process did start; no user documents were closed or changed.

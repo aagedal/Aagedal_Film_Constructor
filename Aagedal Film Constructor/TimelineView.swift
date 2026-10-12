@@ -10,6 +10,9 @@ struct TimelineView: View {
     @State private var viewport = CGRect.zero
     @State private var clipFrames: [UUID: CGRect] = [:]
     @State private var crossfadeHoverID: UUID?
+    @State private var isDropTargeted = false
+    @State private var dropCanvasFrame = CGRect.zero
+    @State private var dropViewport = CGRect.zero
     private let labelWidth: CGFloat = 145
     private var visibleDuration: Double { max(20, store.duration + 5) }
     private var canvasWidth: CGFloat { max(650, visibleDuration * pixelsPerSecond) }
@@ -57,9 +60,11 @@ struct TimelineView: View {
                 ContentUnavailableView {
                     Label("Build your sequence", systemImage: "rectangle.stack")
                 } description: {
-                    Text("Select imported media and click Append to add clips.")
+                    Text("Drag files from Finder here to start your sequence, or select imported media and click Append.")
                 }
                 .frame(maxHeight: .infinity)
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
             } else {
                 ScrollView([.horizontal, .vertical]) {
                     LazyVStack(alignment: .leading, spacing: 1) {
@@ -82,8 +87,35 @@ struct TimelineView: View {
                         }
                     }
                     .padding(.bottom, 15)
+                    .frame(minHeight: viewport.height, alignment: .topLeading)
+                    .contentShape(Rectangle())
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("timelineDrop")) } action: { dropCanvasFrame = $0 }
                 }
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { viewport = $0 }
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("timelineDrop")) } action: { dropViewport = $0 }
+            }
+        }
+        .coordinateSpace(name: "timelineDrop")
+        .contentShape(Rectangle())
+        .dropDestination(for: URL.self) { urls, location in
+            guard !store.project.tracks.isEmpty else {
+                return store.importMediaToTimeline(urls: urls, at: 0)
+            }
+            guard dropViewport.contains(location), !dropCanvasFrame.isEmpty else {
+                return store.importMediaToTimeline(urls: urls, at: store.playheadSeconds)
+            }
+            // Canvas geometry includes horizontal/vertical scroll offsets.
+            // Subtract the track labels and ruler before interpreting the drop.
+            let seconds = max(0, (location.x - dropCanvasFrame.minX - labelWidth) / pixelsPerSecond)
+            let row = Int(floor((location.y - dropCanvasFrame.minY - 31) / 65))
+            let trackID = store.project.tracks.indices.contains(row) ? store.project.tracks[row].id : nil
+            return store.importMediaToTimeline(urls: urls, at: seconds, trackID: trackID)
+        } isTargeted: { isDropTargeted = $0 }
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color.accentColor, lineWidth: 3)
+                    .allowsHitTesting(false)
             }
         }
         .focusable()

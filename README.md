@@ -35,6 +35,9 @@ reminder and automatic timestamped
 backups of saved projects are available. The latest 20 backups are recoverable
 through **Show backups**; source media is referenced, not copied. See
 [saving and recovery](docs/basic-workspace.md).
+Finder drops onto the timeline import and place files directly at the drop time;
+multiple files are placed consecutively. Compatible target tracks and automatic
+collision siblings are supported, with one undo step per imported file.
 Finder file drops, persistent panel visibility, sequence timecode and frame
 stepping, and an empty-track cleanup preference are
 available. Timeline clips display asynchronous filmstrips and channel waveforms;
