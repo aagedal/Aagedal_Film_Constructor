@@ -3,10 +3,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 extension UTType {
-    static let filmConstructorProject = UTType(exportedAs: "com.aagedal.filmconstructor.project", conformingTo: .json)
+    nonisolated static let filmConstructorProject = UTType(exportedAs: "com.aagedal.filmconstructor.project", conformingTo: .json)
 }
 
-struct ProjectDocument: FileDocument {
+nonisolated struct ProjectDocument: FileDocument, Sendable {
     static var readableContentTypes: [UTType] { [.filmConstructorProject] }
     var project: Project
     var mediaBookmarks: [UUID: Data]
@@ -112,7 +112,7 @@ struct ProjectDocument: FileDocument {
     }
 }
 
-enum ProjectFileError: LocalizedError {
+nonisolated enum ProjectFileError: LocalizedError {
     case unsupportedVersion(Int)
     var errorDescription: String? {
         switch self {

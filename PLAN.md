@@ -466,6 +466,8 @@ rates. Track stable container stream indices and per-stream timing offsets.
 - [x] Preserve the last accepted position on underrun, support explicit restart,
       cancel priming across lifecycle changes and release abandoned monitors;
       qualify these policies with injected output clocks and cancellation tests.
+- [x] Bound retained native source decoders with configurable LRU context/decoded
+      source byte limits; qualify eviction/reopen using PNG and PCM sources.
 - [x] Test adjacency, multiple overlaps, free siblings, custom names, failed edit
       rollback, exact fractional rates, DF boundaries, and preserved audio sync.
 
@@ -498,6 +500,10 @@ sequence previews and renders at the same positions with exact output timing.
 
 - [x] Build the top-left bin, middle source monitor, top-right inspector, and
       full-width timeline with resizable panels.
+- [x] Launch directly into an untitled drop-ready workspace while retaining native
+      document open/save/autosave behavior.
+- [x] Suggest first saving edited untitled work after approximately five minutes;
+      keep bounded, automatic recoverable snapshots for saved projects.
 - [x] Add persistent panel visibility controls in the toolbar and View menu.
 - [ ] Add edited-sequence monitoring.
 - [x] Add sandboxed AVFoundation import, versioned project save/open, native
@@ -575,6 +581,9 @@ remaining signed/native playback checks.
       timecode, and A/V sync across supported containers/codecs.
 - [ ] Verify outputs using FFprobe, decoded frame checks, channel identification
       audio fixtures, and native-player/editor import at integer/fractional rates.
+- [x] Verify decoded CFR frame identities/timestamps, stereo channel routes/sample
+      counts and MOV timecode packets at 24, 24000/1001, 30000/1001 DF and
+      60000/1001 DF. Native receiver and broader source acceptance remain open.
 - [ ] Add FCPXML sequence export and validate real layered-video/audio imports.
 - [ ] Evaluate OTIO export using its official core/validator; document its subset.
 - [x] Define and implement a conservative selected-track cuts-only CMX3600 EDL
@@ -592,6 +601,9 @@ does not require implementing every proposed interchange adapter.
       dropped/duplicated conform frames, geometry, channel maps, and audio sync.
 - [ ] Measure launch-to-interaction against the two-second target in Release builds.
 - [ ] Profile large projects; bound caches and keep import/generation off the UI thread.
+- [x] Add reproducible synthetic 5,000/10,000-clip profiling, remove quadratic
+      overlap and repeated asset/crossfade scans, and cache workspace derived
+      lookups across transport updates. Full app/media/launch profiling remains open.
 - [x] Bound timeline preview metadata/decode admission, cancel queued requests
       without polling, release hidden previews and serialize bounded still
       source thumbnails off the main actor. Full project profiling remains open.
@@ -1143,3 +1155,60 @@ launch-performance claim has been validated yet.
   [still parity evidence](docs/evidence/native-stills-20261012/README.md),
   [live recovery evidence](docs/evidence/native-recovery-20261012/README.md) and
   [native package reproduction](Packages/NativePlaybackProof/README.md).
+
+### Large-project, decoder retention and export-rate checkpoint (2026-10-12)
+
+- Core validation now uses exact sorted intervals and indexed asset/family lookup.
+  Crossfade validation, rendering and edit cleanup reuse endpoint/geometry maps.
+  Optimized synthetic 5,000-clip medians improved validation from 359 to 5.4 ms,
+  render planning from 1513 to 15.2 ms and move/undo/redo from 1384 to 29.2 ms.
+  The 10,000-clip workload passes. Peak process memory increased from about
+  138 to 151 MB at 5,000 clips; this benchmark excludes the UI and media I/O.
+- Workspace duration and selected/media lookups cache until the project changes.
+  Regression coverage checks nested mutation, undo/redo and document replacement.
+- Native retained source decoders use configurable LRU context and decoded-source
+  byte budgets. Defaults are 16 contexts and 128 MiB, separate from returned
+  payload caching. PNG/WAV tests cover eviction, exact reopen/seek, failed calls,
+  lifetime release and visiting more than 64 sources. Codec/probe/internal memory
+  is excluded; eviction can add requalification latency.
+- The complete 13-variant still and 10-variant geometry parity suites pass with
+  this retention policy, as do 39 runtime tests. Host access was required for
+  actual macOS offline audio services. Hardware sync/latency remains unqualified.
+- Rendered MOV/ProRes HQ/PCM exports at 24, 24000/1001, 30000/1001 DF and
+  60000/1001 DF pass every decoded barcode frame and exact timestamp, sample
+  counts/routes/gain/phase, and actual MOV timecode packet checks. Native receiver,
+  mixed rates, VFR and broad source/container qualification remain open.
+- See [performance evidence](docs/evidence/project-performance-20261012/README.md),
+  [retention evidence](docs/evidence/native-retention-20261012/README.md) and
+  [export-rate qualification](docs/fractional-render-export-proof.md).
+
+### Immediate editing and save protection checkpoint (2026-10-12)
+
+- Empty launches/reopens now request an ordinary untitled DocumentGroup workspace
+  instead of the default Open dialog. File-open/restoration takes precedence;
+  deferred requests coalesce. Finder drops can import without first choosing a
+  project name. Native save/open/autosave remains the document controller's job.
+- Edited untitled work suggests saving after approximately five minutes, with
+  Save and snooze actions. Unchanged new workspaces do not prompt. Saving clears
+  the first-save reminder and enables timestamped backup snapshots.
+- Saved projects snapshot after 15 idle seconds, with at least 60 seconds between
+  writes and a 120-second continuous-edit deadline. At most 20 completed backups
+  are retained per standardized project path in app Application Support. Encoding
+  and durable staging/publication run on a worker actor. Backups never write the
+  source project and include the normal document envelope/bookmarks/proxy queue;
+  originals are referenced rather than copied. Show backups opens recovery files.
+- Failures remain visible and retry at the next permitted interval. Tests cover
+  five-minute timing/snooze, untouched state, debounce/minimum/maximum intervals,
+  bounded retention, reopenable snapshots, source preservation, symlink refusal,
+  retry and edits/Save As during an in-flight write. The smoke compiles with Swift
+  6 and default MainActor isolation; value serialization is explicitly nonisolated.
+- Final verification passed 151 core tests with one optional DTD test skipped,
+  22 Python regressions, shortcut and startup/save-protection smokes, app-file,
+  proxy-queue and timeline-preview smokes, and the unsigned macOS Debug build.
+  Native runtime/parity and export-rate evidence is recorded above. Release
+  launch-to-interaction measurement and signed sandbox acceptance remain open.
+- Native cold-launch UI inspection of an isolated unsigned app copy timed out
+  without returning a window state. Startup policy is covered by deterministic
+  tests and compilation; the updated launch window was not visually qualified.
+  The existing installed app was left untouched after automatic review rejected
+  quitting it because its unsaved-document state was unknown.

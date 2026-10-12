@@ -24,13 +24,19 @@ interchange plans, Media Converter/Player reuse audits, and implementation miles
 
 ### Current implementation
 
-The macOS app now has a resizable media bin, source monitor, inspector, and
+The macOS app opens directly into an untitled workspace ready for Finder file
+drops; save the project when you want to keep it. It has a resizable media bin, source monitor, inspector, and
 multitrack timeline. Import AVFoundation-supported video/audio and still images,
 preview sources, append linked video/audio, drag move/trim with snapping, split/delete clips, undo/redo,
 and save/reopen `.afcproject` documents. Media access is retained with sandbox
 bookmarks; missing originals can be relinked. DocumentGroup supplies native
-new/open/save and autosave behavior. Finder file drops, persistent panel visibility,
-sequence timecode and frame stepping, and an empty-track cleanup preference are
+new/open/save and autosave behavior. An approximately five-minute first-save
+reminder and automatic timestamped
+backups of saved projects are available. The latest 20 backups are recoverable
+through **Show backups**; source media is referenced, not copied. See
+[saving and recovery](docs/basic-workspace.md).
+Finder file drops, persistent panel visibility, sequence timecode and frame
+stepping, and an empty-track cleanup preference are
 available. Timeline clips display asynchronous filmstrips and channel waveforms;
 Settings includes persistent keyboard shortcut remapping and conflict checks.
 Source playback supports J (silent reverse), K (pause), and L (forward), with
@@ -79,6 +85,12 @@ engine. The app targets macOS 14+; the inherited project format requires a
 compatible Xcode (verified with Xcode 27).
 
 Run `scripts/verify.sh` to test the core and build the app without signing.
+Run `scripts/project-profile.sh --clips 10000 --tracks 8 --iterations 3` for
+optimized synthetic large-project timings. Indexed validation/render planning
+and crossfade geometry avoid repeated scans; the workspace caches derived
+duration and media lookups across transport updates. See
+[performance evidence](docs/evidence/project-performance-20261012/README.md) for
+scope and memory tradeoffs.
 Run `scripts/app-file-smoke.sh` to generate WAV/PNG fixtures and verify import,
 editing, bookmarks, relink undo, project round trips, and malformed-file rejection.
 The bookmark smoke checks need macOS services available outside restrictive tool
@@ -92,6 +104,9 @@ absolute FFmpeg and FFprobe paths and a new absolute output directory. It checks
 decoded frame identities, cuts, channel routing, gain, timecode, and sample counts.
 The app now uses this compiler for the development render workflow; this proof
 does not qualify every source format or establish MPV parity.
+The [integer/fractional export matrix](docs/fractional-render-export-proof.md)
+also verifies every decoded frame, exact timestamps, routed samples and MOV
+timecode packets at 24, 24000/1001, 30000/1001 DF and 60000/1001 DF.
 
 The fixture also emits an experimental MPV graph from the same export filters.
 `scripts/mpv-plan-proof.py` resolves actual loaded tracks over local JSON IPC and
