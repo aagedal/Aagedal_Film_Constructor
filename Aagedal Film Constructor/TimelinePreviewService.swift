@@ -40,14 +40,25 @@ nonisolated struct TimelinePreview: Sendable {
     var byteCost: Int { images.reduce(0) { $0 + $1.bytesPerRow * $1.height } + peaks.reduce(0) { $0 + $1.count * 4 } }
 }
 
-/// Two concurrent decoders and a 24 MB LRU keep large timelines from exhausting memory.
+/// Two admitted media jobs, twelve FIFO waiters, and a 24 MB LRU bound timeline work.
 actor TimelinePreviewService {
     static let shared = TimelinePreviewService()
     private var cache: [TimelinePreviewCacheKey: TimelinePreview] = [:]
     private var recency: [TimelinePreviewCacheKey] = []
     private var activeDecoders = 0
-    private var pendingDecoders = 0
+    private struct WaitingRequest {
+        let id: UUID
+        let continuation: CheckedContinuation<Void, Error>
+    }
+    private var waitingRequests: [WaitingRequest] = []
+    private let maximumCacheBytes: Int
+    private let maximumCacheEntries: Int
     private var cacheBytes = 0
+
+    init(maximumCacheBytes: Int = 24 * 1_024 * 1_024, maximumCacheEntries: Int = 32) {
+        self.maximumCacheBytes = max(0, maximumCacheBytes)
+        self.maximumCacheEntries = max(0, maximumCacheEntries)
+    }
 
     func preview(for request: TimelinePreviewRequest) async throws -> TimelinePreview {
         try Task.checkCancellation()
@@ -59,35 +70,66 @@ actor TimelinePreviewService {
                 throw TimelinePreviewError.invalidRequest
             }
         }
+        // Admission includes filesystem fingerprinting: even cache lookups cannot fan
+        // out unbounded metadata work while a large timeline becomes visible.
+        try await acquireAdmission()
+        defer { releaseAdmission() }
+        try Task.checkCancellation()
         let key = await Self.cacheKey(for: request)
         try Task.checkCancellation()
         if let value = cached(key) { return value }
-        guard pendingDecoders < 12 else { throw TimelinePreviewError.queueFull }
-        pendingDecoders += 1
+        let value: TimelinePreview
         do {
-            while activeDecoders >= 2 {
-                try await Task.sleep(for: .milliseconds(30))
-            }
-            try Task.checkCancellation()
+            value = try await Self.decode(request)
         } catch {
-            pendingDecoders -= 1
+            // AVFoundation can report its own reader/generator error when cancelled.
+            try Task.checkCancellation()
             throw error
         }
-        pendingDecoders -= 1
-        if let value = cached(key) { return value }
-        activeDecoders += 1
-        defer { activeDecoders -= 1 }
-        let value = try await Self.decode(request)
         try Task.checkCancellation()
         if let replaced = cache.updateValue(value, forKey: key) { cacheBytes -= replaced.byteCost }
         recency.removeAll { $0 == key }
         recency.append(key)
         cacheBytes += value.byteCost
-        while cacheBytes > 24 * 1_024 * 1_024 || recency.count > 32 {
+        while cacheBytes > maximumCacheBytes || recency.count > maximumCacheEntries {
             let oldest = recency.removeFirst()
             if let removed = cache.removeValue(forKey: oldest) { cacheBytes -= removed.byteCost }
         }
         return value
+    }
+
+    private func acquireAdmission() async throws {
+        let id = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                if Task.isCancelled {
+                    continuation.resume(throwing: CancellationError())
+                } else if activeDecoders < 2 {
+                    activeDecoders += 1
+                    continuation.resume()
+                } else if waitingRequests.count < 12 {
+                    waitingRequests.append(WaitingRequest(id: id, continuation: continuation))
+                } else {
+                    continuation.resume(throwing: TimelinePreviewError.queueFull)
+                }
+            }
+        } onCancel: {
+            Task { await self.cancelAdmission(id) }
+        }
+    }
+
+    private func cancelAdmission(_ id: UUID) {
+        guard let index = waitingRequests.firstIndex(where: { $0.id == id }) else { return }
+        waitingRequests.remove(at: index).continuation.resume(throwing: CancellationError())
+    }
+
+    private func releaseAdmission() {
+        if waitingRequests.isEmpty {
+            activeDecoders -= 1
+        } else {
+            // Transfer the occupied slot directly to the oldest queued request.
+            waitingRequests.removeFirst().continuation.resume()
+        }
     }
 
     private func cached(_ request: TimelinePreviewCacheKey) -> TimelinePreview? {
@@ -109,7 +151,7 @@ actor TimelinePreviewService {
 
     // Exposes resource accounting to the generated-media smoke check.
     func resourceUsage() -> (active: Int, pending: Int, entries: Int, bytes: Int) {
-        (activeDecoders, pendingDecoders, cache.count, cacheBytes)
+        (activeDecoders, waitingRequests.count, cache.count, cacheBytes)
     }
 
     @concurrent

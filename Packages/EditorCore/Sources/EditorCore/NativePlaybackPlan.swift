@@ -1,17 +1,19 @@
 import Foundation
 
 /// An absolute source frame on the sequence frame grid, with its container stream identity.
-/// A decoder must separately qualify the source's frame rate, timestamps and geometry.
+/// Stills always select image frame zero. A decoder must separately qualify the
+/// source's timestamps and geometry, or its single-image format and alpha.
 public struct NativeVideoFrameRequest: Equatable, Codable, Sendable {
     public let clipID: UUID
     public let url: URL
     public let streamIndex: Int
     public let sourceFrame: Int64
     public let scalingMode: ScalingMode
+    public let isStill: Bool
 
-    public init(clipID: UUID, url: URL, streamIndex: Int, sourceFrame: Int64, scalingMode: ScalingMode) {
+    public init(clipID: UUID, url: URL, streamIndex: Int, sourceFrame: Int64, scalingMode: ScalingMode, isStill: Bool = false) {
         self.clipID = clipID; self.url = url; self.streamIndex = streamIndex
-        self.sourceFrame = sourceFrame; self.scalingMode = scalingMode
+        self.sourceFrame = sourceFrame; self.scalingMode = scalingMode; self.isStill = isStill
     }
 }
 
@@ -48,7 +50,7 @@ public struct NativeAudioReadRequest: Equatable, Codable, Sendable {
 }
 
 /// Stateless, exact requests for the development playback subset: frame-aligned
-/// video, sample-aligned audio, zero selected-stream offsets, local originals,
+/// video/still placement, sample-aligned audio, zero selected-stream offsets, local originals,
 /// even raster dimensions and mono/stereo output. This performs no media I/O or
 /// FFmpeg compilation. The decoder still has to qualify rates, CFR and geometry.
 public struct NativePlaybackPlan: Equatable, Sendable {
@@ -132,17 +134,31 @@ public struct NativePlaybackPlan: Equatable, Sendable {
                 return stream
             }
             switch component.selection {
-            case .still:
-                throw EditorCoreError.invalidModel("Still-image playback is not qualified by this prototype")
-            case .video(let streamIndex):
+            case .still, .video:
+                let isStill = component.selection == .still
+                let streamIndex: Int
+                if isStill {
+                    guard ["png", "jpg", "jpeg"].contains(url.pathExtension.lowercased()),
+                          component.sourceStreams.isEmpty ||
+                          (component.sourceStreams.count == 1 && component.sourceStreams[0].kind == .video) else {
+                        throw EditorCoreError.invalidModel("Native stills require an unambiguous PNG/JPEG image stream")
+                    }
+                    streamIndex = component.sourceStreams.first?.index ?? 0
+                    if !component.sourceStreams.isEmpty { _ = try sourceStream(streamIndex, kind: .video) }
+                } else {
+                    guard case .video(let index) = component.selection else {
+                        throw EditorCoreError.invalidModel("Invalid visual selection")
+                    }
+                    streamIndex = index
+                    _ = try sourceStream(streamIndex, kind: .video)
+                }
                 guard component.fadeIn.duration == .zero && component.fadeOut.duration == .zero else {
                     throw EditorCoreError.invalidModel("Only audio clips support fades")
                 }
                 guard component.routing.outputChannels.isEmpty else {
                     throw EditorCoreError.invalidModel("Video component has audio routing")
                 }
-                _ = try sourceStream(streamIndex, kind: .video)
-                let sourceStart = try Self.integral(component.sourceRange.start.multiplied(by: settings.frameRate.value),
+                let sourceStart = isStill ? 0 : try Self.integral(component.sourceRange.start.multiplied(by: settings.frameRate.value),
                                                     "Video source in must align to sequence frames")
                 let count = try Self.integral(component.sourceRange.duration.multiplied(by: settings.frameRate.value),
                                               "Video duration must align to sequence frames")
@@ -152,7 +168,7 @@ public struct NativePlaybackPlan: Equatable, Sendable {
                 let end = try Self.add(start, count)
                 guard end <= frames else { throw EditorCoreError.invalidModel("Video range exceeds sequence") }
                 video.append(VideoClip(request: .init(clipID: component.clipID, url: url, streamIndex: streamIndex,
-                                                       sourceFrame: sourceStart, scalingMode: component.scalingMode),
+                                                       sourceFrame: sourceStart, scalingMode: component.scalingMode, isStill: isStill),
                                        start: start, end: end))
             case .audio(let selection):
                 try selection.layout.validate()
@@ -189,17 +205,29 @@ public struct NativePlaybackPlan: Equatable, Sendable {
         self.video = video; self.audio = audio
     }
 
-    /// Half-open visibility prevents a layer from holding its last frame after a cut.
-    /// Returns nil for a black gap. Every request is independent of previous seeks.
+    /// Frontmost visual request, independent of seek history. Stills may be
+    /// transparent; consumers composing a final image must use videoLayers.
+    /// Returns nil for a black gap and uses half-open clip visibility.
     public func videoFrame(at frame: Int64) throws -> NativeVideoFrameRequest? {
+        try videoLayers(at: frame).first
+    }
+
+    /// Front to back visual layers. Stills preserve transparency; the first
+    /// opaque video layer hides all lower layers. Synthetic still trims do not
+    /// change the decoded image, and gaps return an empty array.
+    public func videoLayers(at frame: Int64) throws -> [NativeVideoFrameRequest] {
         guard frame >= 0, frame < videoFrames else {
             throw EditorCoreError.invalidModel("Video frame is outside sequence")
         }
-        guard let clip = video.first(where: { $0.start <= frame && frame < $0.end }) else { return nil }
-        let request = clip.request
-        return NativeVideoFrameRequest(clipID: request.clipID, url: request.url, streamIndex: request.streamIndex,
-                                        sourceFrame: try Self.add(request.sourceFrame, frame - clip.start),
-                                        scalingMode: request.scalingMode)
+        var layers: [NativeVideoFrameRequest] = []
+        for clip in video where clip.start <= frame && frame < clip.end {
+            let request = clip.request
+            layers.append(.init(clipID: request.clipID, url: request.url, streamIndex: request.streamIndex,
+                sourceFrame: request.isStill ? 0 : try Self.add(request.sourceFrame, frame - clip.start),
+                scalingMode: request.scalingMode, isStill: request.isStill))
+            if !request.isStill { break }
+        }
+        return layers
     }
 
     /// Intersects every audio clip with a positive block wholly inside the sequence.

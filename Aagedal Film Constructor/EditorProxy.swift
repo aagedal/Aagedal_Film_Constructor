@@ -121,8 +121,21 @@ extension EditorStore {
         }
         if asset.streams.isEmpty {
             pendingSourceTransport = nil
-            previewImage = NSImage(contentsOf: originalURL)
-            proxyPlaybackMessage = "Original still image"
+            proxyPlaybackMessage = "Loading still image…"
+            let epoch = mediaEpoch
+            sourcePreviewTask = Task {
+                do {
+                    let image = try await MediaImporter.stillPreview(url: originalURL)
+                    guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset else { return }
+                    previewImage = NSImage(cgImage: image, size: .zero)
+                    proxyPlaybackMessage = "Original still image"
+                    statusMessage = "Source preview: \(asset.name)"
+                } catch {
+                    guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset else { return }
+                    proxyPlaybackMessage = "Still preview unavailable"
+                    statusMessage = "Cannot preview \(asset.name): \(error.localizedDescription)"
+                }
+            }
             return
         }
         if let url = asset.proxy?.url { holdAccess(url) }

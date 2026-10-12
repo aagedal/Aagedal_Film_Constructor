@@ -13,7 +13,8 @@ audio fail explicitly. Full-stream qualification is intentionally expensive;
 it is evidence gathering, not the final startup strategy.
 
 `NativeSequenceProof` consumes EditorCore's stateless `NativePlaybackPlan`.
-The monitor selects the frontmost opaque layer, leaves gaps black, mixes explicit
+The monitor composites still-image layers over the first visible opaque video
+layer, leaves gaps black, mixes explicit
 source channel/routing/gain contributions with clip-relative linear or equal-power
 edge fades and linked audio crossfades, creates CGImage/PNG captures, and
 schedules bounded buffers at AVAudioPlayerNode sample times in offline mode.
@@ -23,9 +24,19 @@ spatial scaling followed by centered RGB padding/cropping, with black padding.
 Source, sequence and intermediate dimensions are limited to 4096 in each
 direction; extreme fill aspect ratios can exceed this limit and fail explicitly.
 Odd spare pixels are assigned to the bottom/right. Audio must have the same sample
-rate. Still images/alpha composition, color, proxies and live A/V clocking await
-qualification. Explicit buffers/decoder counts have development limits; FFmpeg
+rate. Still originals are single-frame PNG/JPEG files with one image stream;
+animated/multiple-frame images and containers disguised as images fail explicitly.
+Synthetic still source trims always select the same image. PNG alpha is retained
+through bicubic RGBA scaling and transparent padding, then composed over lower
+layers using straight alpha with nearest integer rounding. Alpha-bearing motion
+video fails explicitly. General image formats, linear-light color composition,
+color management, proxies and live A/V clocking await qualification. Explicit
+buffers/decoder counts have development limits; FFmpeg
 probing/indexing and codec memory have not been comprehensively profiled.
+The live session's 8 MB frame/audio cache does not include retained source decoder
+state: up to 64 stream decoders can retain their own decoded frame, including one
+image per still. Input probing occurs before the codec raster limit and its
+allocations are outside these explicit buffer bounds.
 
 Use [the repository proof runner](../../scripts/native-sequence-proof.py) with
 explicit FFmpeg, FFprobe, pkg-config, completed barcode-fixture and fresh output
@@ -46,7 +57,13 @@ Use `--geometry-only` for baseline plus nine video fit/fill/none variants with
 smaller, larger and odd-sized source rasters. It retains active-picture comparisons
 that exclude black padding, and exercises seeks, PNG capture and primed plan
 replacement. See [the spatial evidence](../../docs/evidence/native-geometry-20261012/README.md).
-The default runner includes geometry as well as the original timeline cases.
+Use `--stills-only` for baseline plus twelve PNG-alpha/JPEG fit/fill/none
+variants with smaller/larger images, primed plan replacement and reverse/repeated
+seeks. Independent no-scaling PNG oracles check transparent, partial and opaque
+coverage separately against separately decoded barcode frames; FFmpeg export
+parity also checks every frame, asynchronous capture and native PNG seek capture.
+See [the still evidence](../../docs/evidence/native-stills-20261012/README.md).
+The default runner includes stills, geometry and the original timeline cases.
 
 `NativePlaybackRuntime` now separates the reusable development monitor from the
 proof executable. `NativePlaybackSession` provides async `video`/`audio` requests
@@ -74,8 +91,12 @@ engine starts, scheduled at exact node sample times with at most 4096 samples of
 look-ahead (four 1024-sample blocks, with a partial final block). Video decode has
 at most one outstanding request. Seeks flush the node, invalidate decoder epochs,
 and reject obsolete operation tokens immediately before scheduling or displaying.
-Pause retains the final observed sample-clock position. Starvation or a missing
-clock stops playback with an explicit error; automatic recovery is unfinished.
+Pause retains the final observed sample-clock position. Audio starvation flushes
+output and pauses at the last accepted transport sample;
+explicit Play starts a fresh clock epoch. A missing clock stops playback with an
+explicit error. Automatic recovery remains unfinished. Final Pause readings use
+the same queue validation, and cancellation covers priming, audio pumping and
+video display tasks.
 Audio-engine configuration changes and unexpected engine stops also flush pending
 work and pause at the last accepted transport position. The monitor reports the
 interruption and requires explicit Play to restart; it never submits a reset
@@ -116,9 +137,12 @@ Negative startup node sample times are treated as preroll until the first
 nonnegative tick, under the two-second clock deadline. Negative clocks after
 startup and changed sample rates still fail explicitly.
 
-This implementation has compiled and its 22 runtime tests have passed on the
+This implementation has compiled and its 32 runtime tests have passed on the
 current development host. A [scripted local output smoke](../../docs/evidence/native-live-20261012/README.md)
-completed play/seek/pause/resume without errors. Hardware synchronization has
+completed play/seek/pause/resume without errors. [Recovery regressions](../../docs/evidence/native-recovery-20261012/README.md)
+cover injected starvation during polling and refill, explicit restart, interruption
+policy, priming cancellation and release after pumping begins. The actual output
+smoke encountered no underrun. Hardware synchronization and recovery have
 **not** been qualified.
 The player-node clock measures rendered samples, not acoustic speaker arrival;
 output latency is not compensated. The display is polled at 5 ms and can drop

@@ -33,6 +33,7 @@ struct AFCDecoder {
     AVChannelLayout audio_layout;
     enum AVMediaType kind;
     int stream_index;
+    int still;
     int width;
     int height;
     int channels;
@@ -193,6 +194,8 @@ static int video_geometry(AFCDecoder *decoder, char *error, size_t size) {
         return fail(error, size, "HDR source transfer functions are unsupported");
     if (!pixel || (pixel->flags & AV_PIX_FMT_FLAG_HWACCEL))
         return fail(error, size, "Source video pixel format is unsupported");
+    if (!decoder->still && (pixel->flags & AV_PIX_FMT_FLAG_ALPHA))
+        return fail(error, size, "Alpha-bearing motion video is not qualified");
     return 0;
 }
 
@@ -296,7 +299,7 @@ invalid:
     return result;
 }
 
-AFCDecoder *afc_decoder_open(const char *path, int stream_index,
+static AFCDecoder *open_decoder(const char *path, int stream_index, int still,
                              char *error, size_t error_size) {
     clear_error(error, error_size);
     struct stat file_stat;
@@ -309,6 +312,7 @@ AFCDecoder *afc_decoder_open(const char *path, int stream_index,
         fail(error, error_size, "Allocate decoder: out of memory");
         return NULL;
     }
+    decoder->still = still;
     decoder->audio_format = -1;
     decoder->stream_index = stream_index;
     AVDictionary *options = NULL;
@@ -331,6 +335,12 @@ AFCDecoder *afc_decoder_open(const char *path, int stream_index,
     decoder->stream = decoder->format->streams[stream_index];
     AVCodecParameters *parameters = decoder->stream->codecpar;
     decoder->kind = parameters->codec_type;
+    if (still && (decoder->format->nb_streams != 1 || stream_index != 0 ||
+        !((parameters->codec_id == AV_CODEC_ID_PNG && !strcmp(decoder->format->iformat->name, "png_pipe")) ||
+          (parameters->codec_id == AV_CODEC_ID_MJPEG && !strcmp(decoder->format->iformat->name, "jpeg_pipe"))))) {
+        fail(error, error_size, "Still decoder requires one PNG/JPEG image stream");
+        goto invalid;
+    }
     if (decoder->kind != AVMEDIA_TYPE_VIDEO && decoder->kind != AVMEDIA_TYPE_AUDIO) {
         fail(error, error_size, "Selected container stream is neither video nor audio");
         goto invalid;
@@ -427,12 +437,37 @@ AFCDecoder *afc_decoder_open(const char *path, int stream_index,
     result = decoder->kind == AVMEDIA_TYPE_VIDEO
         ? video_geometry(decoder, error, error_size) : audio_shape(decoder, error, error_size);
     if (result < 0) goto invalid;
+    if (still) {
+        AVFrame *image = av_frame_clone(decoder->frame);
+        if (!image) {
+            fail(error, error_size, "Retain still frame: out of memory");
+            goto invalid;
+        }
+        result = next_frame(decoder, error, error_size);
+        if (result != 0) {
+            av_frame_free(&image);
+            if (result > 0) fail(error, error_size, "Animated/multiple-frame still images are unsupported");
+            goto invalid;
+        }
+        av_frame_free(&decoder->frame);
+        decoder->frame = image;
+        decoder->qualified = 1;
+        decoder->total_units = 1;
+    }
     decoder->cached = 1;
     decoder->cached_unit = 0;
     return decoder;
 invalid:
     afc_decoder_close(decoder);
     return NULL;
+}
+
+AFCDecoder *afc_decoder_open(const char *path, int stream_index, char *error, size_t size) {
+    return open_decoder(path, stream_index, 0, error, size);
+}
+
+AFCDecoder *afc_decoder_open_still(const char *path, int stream_index, char *error, size_t size) {
+    return open_decoder(path, stream_index, 1, error, size);
 }
 
 void afc_decoder_close(AFCDecoder *decoder) {
@@ -459,11 +494,11 @@ static int64_t gcd_positive(int64_t a, int64_t b) {
     return a;
 }
 
-static int convert_video(AFCDecoder *decoder, int width, int height, uint8_t *rgb, char *error, size_t size) {
+static int convert_video(AFCDecoder *decoder, int width, int height, int alpha, uint8_t *rgb, char *error, size_t size) {
     AVFrame *frame = decoder->frame;
     decoder->sws = sws_getCachedContext(decoder->sws,
         decoder->width, decoder->height, frame->format,
-        width, height, AV_PIX_FMT_RGB24,
+        width, height, alpha ? AV_PIX_FMT_RGBA : AV_PIX_FMT_RGB24,
         width == decoder->width && height == decoder->height ? SWS_BILINEAR : SWS_BICUBIC,
         NULL, NULL, NULL);
     if (!decoder->sws) return fail(error, size, "Initialize native RGB conversion");
@@ -484,7 +519,7 @@ static int convert_video(AFCDecoder *decoder, int width, int height, uint8_t *rg
         0, 1 << 16, 1 << 16);
     if (result < 0) return ff_fail(error, size, "Configure native RGB conversion", result);
     uint8_t *output[4] = {rgb, NULL, NULL, NULL};
-    int strides[4] = {width * 3, 0, 0, 0};
+    int strides[4] = {width * (alpha ? 4 : 3), 0, 0, 0};
     result = sws_scale(decoder->sws, (const uint8_t *const *)frame->data,
         frame->linesize, 0, decoder->height, output, strides);
     if (result != height) return fail(error, size, "Native RGB conversion returned an incomplete frame");
@@ -496,7 +531,7 @@ int afc_decoder_scaled_video(AFCDecoder *decoder, int width, int height, int64_t
                       uint8_t *rgb, size_t rgb_size,
                       char *error, size_t error_size) {
     clear_error(error, error_size);
-    if (!decoder || decoder->kind != AVMEDIA_TYPE_VIDEO)
+    if (!decoder || decoder->kind != AVMEDIA_TYPE_VIDEO || decoder->still)
         return fail(error, error_size, "Video extraction requires a video stream decoder");
     if (source_frame < 0 || rate_num <= 0 || rate_den <= 0)
         return fail(error, error_size, "Video source frame/rational rate is invalid");
@@ -530,7 +565,7 @@ int afc_decoder_scaled_video(AFCDecoder *decoder, int width, int height, int64_t
     int retry_from_zero = 1;
     for (;;) {
         if (decoder->cached && decoder->cached_unit == source_frame)
-            return convert_video(decoder, width, height, rgb, error, error_size);
+            return convert_video(decoder, width, height, 0, rgb, error, error_size);
         if (decoder->cached) previous = decoder->cached_unit;
         result = next_frame(decoder, error, error_size);
         if (result < 0) goto invalid;
@@ -566,6 +601,18 @@ int afc_decoder_scaled_video(AFCDecoder *decoder, int width, int height, int64_t
 invalid:
     decoder->needs_seek = 1;
     return result;
+}
+
+int afc_decoder_scaled_still(AFCDecoder *decoder, int width, int height,
+                            uint8_t *rgba, size_t rgba_size, char *error, size_t size) {
+    clear_error(error, size);
+    if (!decoder || !decoder->still || !decoder->cached)
+        return fail(error, size, "Still extraction requires a qualified still decoder");
+    if (width <= 0 || height <= 0 || width > 4096 || height > 4096)
+        return fail(error, size, "Scaled still raster exceeds development geometry limits");
+    if (!rgba || rgba_size < (size_t)width * height * 4)
+        return fail(error, size, "RGBA output buffer is too small");
+    return convert_video(decoder, width, height, 1, rgba, error, size);
 }
 
 int afc_decoder_video(AFCDecoder *decoder, int64_t source_frame,

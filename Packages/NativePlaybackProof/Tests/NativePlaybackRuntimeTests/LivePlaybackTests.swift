@@ -86,10 +86,12 @@ struct LivePlaybackTests {
         var statistics = LivePlaybackStatistics()
         statistics.configurationChanges = 2
         statistics.unexpectedEngineStops = 1
+        statistics.underruns = 3
         let decoded = try JSONDecoder().decode(LivePlaybackStatistics.self,
                                                from: JSONEncoder().encode(statistics))
         #expect(decoded.configurationChanges == 2)
         #expect(decoded.unexpectedEngineStops == 1)
+        #expect(decoded.underruns == 3)
     }
 
     @Test func scheduleIsBoundedAndClockCreatesAdmission() throws {
@@ -149,5 +151,230 @@ struct LivePlaybackTests {
         #expect(throws: (any Error).self) { try LiveAudioQueue(total: 100, maximumBlocks: 1) }
         #expect(throws: (any Error).self) { try nativeImage(rgb: Data(count: 11), width: 2, height: 2) }
         #expect(try nativeImage(rgb: Data(count: 12), width: 2, height: 2).width == 2)
+    }
+}
+
+private func liveFixture() throws -> Project {
+    let rate = try FrameRate(30)
+    let settings = try SequenceSettings(width: 2, height: 2, frameRate: rate)
+    let template = TrackTemplate(kind: .video)
+    let family = TrackFamily(baseName: "Video", template: template)
+    let asset = MediaAsset(name: "A", originalURL: URL(fileURLWithPath: "/private/tmp/unused.mov"),
+        duration: try rate.time(forFrames: 300), streams: [.init(index: 0, kind: .video)])
+    let clip = TimelineClip(assetID: asset.id,
+        sourceRange: try TimeRange(start: .zero, duration: rate.time(forFrames: 180)), selection: .video(streamIndex: 0))
+    return Project(settings: settings, assets: [asset], families: [family],
+        tracks: [.init(familyID: family.id, template: template, clips: [clip])])
+}
+
+private final class LiveFakeDecoder: PlaybackDecoder {
+    func video(frame: Int64) throws -> Data { Data(count: 12) }
+    func audio(start: Int64, count: Int) throws -> [Float] { Array(repeating: 0, count: count * 2) }
+}
+
+@MainActor private final class LiveFakeOutput: LivePlaybackOutput {
+    var isRunning = false
+    var isPlaying = false
+    let configurationObject: AnyObject = NSObject()
+    var samples: [Int64] = []
+    var current: Int64 = 0
+    var scheduled: [Int64] = []
+    var starts = 0
+    var resets = 0
+    var onStart: (() -> Void)?
+    func start() { starts += 1; isRunning = true; isPlaying = true; onStart?() }
+    func stop() { isRunning = false; isPlaying = false }
+    func reset() { resets += 1 }
+    func clock() -> (sample: Int64, rate: Double)? {
+        if !samples.isEmpty { current = samples.removeFirst() }
+        return (current, 48000)
+    }
+    func schedule(_ buffer: AVAudioPCMBuffer, at sample: Int64) { scheduled.append(sample) }
+}
+
+@MainActor private func liveMonitor(_ output: LiveFakeOutput) throws -> NativeLivePlayback {
+    let project = try liveFixture()
+    let session = try NativePlaybackSession(project: project, maximumPendingRequests: 2, maximumCacheBytes: 8192,
+        worker: SerialDecodeWorker(factory: { _ in LiveFakeDecoder() }))
+    return try NativeLivePlayback(project: project, session: session, output: output)
+}
+
+struct LiveRecoveryTests {
+    @Test(arguments: [Int64(100), Int64(1024)]) @MainActor func starvationPausesAtLastAcceptedSampleAndExplicitPlayRestartsClock(acceptedSample: Int64) async throws {
+        let output = LiveFakeOutput()
+        // First pump tick is accepted; the next reading starves at the exact
+        // schedule boundary. At 1024 this also crosses an awaited refill decode;
+        // at 100 it starves on the next polling tick. Neither admits late audio.
+        output.samples = [acceptedSample, 4096]
+        let monitor = try liveMonitor(output)
+        let failure = Task { @MainActor in
+            await withCheckedContinuation { continuation in
+                monitor.failure = { error in continuation.resume(returning: String(describing: error)) }
+            }
+        }
+        await Task.yield()
+        try await monitor.play()
+        let message = await failure.value
+        monitor.failure = nil
+        #expect(message.contains("Play explicitly to restart"))
+        #expect(!monitor.transport.isPlaying)
+        #expect(monitor.transport.sampleIndex == acceptedSample)
+        #expect(monitor.statistics.clockSamples == acceptedSample)
+        #expect(monitor.statistics.underruns == 1)
+        #expect(output.scheduled == [0, 1024, 2048, 3072])
+        #expect(output.resets == 1)
+        output.samples = []; output.current = 0
+        try await monitor.play()
+        #expect(monitor.transport.isPlaying)
+        #expect(monitor.transport.sampleIndex == acceptedSample)
+        #expect(output.starts == 2)
+        #expect(output.scheduled.suffix(4) == [0, 1024, 2048, 3072])
+        #expect(monitor.statistics.underruns == 0)
+        await monitor.close()
+    }
+
+    @Test @MainActor func manualPauseRejectsStarvedFinalReading() async throws {
+        let output = LiveFakeOutput()
+        let monitor = try liveMonitor(output)
+        try await monitor.play()
+        // play returns before the pump task starts, so this is a deterministic
+        // final-clock-only observation with no accepted progress.
+        output.current = 4096
+        monitor.pause()
+        #expect(monitor.transport.sampleIndex == 0)
+        #expect(monitor.statistics.clockSamples == 0)
+        #expect(!monitor.transport.isPlaying)
+        await monitor.close()
+    }
+
+    @Test @MainActor func manualPauseAcceptsQualifiedFinalReading() async throws {
+        let output = LiveFakeOutput()
+        let monitor = try liveMonitor(output)
+        try await monitor.play()
+        output.current = 512
+        monitor.pause()
+        #expect(monitor.transport.sampleIndex == 512)
+        #expect(monitor.statistics.clockSamples == 512)
+        await monitor.close()
+    }
+
+    @Test @MainActor func engineStopPreservesPositionAndClosePreventsRestart() async throws {
+        let output = LiveFakeOutput()
+        output.onStart = { output.isRunning = false }
+        let monitor = try liveMonitor(output)
+        let failure = Task { @MainActor in
+            await withCheckedContinuation { continuation in
+                monitor.failure = { _ in continuation.resume() }
+            }
+        }
+        await Task.yield()
+        try await monitor.play()
+        await failure.value
+        monitor.failure = nil
+        #expect(monitor.statistics.unexpectedEngineStops == 1)
+        #expect(monitor.transport.sampleIndex == 0)
+        #expect(!monitor.transport.isPlaying)
+        await monitor.close()
+        await #expect(throws: PlaybackSessionError.closed) { try await monitor.play() }
+        #expect(output.starts == 1)
+    }
+}
+
+/// Hold the first audio decode until a transport mutation has cancelled priming.
+private final class LiveDecodeBarrier: @unchecked Sendable {
+    private let lock = NSLock()
+    private var entered = false
+    private var waiter: CheckedContinuation<Void, Never>?
+    let release = DispatchSemaphore(value: 0)
+    func block() {
+        lock.lock(); entered = true
+        let waiting = waiter; waiter = nil; lock.unlock()
+        waiting?.resume()
+        _ = release.wait(timeout: .now() + 10)
+    }
+    func wait() async {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            if entered { lock.unlock(); continuation.resume() }
+            else { waiter = continuation; lock.unlock() }
+        }
+    }
+}
+private final class LiveBlockedDecoder: PlaybackDecoder {
+    let barrier: LiveDecodeBarrier
+    init(_ barrier: LiveDecodeBarrier) { self.barrier = barrier }
+    func video(frame: Int64) throws -> Data { Data(count: 12) }
+    func audio(start: Int64, count: Int) throws -> [Float] {
+        barrier.block()
+        return Array(repeating: 0, count: count * 2)
+    }
+}
+
+struct LiveCancellationTests {
+    @Test @MainActor func pauseSeekReplaceAndCloseRejectBlockedPriming() async throws {
+        for action in ["pause", "seek", "replace", "close", "cancel"] {
+            let project = try liveFixture()
+            let barrier = LiveDecodeBarrier()
+            let session = try NativePlaybackSession(project: project, maximumPendingRequests: 2, maximumCacheBytes: 0,
+                worker: SerialDecodeWorker(factory: { _ in LiveBlockedDecoder(barrier) }))
+            let output = LiveFakeOutput()
+            let monitor = try NativeLivePlayback(project: project, session: session, output: output)
+            let priming = Task { try await monitor.play() }
+            await barrier.wait()
+            switch action {
+            case "pause": monitor.pause()
+            case "seek": try await monitor.seek(toFrame: monitor.transport.plan.videoFrames)
+            case "replace": try await monitor.replace(project: project)
+            case "close": await monitor.close()
+            default: priming.cancel()
+            }
+            barrier.release.signal()
+            await #expect(throws: (any Error).self) { try await priming.value }
+            #expect(output.starts == 0)
+            #expect(output.scheduled.isEmpty)
+            #expect(!monitor.transport.isPlaying)
+            await monitor.close()
+        }
+    }
+
+    @Test @MainActor func configurationChangeStopsWithoutSamplingNewDeviceEpoch() async throws {
+        let output = LiveFakeOutput()
+        let monitor = try liveMonitor(output)
+        let failure = Task { @MainActor in
+            await withCheckedContinuation { continuation in
+                monitor.failure = { _ in continuation.resume() }
+            }
+        }
+        await Task.yield()
+        try await monitor.play()
+        output.current = 100000
+        monitor.audioConfigurationChanged()
+        await failure.value
+        monitor.failure = nil
+        #expect(!monitor.transport.isPlaying)
+        #expect(monitor.transport.sampleIndex == 0)
+        #expect(monitor.statistics.configurationChanges == 1)
+        #expect(output.resets == 1)
+        await monitor.close()
+    }
+
+    @Test @MainActor func activePollingTaskDoesNotRetainAbandonedMonitor() async throws {
+        let output = LiveFakeOutput()
+        var monitor: NativeLivePlayback? = try liveMonitor(output)
+        weak var retained: NativeLivePlayback?
+        retained = monitor
+        let displayed = Task { @MainActor in
+            await withCheckedContinuation { continuation in
+                monitor?.display = { _, _ in continuation.resume() }
+            }
+        }
+        await Task.yield()
+        try await monitor?.play()
+        await displayed.value
+        monitor?.display = nil
+        monitor = nil
+        // At least one pump tick and video decode completed. A polling task
+        // must release ownership during its sleep rather than retain forever.
+        #expect(retained == nil)
     }
 }

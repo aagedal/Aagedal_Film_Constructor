@@ -281,8 +281,11 @@ private struct TimelineClipView: View {
                 hoverFade(.leading, nil, 0)
                 fadeGestureClip = nil
                 fadeGestureProject = nil
+                preview = nil
+                loadedRequest = nil
             }
             .task(id: previewRequest) {
+                guard !Task.isCancelled else { return }
                 let request = previewRequest
                 preview = nil
                 loadedRequest = nil

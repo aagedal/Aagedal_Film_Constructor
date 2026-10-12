@@ -30,6 +30,7 @@ def main():
     subset = parser.add_mutually_exclusive_group()
     subset.add_argument('--crossfades-only', action='store_true', help='Qualify linked audio transitions and baseline only')
     subset.add_argument('--geometry-only', action='store_true', help='Qualify video fit/fill/none and baseline only')
+    subset.add_argument("--stills-only", action="store_true", help="Qualify PNG alpha/JPEG still fit/fill/none and baseline only")
     args = parser.parse_args()
     for executable in (args.ffmpeg, args.ffprobe, args.pkg_config):
         if not executable.is_absolute() or not os.access(executable, os.X_OK):
@@ -49,7 +50,7 @@ def main():
         'Development dynamically linked libraries, no bundled/signed distribution',
         'Bounded square-pixel SDR CFR video and matching-rate PCM audio only',
         'Native CGImage/PNG captures and offline AVAudioEngine; no live display/CoreAudio A/V sync',
-        'Only recorded video scaling fixtures qualified; no still/color/VFR conformance, compressed audio/resampling, video transitions or proxies',
+        'Only recorded video scaling/PNG-alpha/JPEG fixtures qualified; no general image-format/color/VFR conformance, compressed audio/resampling, video transitions or proxies',
         'First source access qualifies all selected-stream timestamps; launch/interactive performance unmeasured'
     ]}
     commands = []
@@ -139,7 +140,7 @@ def main():
                 expected.extend(row * 90)
             result['fixtureBarcodes'].append(compare_rgb(decoded.read_bytes(), expected, 160 * 90 * 3, tolerance=4))
 
-        def evaluate(name, project, replace_from=None, crossfade_oracle=None, active_region=None):
+        def evaluate(name, project, replace_from=None, crossfade_oracle=None, active_region=None, still_oracle=None):
             variant = root / name
             variant.mkdir()
             project_path = variant / 'project.json'
@@ -261,13 +262,51 @@ def main():
                 checked['crossfadeSampleOracle'] = {'mode': mode, 'curve': curve,
                     'transitionSamples': [transition_start, transition_end],
                     'samplesPerChannel': command['audioSamples'], 'maxErrorInS16Units': maximum}
+            if still_oracle is not None:
+                # No-scaled-image oracle uses independently generated RGBA and decoded barcode
+                # background frames, then integer straight-alpha arithmetic. It
+                # checks transparent/partial/opaque regions separately so mean
+                # frame error cannot hide dropping alpha or skipping a layer.
+                rgba_path, image_width, image_height = still_oracle
+                image = rgba_path.read_bytes()
+                if len(image) != image_width * image_height * 4:
+                    raise ValueError('Incomplete independent still RGBA decode')
+                lower = (root / 'barcode-source-0.rgb').read_bytes()
+                actual = (capture / 'native.rgb').read_bytes()
+                maxima = {'transparent': 0, 'partial': 0, 'opaque': 0}
+                counts = dict.fromkeys(maxima, 0)
+                x, y = int((160 - image_width) / 2), int((90 - image_height) / 2)
+                for frame in range(3, 120):
+                    for sy in range(image_height):
+                        dy = y + sy
+                        if not 0 <= dy < 90:
+                            continue
+                        for sx in range(image_width):
+                            dx = x + sx
+                            if not 0 <= dx < 160:
+                                continue
+                            source = (sy * image_width + sx) * 4
+                            alpha = image[source + 3]
+                            kind = 'transparent' if alpha == 0 else 'opaque' if alpha == 255 else 'partial'
+                            counts[kind] += 1
+                            destination = (dy * 160 + dx) * 3
+                            for channel in range(3):
+                                background = lower[(frame + 30) * size + destination + channel]
+                                expected = (image[source + channel] * alpha + background * (255 - alpha) + 127) // 255
+                                error = abs(actual[frame * size + destination + channel] - expected)
+                                maxima[kind] = max(maxima[kind], error)
+                                if error > 1:
+                                    raise ValueError(f'Still {kind} alpha oracle frame {frame} error {error}')
+                if not all(counts.values()):
+                    raise ValueError('Still fixture must exercise transparent, partial and opaque coverage')
+                checked['straightAlphaOracle'] = {'pixels': counts, 'maximumChannelError': maxima}
             checked['artifacts'] = {str(p.relative_to(variant)): digest(p) for p in variant.rglob('*') if p.is_file()}
             result['variants'].append(checked)
             write_json(root / 'result.json', result)
             print(f"{name}: all sequential frames/samples and {len(checked['videoSeeks'])} video / {len(checked['audioSeeks'])} audio seeks pass", flush=True)
 
         evaluate('baseline', fixture_project)
-        if not args.crossfades_only:
+        if not args.crossfades_only and not args.stills_only:
             # Different aspect ratios, both smaller/larger sources, and odd
             # dimensions exercise center padding/cropping and aspect rounding.
             # Lossless RGB sources avoid encoding a chroma-alignment policy into
@@ -299,14 +338,14 @@ def main():
                     region = regions[(width, height)].get(mode, (0, 0, 160, 90))
                     evaluate(f'geometry-{width}x{height}-{mode}-rebuild', project,
                              replace_from=fixture_project, active_region=region)
-        if not args.geometry_only:
+        if not args.geometry_only and not args.stills_only:
             for mode, curve in [('overlap', 'equalPower'), ('adjacent', 'equalPower'), ('adjacent', 'linear')]:
                 name = f'linked-crossfade-{mode}-{curve}-rebuild'
                 path = root / (name + '-project.json')
                 run([compiler, 'crossfade-fixture', args.fixture / 'project.json', path, mode, curve], name + '-fixture.log')
                 project = json.loads(path.read_text())
                 evaluate(name, project, replace_from=fixture_project, crossfade_oracle=(mode, curve))
-        if not args.crossfades_only and not args.geometry_only:
+        if not args.crossfades_only and not args.geometry_only and not args.stills_only:
             layered = copy.deepcopy(fixture_project)
             lower = layered['tracks'][1]['clips'][0]
             lower['timelineStart'] = {'numerator': 1001, 'denominator': 2000}  # frame 15
@@ -351,6 +390,36 @@ def main():
             edited['tracks'][2]['template']['gain'] = .25
             edited['tracks'][2]['template']['routing']['outputChannels'] = [1, 0]
             evaluate('edited-plan-rebuild', edited, replace_from=fixture_project)
+        if not args.crossfades_only and not args.geometry_only:
+            for image_width, image_height in [(80, 90), (240, 90)]:
+                rgba = root / f'still-source-{image_width}x{image_height}.rgba'
+                # Colored blocks vary both coordinates and include fully hidden,
+                # half-covered, and opaque pixels, including nonzero hidden RGB.
+                rgba.write_bytes(b''.join(bytes((40 + (x // 8 % 3) * 60,
+                    40 + (y // 8 % 3) * 60, 180, [0, 128, 255][x // 8 % 3]))
+                    for y in range(image_height) for x in range(image_width)))
+                for extension in ['png', 'jpg']:
+                    image = root / f'still-source-{image_width}x{image_height}.{extension}'
+                    ff(['-f', 'rawvideo', '-pixel_format', 'rgba', '-video_size', f'{image_width}x{image_height}',
+                        '-i', rgba, '-frames:v', '1', image], f'still-source-{image_width}x{image_height}-{extension}.log')
+                    result.setdefault('stillSourceIdentities', []).append({
+                        'path': str(image), 'sha256': digest(image), 'width': image_width,
+                        'height': image_height, 'rgbaFixtureSHA256': digest(rgba)})
+                    for mode in ['fit', 'fill', 'none']:
+                        project = copy.deepcopy(fixture_project)
+                        asset = project['assets'][1]
+                        asset['originalURL'] = image.as_uri()
+                        # Imported images use synthetic duration with no probed streams.
+                        asset['streams'] = []
+                        clip = project['tracks'][0]['clips'][0]
+                        clip['selection'] = {'still': {}}
+                        clip['scalingMode'] = mode
+                        # Synthetic still in is intentionally off the frame grid.
+                        clip['sourceRange']['start'] = {'numerator': 1, 'denominator': 48000}
+                        region = (40, 0, 80, 90) if image_width == 80 and mode != 'fill' else (0, 15, 160, 60) if image_width == 240 and mode == 'fit' else (0, 0, 160, 90)
+                        oracle = (rgba, image_width, image_height) if extension == 'png' and mode == 'none' else None
+                        evaluate(f'still-{extension}-{image_width}x{image_height}-{mode}-rebuild', project,
+                                 replace_from=fixture_project, active_region=region, still_oracle=oracle)
         result['passed'] = True
     except Exception as error:
         result['failure'] = f'{type(error).__name__}: {error}'

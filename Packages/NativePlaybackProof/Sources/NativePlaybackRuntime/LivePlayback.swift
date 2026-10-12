@@ -3,6 +3,10 @@ import CoreGraphics
 import EditorCore
 import Foundation
 
+enum LivePlaybackClockError: Error, Equatable {
+    case underrun
+}
+
 /// Bounded sample-time admission, independent of decoding and wall-clock time.
 /// The live proof stops on starvation instead of silently advancing over gaps.
 struct LiveAudioQueue {
@@ -33,9 +37,9 @@ struct LiveAudioQueue {
 
     mutating func update(clock: Int64) throws {
         guard clock >= self.clock, clock >= 0 else { throw ProofFailure("Live output clock regressed") }
-        guard clock <= scheduled || scheduled == total else { throw ProofFailure("Live audio underrun") }
+        guard clock <= scheduled || scheduled == total else { throw LivePlaybackClockError.underrun }
         let next = min(clock, total)
-        if next == scheduled, scheduled < total { throw ProofFailure("Live audio underrun") }
+        if next == scheduled, scheduled < total { throw LivePlaybackClockError.underrun }
         self.clock = next
     }
 }
@@ -79,6 +83,7 @@ public struct LivePlaybackStatistics: Sendable, Codable {
     public internal(set) var maximumQueuedSamples: Int64 = 0
     public internal(set) var configurationChanges: Int = 0
     public internal(set) var unexpectedEngineStops: Int = 0
+    public internal(set) var underruns: Int = 0
 }
 
 /// NotificationCenter retains block observers until explicitly removed. Keep the
@@ -99,6 +104,46 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
     deinit { center.removeObserver(token) }
 }
 
+/// The hardware boundary also permits deterministic starvation and lifecycle
+/// exercises without opening an audio device or consulting wall-clock progress.
+@MainActor protocol LivePlaybackOutput: AnyObject {
+    var isRunning: Bool { get }
+    var isPlaying: Bool { get }
+    var configurationObject: AnyObject { get }
+    func start() throws
+    func stop()
+    func reset()
+    func clock() -> (sample: Int64, rate: Double)?
+    func schedule(_ buffer: AVAudioPCMBuffer, at sample: Int64)
+}
+
+@MainActor private final class LiveAudioEngineOutput: LivePlaybackOutput {
+    let engine = AVAudioEngine()
+    let player = AVAudioPlayerNode()
+    let format: AVAudioFormat
+    var isRunning: Bool { engine.isRunning }
+    var isPlaying: Bool { player.isPlaying }
+    var configurationObject: AnyObject { engine }
+
+    init(format: AVAudioFormat) {
+        self.format = format
+        engine.attach(player)
+        engine.connect(player, to: engine.mainMixerNode, format: format)
+    }
+    func start() throws { try engine.start(); player.play() }
+    func stop() { player.stop(); engine.stop() }
+    func reset() { engine.reset() }
+    func clock() -> (sample: Int64, rate: Double)? {
+        guard let render = player.lastRenderTime,
+              let time = player.playerTime(forNodeTime: render), time.isSampleTimeValid else { return nil }
+        return (time.sampleTime, time.sampleRate)
+    }
+    func schedule(_ buffer: AVAudioPCMBuffer, at sample: Int64) {
+        player.scheduleBuffer(buffer, at: AVAudioTime(sampleTime: sample, atRate: format.sampleRate),
+                              completionHandler: nil)
+    }
+}
+
 /// Development hardware-output monitor. All AVAudioEngine and display mutation
 /// is serialized on MainActor; decoder work runs on NativePlaybackSession's queue.
 /// AVAudioPlayerNode's render clock is measured, not acoustic device presentation.
@@ -109,34 +154,38 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
     public var display: ((CGImage, Int64) -> Void)?
     public var failure: ((any Error) -> Void)?
     private let session: NativePlaybackSession
-    private let engine = AVAudioEngine()
-    private let player = AVAudioPlayerNode()
+    private let output: any LivePlaybackOutput
     private let format: AVAudioFormat
     private var queue: LiveAudioQueue?
     private var startSample: Int64 = 0
     private var playerClock = LivePlayerClock()
     private var operation = UUID()
     private var pump: Task<Void, Never>?
+    private var priming: Task<Void, any Error>?
     private var video: Task<Void, Never>?
     private var requestedFrame: Int64?
     private var closed = false
     private var replacing = false
     private var configurationObserver: LiveAudioConfigurationObserver?
 
-    public init(project: Project) throws {
+    public convenience init(project: Project) throws {
+        try self.init(project: project, session: nil, output: nil)
+    }
+
+    init(project: Project, session injectedSession: NativePlaybackSession?,
+         output injectedOutput: (any LivePlaybackOutput)?) throws {
         let plan = try NativePlaybackPlan(TimelineRenderPlan(project: project))
         try LiveOutputQualification.validate(layout: plan.settings.audioLayout)
         transport = try NativePlaybackTransport(plan: plan)
-        session = try NativePlaybackSession(project: project, maximumPendingRequests: 2,
+        session = try injectedSession ?? NativePlaybackSession(project: project, maximumPendingRequests: 2,
                                              maximumCacheBytes: 8 * 1024 * 1024)
         guard let format = AVAudioFormat(standardFormatWithSampleRate: Double(plan.settings.audioSampleRate),
             channels: AVAudioChannelCount(plan.settings.audioLayout.channels.count)) else {
             throw ProofFailure("Cannot create live audio format")
         }
         self.format = format
-        engine.attach(player)
-        engine.connect(player, to: engine.mainMixerNode, format: format)
-        configurationObserver = LiveAudioConfigurationObserver(object: engine) { [weak self] in
+        output = injectedOutput ?? LiveAudioEngineOutput(format: format)
+        configurationObserver = LiveAudioConfigurationObserver(object: output.configurationObject) { [weak self] in
             // Engine notifications can originate on an audio thread. Never mutate
             // the graph there, and do not retain the monitor while dispatching.
             Task { @MainActor [weak self] in self?.audioConfigurationChanged() }
@@ -158,42 +207,54 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
         statistics = .init()
         queue = try LiveAudioQueue(total: transport.plan.audioSamples - startSample)
         do {
-            try await fill(token: token)
+            let preparation = Task { [weak self] in
+                guard let self else { throw CancellationError() }
+                try await self.fill(token: token)
+            }
+            priming = preparation
+            try await withTaskCancellationHandler {
+                try await preparation.value
+                try Task.checkCancellation()
+            } onCancel: { preparation.cancel() }
             guard token == operation else { throw CancellationError() }
-            try engine.start()
-            player.play()
+            priming = nil
+            try output.start()
             let generation = transport.generation
             pump = Task { [weak self] in
-                guard let self else { return }
                 let deadline = ContinuousClock.now.advanced(by: .seconds(2))
                 do {
-                    while token == self.operation, self.transport.isPlaying {
-                        guard self.engine.isRunning else {
-                            self.statistics.unexpectedEngineStops += 1
-                            self.stop(observeFinalClock: false)
-                            self.engine.reset()
-                            self.failure?(ProofFailure("Live audio engine stopped unexpectedly; playback is paused. Play explicitly to restart"))
-                            break
-                        }
-                        if let clock = try self.outputClock() {
-                            try self.advance(clock: clock, generation: generation)
-                            if !self.transport.isPlaying { break }
-                            self.requestVideo(token: token)
-                            try await self.fill(token: token)
-                        } else if ContinuousClock.now > deadline {
-                            throw ProofFailure("Live audio device did not produce a sample clock")
-                        }
+                    // Keep ownership scoped to a tick, releasing the monitor
+                    // during polling sleeps so an abandoned player can deinit.
+                    while try await self?.tick(token: token, generation: generation, deadline: deadline) == true {
                         try await Task.sleep(for: .milliseconds(5))
                     }
-                    if token == self.operation { self.pause() }
+                    if self?.operation == token { self?.pause() }
                 } catch {
-                    if token == self.operation { self.pause(); self.failure?(error) }
+                    if self?.operation == token { self?.fail(error) }
                 }
             }
         } catch {
-            if token == operation { pause() }
+            if token == operation { stop(observeFinalClock: false) }
             throw error
         }
+    }
+
+    private func tick(token: UUID, generation: UUID, deadline: ContinuousClock.Instant) async throws -> Bool {
+        guard token == operation, transport.isPlaying else { return false }
+        guard output.isRunning else {
+            statistics.unexpectedEngineStops += 1
+            fail(ProofFailure("Live audio engine stopped unexpectedly; playback is paused. Play explicitly to restart"))
+            return false
+        }
+        if let clock = try outputClock() {
+            try advance(clock: clock, generation: generation)
+            guard transport.isPlaying else { return false }
+            requestVideo(token: token)
+            try await fill(token: token)
+        } else if ContinuousClock.now > deadline {
+            throw ProofFailure("Live audio device did not produce a sample clock")
+        }
+        return token == operation && transport.isPlaying
     }
 
     /// Final observed player clock is submitted before flushing scheduled audio.
@@ -202,23 +263,33 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
     }
 
     private func stop(observeFinalClock: Bool) {
-        if observeFinalClock, transport.isPlaying, let clock = try? outputClock(), let queue {
-            // Never advance over unscheduled silence after a detected underrun.
-            _ = try? transport.update(clockSample: min(clock, queue.scheduled), generation: transport.generation)
+        if observeFinalClock, transport.isPlaying, let clock = try? outputClock() {
+            // Apply the same admission validation as a pump tick. A starved or
+            // regressed final reading must preserve the last accepted position.
+            try? advance(clock: clock, generation: transport.generation)
         }
-        operation = UUID(); pump?.cancel(); pump = nil
+        operation = UUID(); priming?.cancel(); priming = nil; pump?.cancel(); pump = nil
         video?.cancel(); video = nil; requestedFrame = nil
-        player.stop(); engine.stop(); transport.pause(); queue = nil
+        output.stop(); transport.pause(); queue = nil
     }
 
-    private func audioConfigurationChanged() {
+    private func fail(_ error: any Error) {
+        if error as? LivePlaybackClockError == .underrun { statistics.underruns += 1 }
+        stop(observeFinalClock: false)
+        output.reset()
+        if error as? LivePlaybackClockError == .underrun {
+            failure?(ProofFailure("Live audio underrun; playback is paused at its last accepted position. Play explicitly to restart"))
+        } else { failure?(error) }
+    }
+
+    func audioConfigurationChanged() {
         guard !closed else { return }
         statistics.configurationChanges += 1
         let wasPlaying = transport.isPlaying
         // The old node's sample-time epoch is no longer trustworthy. Preserve the
         // last accepted transport position, cancel all work, and flush the graph.
         stop(observeFinalClock: false)
-        engine.reset()
+        output.reset()
         if wasPlaying {
             failure?(ProofFailure("Live audio configuration changed; playback is paused. Play explicitly to restart"))
         }
@@ -271,9 +342,8 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
     }
 
     private func outputClock() throws -> Int64? {
-        guard let render = player.lastRenderTime, let time = player.playerTime(forNodeTime: render),
-              time.isSampleTimeValid else { return nil }
-        return try playerClock.observe(sample: time.sampleTime, rate: time.sampleRate,
+        guard let time = output.clock() else { return nil }
+        return try playerClock.observe(sample: time.sample, rate: time.rate,
                                        expectedRate: format.sampleRate)
     }
 
@@ -294,7 +364,7 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
             guard token == operation, accepted else { throw CancellationError() }
             // Decoding may have consumed the remaining look-ahead. Inspect the
             // actual clock before scheduling a buffer at its absolute time.
-            if player.isPlaying, let clock = try outputClock() {
+            if output.isPlaying, let clock = try outputClock() {
                 try advance(clock: clock, generation: transport.generation)
             }
             guard var queue, queue.scheduled == current.scheduled,
@@ -308,8 +378,7 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
                 for frame in 0..<count { channels[channel][frame] = value.value[frame * Int(format.channelCount) + channel] }
             }
             // Completion awaits playback; priming must use the nonblocking overload.
-            player.scheduleBuffer(buffer, at: AVAudioTime(sampleTime: queue.scheduled, atRate: format.sampleRate),
-                                  completionHandler: nil)
+            output.schedule(buffer, at: queue.scheduled)
             try queue.commit(count: count)
             self.queue = queue
             statistics.scheduledSamples = queue.scheduled
@@ -338,7 +407,7 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
                 self.display?(image, frame)
                 self.statistics.displayedFrames += 1
             } catch {
-                if token == self.operation { self.pause(); self.failure?(error) }
+                if token == self.operation { self.fail(error) }
             }
         }
     }

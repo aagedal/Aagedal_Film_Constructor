@@ -204,7 +204,7 @@ struct NativePlaybackPlanTests {
         #expect(try plan.audioBlock(startSample: 288287, sampleCount: 1).isEmpty)
     }
 
-    @Test func validatesHiddenSourcesAndRejectsStillsAndNonlocalOriginals() throws {
+    @Test func validatesHiddenSourcesAndRejectsInvalidStillsAndNonlocalOriginals() throws {
         for url in [nil, URL(string: "https://example.com/a.mov"), URL(string: "file://remote-host/a.mov"),
                     URL(string: "file:///private/tmp/a.mov?stream=1")] as [URL?] {
             var project = try fixture()
@@ -223,6 +223,28 @@ struct NativePlaybackPlanTests {
         #expect(throws: (any Error).self) { try compile(project) }
         project = try fixture()
         project.assets[0].streams[2].timeOffset = try RationalTime(-1, 48000)
+        #expect(throws: (any Error).self) { try compile(project) }
+    }
+
+    @Test func stillLayersPreserveSyntheticTrimsAndHalfOpenVisibility() throws {
+        var project = try fixture()
+        project.assets[1].originalURL = URL(fileURLWithPath: "/private/tmp/image.png")
+        project.assets[1].streams = []
+        project.tracks[0].clips[0].selection = .still
+        // A synthetic in point need not lie on the video frame grid.
+        project.tracks[0].clips[0].sourceRange.start = try RationalTime(1, 48000)
+        let plan = try compile(project)
+        #expect(try plan.videoLayers(at: 2).map(\.clipID) == [lowerID])
+        for frame: Int64 in [3, 60, 119, 3] {
+            let layers = try plan.videoLayers(at: frame)
+            #expect(layers.map(\.clipID) == [upperID, lowerID])
+            #expect(layers[0].isStill)
+            #expect(layers[0].sourceFrame == 0)
+            #expect(layers[0].streamIndex == 0)
+            #expect(!layers[1].isStill)
+        }
+        #expect(try plan.videoLayers(at: 120).map(\.clipID) == [lowerID])
+        project.assets[1].streams = [.init(index: 0, kind: .video, timeOffset: try RationalTime(1, 2))]
         #expect(throws: (any Error).self) { try compile(project) }
     }
 

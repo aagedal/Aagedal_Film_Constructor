@@ -108,6 +108,7 @@ final class EditorStore: ObservableObject {
         isImporting = false
         pauseSource()
         sourcePlayer = nil
+        previewImage = nil
         for url in scopedURLs { url.stopAccessingSecurityScopedResource() }
         scopedURLs.removeAll()
     }

@@ -23,6 +23,7 @@ struct AppFileSmoke {
         try await exerciseSourcePlayback(audio: audio)
         let still = try await MediaImporter.inspect(url: imageURL)
         try check(still.asset.streams.isEmpty && still.asset.duration.seconds == 5, "Still image import")
+        try await exerciseStillPreview(directory: directory, still: still, audio: audio)
         try exerciseProxyDocument(directory: directory)
         let corruptURL = directory.appendingPathComponent("corrupt.png")
         try Data("invalid image".utf8).write(to: corruptURL)
@@ -689,6 +690,53 @@ struct AppFileSmoke {
         try EditorStore.validateInterchangeDestination(directory.appendingPathComponent("new.edl"), originals: [isolatedAsset])
         try check(try Data(contentsOf: original) == before,
                   "Interchange preflight protects original bytes and allows an independent destination")
+    }
+
+    @MainActor
+    static func exerciseStillPreview(directory: URL, still: ImportedMedia, audio: ImportedMedia) async throws {
+        let largeURL = directory.appendingPathComponent("oriented-large.jpg")
+        let context = CGContext(data: nil, width: 4096, height: 2048, bitsPerComponent: 8, bytesPerRow: 4096 * 4,
+                                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        context.setFillColor(CGColor(red: 0.8, green: 0.2, blue: 0.1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 4096, height: 2048))
+        let destination = CGImageDestinationCreateWithURL(largeURL as CFURL, UTType.jpeg.identifier as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, context.makeImage()!, [kCGImagePropertyOrientation: 6] as CFDictionary)
+        try check(CGImageDestinationFinalize(destination), "Oriented JPEG fixture creation")
+        let large = try await MediaImporter.inspect(url: largeURL)
+        let image = try await MediaImporter.stillPreview(url: largeURL)
+        try check(image.width == 1024 && image.height == 2048, "Still preview bounds pixels and applies EXIF orientation")
+        let thumbnail = try await MediaImporter.stillPreview(url: largeURL, maximumDimension: 64)
+        try check(thumbnail.width == 32 && thumbnail.height == 64, "Import validation uses a small oriented decode")
+        let cancelled = Task { try await MediaImporter.stillPreview(url: largeURL) }
+        cancelled.cancel()
+        do {
+            _ = try await cancelled.value
+            throw SmokeError.failed("Cancelled still preview completed")
+        } catch is CancellationError { }
+
+        let store = EditorStore()
+        defer { store.close() }
+        try store.registerImportedMedia(audio)
+        try store.registerImportedMedia(large)
+        // A source switch cancels pending picture work before it can publish.
+        let stale = store.sourcePreviewTask
+        store.selectAsset(audio.asset.id)
+        await stale?.value
+        try check(store.sourcePlayer != nil && store.previewImage == nil, "Obsolete still cannot replace selected audio source")
+        try store.registerImportedMedia(still)
+        await store.sourcePreviewTask?.value
+        try check(store.previewImage != nil && store.sourcePlayer == nil, "Still source preview publishes asynchronously")
+        store.selectAsset(large.asset.id)
+        let closing = store.sourcePreviewTask
+        store.close()
+        await closing?.value
+        try check(store.previewImage == nil && store.sourcePlayer == nil, "Closing rejects pending still decode and releases displayed pixels")
+        store.load(ProjectDocument(project: Project(settings: try SequenceSettings(), assets: [large.asset])))
+        store.selectAsset(large.asset.id)
+        let deselected = store.sourcePreviewTask
+        store.selectAssets([])
+        await deselected?.value
+        try check(store.previewImage == nil && store.selectedAsset == nil, "Deselection rejects pending still preview")
     }
 
     static func check(_ condition: Bool, _ message: String) throws {
