@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "configuration": "Release",
+  "environment": {
+    "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "xcode": "Xcode 27.0\nBuild version 27A266a"
+  },
+  "sourceHashes": {
+    "Aagedal Film Constructor/MyApp.swift": "0e0ce164dacfdee0728bc0257ac749b4644a74d077f9dd353d483171771e4d66",
+    "Aagedal Film Constructor/LaunchWorkspaceCoordinator.swift": "19e4db0d9fddd0b0626b72fe3dc36d48f058e9a39a93e964b3f4a4066f11de0e",
+    "scripts/release-launch-proof.py": "cdec966a5bf4f2f31c854b5d09a1977a38af9d4d513d48ff114735427b9763c8"
+  },
+  "method": "Launch Services request to harness receipt of loaded visible key document-window marker and synthetic AppKit button mouse-event action",
+  "limitations": [
+    "unsigned local bundle",
+    "no physical input or compositor timestamp",
+    "first run is fresh preferences, not purged OS caches; subsequent runs are warm OS caches with fresh preferences",
+    "empty untitled workspace only; no media or shipping sandbox/notarization acceptance"
+  ],
+  "buildCommand": [
+    "xcodebuild",
+    "-project",
+    "/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-7f7f2424/Aagedal Film Constructor.xcodeproj",
+    "-scheme",
+    "Aagedal Film Constructor",
+    "-configuration",
+    "Release",
+    "-derivedDataPath",
+    "/var/folders/pv/f8g9jgrd7px_0xvh3kxgmyg40000gp/T/afc-release-launch-f07n57ei/DerivedData",
+    "CODE_SIGNING_ALLOWED=NO",
+    "PRODUCT_BUNDLE_IDENTIFIER=dev.aagedal.launchproof.be9016664e6a4cfcb35af989da6b1152",
+    "AFC_MEDIA_HELPER_DIR=",
+    "build"
+  ],
+  "executableSHA256": "bb7662f79bd20e7f90e42932ebdd9136a3ecadbe6cd7b1a02fef460eca9724d0",
+  "bundledHelpers": [],
+  "samples": [
+    {
+      "run": 1,
+      "cacheCondition": "first-process/fresh-preferences",
+      "bundleIdentifier": "dev.aagedal.launchproof.be9016664e6a4cfcb35af989da6b1152.run1",
+      "events": [
+        {
+          "event": "application_did_finish_launching",
+          "pid": 16578,
+          "uptimeSeconds": 430718.989366375,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.7903626670013182
+        }
+      ],
+      "interactionObserved": false,
+      "exitBeforeCleanup": null,
+      "savedStateExists": false
+    },
+    {
+      "run": 2,
+      "cacheCondition": "warm-OS-cache/fresh-preferences",
+      "bundleIdentifier": "dev.aagedal.launchproof.be9016664e6a4cfcb35af989da6b1152.run2",
+      "events": [
+        {
+          "event": "application_did_finish_launching",
+          "pid": 16669,
+          "uptimeSeconds": 430730.92907245836,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.6855439580394886
+        }
+      ],
+      "interactionObserved": false,
+      "exitBeforeCleanup": null,
+      "savedStateExists": false
+    },
+    {
+      "run": 3,
+      "cacheCondition": "warm-OS-cache/fresh-preferences",
+      "bundleIdentifier": "dev.aagedal.launchproof.be9016664e6a4cfcb35af989da6b1152.run3",
+      "events": [
+        {
+          "event": "application_did_finish_launching",
+          "pid": 16768,
+          "uptimeSeconds": 430742.99806720833,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.6907202090369537
+        }
+      ],
+      "interactionObserved": false,
+      "exitBeforeCleanup": null,
+      "savedStateExists": false
+    },
+    {
+      "run": 4,
+      "cacheCondition": "warm-OS-cache/fresh-preferences",
+      "bundleIdentifier": "dev.aagedal.launchproof.be9016664e6a4cfcb35af989da6b1152.run4",
+      "events": [
+        {
+          "event": "application_did_finish_launching",
+          "pid": 16984,
+          "uptimeSeconds": 430755.04824883334,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.698519249970559
+        },
+        {
+          "event": "workspace_loaded",
+          "pid": 16984,
+          "uptimeSeconds": 430759.5217936667,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 5.177819625008851
+        },
+        {
+          "event": "probe_attached",
+          "pid": 16984,
+          "uptimeSeconds": 430759.5361427084,
+          "windowNumber": 37187,
+          "observedSecondsAfterSpawn": 5.190471040958073
+        },
+        {
+          "event": "workspace_visible",
+          "pid": 16984,
+          "uptimeSeconds": 430759.680626375,
+          "windowNumber": 37187,
+          "observedSecondsAfterSpawn": 5.3282797079882585
+        },
+        {
+          "event": "scripted_interaction_processed",
+          "pid": 16984,
+          "uptimeSeconds": 430759.6842812917,
+          "windowNumber": 37187,
+          "observedSecondsAfterSpawn": 5.328282707952894
+        }
+      ],
+      "interactionObserved": true,
+      "exitBeforeCleanup": null,
+      "savedStateExists": false
+    },
+    {
+      "run": 5,
+      "cacheCondition": "warm-OS-cache/fresh-preferences",
+      "bundleIdentifier": "dev.aagedal.launchproof.be9016664e6a4cfcb35af989da6b1152.run5",
+      "events": [
+        {
+          "event": "application_did_finish_launching",
+          "pid": 17018,
+          "uptimeSeconds": 430760.5157255,
+          "windowNumber": -1,
+          "observedSecondsAfterSpawn": 0.7865565419779159
+        }
+      ],
+      "interactionObserved": false,
+      "exitBeforeCleanup": null,
+      "savedStateExists": false
+    }
+  ],
+  "failures": [
+    "Run 1: no interaction marker before exit/timeout",
+    "Run 2: no interaction marker before exit/timeout",
+    "Run 3: no interaction marker before exit/timeout",
+    "Run 5: no interaction marker before exit/timeout"
+  ],
+  "validRuns": 1,
+  "requestedRuns": 5,
+  "allRunsUnderTwoSeconds": false,
+  "scriptedInteractionSeconds": {
+    "min": 5.328282707952894,
+    "median": 5.328282707952894,
+    "max": 5.328282707952894
+  }
+}

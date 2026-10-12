@@ -24,6 +24,11 @@ private struct DocumentWorkspace: View {
 
     var body: some View {
         ContentView(store: store, saveProtection: saveProtection)
+            .overlay(alignment: .bottomTrailing) {
+                if loaded, LaunchInteractionProbe.enabled {
+                    LaunchInteractionProbe().frame(width: 110, height: 24)
+                }
+            }
             .focusedSceneValue(\.editorStore, store)
             .onAppear {
                 saveProtection.start()
@@ -33,6 +38,7 @@ private struct DocumentWorkspace: View {
                     store.load(document)
                     loaded = true
                     observeDocumentBaseline()
+                    LaunchPerformanceEvents.record("workspace_loaded")
                 } else {
                     store.resumeMediaAccess()
                 }
@@ -90,6 +96,80 @@ private struct DocumentWorkspace: View {
     private func observeDocumentBaseline() {
         saveProtection.observe(document: document, fileURL: fileURL,
                                hasChanges: fileURL == nil && document.differsFromNewDocument)
+    }
+}
+
+/// Opt-in Release launch evidence. Never runs in ordinary application sessions.
+/// The probe waits for the loaded workspace's real window, then routes mouse
+/// events through that window to a native control. This measures scripted UI
+/// responsiveness, not physical input latency or compositor presentation.
+private struct LaunchInteractionProbe: NSViewRepresentable {
+    static var enabled: Bool { ProcessInfo.processInfo.environment["AFC_LAUNCH_PROBE_LOG"] != nil }
+
+    func makeNSView(context: Context) -> ProbeButton { ProbeButton() }
+    func updateNSView(_ nsView: ProbeButton, context: Context) {}
+
+    final class ProbeButton: NSButton {
+        private var timer: Timer?
+        private var recorded = false
+
+        init() {
+            super.init(frame: .zero)
+            title = "Launch probe"
+            bezelStyle = .rounded
+            target = self
+            action = #selector(interacted)
+            setAccessibilityIdentifier("AFCLaunchInteractionProbe")
+        }
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            timer?.invalidate()
+            guard window != nil, !recorded else { return }
+            LaunchPerformanceEvents.record("probe_attached", windowNumber: window?.windowNumber ?? -1)
+            timer = Timer.scheduledTimer(withTimeInterval: 0.01, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.checkWindow() }
+            }
+        }
+
+        private func checkWindow() {
+            guard let window, window.isVisible, window.isKeyWindow,
+                  NSDocumentController.shared.document(for: window) != nil,
+                  bounds.width > 0, bounds.height > 0 else { return }
+            timer?.invalidate()
+            timer = nil
+            recorded = true
+            window.contentView?.layoutSubtreeIfNeeded()
+            window.displayIfNeeded()
+            record("workspace_visible")
+            // A later main-loop turn verifies that the loaded workspace can
+            // handle input, rather than treating onAppear as interaction.
+            DispatchQueue.main.async { [weak self] in self?.sendProbeClick() }
+        }
+
+        private func sendProbeClick() {
+            guard let window, window.isVisible, window.isKeyWindow else { return }
+            let point = convert(NSPoint(x: bounds.midX, y: bounds.midY), to: nil)
+            // Queue mouse-up before dispatching mouse-down: NSButton's tracking
+            // loop consumes the queued release just as it consumes user input.
+            guard let down = NSEvent.mouseEvent(with: .leftMouseDown, location: point,
+                    modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: window.windowNumber, context: nil, eventNumber: 1,
+                    clickCount: 1, pressure: 1),
+                  let up = NSEvent.mouseEvent(with: .leftMouseUp, location: point,
+                    modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: window.windowNumber, context: nil, eventNumber: 2,
+                    clickCount: 1, pressure: 0) else { return }
+            NSApplication.shared.postEvent(up, atStart: true)
+            window.sendEvent(down)
+        }
+
+        @objc private func interacted() { record("scripted_interaction_processed") }
+
+        private func record(_ event: String) {
+            LaunchPerformanceEvents.record(event, windowNumber: window?.windowNumber ?? -1)
+        }
     }
 }
 
