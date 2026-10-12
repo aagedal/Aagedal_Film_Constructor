@@ -56,9 +56,12 @@ final class EditorCommandRegistry: ObservableObject {
         case .previousFrame: store.stepPlayhead(frames: -1)
         case .nextFrame: store.stepPlayhead(frames: 1)
         case .deleteClip: store.deleteSelectedClip()
-        case .playReverse: store.playSourceBackwards()
-        case .pausePlayback: store.pauseSource()
-        case .playForward: store.playSourceForwards()
+        case .playReverse:
+            if store.sequencePlayback == nil { store.playSourceBackwards() }
+        case .pausePlayback:
+            if let sequence = store.sequencePlayback { sequence.pause() } else { store.pauseSource() }
+        case .playForward:
+            if let sequence = store.sequencePlayback { sequence.play() } else { store.playSourceForwards() }
         case .exportSequence: store.beginRenderExport()
         case .exportFCPXML: store.exportFCPXML()
         case .exportEDL: store.beginEDLExport()
@@ -76,8 +79,13 @@ final class EditorCommandRegistry: ObservableObject {
         case .appendSource: return store.selectedAsset != nil && !store.isImporting
         case .splitClip, .deleteClip: return store.selectedClip != nil
         case .previousFrame, .nextFrame: return true
-        case .playReverse: return store.sourcePlayer != nil
-        case .pausePlayback, .playForward: return store.canControlSourceTransport
+        case .playReverse: return store.sequencePlayback == nil && store.sourcePlayer != nil
+        case .pausePlayback:
+            if let sequence = store.sequencePlayback { return sequence.available }
+            return store.canControlSourceTransport
+        case .playForward:
+            if let sequence = store.sequencePlayback { return sequence.available && !sequence.isPreparing && store.duration > 0 }
+            return store.canControlSourceTransport
         case .exportSequence, .exportFCPXML, .exportEDL, .exportOTIO: return store.duration > 0 && store.renderExportDraft == nil && store.edlExportDraft == nil && store.audioAppendAsset == nil
         }
     }

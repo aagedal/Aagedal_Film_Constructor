@@ -53,6 +53,7 @@ final class EditorStore: ObservableObject {
     private var sourceTransportTask: Task<Void, Never>?
     private var importTask: Task<Void, Never>?
     var mediaEpoch = UUID()
+    weak var sequencePlayback: SequencePlaybackController?
 
     var canUndo: Bool { !undoHistory.isEmpty }
     var canRedo: Bool { !redoHistory.isEmpty }
@@ -122,6 +123,7 @@ final class EditorStore: ObservableObject {
     }
 
     func close() {
+        sequencePlayback?.deactivate()
         mediaEpoch = UUID()
         audioAppendAsset = nil
         renderExportDraft = nil

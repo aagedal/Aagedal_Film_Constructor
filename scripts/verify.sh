@@ -7,7 +7,9 @@ export CLANG_MODULE_CACHE_PATH="$build_root/module-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$build_root/module-cache"
 python3 -m unittest discover -s "$repo_root/scripts" -p 'test_*.py'
 "$repo_root/scripts/shortcut-smoke.sh"
+"$repo_root/scripts/sequence-monitor-smoke.sh"
 "$repo_root/scripts/launch-workspace-smoke.sh"
+"$repo_root/scripts/timeline-visibility-smoke.sh"
 "$repo_root/scripts/project-save-protection-smoke.sh"
 swift test --package-path "$repo_root/Packages/EditorCore" \
   --scratch-path "$build_root/editor-core" --cache-path "$build_root/package-cache" --disable-sandbox
