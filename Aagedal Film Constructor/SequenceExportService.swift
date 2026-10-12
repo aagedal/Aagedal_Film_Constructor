@@ -99,7 +99,7 @@ actor SequenceExportService {
     @concurrent private static func preflight(plan: TimelineRenderPlan, command: FFmpegRenderCommand, ffprobe: URL) async throws {
         for url in Set(command.inputs.map(\.url)) {
             try Task.checkCancellation()
-            let data = try await ExportProcess.run(executable: ffprobe, arguments: ["-v", "error", "-show_streams", "-of", "json", url.path])
+            let data = try await ExportProcess.run(executable: ffprobe, arguments: ["-v", "error", "-show_streams", "-of", "json", url.path], timeout: 30)
             guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let streams = root["streams"] as? [[String: Any]] else {
                 throw SequenceExportError.verification("Cannot qualify source streams for \(url.lastPathComponent).")
@@ -111,11 +111,11 @@ actor SequenceExportService {
                 if let string = value as? String { return Double(string) }
                 return (value as? NSNumber)?.doubleValue
             }
-            func rational(_ value: Any?) -> Double? {
+            func rational(_ value: Any?) -> RationalTime? {
                 guard let value = value as? String else { return nil }
                 let parts = value.split(separator: "/")
-                guard parts.count == 2, let n = Double(parts[0]), let d = Double(parts[1]), d > 0, n > 0 else { return nil }
-                return n / d
+                guard parts.count == 2, let n = Int64(parts[0]), let d = Int64(parts[1]), d > 0, n > 0 else { return nil }
+                return try? RationalTime(n, d)
             }
             for input in Set(command.inputs.filter { $0.url == url }.map { "\($0.streamIndex):\($0.kind.rawValue)" }) {
                 let parts = input.split(separator: ":")
@@ -125,7 +125,7 @@ actor SequenceExportService {
                       stream["codec_type"] as? String == kind else {
                     throw reject("Selected stream index/kind does not match FFprobe. Reimport or select a qualified source.")
                 }
-                if let offset = numeric(stream["start_time"]), abs(offset) > 0.000001 {
+                if let offset = numeric(stream["start_time"]), !offset.isFinite || abs(offset) > 0.000001 {
                     throw reject("Nonzero source stream start offsets are not qualified.")
                 }
                 let components = plan.components.filter { component in
@@ -137,10 +137,19 @@ actor SequenceExportService {
                     }
                 }
                 if kind == "audio" {
+                    guard let sampleRate = numeric(stream["sample_rate"]), sampleRate.isFinite,
+                          sampleRate >= 1, sampleRate <= 768000, sampleRate.rounded() == sampleRate else {
+                        throw reject("Selected audio sample rate is missing or invalid.")
+                    }
                     guard let channels = numeric(stream["channels"]), channels.isFinite, channels >= 1, channels <= 64, channels.rounded() == channels, components.allSatisfy({ component in
                         component.sourceStreams.first(where: { $0.index == index })?.audioLayout?.channels.count == Int(channels)
                     }) else { throw reject("Selected audio channel count does not match FFprobe.") }
                 } else {
+                    guard let width = numeric(stream["width"]), let height = numeric(stream["height"]),
+                          width.isFinite, height.isFinite, width >= 1, height >= 1,
+                          width <= 16384, height <= 16384, width.rounded() == width, height.rounded() == height else {
+                        throw reject("Selected source raster is missing, invalid, or exceeds the 16384-pixel limit.")
+                    }
                     if let sar = stream["sample_aspect_ratio"] as? String, !["1:1", "N/A", "0:1"].contains(sar) {
                         throw reject("Non-square source pixels are not qualified.")
                     }
@@ -154,9 +163,18 @@ actor SequenceExportService {
                     guard !["smpte2084", "arib-std-b67", "bt2020-10", "bt2020-12"].contains(transfer), primaries != "bt2020" else {
                         throw reject("HDR/wide-gamut sources are not qualified.")
                     }
-                    if components.contains(where: { $0.selection != .still }), let average = rational(stream["avg_frame_rate"]),
-                       let nominal = rational(stream["r_frame_rate"]), abs(average - nominal) > 0.000001 {
-                        throw reject("Variable frame rate sources are not qualified.")
+                    if components.contains(where: { $0.selection != .still }) {
+                        guard let average = rational(stream["avg_frame_rate"]), let nominal = rational(stream["r_frame_rate"]),
+                              average == nominal, nominal.seconds <= 1000,
+                              let timeBase = rational(stream["time_base"]), timeBase.seconds <= 1 / nominal.seconds else {
+                            throw reject("Missing, variable, or invalid source frame rate/time base is not qualified.")
+                        }
+                        let frameCount = try await verifySourceFrames(url, index: index, rate: nominal, timeBase: timeBase, width: Int(width), height: Int(height), ffprobe: ffprobe)
+                        for component in components where component.selection != .still {
+                            guard try component.sourceRange.end().compared(to: RationalTime(Int64(frameCount)).divided(by: nominal)) != .orderedDescending else {
+                                throw reject("Selected source range exceeds the decoded frame coverage.")
+                            }
+                        }
                     }
                 }
                 if let duration = numeric(stream["duration"]), duration.isFinite {
@@ -168,6 +186,46 @@ actor SequenceExportService {
                 }
             }
         }
+    }
+    /// Full selected-stream scan, never a sampling claim. Output, elapsed time and frame
+    /// count are bounded; larger/slow sources refuse qualification instead of guessing CFR.
+    @concurrent private static func verifySourceFrames(_ url: URL, index: Int, rate: RationalTime,
+                                                        timeBase: RationalTime, width: Int, height: Int, ffprobe: URL) async throws -> Int {
+        let data = try await ExportProcess.run(executable: ffprobe, arguments: ["-v", "error", "-select_streams", "\(index)",
+            "-show_frames", "-show_entries", "frame=best_effort_timestamp,width,height,sample_aspect_ratio,color_transfer,color_primaries:frame_side_data=side_data_type,rotation", "-of", "json", url.path], timeout: 30)
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let frames = root["frames"] as? [[String: Any]], !frames.isEmpty, frames.count <= 100000 else {
+            throw SequenceExportError.verification("Export source \(url.lastPathComponent): full timestamp qualification is limited to 100000 frames and 2 MB of probe output.")
+        }
+        let tolerance = try timeBase.divided(by: RationalTime(2))
+        let lowerBound = try RationalTime(-tolerance.numerator, tolerance.denominator)
+        for (position, frame) in frames.enumerated() {
+            if position % 256 == 0 { try Task.checkCancellation() }
+            guard let timestamp = frame["best_effort_timestamp"] as? NSNumber, let ticks = Int64(timestamp.stringValue),
+                  frame["width"] as? Int == width, frame["height"] as? Int == height else {
+                throw SequenceExportError.verification("Export source \(url.lastPathComponent): missing timestamps or changing decoded raster are not qualified.")
+            }
+            let actual = try timeBase.multiplied(by: ticks)
+            let expected = try RationalTime(Int64(position)).divided(by: rate)
+            let difference = try actual.subtracting(expected)
+            let sar = frame["sample_aspect_ratio"] as? String ?? "1:1"
+            let transfer = frame["color_transfer"] as? String ?? "unknown"
+            let primaries = frame["color_primaries"] as? String ?? "unknown"
+            let sides = frame["side_data_list"] as? [[String: Any]] ?? []
+            guard ["1:1", "N/A", "0:1"].contains(sar),
+                  !["smpte2084", "arib-std-b67", "bt2020-10", "bt2020-12"].contains(transfer), primaries != "bt2020",
+                  sides.allSatisfy({ !["Mastering display metadata", "Content light level metadata", "DOVI configuration record"].contains($0["side_data_type"] as? String ?? "") && (($0["rotation"] as? NSNumber)?.doubleValue ?? 0) == 0 }) else {
+                throw SequenceExportError.verification("Export source \(url.lastPathComponent): decoded non-square pixels, rotation, or HDR metadata are not qualified.")
+            }
+            // Containers may quantize rational CFR timestamps to their time base.
+            // The first decoded frame must still start exactly at zero.
+            guard (position != 0 || ticks == 0),
+                  try difference.compared(to: tolerance) != .orderedDescending,
+                  try difference.compared(to: lowerBound) != .orderedAscending else {
+                throw SequenceExportError.verification("Export source \(url.lastPathComponent): variable, missing, or offset decoded frame timestamps are not qualified.")
+            }
+        }
+        return frames.count
     }
     nonisolated private static func verify(_ data: Data, plan: TimelineRenderPlan, command: FFmpegRenderCommand) throws {
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -240,7 +298,10 @@ nonisolated final class ExportProcess: @unchecked Sendable {
         if process.isRunning { process.terminate() }
         lock.unlock()
     }
-    @concurrent static func run(executable: URL, arguments: [String], progress: (@Sendable (Double) -> Void)? = nil) async throws -> Data {
+    @concurrent static func run(executable: URL, arguments: [String], progress: (@Sendable (Double) -> Void)? = nil, timeout: TimeInterval? = nil) async throws -> Data {
+        if let timeout, !timeout.isFinite || timeout <= 0 {
+            throw SequenceExportError.verification("Probe qualification timeout must be finite and positive.")
+        }
         let runner = ExportProcess()
         return try await withTaskCancellationHandler {
             let output = Pipe(), errors = Pipe()
@@ -257,9 +318,12 @@ nonisolated final class ExportProcess: @unchecked Sendable {
             try? output.fileHandleForWriting.close(); try? errors.fileHandleForWriting.close()
             DispatchQueue.global().async { runner.read(output.fileHandleForReading, isError: false, progress: progress) }
             DispatchQueue.global().async { runner.read(errors.fileHandleForReading, isError: true, progress: nil) }
+            let started = Date()
             var cancellationStart: Date?
+            var timedOut = false
             while runner.process.isRunning {
-                if Task.isCancelled {
+                if let timeout, Date().timeIntervalSince(started) >= timeout { timedOut = true }
+                if Task.isCancelled || timedOut || runner.didOverflow() {
                     runner.cancel()
                     if cancellationStart == nil { cancellationStart = Date() }
                     if Date().timeIntervalSince(cancellationStart!) > 1 { _ = Darwin.kill(runner.process.processIdentifier, SIGKILL) }
@@ -271,12 +335,14 @@ nonisolated final class ExportProcess: @unchecked Sendable {
             // waitUntilExit here can hang when an async task resumed on a different run loop.
             while runner.remainingReaders() > 0 { await Task.detached { try? await Task.sleep(for: .milliseconds(10)) }.value }
             try Task.checkCancellation()
+            guard !timedOut else { throw SequenceExportError.verification("Probe exceeded its \(String(format: "%g", timeout ?? 0))-second qualification limit.") }
+            guard !runner.overflow else { throw SequenceExportError.verification("Probe output exceeded its 2 MB qualification limit.") }
             guard runner.process.terminationStatus == 0 else {
                 throw SequenceExportError.process("Export helper failed (\(runner.process.terminationStatus)): \(String(decoding: runner.stderr, as: UTF8.self))")
             }
-            guard !runner.overflow else { throw SequenceExportError.verification("Probe output exceeded its 2 MB limit.") }
             return runner.stdout
         } onCancel: { runner.cancel() }
     }
+    private func didOverflow() -> Bool { lock.lock(); defer { lock.unlock() }; return overflow }
     private func remainingReaders() -> Int { lock.lock(); defer { lock.unlock() }; return readers }
 }

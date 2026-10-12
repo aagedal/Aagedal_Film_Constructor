@@ -149,8 +149,14 @@ the bin and choose **Append with audio selection…** to configure it.
     ProRes 422 HQ/24-bit PCM from originals, including timeline gain/fades and
     crossfades. Helpers must be explicitly prepared and bundled using
     [the opt-in build instructions](media-helper-packaging.md); ordinary builds
-    show an unavailable-helper message. Signed sandbox export remains a manual
-    qualification step.
+    show an unavailable-helper message. Before rendering, each selected video
+    stream is fully decoded to check zero-origin CFR timestamps and stable raster,
+    using exact rational timing with container-tick quantization. Exposed rotation,
+    non-square pixels and HDR metadata are refused. Qualification stops after
+    30 seconds, 2 MB of probe output, or 100,000 frames; larger or slower sources
+    require another workflow. Different source rasters and CFR rates, and audio
+    resampling, remain supported. Signed sandbox export, dynamic color management
+    and general audio timestamp continuity remain manual qualification steps.
 
 16. Choose **Export → Export FCPXML…** for a sequence in
     [the supported interchange subset](fcpxml-export.md). The save panel explains

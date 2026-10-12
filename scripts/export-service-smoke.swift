@@ -46,6 +46,64 @@ enum ExportSmokeFailure: Error { case failed(String) }
             _ = try await service.export(plan: TimelineRenderPlan(project: geometryProject), to: directory.appendingPathComponent("geometry.mov"))
             throw ExportSmokeFailure.failed("Unsupported source pixel geometry accepted")
         } catch is SequenceExportError { }
+        func videoProject(_ name: String) throws -> Project {
+            let asset = MediaAsset(name: name, originalURL: directory.appendingPathComponent(name), duration: try RationalTime(1), streams: [MediaStream(index: 0, kind: .video)])
+            let clip = TimelineClip(assetID: asset.id, sourceRange: try TimeRange(start: .zero, duration: RationalTime(1)), selection: .video(streamIndex: 0))
+            return Project(settings: project.settings, assets: [asset], families: [family], tracks: [TimelineTrack(familyID: family.id, template: template, clips: [clip])])
+        }
+        let cfr = try videoProject("cfr.mov")
+        let cfrResult = try await service.export(plan: TimelineRenderPlan(project: cfr), to: directory.appendingPathComponent("cfr-output.mov"))
+        try check(cfrResult.videoFrames == 24, "CFR source at different raster remains qualified")
+        let fractionalResult = try await service.export(plan: TimelineRenderPlan(project: videoProject("fractional-cfr.mov")), to: directory.appendingPathComponent("fractional-output.mov"))
+        try check(fractionalResult.videoFrames == 24, "Mixed fractional CFR source rate remains qualified")
+        let vfrProbe = try await ExportProcess.run(executable: ffprobe, arguments: ["-v", "error", "-show_streams", "-of", "json", directory.appendingPathComponent("equal-rate-vfr.mov").path])
+        let vfrRoot = try JSONSerialization.jsonObject(with: vfrProbe) as! [String: Any]
+        let vfrStream = (vfrRoot["streams"] as! [[String: Any]])[0]
+        try check(vfrStream["avg_frame_rate"] as? String == "24/1" && vfrStream["r_frame_rate"] as? String == "24/1", "VFR fixture must defeat metadata-only checks")
+        for name in ["equal-rate-vfr.mov", "offset.mov"] {
+            let destination = directory.appendingPathComponent("rejected-" + name)
+            do {
+                _ = try await service.export(plan: TimelineRenderPlan(project: videoProject(name)), to: destination)
+                throw ExportSmokeFailure.failed("Irregular/offset source accepted: " + name)
+            } catch let error as SequenceExportError {
+                try check(error.localizedDescription.contains("timestamp") || error.localizedDescription.contains("offset"), "Timestamp qualification refusal: " + error.localizedDescription)
+            }
+            try check(!FileManager.default.fileExists(atPath: destination.path), "Unqualified timestamp source never publishes")
+        }
+        var resampled = project
+        resampled.assets[0].originalURL = directory.appendingPathComponent("resample.wav")
+        let resampleResult = try await service.export(plan: TimelineRenderPlan(project: resampled), to: directory.appendingPathComponent("resample-output.mov"))
+        try check(resampleResult.audioSamples == 480000, "Different source sample rate remains qualified for explicit resampling")
+        // Corrupt only reported metadata around a real FFprobe. The decoded raster
+        // still comes from the original, exercising stale probe contract rejection.
+        let alteredProbe = directory.appendingPathComponent("altered-probe")
+        let probeScript = """
+        #!/usr/bin/python3
+        import json, subprocess, sys
+        result = subprocess.run([\(String(reflecting: ffprobe.path))] + sys.argv[1:], capture_output=True)
+        if result.returncode:
+            sys.stderr.buffer.write(result.stderr)
+            sys.exit(result.returncode)
+        data = json.loads(result.stdout)
+        if '-show_streams' in sys.argv:
+            for stream in data['streams']:
+                if stream['codec_type'] == 'video': stream['width'] += 1
+                if stream['codec_type'] == 'audio': stream['sample_rate'] = '0'
+        print(json.dumps(data))
+        """
+        try probeScript.write(to: alteredProbe, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: alteredProbe.path)
+        let alteredService = SequenceExportService(ffmpegURL: ffmpeg, ffprobeURL: alteredProbe)
+        for (source, name, expected) in [(cfr, "stale-raster.mov", "raster"), (project, "invalid-rate.mov", "sample rate")] {
+            let destination = directory.appendingPathComponent(name)
+            do {
+                _ = try await alteredService.export(plan: TimelineRenderPlan(project: source), to: destination)
+                throw ExportSmokeFailure.failed("Invalid raster/rate metadata accepted")
+            } catch let error as SequenceExportError {
+                try check(error.localizedDescription.contains(expected), "Raster/rate qualification refusal: " + error.localizedDescription)
+            }
+            try check(!FileManager.default.fileExists(atPath: destination.path), "Invalid raster/rate never publishes")
+        }
         let cancelled = directory.appendingPathComponent("cancelled.mov")
         let task = Task { try await service.export(plan: plan, to: cancelled) }
         try await Task.sleep(for: .milliseconds(50))
@@ -70,6 +128,22 @@ enum ExportSmokeFailure: Error { case failed(String) }
         } catch let error as SequenceExportError {
             try check(error.localizedDescription.utf8.count <= 33000, "Helper diagnostics bounded without pipe deadlock")
         }
+        let overflowStart = Date()
+        do {
+            _ = try await ExportProcess.run(executable: URL(fileURLWithPath: "/usr/bin/yes"), arguments: [], timeout: 5)
+            throw ExportSmokeFailure.failed("Unbounded probe output accepted")
+        } catch let error as SequenceExportError {
+            try check(error.localizedDescription.contains("2 MB"), "Probe output overflow refuses qualification")
+        }
+        try check(Date().timeIntervalSince(overflowStart) < 5, "Overflow terminates the producer promptly")
+        let timeoutStart = Date()
+        do {
+            _ = try await ExportProcess.run(executable: URL(fileURLWithPath: "/bin/sleep"), arguments: ["30"], timeout: 0.1)
+            throw ExportSmokeFailure.failed("Probe timeout accepted")
+        } catch let error as SequenceExportError {
+            try check(error.localizedDescription.contains("qualification limit"), "Slow probe refuses qualification")
+        }
+        try check(Date().timeIntervalSince(timeoutStart) < 5, "Probe timeout terminates and reaps promptly")
         let invalidProbeService = SequenceExportService(ffmpegURL: ffmpeg, ffprobeURL: URL(fileURLWithPath: "/usr/bin/true"))
         let unverified = directory.appendingPathComponent("unverified.mov")
         do {
@@ -100,6 +174,6 @@ enum ExportSmokeFailure: Error { case failed(String) }
         try check(!FileManager.default.fileExists(atPath: stubbornOutput.path), "Stubborn cancellation never publishes")
         let names = try FileManager.default.contentsOfDirectory(atPath: directory.path)
         try check(!names.contains { $0.hasPrefix(".afc-export-") }, "All staging files removed")
-        print("Export service smoke passed: verified MOV, protected destination, source qualification, bounded diagnostics, helper failures, cancellation cleanup with no orphan")
+        print("Export service smoke passed: verified MOV, protected destination, actual CFR/VFR/offset and raster/rate qualification, resampling, bounded diagnostics, helper failures, cancellation cleanup with no orphan")
     }
 }
