@@ -20,6 +20,13 @@ nonisolated struct ProjectDocument: FileDocument, Sendable {
         self.proxyJobs = proxyJobs
     }
 
+    /// Restoration can supply untitled work before any edit callback fires. An
+    /// empty document has deterministic settings and contains no generated IDs.
+    var differsFromNewDocument: Bool {
+        project != Project(settings: try! SequenceSettings())
+            || !mediaBookmarks.isEmpty || !proxyBookmarks.isEmpty || !proxyJobs.isEmpty
+    }
+
     init(configuration: ReadConfiguration) throws {
         guard let data = configuration.file.regularFileContents else { throw CocoaError(.fileReadCorruptFile) }
         try self.init(data: data)

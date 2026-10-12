@@ -1212,3 +1212,13 @@ launch-performance claim has been validated yet.
   tests and compilation; the updated launch window was not visually qualified.
   The existing installed app was left untouched after automatic review rejected
   quitting it because its unsaved-document state was unknown.
+
+### Save-restoration review follow-up (2026-10-12)
+
+- Recovered untitled project content now starts the first-save reminder without
+  waiting for another edit; untouched default workspaces remain silent.
+- Temporary workspace disappearance releases resources. Reappearance restores
+  bookmark access and source preview while retaining project, selection, sequence
+  playhead and undo/redo history, without resetting reminder/snooze deadlines.
+- Strict Swift 6 save-protection smoke, real bookmarked-media close/resume with
+  pre-hide edit undo/redo, app-file smoke and unsigned macOS Debug build pass.

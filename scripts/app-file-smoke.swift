@@ -24,6 +24,7 @@ struct AppFileSmoke {
         let still = try await MediaImporter.inspect(url: imageURL)
         try check(still.asset.streams.isEmpty && still.asset.duration.seconds == 5, "Still image import")
         try exerciseDerivedProjectValues(asset: still.asset)
+        try await exerciseWorkspaceResume(still: still)
         try await exerciseStillPreview(directory: directory, still: still, audio: audio)
         try exerciseProxyDocument(directory: directory)
         let corruptURL = directory.appendingPathComponent("corrupt.png")
@@ -187,7 +188,7 @@ struct AppFileSmoke {
         try exerciseAudioFades()
         try exerciseAudioCrossfades()
         try exerciseShortcuts()
-        print("App file smoke passed: EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
     }
 
     @MainActor
@@ -691,6 +692,39 @@ struct AppFileSmoke {
         try EditorStore.validateInterchangeDestination(directory.appendingPathComponent("new.edl"), originals: [isolatedAsset])
         try check(try Data(contentsOf: original) == before,
                   "Interchange preflight protects original bytes and allows an independent destination")
+    }
+
+    @MainActor
+    static func exerciseWorkspaceResume(still: ImportedMedia) async throws {
+        let store = EditorStore()
+        defer { store.close() }
+        try store.registerImportedMedia(still)
+        // Resolve grants once before recording the baseline, as document load does.
+        store.resumeMediaAccess()
+        await store.sourcePreviewTask?.value
+        store.appendSelectedAsset()
+        store.selectedClipID = store.project.tracks.flatMap(\.clips).first!.id
+        store.playheadSeconds = 2
+        let expected = store.project
+        let selection = (store.selectedAssetID, store.selectedAssetIDs, store.selectedClipID)
+        let history = (store.canUndo, store.canRedo)
+        try check(store.previewImage != nil, "Workspace fixture has a source image before hiding")
+        store.close()
+        try check(store.previewImage == nil && store.sourcePlayer == nil, "Hidden workspace releases its source resources")
+        store.resumeMediaAccess()
+        await store.sourcePreviewTask?.value
+        try check(store.project == expected && store.playheadSeconds == 2,
+                  "Resuming preserves project and playhead")
+        try check(store.selectedAssetID == selection.0 && store.selectedAssetIDs == selection.1 && store.selectedClipID == selection.2,
+                  "Resuming preserves source and clip selection")
+        try check(store.canUndo == history.0 && store.canRedo == history.1 && store.previewImage != nil,
+                  "Resuming restores source preview without replacing editing history")
+        store.undo()
+        try check(store.project.tracks.flatMap(\.clips).isEmpty && store.canRedo,
+                  "An edit made before hiding remains undoable after resume")
+        store.redo()
+        try check(store.project.tracks.flatMap(\.clips).count == 1,
+                  "Resume preserves redo semantics for the original edit")
     }
 
     @MainActor

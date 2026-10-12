@@ -9,10 +9,27 @@ struct ProjectSaveProtectionSmoke {
         var now = Date(timeIntervalSince1970: 1_000)
         let policy = ProjectSaveProtection.Policy(reminderInterval: 300, debounceInterval: 10, maximumWaitInterval: 40, minimumBackupInterval: 20, retainedBackups: 2)
         let protection = ProjectSaveProtection(policy: policy, backupsRoot: root.appendingPathComponent("backups"), clock: { now })
-        var document = ProjectDocument(project: try DemoProjectFactory.musicCollision())
-        protection.observe(document: document, fileURL: nil, hasChanges: false)
+        var document = ProjectDocument()
+        check(!document.differsFromNewDocument, "A fresh document is a deterministic empty baseline")
+        protection.observe(document: document, fileURL: nil, hasChanges: document.differsFromNewDocument)
         await protection.checkNow(at: now.addingTimeInterval(1_000))
         check(protection.reminderMessage == nil, "Untouched blank documents must not nag")
+        document = ProjectDocument(project: try DemoProjectFactory.musicCollision())
+        let restoredDocument = try ProjectDocument(data: document.encodedData())
+        check(restoredDocument.differsFromNewDocument)
+        let restored = ProjectSaveProtection(policy: policy, backupsRoot: root.appendingPathComponent("restored"), clock: { now })
+        restored.observe(document: restoredDocument, fileURL: nil, hasChanges: restoredDocument.differsFromNewDocument)
+        await restored.checkNow(at: now.addingTimeInterval(300))
+        check(restored.reminderMessage != nil, "Recovered untitled work needs a reminder without another edit")
+        var settingsOnly = ProjectDocument()
+        settingsOnly.project.settings.width = 1280
+        check(settingsOnly.differsFromNewDocument, "Untitled sequence settings are work even before media import")
+        var preferencesOnly = ProjectDocument()
+        preferencesOnly.project.preferences.askBeforeAudioTrackLayoutChanges.toggle()
+        check(preferencesOnly.differsFromNewDocument)
+        var bookmarksOnly = ProjectDocument()
+        bookmarksOnly.mediaBookmarks[UUID()] = Data([1])
+        check(bookmarksOnly.differsFromNewDocument)
         protection.observe(document: document, fileURL: nil)
         await protection.checkNow(at: now.addingTimeInterval(299))
         check(protection.reminderMessage == nil)
@@ -42,6 +59,7 @@ struct ProjectSaveProtectionSmoke {
         check(first.project == document.project)
         await protection.checkNow(at: now.addingTimeInterval(500))
         check(try backupFiles(folder).count == 1, "Unchanged snapshots are never backed up repeatedly")
+        check(protection.reminderMessage == nil, "A clean saved document does not need a first-save reminder")
 
         now = now.addingTimeInterval(1)
         document.project.preferences.automaticallyRemoveEmptyTracks.toggle()
@@ -128,7 +146,7 @@ struct ProjectSaveProtectionSmoke {
         check(try ProjectDocument(data: Data(contentsOf: revisions.last!)).project == document.project,
               "Completing an older revision must not clear newer edits")
         protection.start(); protection.start(); protection.stop()
-        print("PASS: five-minute untitled reminder and snooze, save reset, debounce, minimum/maximum backup intervals, reopenable snapshot fidelity, retention, unchanged deduplication, source preservation, symlink refusal, retry and edits/Save As during in-flight backup")
+        print("PASS: fresh/restored untitled and saved document baselines, five-minute untitled reminder and snooze, save reset, debounce, minimum/maximum backup intervals, reopenable snapshot fidelity, retention, unchanged deduplication, source preservation, symlink refusal, retry and edits/Save As during in-flight backup")
     }
 
     static func check(_ condition: Bool, _ message: String = "Save protection assertion failed") {

@@ -20,16 +20,22 @@ private struct DocumentWorkspace: View {
     @StateObject private var store = EditorStore()
     @StateObject private var saveProtection = ProjectSaveProtection()
     @State private var loaded = false
+    @State private var storeActive = false
 
     var body: some View {
         ContentView(store: store, saveProtection: saveProtection)
             .focusedSceneValue(\.editorStore, store)
             .onAppear {
                 saveProtection.start()
-                guard !loaded else { return }
-                store.load(document)
-                loaded = true
-                saveProtection.observe(document: document, fileURL: fileURL, hasChanges: false)
+                guard !storeActive else { return }
+                storeActive = true
+                if !loaded {
+                    store.load(document)
+                    loaded = true
+                    observeDocumentBaseline()
+                } else {
+                    store.resumeMediaAccess()
+                }
             }
             .onChange(of: store.project) { _, project in
                 syncDocumentFromStore()
@@ -56,9 +62,13 @@ private struct DocumentWorkspace: View {
                 if loaded && bookmarks != store.proxyBookmarks { reloadDocument() }
             }
             .onChange(of: fileURL) { _, _ in
-                if loaded { saveProtection.observe(document: document, fileURL: fileURL, hasChanges: false) }
+                if loaded { observeDocumentBaseline() }
             }
-            .onDisappear { saveProtection.stop(); store.close() }
+            .onDisappear {
+                saveProtection.stop()
+                storeActive = false
+                store.close()
+            }
     }
 
     private func syncDocumentFromStore() {
@@ -71,10 +81,15 @@ private struct DocumentWorkspace: View {
     }
 
     private func reloadDocument() {
-        // External document updates establish a clean baseline; ensuing user
-        // edits are detected by value comparisons across every persisted field.
+        // A saved document establishes a clean baseline; restored untitled work
+        // still needs saving even before another user edit arrives.
         store.load(document)
-        saveProtection.observe(document: document, fileURL: fileURL, hasChanges: false)
+        observeDocumentBaseline()
+    }
+
+    private func observeDocumentBaseline() {
+        saveProtection.observe(document: document, fileURL: fileURL,
+                               hasChanges: fileURL == nil && document.differsFromNewDocument)
     }
 }
 

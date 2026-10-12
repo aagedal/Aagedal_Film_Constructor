@@ -94,6 +94,13 @@ final class EditorStore: ObservableObject {
             var restored = job; restored.prepareAfterReopen(); return restored
         }
         proxyQueueProgress = [:]
+        resumeMediaAccess()
+    }
+
+    /// A temporarily hidden workspace releases media resources in close(). Restore
+    /// them without replacing the editing session or clearing its history/selection.
+    func resumeMediaAccess() {
+        mediaPreviewRevision = UUID()
         resolveProxyBookmarks()
         for index in project.assets.indices {
             let id = project.assets[index].id
@@ -107,6 +114,7 @@ final class EditorStore: ObservableObject {
                 } catch { statusMessage = "Some media needs relinking. Select it in the bin and choose Relink." }
             }
         }
+        refreshSourcePreview()
     }
 
     func holdAccess(_ url: URL) {
