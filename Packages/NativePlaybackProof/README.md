@@ -33,10 +33,30 @@ video fails explicitly. General image formats, linear-light color composition,
 color management, proxies and live A/V clocking await qualification. Explicit
 buffers/decoder counts have development limits; FFmpeg
 probing/indexing and codec memory have not been comprehensively profiled.
-The live session's 8 MB frame/audio cache does not include retained source decoder
-state: up to 64 stream decoders can retain their own decoded frame, including one
-image per still. Input probing occurs before the codec raster limit and its
-allocations are outside these explicit buffer bounds.
+The live session's 8 MB frame/audio cache is separate from retained source decoder
+state. `NativeMonitor(project:decoderLimits:)` defaults to an LRU of 16 active
+stream decoders and a 128 MiB retained source byte budget. The async
+`NativePlaybackSession` initializer forwards the same optional `decoderLimits`.
+`NativeDecoderLimits`
+accepts 1...64 active decoders and a nonnegative byte budget (zero disables
+retention). Distinct sources are unlimited across a sequence: opening a new source
+closes the least recently used context when the active bound is reached. After
+each source operation, including failures, contexts are evicted until retained
+decoded frame buffers and allocated float conversion capacity fit the byte budget.
+A source larger than that budget can still be decoded; its context is closed
+after the operation. Eviction preserves exactness by reopening and requalifying
+the source on its next request, which can add substantial latency. Source
+operations pin one context until completion, so the byte budget describes idle
+retention and does not bound transient decode/output allocations. Accounting counts
+AVFrame buffer references conservatively, and excludes codec reference frames,
+demuxer/probing/indexing state, packets, scaler/resampler state and caller output.
+These limits do not claim a total process RSS bound. Input probing occurs before
+the codec raster limit and its allocations are outside these explicit bounds.
+Runtime retention regressions decode actual PNGs across 65 distinct sources and
+reverse revisits, verify LRU reuse and decoder release with weak references,
+exercise byte-budget eviction after success/failure, and compare reopened PCM16
+WAV ranges against an independent exact sample oracle. Invalid async-session
+retention limits fail at construction rather than on first playback.
 
 Use [the repository proof runner](../../scripts/native-sequence-proof.py) with
 explicit FFmpeg, FFprobe, pkg-config, completed barcode-fixture and fresh output

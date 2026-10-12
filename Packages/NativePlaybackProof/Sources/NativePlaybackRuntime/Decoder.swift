@@ -38,6 +38,8 @@ final class SourceDecoder {
 
     deinit { afc_decoder_close(handle) }
 
+    var retainedBytes: Int { Int(clamping: afc_decoder_retained_bytes(handle)) }
+
     public func video(frame: Int64, rate: FrameRate, width: Int, height: Int,
                       scalingMode: ScalingMode) throws -> Data {
         let geometry = try NativeVideoGeometry(sourceWidth: self.width, sourceHeight: self.height,
@@ -82,12 +84,82 @@ struct SourceKey: Hashable {
     let isStill: Bool
 }
 
+/// Retention bounds, separate from the session's cache of returned RGB/PCM.
+/// These bound idle source frames and conversion buffers, not total FFmpeg RSS.
+public struct NativeDecoderLimits: Sendable {
+    public let maximumActiveDecoders: Int
+    public let retainedSourceByteLimit: Int
+
+    public init(maximumActiveDecoders: Int = 16, retainedSourceByteLimit: Int = 128 * 1024 * 1024) {
+        self.maximumActiveDecoders = maximumActiveDecoders
+        self.retainedSourceByteLimit = retainedSourceByteLimit
+    }
+
+    func validate() throws {
+        guard maximumActiveDecoders > 0, maximumActiveDecoders <= 64,
+              retainedSourceByteLimit >= 0 else {
+            throw ProofFailure("Decoder limits require 1...64 active streams and a nonnegative byte budget")
+        }
+    }
+}
+
+/// Serial access only. The operation's local reference pins a source until it
+/// finishes; trimming then releases complete decoders, preserving exact reopen
+/// qualification/seek semantics instead of clearing frames behind the C bridge.
+final class SourceDecoderCache {
+    private let limits: NativeDecoderLimits
+    private var entries: [SourceKey: SourceDecoder] = [:]
+    private var recency: [SourceKey] = [] // oldest first; small bounded array
+
+    init(limits: NativeDecoderLimits) throws {
+        try limits.validate()
+        self.limits = limits
+    }
+
+    var count: Int { entries.count }
+    var retainedBytes: Int {
+        entries.values.reduce(0) { total, source in
+            let (sum, overflow) = total.addingReportingOverflow(source.retainedBytes)
+            return overflow ? Int.max : sum
+        }
+    }
+
+    func reset() { entries.removeAll(); recency.removeAll() }
+
+    private func evictOldest() {
+        guard !recency.isEmpty else { return }
+        entries.removeValue(forKey: recency.removeFirst())
+    }
+
+    func withDecoder<Value>(key: SourceKey, operation: (SourceDecoder) throws -> Value) throws -> Value {
+        let source: SourceDecoder
+        if let existing = entries[key] {
+            source = existing
+            recency.removeAll { $0 == key }
+        } else {
+            // Close an idle decoder before opening the next one so opening does
+            // not temporarily exceed the active-context bound.
+            while entries.count >= limits.maximumActiveDecoders { evictOldest() }
+            source = try SourceDecoder(url: key.url, streamIndex: key.streamIndex, isStill: key.isStill)
+            entries[key] = source
+        }
+        recency.append(key)
+        defer {
+            while !entries.isEmpty && (limits.retainedSourceByteLimit == 0 || retainedBytes > limits.retainedSourceByteLimit) {
+                evictOldest()
+            }
+        }
+        return try operation(source)
+    }
+}
+
 /// Buffers are bounded by a frame or audio block, never the duration of a source.
 public final class NativeMonitor {
     public private(set) var plan: NativePlaybackPlan
-    private var decoders: [SourceKey: SourceDecoder] = [:]
+    private let decoders: SourceDecoderCache
 
-    public init(project: Project) throws {
+    public init(project: Project, decoderLimits: NativeDecoderLimits = NativeDecoderLimits()) throws {
+        decoders = try SourceDecoderCache(limits: decoderLimits)
         plan = try NativePlaybackPlan(TimelineRenderPlan(project: project))
         guard plan.settings.width <= 4096, plan.settings.height <= 4096 else {
             throw ProofFailure("Proof limits sequence raster to 4096²")
@@ -105,29 +177,21 @@ public final class NativeMonitor {
         resetDecoders()
     }
 
-    public func resetDecoders() { decoders.removeAll() }
-
-    private func decoder(url: URL, streamIndex: Int, isStill: Bool = false) throws -> SourceDecoder {
-        let key = SourceKey(url: url, streamIndex: streamIndex, isStill: isStill)
-        if let decoder = decoders[key] { return decoder }
-        guard decoders.count < 64 else { throw ProofFailure("Proof limits open stream decoders to 64") }
-        let decoder = try SourceDecoder(url: url, streamIndex: streamIndex, isStill: isStill)
-        decoders[key] = decoder
-        return decoder
-    }
+    public func resetDecoders() { decoders.reset() }
 
     public func video(frame: Int64) throws -> Data {
         let layers = try plan.videoLayers(at: frame)
         var output = Data(repeating: 0, count: plan.settings.width * plan.settings.height * 3)
         for request in layers.reversed() {
-            let source = try decoder(url: request.url, streamIndex: request.streamIndex, isStill: request.isStill)
-            if request.isStill {
-                let rgba = try source.still(width: plan.settings.width, height: plan.settings.height,
-                                            scalingMode: request.scalingMode)
-                NativeStillComposition.over(rgba, onto: &output)
-            } else {
-                output = try source.video(frame: request.sourceFrame, rate: plan.settings.frameRate,
-                    width: plan.settings.width, height: plan.settings.height, scalingMode: request.scalingMode)
+            try decoders.withDecoder(key: SourceKey(url: request.url, streamIndex: request.streamIndex, isStill: request.isStill)) { source in
+                if request.isStill {
+                    let rgba = try source.still(width: plan.settings.width, height: plan.settings.height,
+                                                scalingMode: request.scalingMode)
+                    NativeStillComposition.over(rgba, onto: &output)
+                } else {
+                    output = try source.video(frame: request.sourceFrame, rate: plan.settings.frameRate,
+                        width: plan.settings.width, height: plan.settings.height, scalingMode: request.scalingMode)
+                }
             }
         }
         return output
@@ -139,18 +203,19 @@ public final class NativeMonitor {
         let channels = plan.settings.audioLayout.channels.count
         var output = [Float](repeating: 0, count: count * channels)
         for request in requests {
-            let source = try decoder(url: request.url, streamIndex: request.streamIndex)
-            guard request.sourceChannel < source.channels else { throw ProofFailure("Missing decoded channel") }
-            let samples = try source.audio(start: request.sourceStartSample, count: request.sampleCount,
-                                           sampleRate: plan.settings.audioSampleRate)
-            for frame in 0..<request.sampleCount {
-                let envelope = try AudioFadeEnvelope.gain(sampleIndex: request.clipSampleOffset + Int64(frame),
-                    sampleRate: request.sampleRate, duration: request.clipDuration,
-                    fadeIn: request.fadeIn, fadeOut: request.fadeOut)
-                let value = samples[frame * source.channels + request.sourceChannel] * Float(request.gain * envelope)
-                let destination = (request.destinationOffset + frame) * channels + request.destinationChannel
-                output[destination] += value
-                guard output[destination].isFinite else { throw ProofFailure("Nonfinite mixed sample") }
+            try decoders.withDecoder(key: SourceKey(url: request.url, streamIndex: request.streamIndex, isStill: false)) { source in
+                guard request.sourceChannel < source.channels else { throw ProofFailure("Missing decoded channel") }
+                let samples = try source.audio(start: request.sourceStartSample, count: request.sampleCount,
+                                               sampleRate: plan.settings.audioSampleRate)
+                for frame in 0..<request.sampleCount {
+                    let envelope = try AudioFadeEnvelope.gain(sampleIndex: request.clipSampleOffset + Int64(frame),
+                        sampleRate: request.sampleRate, duration: request.clipDuration,
+                        fadeIn: request.fadeIn, fadeOut: request.fadeOut)
+                    let value = samples[frame * source.channels + request.sourceChannel] * Float(request.gain * envelope)
+                    let destination = (request.destinationOffset + frame) * channels + request.destinationChannel
+                    output[destination] += value
+                    guard output[destination].isFinite else { throw ProofFailure("Nonfinite mixed sample") }
+                }
             }
         }
         return output

@@ -128,9 +128,12 @@ public actor NativePlaybackSession {
     private var recency: [Key] = []
     private var cachedBytes = 0
 
-    public init(project: Project, maximumPendingRequests: Int = 4, maximumCacheBytes: Int = 8 * 1024 * 1024) throws {
+    public init(project: Project, maximumPendingRequests: Int = 4, maximumCacheBytes: Int = 8 * 1024 * 1024,
+                decoderLimits: NativeDecoderLimits = NativeDecoderLimits()) throws {
+        try decoderLimits.validate()
         try self.init(project: project, maximumPendingRequests: maximumPendingRequests,
-                      maximumCacheBytes: maximumCacheBytes, worker: SerialDecodeWorker())
+                      maximumCacheBytes: maximumCacheBytes,
+                      worker: SerialDecodeWorker(factory: { try NativeMonitor(project: $0, decoderLimits: decoderLimits) }))
     }
 
     init(project: Project, maximumPendingRequests: Int, maximumCacheBytes: Int, worker: SerialDecodeWorker) throws {

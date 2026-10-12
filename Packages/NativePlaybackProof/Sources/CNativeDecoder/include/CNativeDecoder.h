@@ -36,6 +36,10 @@ int afc_decoder_width(const AFCDecoder *decoder);
 int afc_decoder_height(const AFCDecoder *decoder);
 int afc_decoder_channels(const AFCDecoder *decoder);
 int afc_decoder_sample_rate(const AFCDecoder *decoder);
+/** Retained decoded AVFrame buffers plus allocated float conversion capacity.
+ * Counts references conservatively; excludes codec/demuxer/scaler/resampler
+ * internal memory, packets, transient decode allocations and caller output. */
+size_t afc_decoder_retained_bytes(const AFCDecoder *decoder);
 const char *afc_decoder_version(void);
 
 /** Extract one exact source frame as tightly packed RGB24 at native dimensions.

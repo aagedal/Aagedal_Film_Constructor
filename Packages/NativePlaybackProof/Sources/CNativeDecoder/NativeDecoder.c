@@ -487,6 +487,25 @@ int afc_decoder_width(const AFCDecoder *decoder) { return decoder ? decoder->wid
 int afc_decoder_height(const AFCDecoder *decoder) { return decoder ? decoder->height : 0; }
 int afc_decoder_channels(const AFCDecoder *decoder) { return decoder ? decoder->channels : 0; }
 int afc_decoder_sample_rate(const AFCDecoder *decoder) { return decoder ? decoder->sample_rate : 0; }
+size_t afc_decoder_retained_bytes(const AFCDecoder *decoder) {
+    if (!decoder) return 0;
+    size_t bytes = decoder->audio_buffer_capacity * sizeof(float);
+    if (!decoder->frame) return bytes;
+    /* Count every reference, even if a codec shares backing storage. This
+     * overestimates rather than understates the retained source budget. */
+    for (int i = 0; i < AV_NUM_DATA_POINTERS; ++i) {
+        if (!decoder->frame->buf[i]) continue;
+        size_t size = decoder->frame->buf[i]->size;
+        if (size > SIZE_MAX - bytes) return SIZE_MAX;
+        bytes += size;
+    }
+    for (int i = 0; i < decoder->frame->nb_extended_buf; ++i) {
+        size_t size = decoder->frame->extended_buf[i]->size;
+        if (size > SIZE_MAX - bytes) return SIZE_MAX;
+        bytes += size;
+    }
+    return bytes;
+}
 const char *afc_decoder_version(void) { return av_version_info(); }
 
 static int64_t gcd_positive(int64_t a, int64_t b) {
