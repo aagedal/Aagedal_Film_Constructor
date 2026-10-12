@@ -23,6 +23,7 @@ struct AppFileSmoke {
         try await exerciseSourcePlayback(audio: audio)
         let still = try await MediaImporter.inspect(url: imageURL)
         try check(still.asset.streams.isEmpty && still.asset.duration.seconds == 5, "Still image import")
+        try await exerciseTimelineFileDrop(audioURL: audioURL, imageURL: imageURL, directory: directory)
         try exerciseDerivedProjectValues(asset: still.asset)
         try await exerciseWorkspaceResume(still: still)
         try await exerciseStillPreview(directory: directory, still: still, audio: audio)
@@ -91,11 +92,22 @@ struct AppFileSmoke {
                   "Track EDL captures the project and starts on the selected clip's track")
         store.beginRenderExport()
         try check(store.renderExportDraft == nil, "An EDL sheet prevents a second export sheet")
+        store.exportOTIO()
+        try check(store.errorMessage == nil && store.project == edlSnapshot.project,
+                  "An EDL sheet prevents OpenTimelineIO export without changing the document")
         store.undo()
         try check(store.edlExportDraft?.project == edlSnapshot.project,
                   "Subsequent edits preserve the EDL snapshot")
         store.redo()
         store.edlExportDraft = nil
+        let beforeOTIO = store.project
+        let otioHistory = (store.canUndo, store.canRedo)
+        store.exportOTIO()
+        try check(store.errorMessage?.contains("OpenTimelineIO") == true,
+                  "Unsupported stills fail OpenTimelineIO validation before opening a save panel")
+        try check(store.project == beforeOTIO && store.canUndo == otioHistory.0 && store.canRedo == otioHistory.1,
+                  "Refused OpenTimelineIO export preserves the project and undo history")
+        store.errorMessage = nil
         try exerciseInterchangeDestinationProtection(directory: directory, asset: audio.asset)
         let emptyExport = EditorStore()
         emptyExport.beginRenderExport()
@@ -188,7 +200,98 @@ struct AppFileSmoke {
         try exerciseAudioFades()
         try exerciseAudioCrossfades()
         try exerciseShortcuts()
-        print("App file smoke passed: EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
+    }
+
+    @MainActor
+    static func exerciseTimelineFileDrop(audioURL: URL, imageURL: URL, directory: URL) async throws {
+        let store = EditorStore()
+        defer { store.close() }
+        try check(!store.importMediaToTimeline(urls: [], at: 0) &&
+                  !store.importMediaToTimeline(urls: [URL(string: "https://example.com/movie.mov")!], at: 0) &&
+                  !store.importMediaToTimeline(urls: [directory], at: 0) &&
+                  !store.importMediaToTimeline(urls: [audioURL], at: .nan) &&
+                  !store.importMediaToTimeline(urls: [audioURL], at: -1),
+                  "Timeline drops reject empty batches, remote URLs, directories, and invalid placement synchronously")
+        store.audioAppendAsset = MediaAsset(name: "Pending audio", duration: try RationalTime(1))
+        try check(!store.importMediaToTimeline(urls: [audioURL], at: 0), "Audio draft excludes timeline drops")
+        store.audioAppendAsset = nil
+        store.updateSequence(width: 1920, height: 1080, frameRate: 29.97)
+        let baseline = store.project
+        let captured = try baseline.settings.frameRate.time(forFrames: 30)
+        try check(store.importMediaToTimeline(urls: [audioURL, imageURL], at: 1.01),
+                  "An unsaved empty sequence accepts real Finder media")
+        try check(!store.importMediaToTimeline(urls: [imageURL], at: 99), "Busy import rejects another timeline drop")
+        store.playheadSeconds = 99
+        for _ in 0..<500 where store.isImporting { try await Task.sleep(for: .milliseconds(10)) }
+        try check(!store.isImporting && store.errorMessage == nil && store.project.assets.map(\.name) == ["stereo.wav", "still.png"],
+                  "Timeline drop imports WAV and PNG in input order")
+        let clips = store.project.tracks.flatMap(\.clips).sorted { $0.timelineStart.seconds < $1.timelineStart.seconds }
+        try check(clips.count == 2 && clips[0].timelineStart == captured &&
+                  clips[1].timelineStart == captured.adding(store.project.assets[0].duration),
+                  "Drop captures rational frame-grid time and advances by the prior asset duration")
+        let afterDrop = store.project
+        let afterGrants = store.mediaBookmarks
+        store.undo()
+        try check(store.project.assets.count == 1 && store.project.tracks.flatMap(\.clips).count == 1 && store.mediaBookmarks.count == 1,
+                  "One undo removes a dropped file, its clip and its bookmark atomically")
+        store.undo()
+        try check(store.project == baseline && store.mediaBookmarks.isEmpty, "Undo batch entries restores the empty sequence and grants")
+        store.redo(); store.redo()
+        try check(store.project == afterDrop && store.mediaBookmarks == afterGrants,
+                  "Redo restores dropped clips, assets and grants together")
+        let audioTrack = store.project.tracks.first(where: { $0.kind == .audio })!
+        let sibling = TimelineTrack(familyID: audioTrack.familyID, template: audioTrack.template)
+        let videoTrack = store.project.tracks.first(where: { $0.kind == .video })!
+        let cleanedEarlierTrack = TimelineTrack(familyID: videoTrack.familyID, template: videoTrack.template)
+        try store.change {
+            $0.tracks.insert(cleanedEarlierTrack, at: 0)
+            $0.tracks.append(sibling)
+        }
+        let targetOrder = store.project.tracks.filter { $0.id != cleanedEarlierTrack.id }.map(\.id)
+        try check(store.importMediaToTimeline(urls: [audioURL], at: 10, trackID: sibling.id), "Selected compatible track accepts drop")
+        for _ in 0..<500 where store.isImporting { try await Task.sleep(for: .milliseconds(10)) }
+        try check(store.project.tracks.first(where: { $0.id == sibling.id })?.clips.count == 1 && store.project.tracks.map(\.id) == targetOrder,
+                  "Dropped component uses the selected compatible track")
+        let occupiedTarget = store.project.tracks.first(where: { $0.id == sibling.id })!
+        let occupiedClips = occupiedTarget.clips
+        try check(store.importMediaToTimeline(urls: [audioURL], at: 10, trackID: sibling.id), "An occupied track accepts timeline drops")
+        for _ in 0..<500 where store.isImporting { try await Task.sleep(for: .milliseconds(10)) }
+        try check(store.errorMessage == nil && store.project.tracks.first(where: { $0.id == sibling.id })?.clips == occupiedClips &&
+                  store.project.tracks.contains { $0.id != sibling.id && $0.familyID == sibling.familyID &&
+                      $0.clips.contains { $0.timelineStart == occupiedClips[0].timelineStart } },
+                  "Overlapping drops create a compatible sibling and preserve occupied target clips")
+        let vanishingTarget = TimelineTrack(familyID: audioTrack.familyID, template: audioTrack.template)
+        try store.change { $0.tracks.append(vanishingTarget) }
+        try check(store.importMediaToTimeline(urls: [audioURL], at: 15, trackID: vanishingTarget.id), "Drop captures a target before inspection")
+        try store.change { $0.tracks.removeAll { $0.id == vanishingTarget.id } }
+        for _ in 0..<500 where store.isImporting { try await Task.sleep(for: .milliseconds(10)) }
+        let fallbackStart = try store.project.settings.frameRate.time(forFrames: 450)
+        try check(store.errorMessage == nil && store.project.tracks.flatMap(\.clips).contains { $0.timelineStart == fallbackStart },
+                  "A target removed during inspection falls back to a compatible track")
+        let beforeBinClips = store.project.tracks.flatMap(\.clips)
+        store.importMedia(urls: [imageURL])
+        for _ in 0..<500 where store.isImporting { try await Task.sleep(for: .milliseconds(10)) }
+        try check(store.project.tracks.flatMap(\.clips) == beforeBinClips && store.project.assets.last?.name == "still.png" && !store.isImporting,
+                  "Normal bin import keeps the timeline unchanged")
+        store.renderExportDraft = SequenceExportDraft(plan: try TimelineRenderPlan(project: store.project))
+        try check(!store.importMediaToTimeline(urls: [audioURL], at: 0), "Export draft excludes timeline drops")
+        store.renderExportDraft = nil
+        try check(store.importMediaToTimeline(urls: [imageURL], at: 0), "Stale drop fixture starts")
+        let document = ProjectDocument()
+        store.load(document)
+        try await Task.sleep(for: .milliseconds(30))
+        try check(store.project == document.project && store.mediaBookmarks.isEmpty && !store.isImporting && !store.canUndo,
+                  "Document replacement cancels a pending timeline drop without stale clips or grants")
+
+        let surroundURL = directory.appendingPathComponent("surround.wav")
+        try createAudio(at: surroundURL, channels: 6)
+        try check(store.importMediaToTimeline(urls: [surroundURL, imageURL], at: 0), "Incompatible layout fixture accepted for inspection")
+        for _ in 0..<500 where store.isImporting { try await Task.sleep(for: .milliseconds(10)) }
+        try check(store.project.assets.map(\.name) == ["still.png"] && store.project.tracks.flatMap(\.clips).first?.timelineStart == .zero &&
+                  store.mediaBookmarks.count == 1 && store.errorMessage?.contains("choose audio channels and routing") == true,
+                  "Incompatible audio is refused atomically with guidance; remaining batch files retain the drop cursor")
+        try store.project.validate()
     }
 
     @MainActor
@@ -415,6 +518,11 @@ struct AppFileSmoke {
         store.seek(to: 2)
         reloaded.perform(.splitClip, store: store, scope: .timeline)
         try check(store.project.tracks.flatMap(\.clips).count == 2, "Timeline command dispatch")
+        try check(reloaded.isEnabled(.exportOTIO, store: store, scope: .source),
+                  "OpenTimelineIO is available from any panel as a document command")
+        store.beginEDLExport()
+        try check(!reloaded.isEnabled(.exportOTIO, store: store, scope: .timeline),
+                  "An active export sheet disables OpenTimelineIO commands")
     }
 
     @MainActor
@@ -810,11 +918,17 @@ struct AppFileSmoke {
         } catch { return }
         throw SmokeError.failed(message)
     }
-    static func createAudio(at url: URL) throws {
-        let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)!
+    static func createAudio(at url: URL, channels: AVAudioChannelCount = 2) throws {
+        let format: AVAudioFormat
+        if channels == 6 {
+            format = AVAudioFormat(standardFormatWithSampleRate: 48_000,
+                                   channelLayout: AVAudioChannelLayout(layoutTag: kAudioChannelLayoutTag_MPEG_5_1_A)!)
+        } else {
+            format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: channels)!
+        }
         let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 96_000)!
         buffer.frameLength = 96_000
-        for channel in 0..<2 {
+        for channel in 0..<Int(channels) {
             for frame in 0..<96_000 { buffer.floatChannelData![channel][frame] = Float(sin(Double(frame) * 2 * .pi * 440 / 48_000)) * 0.1 }
         }
         var settings = format.settings

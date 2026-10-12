@@ -1,0 +1,60 @@
+Test Suite 'All tests' started at 2026-10-12 14:18:01.238.
+Test Suite 'All tests' passed at 2026-10-12 14:18:01.243.
+◇ Suite LiveCancellationTests started.
+◇ Suite LiveRecoveryTests started.
+◇ Suite StillPlaybackTests started.
+◇ Suite DecoderRetentionTests started.
+◇ Suite LivePlaybackTests started.
+◇ Suite PlaybackSessionTests started.
+◇ Suite NativeVideoGeometryTests started.
+✔ Test straightAlphaPreservesBackgroundAndRoundsPartialCoverage() passed after 0.001 seconds.
+✔ Test unscaledConformPadsAndCropsEachAxisWithoutStretching() passed after 0.001 seconds.
+✔ Test liveStatisticsEncodeLifecycleFailures() passed after 0.001 seconds.
+✔ Test playerStartupPrerollDoesNotEstablishOrAdvanceClock() passed after 0.001 seconds.
+✔ Test stillPaddingIsTransparentAndCroppingRetainsAlpha() passed after 0.001 seconds.
+✔ Test scheduleIsBoundedAndClockCreatesAdmission() passed after 0.001 seconds.
+✔ Test oddCenteredCropAndPaddingPreferTopLeft() passed after 0.001 seconds.
+✔ Test limitsAreValidated() passed after 0.001 seconds.
+✔ Test invalidSourceRetentionLimitsFailAtSessionConstruction() passed after 0.001 seconds.
+✔ Test hardwareRouteAcceptsOnlyCanonicalNamedDescriptions() passed after 0.001 seconds.
+✔ Test finalPartialBlockAcceptsDeviceOvershoot() passed after 0.001 seconds.
+✔ Test removingConfigurationObserverReleasesCallbackCaptures() passed after 0.001 seconds.
+✔ Test liveOutputRejectsSurroundAndChangedSampleGrid() passed after 0.001 seconds.
+✔ Test starvationAndRegressingClocksFailWithoutAdvancing() passed after 0.001 seconds.
+✔ Test configurationObserverIsScopedAndRemovedOnRelease() passed after 0.001 seconds.
+✔ Test aspectConformRoundsAndBoundsIntermediateRaster() passed after 0.001 seconds.
+✔ Test prerollStillRejectsChangedSampleRate() passed after 0.001 seconds.
+✔ Test hardwareRouteRequiresMatchingCanonicalChannels() passed after 0.001 seconds.
+✔ Suite NativeVideoGeometryTests passed after 0.001 seconds.
+✔ Test oversizedPayloadAndDisabledCacheAreNotRetained() passed after 0.001 seconds.
+✔ Test invalidRequestsDoNotReachDecoder() passed after 0.001 seconds.
+✔ Test mixedCacheEvictsLeastRecentlyUsedWithinByteBudget() passed after 0.001 seconds.
+✔ Test cancellationDiscardsRunningDecodeAndReleasesAdmission() passed after 0.001 seconds.
+✔ Test seekDiscardsAnInFlightResultAndCanReuseCachedFrames() passed after 0.001 seconds.
+✔ Test cancellingDuringInitializationDoesNotStartDecode() passed after 0.001 seconds.
+✔ Test closeInvalidatesInFlightAndRejectsFutureRequests() passed after 0.001 seconds.
+✔ Test replacementClearsCacheAndRejectedReplacementPreservesEpoch() passed after 0.001 seconds.
+✔ Test replacementInvalidatesRunningAndQueuedReads() passed after 0.003 seconds.
+✔ Suite PlaybackSessionTests passed after 0.003 seconds.
+✔ Test invalidLimitsAndMalformedImagesAreRejected() passed after 0.003 seconds.
+✔ Suite LivePlaybackTests passed after 0.004 seconds.
+✔ Test byteBoundEvictsOversizedSourcesAfterSuccessAndFailure() passed after 0.008 seconds.
+✔ Test manualPauseRejectsStarvedFinalReading() passed after 0.008 seconds.
+✔ Test manualPauseAcceptsQualifiedFinalReading() passed after 0.008 seconds.
+✔ Test incompatibleHardwareRouteDoesNotStartOrDiscardPausedPosition() passed after 0.008 seconds.
+✔ Test configurationChangeStopsWithoutSamplingNewDeviceEpoch() passed after 0.008 seconds.
+✔ Test byteBoundEvictsOldestUntilWithinBudget() passed after 0.008 seconds.
+✔ Test activeBoundEvictsLeastRecentlyUsedAndReopensExactly() passed after 0.008 seconds.
+✔ Test engineStopPreservesPositionAndClosePreventsRestart() passed after 0.008 seconds.
+✔ Test activePollingTaskDoesNotRetainAbandonedMonitor() passed after 0.009 seconds.
+✔ Test routeChangeDuringPrimingFailsBeforeOutputStarts() passed after 0.010 seconds.
+✔ Test pngDecoderRetainsOneImageAndAlphaAcrossRepeatedReads() passed after 0.011 seconds.
+✔ Suite StillPlaybackTests passed after 0.011 seconds.
+✔ Test pauseSeekReplaceAndCloseRejectBlockedPriming() passed after 0.011 seconds.
+✔ Suite LiveCancellationTests passed after 0.011 seconds.
+✔ Test starvationPausesAtLastAcceptedSampleAndExplicitPlayRestartsClock(acceptedSample:) with 2 test cases passed after 0.015 seconds.
+✔ Suite LiveRecoveryTests passed after 0.015 seconds.
+✔ Test moreThan64DistinctSourcesRemainUsableWithBoundedRetention() passed after 0.037 seconds.
+✔ Test pcmEvictionReopensExactSampleRangesAndCountsConversionCapacity() passed after 0.044 seconds.
+✔ Suite DecoderRetentionTests passed after 0.044 seconds.
+✔ Test run with 43 tests in 7 suites passed after 0.044 seconds.

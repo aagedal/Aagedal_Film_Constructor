@@ -161,24 +161,90 @@ final class EditorStore: ObservableObject {
 
     func importMedia(urls: [URL]) {
         guard !isImporting, !urls.isEmpty else { return }
+        beginImport(urls: urls)
+    }
+
+    /// Finder drops capture their frame-aligned placement before inspection starts.
+    /// A file that cannot be placed is refused entirely, including its bin entry and grant.
+    @discardableResult
+    func importMediaToTimeline(urls: [URL], at seconds: Double, trackID: UUID? = nil) -> Bool {
+        guard !isImporting, audioAppendAsset == nil, renderExportDraft == nil, edlExportDraft == nil,
+              !urls.isEmpty, seconds.isFinite, seconds >= 0,
+              urls.allSatisfy({ $0.isFileURL && !$0.hasDirectoryPath &&
+                  (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true }) else { return false }
+        let frames = seconds * project.settings.frameRate.value.seconds
+        guard frames.isFinite, frames < Double(Int64.max),
+              let placement = try? project.settings.frameRate.time(forFrames: Int64(frames.rounded())) else { return false }
+        beginImport(urls: urls, placement: placement, trackID: trackID)
+        return true
+    }
+
+    private func beginImport(urls: [URL], placement: RationalTime? = nil, trackID: UUID? = nil) {
         let epoch = mediaEpoch
         isImporting = true
+        errorMessage = nil
         importTask = Task {
             var imported = 0
             var failures: [String] = []
+            var cursor = placement
             for url in urls {
                 guard !Task.isCancelled, epoch == mediaEpoch else { return }
+                let alreadyHeldAccess = scopedURLs.contains(url)
                 holdAccess(url)
                 do {
                     let result = try await MediaImporter.inspect(url: url)
                     guard !Task.isCancelled, epoch == mediaEpoch else { return }
-                    try registerImportedMedia(result)
+                    if let start = cursor {
+                        // Compute the next cursor before committing, so overflow is atomic too.
+                        let next = try start.adding(result.asset.duration)
+                        var ids: [UUID] = []
+                        try change(bookmarkUpdates: [result.asset.id: result.bookmark]) { project in
+                            let originalTrackIDs = project.tracks.map(\.id)
+                            let targetIndex = trackID.flatMap { id in project.tracks.firstIndex(where: { $0.id == id }) }
+                            let target = targetIndex.map { project.tracks[$0] }
+                            try project.addAsset(result.asset)
+                            ids = try project.appendAsset(result.asset.id, at: start)
+                            if let target, let targetIndex,
+                               let component = project.tracks.flatMap(\.clips).first(where: {
+                                   ids.contains($0.id) && $0.requiredTrackKind == target.kind &&
+                                   $0.requiredAudioLayout == target.audioLayout
+                               }) {
+                                // Assembly may clean an empty target while placing onto its default track.
+                                if !project.tracks.contains(where: { $0.id == target.id }) {
+                                    let successors = originalTrackIDs.dropFirst(targetIndex + 1)
+                                    let predecessors = originalTrackIDs.prefix(targetIndex).reversed()
+                                    let nextIndex = successors.compactMap { id in project.tracks.firstIndex(where: { $0.id == id }) }.first
+                                    let previousIndex = predecessors.compactMap { id in project.tracks.firstIndex(where: { $0.id == id }) }.first
+                                    project.tracks.insert(target, at: nextIndex ?? previousIndex.map { $0 + 1 } ?? 0)
+                                }
+                                var engine = try TimelineEditEngine(project: project)
+                                try engine.apply(.move(clipID: component.id, trackID: target.id, start: start))
+                                project = engine.project
+                            }
+                        }
+                        cursor = next
+                        selectAsset(result.asset.id)
+                        selectedClipID = ids.first
+                    } else {
+                        try registerImportedMedia(result)
+                    }
                     imported += 1
-                } catch { failures.append("\(url.lastPathComponent): \(error.localizedDescription)") }
+                } catch {
+                    guard !Task.isCancelled, epoch == mediaEpoch else { return }
+                    if !alreadyHeldAccess, scopedURLs.contains(url),
+                       !project.assets.contains(where: { $0.originalURL?.standardizedFileURL == url.standardizedFileURL }) {
+                        url.stopAccessingSecurityScopedResource()
+                        scopedURLs.remove(url)
+                    }
+                    let guidance = placement != nil && audioEditErrorMessage(error).contains("Audio layout")
+                        ? " Import it into the media bin and use Append with audio selection… to choose audio channels and routing." : ""
+                    failures.append("\(url.lastPathComponent): \(audioEditErrorMessage(error))\(guidance)")
+                }
             }
             guard !Task.isCancelled, epoch == mediaEpoch else { return }
             isImporting = false
-            statusMessage = "Imported \(imported) file\(imported == 1 ? "" : "s")."
+            statusMessage = placement == nil ? "Imported \(imported) file\(imported == 1 ? "" : "s")."
+                : "Added \(imported) file\(imported == 1 ? "" : "s") to the timeline."
             if !failures.isEmpty { errorMessage = failures.joined(separator: "\n") }
         }
     }

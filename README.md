@@ -35,6 +35,9 @@ reminder and automatic timestamped
 backups of saved projects are available. The latest 20 backups are recoverable
 through **Show backups**; source media is referenced, not copied. See
 [saving and recovery](docs/basic-workspace.md).
+Finder drops onto the timeline import and place files directly at the drop time;
+multiple files are placed consecutively. Compatible target tracks and automatic
+collision siblings are supported, with one undo step per imported file.
 Finder file drops, persistent panel visibility, sequence timecode and frame
 stepping, and an empty-track cleanup preference are
 available. Timeline clips display asynchronous filmstrips and channel waveforms;
@@ -146,6 +149,13 @@ Source frame rate, start timecode and reel identity must be declared explicitly;
 unsupported edits are refused. Other tracks are excluded rather than flattened.
 See [EDL workflow and limits](docs/edl-export.md). Native receiver conform is
 unqualified.
+
+OpenTimelineIO export is available from the Export menu and can be assigned a
+keyboard shortcut. It preserves layered cuts, gaps and original media references
+within a conservative mono/stereo subset, refusing fades, channel remapping and
+other unsupported edits before showing a save panel. See
+[OTIO timing and qualification](docs/otio-export.md). Receiving-editor import and
+spatial conform remain unqualified.
 
 `Packages/NativePlaybackProof` now includes a standalone live monitor development
 window with bounded audio scheduling, node sample-clock transport, play/pause,

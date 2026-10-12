@@ -173,7 +173,24 @@ FFmpeg dylibs can require a newer macOS version than this package's deployment
 floor. This executable remains disconnected from the shipping app.
 
 The live monitor accepts only canonical mono/stereo layouts and rejects a player
-clock whose sample rate differs from the sequence grid. It permits validated
+clock whose sample rate differs from the sequence grid. Before priming, again
+after priming, and after the engine starts but before the player starts, it
+checks the hardware output channel count against the sequence. Mono/stereo count
+changes, surround devices, and explicit noncanonical speaker layouts fail with
+an instruction to choose a compatible route; no downmix or upmix is inferred.
+Canonical metadata can be a mono/stereo layout tag or explicit named descriptions:
+one Mono/Center channel, or Left then Right. Reordered, unknown and discrete
+descriptions are rejected. The local stereo device exposes Left/Right descriptions
+rather than the Stereo tag, so checking tags alone would reject that valid route.
+AVAudioFormat permits absent speaker metadata for one/two channels, which this
+proof accepts as conventional mono/stereo. Device sample-rate conversion remains
+AVAudioEngine's responsibility; the player clock must still match the sequence.
+Runtime regressions cover route rejection without losing the paused position,
+restart after choosing a compatible route, and route changes during priming.
+See [the route evidence](../../docs/evidence/native-output-route-20261012/README.md)
+for the runtime test results and scripted local output run.
+This is conservative admission checking, not a hardware speaker-identification
+or device-change qualification. It permits validated
 `replace(project:)` edits with an unchanged audio output format, resets and pauses
 the transport, then displays the replacement's first frame. Audio format changes
 require creating a new live monitor. Surround routing and hardware layout

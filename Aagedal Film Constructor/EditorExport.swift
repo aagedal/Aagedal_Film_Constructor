@@ -52,6 +52,31 @@ extension EditorStore {
         } catch { errorMessage = error.localizedDescription }
     }
 
+    func exportOTIO() {
+        guard renderExportDraft == nil, edlExportDraft == nil, audioAppendAsset == nil else { return }
+        do {
+            let snapshot = project
+            let json = try OTIOExporter.export(project: snapshot)
+            // Keep the snapshot's original media accessible through the save panel's
+            // nested event loop, even if the document closes or relinks meanwhile.
+            let scopedSources = Set(snapshot.assets.compactMap(\.originalURL)).filter {
+                $0.startAccessingSecurityScopedResource()
+            }
+            defer { scopedSources.forEach { $0.stopAccessingSecurityScopedResource() } }
+            let panel = NSSavePanel()
+            panel.title = "Export OpenTimelineIO"
+            panel.nameFieldStringValue = "Sequence.otio"
+            panel.allowedContentTypes = [UTType(filenameExtension: "otio") ?? .json]
+            panel.message = "Exports cuts and gaps with original media references. Media files are not copied. Spatial conform and receiving-editor import are unqualified."
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            let access = url.startAccessingSecurityScopedResource()
+            defer { if access { url.stopAccessingSecurityScopedResource() } }
+            try Self.validateInterchangeDestination(url, originals: snapshot.assets + project.assets)
+            try Data(json.utf8).write(to: url, options: .atomic)
+            statusMessage = "Exported OpenTimelineIO: \(url.lastPathComponent)."
+        } catch { errorMessage = error.localizedDescription }
+    }
+
     func beginEDLExport() {
         guard renderExportDraft == nil, edlExportDraft == nil, audioAppendAsset == nil else { return }
         let tracks = project.tracks.filter { !$0.clips.isEmpty }

@@ -31,7 +31,8 @@ struct ContentView: View {
         .frame(minWidth: 960, minHeight: 600)
         .dropDestination(for: URL.self) { urls, _ in
             let files = urls.filter(\.isFileURL)
-            guard !files.isEmpty, !store.isImporting else { return false }
+            guard !files.isEmpty, !store.isImporting, store.audioAppendAsset == nil,
+                  store.renderExportDraft == nil, store.edlExportDraft == nil else { return false }
             store.importMedia(urls: files)
             return true
         } isTargeted: { isDropTargeted = $0 }
@@ -71,6 +72,7 @@ struct ContentView: View {
                     Button("Render sequence…", action: store.beginRenderExport)
                     Button("Export FCPXML…", action: store.exportFCPXML)
                     Button("Export track EDL…", action: store.beginEDLExport)
+                    Button("Export OpenTimelineIO…", action: store.exportOTIO)
                 } label: { Label("Export", systemImage: "square.and.arrow.up") }
                 .disabled(store.duration <= 0)
             }
