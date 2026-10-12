@@ -1,0 +1,60 @@
+{
+  "assets" : 5000,
+  "audioCrossfades" : 624,
+  "clips" : 5000,
+  "encodedBytes" : 9878548,
+  "iterations" : 3,
+  "measurements" : [
+    {
+      "medianMilliseconds" : 359.40575,
+      "milliseconds" : [
+        356.888041,
+        359.40575,
+        362.559084
+      ],
+      "operation" : "validate"
+    },
+    {
+      "medianMilliseconds" : 495.476042,
+      "milliseconds" : [
+        600.474791,
+        495.476042,
+        465.992583
+      ],
+      "operation" : "save_project_json"
+    },
+    {
+      "medianMilliseconds" : 430.788959,
+      "milliseconds" : [
+        446.951209,
+        430.788959,
+        404.377708
+      ],
+      "operation" : "load_project_json"
+    },
+    {
+      "medianMilliseconds" : 1512.847917,
+      "milliseconds" : [
+        1512.847917,
+        1519.007292,
+        1364.918208
+      ],
+      "operation" : "timeline_render_plan"
+    },
+    {
+      "medianMilliseconds" : 1383.895333,
+      "milliseconds" : [
+        1383.895333,
+        1380.45175,
+        1417.890875
+      ],
+      "operation" : "move_undo_redo"
+    }
+  ],
+  "operatingSystem" : "Version 27.0.1 (Build 26A434)",
+  "peakResidentBytes" : 137723904,
+  "processorCount" : 18,
+  "schemaVersion" : 1,
+  "scope" : "EditorCore synthetic mixed-media Project Codable; excludes app document envelope, UI, media I\/O and decoding",
+  "tracks" : 8
+}

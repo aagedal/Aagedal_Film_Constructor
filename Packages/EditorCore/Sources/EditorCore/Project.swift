@@ -18,6 +18,8 @@ public struct Project: Equatable, Codable, Sendable {
             guard Set(ids).count == ids.count else { throw EditorCoreError.invalidModel("Duplicate identity") }
         }
         try unique(assets.map(\.id)); try unique(families.map(\.id)); try unique(tracks.map(\.id)); try unique(tracks.flatMap { $0.clips.map(\.id) })
+        let assetsByID = Dictionary(uniqueKeysWithValues: assets.map { ($0.id, $0) })
+        let familiesByID = Dictionary(uniqueKeysWithValues: families.map { ($0.id, $0) })
         try validateAudioCrossfades()
         for asset in assets {
             guard asset.duration.numerator > 0, Set(asset.streams.map(\.index)).count == asset.streams.count else { throw EditorCoreError.invalidModel("Invalid asset duration or stream identities") }
@@ -37,10 +39,10 @@ public struct Project: Equatable, Codable, Sendable {
             try validateTemplate(family.template)
         }
         for track in tracks {
-            guard let family = families.first(where: { $0.id == track.familyID }), family.template.kind == track.kind else { throw EditorCoreError.invalidModel("Missing or incompatible track family") }
+            guard let family = familiesByID[track.familyID], family.template.kind == track.kind else { throw EditorCoreError.invalidModel("Missing or incompatible track family") }
             try validateTemplate(track.template)
             for clip in track.clips {
-                guard clip.requiredTrackKind == track.kind, clip.requiredAudioLayout == track.audioLayout, let asset = assets.first(where: { $0.id == clip.assetID }) else { throw EditorCoreError.invalidModel("Missing asset or incompatible track") }
+                guard clip.requiredTrackKind == track.kind, clip.requiredAudioLayout == track.audioLayout, let asset = assetsByID[clip.assetID] else { throw EditorCoreError.invalidModel("Missing asset or incompatible track") }
                 try clip.sourceRange.validate()
                 try clip.fadeIn.validate(duration: clip.sourceRange.duration)
                 try clip.fadeOut.validate(duration: clip.sourceRange.duration)
@@ -61,9 +63,14 @@ public struct Project: Equatable, Codable, Sendable {
                     }
                 }
             }
-            for i in track.clips.indices {
-                for j in track.clips.indices where j > i {
-                    guard try !track.clips[i].timelineRange().overlaps(track.clips[j].timelineRange()) else { throw EditorCoreError.invalidModel("Overlapping clips on one track") }
+            // Positive-length intervals overlap iff two neighboring intervals in start
+            // order overlap. Preserve stored clip order and compare exact rational times.
+            let ranges = try track.clips.map { try $0.timelineRange() }.sorted {
+                try $0.start.compared(to: $1.start) == .orderedAscending
+            }
+            for index in ranges.indices.dropFirst() {
+                guard try ranges[index - 1].end().compared(to: ranges[index].start) != .orderedDescending else {
+                    throw EditorCoreError.invalidModel("Overlapping clips on one track")
                 }
             }
         }
@@ -110,7 +117,18 @@ public struct TimelineRenderPlan: Equatable, Sendable {
     public init(project: Project) throws {
         try project.validate()
         settings = project.settings
+        let assetsByID = Dictionary(uniqueKeysWithValues: project.assets.map { ($0.id, $0) })
+        let incomingByClip = Dictionary(uniqueKeysWithValues: project.audioCrossfades.map { ($0.incomingClipID, $0) })
+        let outgoingByClip = Dictionary(uniqueKeysWithValues: project.audioCrossfades.map { ($0.outgoingClipID, $0) })
+        var geometries: [UUID: AudioCrossfadeGeometry] = [:]
+        if !project.audioCrossfades.isEmpty {
+            let context = project.audioCrossfadeContext()
+            for relation in project.audioCrossfades {
+                geometries[relation.id] = try project.audioCrossfadeGeometry(for: relation, context: context)
+            }
+        }
         var result: [Component] = []
+        result.reserveCapacity(project.tracks.reduce(0) { $0 + $1.clips.count })
         var end = RationalTime.zero
         for (order, track) in project.tracks.enumerated() {
             // Stable sorting prevents array insertion history from changing the canonical plan.
@@ -122,18 +140,18 @@ public struct TimelineRenderPlan: Equatable, Sendable {
                 let range = try clip.timelineRange()
                 let clipEnd = try range.end()
                 if try clipEnd.compared(to: end) == .orderedDescending { end = clipEnd }
-                let asset = project.assets.first { $0.id == clip.assetID }!
+                let asset = assetsByID[clip.assetID]!
                 var sourceRange = clip.sourceRange
                 var renderRange = range
                 var fadeIn = clip.fadeIn, fadeOut = clip.fadeOut
-                if let incoming = project.audioCrossfades.first(where: { $0.incomingClipID == clip.id }) {
-                    let geometry = try project.audioCrossfadeGeometry(for: incoming)
+                if let incoming = incomingByClip[clip.id] {
+                    let geometry = geometries[incoming.id]!
                     sourceRange = geometry.incomingSourceRange
                     renderRange = geometry.incomingTimelineRange
                     fadeIn = AudioFade(duration: incoming.duration, curve: incoming.curve)
                 }
-                if let outgoing = project.audioCrossfades.first(where: { $0.outgoingClipID == clip.id }) {
-                    let geometry = try project.audioCrossfadeGeometry(for: outgoing)
+                if let outgoing = outgoingByClip[clip.id] {
+                    let geometry = geometries[outgoing.id]!
                     let extensionDuration = try geometry.outgoingSourceRange.duration.subtracting(clip.sourceRange.duration)
                     sourceRange.duration = try sourceRange.duration.adding(extensionDuration)
                     renderRange.duration = try renderRange.duration.adding(extensionDuration)

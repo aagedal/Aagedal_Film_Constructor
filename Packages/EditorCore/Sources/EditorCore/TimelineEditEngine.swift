@@ -83,23 +83,28 @@ public struct TimelineEditEngine: Sendable {
     /// Source remapping dissolves the relation even if timing remains compatible; unchanged mappings
     /// and jointly moved linked endpoints retain it while its geometry remains valid.
     private static func dissolveInvalidCrossfades(in candidate: inout Project, previous: Project) {
-        let oldClips = previous.tracks.flatMap(\.clips)
-        let newClips = candidate.tracks.flatMap(\.clips)
+        guard !candidate.audioCrossfades.isEmpty else { return }
+        let oldClips = Dictionary(previous.tracks.flatMap(\.clips).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let context = candidate.audioCrossfadeContext()
+        var geometries: [UUID: AudioCrossfadeGeometry] = [:]
         let surviving = candidate.audioCrossfades.filter { relation in
             for id in [relation.outgoingClipID, relation.incomingClipID] {
-                guard let old = oldClips.first(where: { $0.id == id }),
-                      let new = newClips.first(where: { $0.id == id }),
+                guard let old = oldClips[id],
+                      let new = context.endpoints[id]?.clip,
                       old.selection == new.selection, old.assetID == new.assetID else { return false }
             }
-            return (try? candidate.audioCrossfadeGeometry(for: relation)) != nil
+            guard let geometry = try? candidate.audioCrossfadeGeometry(for: relation, context: context) else { return false }
+            geometries[relation.id] = geometry
+            return true
         }
         candidate.audioCrossfades = surviving
         // Dissolve only the two conflicting edges; unrelated relations remain untouched.
         var conflicts: Set<UUID> = []
+        let outgoingByClip = Dictionary(surviving.map { ($0.outgoingClipID, $0) }, uniquingKeysWith: { first, _ in first })
         for incoming in surviving {
-            if let outgoing = surviving.first(where: { $0.outgoingClipID == incoming.incomingClipID }),
-               let left = try? candidate.audioCrossfadeGeometry(for: incoming).incomingTimelineRange.start.adding(incoming.duration),
-               let right = try? candidate.audioCrossfadeGeometry(for: outgoing).outgoingTimelineRange.end().subtracting(outgoing.duration),
+            if let outgoing = outgoingByClip[incoming.incomingClipID],
+               let left = try? geometries[incoming.id]?.incomingTimelineRange.start.adding(incoming.duration),
+               let right = try? geometries[outgoing.id]?.outgoingTimelineRange.end().subtracting(outgoing.duration),
                (try? left.compared(to: right)) == .orderedDescending {
                 conflicts.insert(incoming.id); conflicts.insert(outgoing.id)
             }
