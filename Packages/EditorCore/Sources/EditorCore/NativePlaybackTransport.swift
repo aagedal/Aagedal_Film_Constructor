@@ -25,7 +25,7 @@ public struct NativePlaybackTransport: Sendable {
 
     public init(plan: NativePlaybackPlan) throws {
         self.plan = plan
-        duration = try plan.settings.frameRate.time(forFrames: plan.videoFrames)
+        duration = plan.duration
         frameIndex = 0
     }
 

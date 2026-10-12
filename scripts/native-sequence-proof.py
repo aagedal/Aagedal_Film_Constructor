@@ -31,6 +31,7 @@ def main():
     subset.add_argument('--crossfades-only', action='store_true', help='Qualify linked audio transitions and baseline only')
     subset.add_argument('--geometry-only', action='store_true', help='Qualify video fit/fill/none and baseline only')
     subset.add_argument("--stills-only", action="store_true", help="Qualify PNG alpha/JPEG still fit/fill/none and baseline only")
+    subset.add_argument('--partial-tail-only', action='store_true', help='Qualify an audio tail ending between video frames and baseline only')
     args = parser.parse_args()
     for executable in (args.ffmpeg, args.ffprobe, args.pkg_config):
         if not executable.is_absolute() or not os.access(executable, os.X_OK):
@@ -140,7 +141,8 @@ def main():
                 expected.extend(row * 90)
             result['fixtureBarcodes'].append(compare_rgb(decoded.read_bytes(), expected, 160 * 90 * 3, tolerance=4))
 
-        def evaluate(name, project, replace_from=None, crossfade_oracle=None, active_region=None, still_oracle=None):
+        def evaluate(name, project, replace_from=None, crossfade_oracle=None, active_region=None, still_oracle=None,
+                     expected_frames=180, expected_samples=288288):
             variant = root / name
             variant.mkdir()
             project_path = variant / 'project.json'
@@ -164,19 +166,22 @@ def main():
             if manifest['initialPlanReplaced'] != (replace_from is not None):
                 raise ValueError('Edited playback plan was not replaced in the primed monitor')
             if (manifest['videoFrames'], manifest['audioSamples'], manifest['width'], manifest['height'],
-                manifest['channels'], manifest['sampleRate']) != (180, 288288, 160, 90, 2, 48000):
+                manifest['channels'], manifest['sampleRate']) != (expected_frames, expected_samples, 160, 90, 2, 48000):
                 raise ValueError('Native capture differs from the qualified fixture dimensions/counts')
             video_cases = [(0, False), (2, False), (3, False), (60, False), (119, False),
                            (120, False), (179, False), (60, False), (15, False), (15, True)]
             audio_cases = [(0, False), (48047, False), (48048, False), (240239, False),
-                           (115315, False), (48048, False), (287264, False),
+                           (115315, False), (48048, False), (expected_samples - 1024, False),
                            (144144, False), (120120, False), (168168, False), (192192, False),
                            (144144, False), (48047, True)]
+            if expected_frames == 181:
+                video_cases.insert(-1, (180, False))
+                audio_cases.insert(-1, (expected_samples - 1, False))
             if [(c['frame'], c['rebuilt']) for c in manifest['videoCaptures']] != video_cases:
                 raise ValueError('Missing, reordered or incomplete video seek/rebuild captures')
             if [(c['startSample'], c['rebuilt']) for c in manifest['audioCaptures']] != audio_cases:
                 raise ValueError('Missing, reordered or incomplete audio seek/rebuild captures')
-            if any(c['sampleCount'] != min(2048, 288288 - c['startSample']) for c in manifest['audioCaptures']):
+            if any(c['sampleCount'] != min(2048, expected_samples - c['startSample']) for c in manifest['audioCaptures']):
                 raise ValueError('Truncated audio seek span')
             if (manifest['videoFrames'], manifest['audioSamples']) != (command['videoFrames'], command['audioSamples']):
                 raise ValueError('Native and independent render compiler output counts differ')
@@ -306,7 +311,19 @@ def main():
             print(f"{name}: all sequential frames/samples and {len(checked['videoSeeks'])} video / {len(checked['audioSeeks'])} audio seeks pass", flush=True)
 
         evaluate('baseline', fixture_project)
-        if not args.crossfades_only and not args.stills_only:
+        if args.partial_tail_only:
+            partial = copy.deepcopy(fixture_project)
+            partial['tracks'][2]['clips'][0]['sourceRange']['duration'] = {'numerator': 240241, 'denominator': 48000}
+            evaluate('partial-final-frame-audio-tail-rebuild', partial, replace_from=fixture_project,
+                     expected_frames=181, expected_samples=288289)
+            capture = root / 'partial-final-frame-audio-tail-rebuild' / 'native'
+            frame_size = 160 * 90 * 3
+            for file in ['native.rgb', 'asynchronous.rgb']:
+                if any((capture / file).read_bytes()[-frame_size:]):
+                    raise ValueError('Partial final frame must be black after the picture cut')
+            result['partialTail'] = {'videoFrames': 181, 'audioSamples': 288289,
+                'exactDuration': '288289/48000', 'finalFrameBlack': True}
+        if not args.crossfades_only and not args.stills_only and not args.partial_tail_only:
             # Different aspect ratios, both smaller/larger sources, and odd
             # dimensions exercise center padding/cropping and aspect rounding.
             # Lossless RGB sources avoid encoding a chroma-alignment policy into
@@ -338,14 +355,14 @@ def main():
                     region = regions[(width, height)].get(mode, (0, 0, 160, 90))
                     evaluate(f'geometry-{width}x{height}-{mode}-rebuild', project,
                              replace_from=fixture_project, active_region=region)
-        if not args.geometry_only and not args.stills_only:
+        if not args.geometry_only and not args.stills_only and not args.partial_tail_only:
             for mode, curve in [('overlap', 'equalPower'), ('adjacent', 'equalPower'), ('adjacent', 'linear')]:
                 name = f'linked-crossfade-{mode}-{curve}-rebuild'
                 path = root / (name + '-project.json')
                 run([compiler, 'crossfade-fixture', args.fixture / 'project.json', path, mode, curve], name + '-fixture.log')
                 project = json.loads(path.read_text())
                 evaluate(name, project, replace_from=fixture_project, crossfade_oracle=(mode, curve))
-        if not args.crossfades_only and not args.geometry_only and not args.stills_only:
+        if not args.crossfades_only and not args.geometry_only and not args.stills_only and not args.partial_tail_only:
             layered = copy.deepcopy(fixture_project)
             lower = layered['tracks'][1]['clips'][0]
             lower['timelineStart'] = {'numerator': 1001, 'denominator': 2000}  # frame 15
@@ -390,7 +407,7 @@ def main():
             edited['tracks'][2]['template']['gain'] = .25
             edited['tracks'][2]['template']['routing']['outputChannels'] = [1, 0]
             evaluate('edited-plan-rebuild', edited, replace_from=fixture_project)
-        if not args.crossfades_only and not args.geometry_only:
+        if not args.crossfades_only and not args.geometry_only and not args.partial_tail_only:
             for image_width, image_height in [(80, 90), (240, 90)]:
                 rgba = root / f'still-source-{image_width}x{image_height}.rgba'
                 # Colored blocks vary both coordinates and include fully hidden,
