@@ -298,6 +298,17 @@ class MediaTests(unittest.TestCase):
         self.assertFalse((scratch / 'copy.mov').exists())
         self.rejections.append({'case': 'concat-audio-format-mismatch', 'reason': str(raised.exception)})
 
+    def test_real_four_range_reordered_concatenation(self):
+        rate = Fraction(24)
+        source = self.source('concat-four', rate, 197)
+        scratch = self.root / 'concat-four-verified'
+        scratch.mkdir(mode=0o700)
+        ranges = [(source, Fraction(a, 24), Fraction(b, 24))
+                  for a, b in [(128, 192), (0, 64), (64, 128), (0, 64)]]
+        result = proof.verify_concat(self.tools, ranges, scratch)
+        self.results.append({'case': 'concat-four-reordered-24', **result})
+        self.assertEqual(result['videoPacketsAndDecodedFrames'], 256)
+
     def test_output_cannot_overwrite_existing_file(self):
         output = self.root / 'existing.mov'
         output.write_bytes(b'keep original')

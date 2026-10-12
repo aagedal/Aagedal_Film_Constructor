@@ -140,11 +140,12 @@ python3 scripts/stream-copy-concat-proof.py /absolute/ffmpeg /absolute/ffprobe \
   /absolute/ranges.json /absolute/new-private-scratch
 ```
 
-The expanded real-media suite passes 17 tests. Retained
+The expanded real-media suite passes 18 tests. Retained
 [`result.json`](evidence/stream-copy-cuts-20261012/result.json) records nine
 single-range cases (including both DF rates across ordinary/tenth-minute
 boundaries), four two-source concatenations at 24, 24000/1001, 30000/1001 DF
-and 60000/1001 DF, and explicit incompatible-audio/midnight rejections. Every
+and 60000/1001 DF, a four-range reordered/repeated-source sequence at 24, and
+explicit incompatible-audio/midnight rejections. Every
 minute boundary through a full DF day is exercised by pure arithmetic tests.
 Four additional pure tests cover the concat manifest and destination isolation.
 This enables no app stream-copy mode or importer evidence. Mixed copied/rendered

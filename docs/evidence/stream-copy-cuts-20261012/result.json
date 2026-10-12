@@ -424,6 +424,102 @@
       "isolatedFirstLastFramesMatch": true,
       "sourceUnchanged": true,
       "appStreamCopyQualified": false
+    },
+    {
+      "case": "concat-four-reordered-24",
+      "ranges": [
+        {
+          "sourceSHA256": "c553bde0a4083bf4c5b65b81de4dd7ba8949caa194ecefda2a96c43660931c77",
+          "sourceRange": [
+            "16/3",
+            "8"
+          ],
+          "duration": "8/3",
+          "frameRate": "24",
+          "timecode": "01:00:05:08",
+          "dropFrameTimecode": false,
+          "videoPacketsAndDecodedFrames": 64,
+          "audioPackets": 125,
+          "audioSamplesPerChannel": 128000,
+          "channels": 2,
+          "allPacketPayloadsAndExactTimestampsMatch": true,
+          "allDecodedFramesAndAudioSamplesMatch": true,
+          "isolatedFirstLastFramesMatch": true,
+          "sourceUnchanged": true,
+          "appStreamCopyQualified": false
+        },
+        {
+          "sourceSHA256": "c553bde0a4083bf4c5b65b81de4dd7ba8949caa194ecefda2a96c43660931c77",
+          "sourceRange": [
+            "0",
+            "8/3"
+          ],
+          "duration": "8/3",
+          "frameRate": "24",
+          "timecode": "01:00:00:00",
+          "dropFrameTimecode": false,
+          "videoPacketsAndDecodedFrames": 64,
+          "audioPackets": 125,
+          "audioSamplesPerChannel": 128000,
+          "channels": 2,
+          "allPacketPayloadsAndExactTimestampsMatch": true,
+          "allDecodedFramesAndAudioSamplesMatch": true,
+          "isolatedFirstLastFramesMatch": true,
+          "sourceUnchanged": true,
+          "appStreamCopyQualified": false
+        },
+        {
+          "sourceSHA256": "c553bde0a4083bf4c5b65b81de4dd7ba8949caa194ecefda2a96c43660931c77",
+          "sourceRange": [
+            "8/3",
+            "16/3"
+          ],
+          "duration": "8/3",
+          "frameRate": "24",
+          "timecode": "01:00:02:16",
+          "dropFrameTimecode": false,
+          "videoPacketsAndDecodedFrames": 64,
+          "audioPackets": 125,
+          "audioSamplesPerChannel": 128000,
+          "channels": 2,
+          "allPacketPayloadsAndExactTimestampsMatch": true,
+          "allDecodedFramesAndAudioSamplesMatch": true,
+          "isolatedFirstLastFramesMatch": true,
+          "sourceUnchanged": true,
+          "appStreamCopyQualified": false
+        },
+        {
+          "sourceSHA256": "c553bde0a4083bf4c5b65b81de4dd7ba8949caa194ecefda2a96c43660931c77",
+          "sourceRange": [
+            "0",
+            "8/3"
+          ],
+          "duration": "8/3",
+          "frameRate": "24",
+          "timecode": "01:00:00:00",
+          "dropFrameTimecode": false,
+          "videoPacketsAndDecodedFrames": 64,
+          "audioPackets": 125,
+          "audioSamplesPerChannel": 128000,
+          "channels": 2,
+          "allPacketPayloadsAndExactTimestampsMatch": true,
+          "allDecodedFramesAndAudioSamplesMatch": true,
+          "isolatedFirstLastFramesMatch": true,
+          "sourceUnchanged": true,
+          "appStreamCopyQualified": false
+        }
+      ],
+      "duration": "32/3",
+      "frameRate": "24",
+      "timecode": "01:00:05:08",
+      "dropFrameTimecode": false,
+      "videoPacketsAndDecodedFrames": 256,
+      "audioSamplesPerChannel": 512000,
+      "allPacketPayloadsAndExactTimestampsMatch": true,
+      "allCutBoundaryFramesDecodeIndependently": true,
+      "allDecodedFramesAndAudioSamplesMatch": true,
+      "sourceUnchanged": true,
+      "appStreamCopyQualified": false
     }
   ],
   "rejectedCases": [
