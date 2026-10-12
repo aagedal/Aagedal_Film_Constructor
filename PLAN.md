@@ -509,6 +509,10 @@ sequence previews and renders at the same positions with exact output timing.
       keep bounded, automatic recoverable snapshots for saved projects.
 - [x] Add persistent panel visibility controls in the toolbar and View menu.
 - [ ] Add edited-sequence monitoring.
+- [x] Connect Source/Sequence monitor selection, edited-plan rebuilding, coalesced
+      scrubs and K/L transport to the native runtime in an opt-in development
+      workspace; qualify real controller pixels and live sample-clock progress.
+      Default builds remain explicitly unavailable until runtime packaging.
 - [x] Add sandboxed AVFoundation import, versioned project save/open, native
       DocumentGroup autosave, validated relinking, and basic sequence setup.
 - [x] Connect horizontal drag/move, inspector trim, split/delete, selection, and
@@ -559,6 +563,9 @@ a compatible track, create a crossfade, and undo both operations without lost sy
 - [ ] Test frame/timecode correspondence, geometry, multiple audio streams, VFR
       mapping, switching at a nonzero playhead, and save/reopen.
 - [ ] Verify proxy playback does not change edits and final exports use originals.
+- [x] Compare reopened native hires/proxy frames, timestamp-aligned mono/stereo
+      PCM including delayed edits/tails, nonzero switching beyond proxy picture,
+      and unchanged original-only render commands within the qualified subset.
 
 The scoped workflow preserves original edit coordinates and keeps original audio
 in source preview. Proxy references and independent sandbox bookmarks persist
@@ -586,6 +593,10 @@ remaining signed/native playback checks.
 - [x] Add a separate development ProRes HQ/PCM MOV range verifier with exact packet
       cuts, payload/timestamp comparisons, isolated boundary decoding and decoded
       frame/sample/timecode qualification. App export integration remains open.
+- [x] Extend that verifier to exact two-to-four-range compatible cuts-only joins
+      and DF timecode at 30000/1001 and 60000/1001, checking every joined packet,
+      decoded frame/sample and independent cut-boundary decoding. This remains a
+      development proof without importer-connected app eligibility/export.
 - [ ] Verify copied packet payloads, decoded boundary frames, timestamps, duration,
       timecode, and A/V sync across supported containers/codecs.
 - [ ] Verify outputs using FFprobe, decoded frame checks, channel identification
@@ -621,6 +632,9 @@ does not require implementing every proposed interchange adapter.
 - [x] Bound timeline preview metadata/decode admission, cancel queued requests
       without polling, release hidden previews and serialize bounded still
       source thumbnails off the main actor. Full project profiling remains open.
+- [x] Cull offscreen timeline clip views using viewport geometry while preserving
+      scroll extents, selected clips and active gestures; measure a 3,000-clip
+      offline Release project below two seconds in five local warm-cache runs.
 
 ### After version one
 
@@ -1379,3 +1393,54 @@ launch-performance claim has been validated yet.
 - Reboot-cold startup, populated-project controls, signed sandbox/notarization,
   media/helper initialization and physical/compositor latency remain open. The
   full two-second Release acceptance target is not marked complete.
+
+### App monitoring, proxy correspondence and cuts-only copy checkpoint (2026-10-12)
+
+- Source/Sequence selection now connects the actual workspace to a native
+  controller: original-media scopes, edited-plan replacement, coalesced scrubs,
+  sample-clock positions and K/L transport. Delayed priming tests cover pause
+  and preserving a pending scrub. Default Xcode builds explicitly report the
+  absent native runtime; an opt-in script builds an isolated enabled SwiftUI
+  workspace against explicitly selected development libraries.
+- The actual controller qualifies seek position 0.5/frame 12 and edited-plan
+  frame zero against independent FFmpeg pixel captures, plus live PCM sample
+  clock progress, pause and replay. Runtime packaging/signing, sequence proxies
+  and measured acoustic/display timing remain open. See
+  [sequence monitor scope and reproduction](docs/sequence-monitor.md).
+- Native proxy qualification now compares five exact reopened frames of an
+  asymmetric moving fixture, timestamp-aligned mono/stereo PCM including delayed
+  MOV edits and original audio tails, and switching beyond proxy picture extent.
+  A core regression confirms proxy metadata never changes final render commands
+  or original input URLs; missing originals remain refused. VFR mapping and
+  signed sandbox/native UI acceptance remain open.
+- Exact ProRes HQ/PCM copy proof now handles compatible two-to-four-range
+  cuts-only joins and drop-frame labels at both NTSC fractional rates. Eighteen
+  real-media tests pass, including every packet's payload and exact timestamps,
+  every decoded picture/sample, independent decoding at internal cut boundaries,
+  underlying MOV timecode format checks and reordered/repeated sources. App
+  evidence generation/export, interframe/compressed-audio copy and mixed
+  copied/rendered streams remain open. See [retained evidence](docs/stream-copy.md).
+
+### Populated Release workspace culling checkpoint (2026-10-12)
+
+- Readiness instrumentation retries its deferred native click until the actual
+  action runs and records failed gate states; the harness waits for each isolated
+  process to quit and validates saved-project asset/track/clip counts.
+- A deterministic offline project with two assets, three tracks and 3,000 clips
+  initially takes 4.106–4.784 seconds (median 4.500). Eager offscreen clip-view
+  creation is removed using horizontal viewport culling, bounded first layout,
+  overscan and selection/active-gesture pinning, without reducing canvas extent.
+- Five final isolated unsigned Release runs confirm the complete saved project
+  and process input in 0.769–1.191 seconds (median 0.844), all below two seconds.
+  Pure visibility checks cover coordinate conversion, boundaries, zoom, tiny/
+  spanning clips, overscan and pinning. Reboot-cold startup, online media,
+  physical input/display and signed distribution acceptance remain open. See
+  [launch evidence](docs/release-launch-performance.md).
+- Verification passes the Python regression suite (44 tests, eight optional
+  media/dependency skips), all 18 explicit real stream-copy cases, the EditorCore
+  XCTest/Swift Testing suites, sequence lifecycle/visibility and existing startup/
+  shortcut/save-protection smokes, host app-file/native proxy checks, unsigned
+  Debug/Release builds and the enabled native development workspace build.
+  Xcode caches, macro, bookmark and audio checks require host access; the
+  sandbox-only `verify.sh` invocation could not finish Xcode package resolution,
+  so the app build was separately completed with host access.

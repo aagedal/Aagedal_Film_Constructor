@@ -173,8 +173,15 @@ the bin and choose **Append with audio selection…** to configure it.
     and save/reopen to check separate media grants. Outputs and exports retain
     originals. See [qualification limits and tests](proxies.md).
 
-Current limits: AVFoundation-supported source formats; no edited-sequence
-playback. Proxies and rendering are qualified development subsets; shipping
+The monitor's **Source / Sequence** selector exposes edited-sequence controls.
+An [opt-in development build](sequence-monitor.md) enables the native runtime;
+default builds explain that it is unavailable. Sequence mode uses originals,
+pauses on edits, follows timeline scrubs and frame steps, and routes K/L to
+pause/forward play. Reverse sequence playback is unavailable. Device/display
+synchronization and runtime distribution still need qualification.
+
+Current limits: AVFoundation-supported source formats. Proxies, sequence
+monitoring and rendering are qualified development subsets; shipping
 helper provenance, signed sandbox execution, source geometry/color/VFR and
 native interchange import remain open. Stills have a
 five-second source extent. Default audio assembly accepts matching layouts or mono

@@ -52,8 +52,11 @@ adaptation and optional confirmation. Aligned linked audio components with the
 same source, track family, and gain can be combined into one explicitly mapped
 component. See [basic testing instructions](docs/basic-workspace.md).
 
-This is the first usable assembly workspace. The monitor previews sources;
-native timeline playback and release media-helper packaging remain unfinished.
+This is the first usable assembly workspace. The monitor has Source/Sequence
+selection. Native timeline monitoring is available in an opt-in development
+workspace build; default Xcode builds report the missing native runtime explicitly.
+See [sequence monitoring](docs/sequence-monitor.md) for building and exercising
+the enabled app controls. Release runtime/helper packaging remains unfinished.
 The bin supports batch ProRes Proxy/H.264 creation, cancellable verified jobs,
 saved proxy references, and a hires/proxy source-preview toggle with original
 audio and missing/stale/modified fallback. Newly generated proxies have recorded
@@ -85,7 +88,9 @@ combining compatible separate components into one.
 
 EditorCore also has a conservative [stream-copy assessment](docs/stream-copy.md)
 with separate picture/audio reasons. It requires exact packet evidence that the
-current importer does not produce; stream-copy export remains unimplemented.
+current importer does not produce; app stream-copy export remains unimplemented.
+Separate development proofs now qualify exact ProRes/PCM ranges and cuts-only
+joins, including fractional/drop-frame timecode, with packet and decoded parity.
 
 `Packages/EditorCore` is the independent Swift 6 timeline model and editing
 engine. The app targets macOS 14+; the inherited project format requires a
