@@ -1222,3 +1222,27 @@ launch-performance claim has been validated yet.
   playhead and undo/redo history, without resetting reminder/snooze deadlines.
 - Strict Swift 6 save-protection smoke, real bookmarked-media close/resume with
   pre-hide edit undo/redo, app-file smoke and unsigned macOS Debug build pass.
+
+### Embedded local helpers and proxy qualification checkpoint (2026-10-12)
+
+- Debug builds can persistently select an explicitly prepared helper directory
+  using an ignored local xcconfig. This checkout selects `.local/media-helpers`,
+  containing the matching local static FFmpeg/FFprobe 9.0.1 full build. The
+  preparer's matching-build, capability, system-dependency and hash checks remain
+  intact. Release does not inherit the local selection; binaries are not committed.
+- The unsigned Xcode Debug app builds with both helpers. Copied hashes match the
+  manifest; separate helper signing/strict signature verification passes. Source
+  attribution and notice completeness remain unreviewed development material.
+- A disposable app harness tests the production `Bundle.main` lookup with cleared
+  developer loader paths. Both ProRes Proxy and H.264 generate 24 fractional-rate
+  frames at 80x48, verify recorded SHA256, and preserve original fixture bytes.
+- Expanded generation tests pass on local 9.0.1 and Homebrew 9.0.2: every decoded
+  spatial/frame correspondence, half/quarter geometry, two-audio/two-video source
+  stream selection, actual MOV timecode/SDR/rational-rate metadata, and rotation,
+  HDR, full-range, VFR, SAR and invalid scaled-raster rejection.
+- Verification passes 151 core tests (one optional DTD test skipped), 22 Python
+  regressions, shortcut/startup/save-protection smokes, proxy workspace switching
+  and persisted queue smokes. Xcode and bookmark tests required host cache/services.
+  Signed sandbox execution, native proxy dialog gestures, broad-format/VFR mapping,
+  sequence proxy monitoring and release packaging remain open. See
+  [helper setup](docs/media-helper-packaging.md) and [proxy tests](docs/proxies.md).

@@ -62,7 +62,11 @@ exports MOV/ProRes 422 HQ with PCM audio, progress, cancellation, and FFprobe
 verification when explicitly prepared helpers are bundled. PNG/JPEG stills,
 layered video, channel maps, gain, fades and crossfades are supported within the
 qualified subset. The export dialog reports source geometry/color/VFR limitations.
-See [helper preparation](docs/media-helper-packaging.md). FCPXML export references
+See [helper preparation](docs/media-helper-packaging.md). A prepared local build
+can be selected persistently for Debug with
+`python3 scripts/configure-local-media-helpers.py --prepared-dir /absolute/prepared-helpers`.
+Run `scripts/bundled-proxy-smoke.sh /absolute/built.app` to test proxy generation
+through the production bundle lookup. FCPXML export references
 originals and refuses unsupported edits; [its supported subset](docs/fcpxml-export.md)
 passes Apple's DTD, with native editor import still unverified. Standalone audio fades
 have timeline handles and inspector duration/curve controls; edits persist and
