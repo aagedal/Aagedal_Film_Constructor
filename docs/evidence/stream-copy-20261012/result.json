@@ -1,0 +1,138 @@
+{
+  "developmentProofOnly": true,
+  "appStreamCopyQualified": false,
+  "tools": {
+    "ffmpeg": {
+      "version": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+      "sha256": "7f6028378534aa10a2dfa07d807ddcc0d18c869bf5c2f64c89efcc18ee88c4ee"
+    },
+    "ffprobe": {
+      "version": "ffprobe version 9.0.2 Copyright (c) 2007-2026 the FFmpeg developers",
+      "sha256": "bfe676bfc3a889bebe63af07c71a926a6167f568c7a932a79c2f1fe51ae6d5a1"
+    }
+  },
+  "positiveCases": [
+    {
+      "case": "24",
+      "sourceSHA256": "3bb30eb75e402361f722b4de03ca568ef1c28889c98fe039244bc583fe054ec1",
+      "sourceRange": [
+        "8/3",
+        "16/3"
+      ],
+      "duration": "8/3",
+      "frameRate": "24",
+      "timecode": "01:00:02:16",
+      "videoPacketsAndDecodedFrames": 64,
+      "audioPackets": 125,
+      "audioSamplesPerChannel": 128000,
+      "channels": 2,
+      "allPacketPayloadsAndExactTimestampsMatch": true,
+      "allDecodedFramesAndAudioSamplesMatch": true,
+      "isolatedFirstLastFramesMatch": true,
+      "sourceUnchanged": true,
+      "appStreamCopyQualified": false
+    },
+    {
+      "case": "25",
+      "sourceSHA256": "402a5786a9ccc336f3a1a2b73b49ccc9d6fdf3c366e6b8eea6368796d3bf7d59",
+      "sourceRange": [
+        "8/25",
+        "16/25"
+      ],
+      "duration": "8/25",
+      "frameRate": "25",
+      "timecode": "01:00:00:08",
+      "videoPacketsAndDecodedFrames": 8,
+      "audioPackets": 15,
+      "audioSamplesPerChannel": 15360,
+      "channels": 2,
+      "allPacketPayloadsAndExactTimestampsMatch": true,
+      "allDecodedFramesAndAudioSamplesMatch": true,
+      "isolatedFirstLastFramesMatch": true,
+      "sourceUnchanged": true,
+      "appStreamCopyQualified": false
+    },
+    {
+      "case": "23976",
+      "sourceSHA256": "7bd96d1ebbb3c8611f68ac896407f2715f8c7eb0b6efd5b768f1bdd94c2bda60",
+      "sourceRange": [
+        "8008/375",
+        "16016/375"
+      ],
+      "duration": "8008/375",
+      "frameRate": "24000/1001",
+      "timecode": "01:00:21:08",
+      "videoPacketsAndDecodedFrames": 512,
+      "audioPackets": 1001,
+      "audioSamplesPerChannel": 1025024,
+      "channels": 2,
+      "allPacketPayloadsAndExactTimestampsMatch": true,
+      "allDecodedFramesAndAudioSamplesMatch": true,
+      "isolatedFirstLastFramesMatch": true,
+      "sourceUnchanged": true,
+      "appStreamCopyQualified": false
+    },
+    {
+      "case": "2997",
+      "sourceSHA256": "372c4846ab8a41a89890e6a8c54c2d44d1f251093a19b1116486e0cb668697a4",
+      "sourceRange": [
+        "8008/375",
+        "16016/375"
+      ],
+      "duration": "8008/375",
+      "frameRate": "30000/1001",
+      "timecode": "01:00:21:10",
+      "videoPacketsAndDecodedFrames": 640,
+      "audioPackets": 1001,
+      "audioSamplesPerChannel": 1025024,
+      "channels": 2,
+      "allPacketPayloadsAndExactTimestampsMatch": true,
+      "allDecodedFramesAndAudioSamplesMatch": true,
+      "isolatedFirstLastFramesMatch": true,
+      "sourceUnchanged": true,
+      "appStreamCopyQualified": false
+    },
+    {
+      "case": "5994",
+      "sourceSHA256": "0b1f9ac04c2a8c538c8a2d3bc128bfeae8babaeb536560a43940357dfa08e1e3",
+      "sourceRange": [
+        "8008/375",
+        "16016/375"
+      ],
+      "duration": "8008/375",
+      "frameRate": "60000/1001",
+      "timecode": "01:00:21:20",
+      "videoPacketsAndDecodedFrames": 1280,
+      "audioPackets": 1001,
+      "audioSamplesPerChannel": 1025024,
+      "channels": 2,
+      "allPacketPayloadsAndExactTimestampsMatch": true,
+      "allDecodedFramesAndAudioSamplesMatch": true,
+      "isolatedFirstLastFramesMatch": true,
+      "sourceUnchanged": true,
+      "appStreamCopyQualified": false
+    }
+  ],
+  "rejectedCases": [
+    {
+      "case": "non-frame-cut",
+      "reason": "Require exact video-frame range boundaries"
+    },
+    {
+      "case": "non-packet-audio-cut",
+      "reason": "Range is not aligned to exact packet boundaries"
+    },
+    {
+      "case": "interframe-h264",
+      "reason": "Only ProRes HQ apch yuv422p10le intra video is qualified; keyframe flags are insufficient"
+    },
+    {
+      "case": "open-gop-h264",
+      "reason": "Only ProRes HQ apch yuv422p10le intra video is qualified; keyframe flags are insufficient"
+    },
+    {
+      "case": "compressed-aac",
+      "reason": "Only signed little-endian integer PCM audio is qualified"
+    }
+  ]
+}
