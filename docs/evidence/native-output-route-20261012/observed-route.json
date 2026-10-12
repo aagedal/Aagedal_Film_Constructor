@@ -1,0 +1,19 @@
+{
+  "inspection": "Separate AVAudioEngine.outputNode.outputFormat(forBus: 0) query on the development host between initial rejection and final smoke",
+  "sampleRate": 48000,
+  "channelCount": 2,
+  "layoutTag": 0,
+  "layoutTagName": "UseChannelDescriptions",
+  "channelBitmap": 0,
+  "channelDescriptions": [
+    {
+      "label": 1,
+      "name": "Left"
+    },
+    {
+      "label": 2,
+      "name": "Right"
+    }
+  ],
+  "hardwareQualified": false
+}

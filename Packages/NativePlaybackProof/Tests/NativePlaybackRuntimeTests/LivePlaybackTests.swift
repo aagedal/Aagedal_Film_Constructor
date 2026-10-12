@@ -145,6 +145,42 @@ struct LivePlaybackTests {
         #expect(try LiveOutputQualification.clock(sample: 1024, rate: 48000, expectedRate: 48000) == 1024)
     }
 
+    @Test func hardwareRouteRequiresMatchingCanonicalChannels() throws {
+        let mono = try #require(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1))
+        let stereo = try #require(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2))
+        try LiveOutputQualification.validate(route: mono, expected: mono)
+        try LiveOutputQualification.validate(route: stereo, expected: stereo)
+        let converted = try #require(AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2))
+        try LiveOutputQualification.validate(route: converted, expected: stereo)
+        #expect(throws: (any Error).self) { try LiveOutputQualification.validate(route: mono, expected: stereo) }
+        #expect(throws: (any Error).self) { try LiveOutputQualification.validate(route: stereo, expected: mono) }
+        for tag in [kAudioChannelLayoutTag_MPEG_5_1_A, kAudioChannelLayoutTag_DiscreteInOrder | 2] {
+            let layout = try #require(AVAudioChannelLayout(layoutTag: tag))
+            let route = AVAudioFormat(standardFormatWithSampleRate: 48000, channelLayout: layout)
+            #expect(throws: (any Error).self) { try LiveOutputQualification.validate(route: route, expected: stereo) }
+        }
+    }
+
+    @Test func hardwareRouteAcceptsOnlyCanonicalNamedDescriptions() throws {
+        let stereo = try #require(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2))
+        let mono = try #require(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1))
+        try LiveOutputQualification.validate(route: describedLiveRoute([kAudioChannelLabel_Left, kAudioChannelLabel_Right]), expected: stereo)
+        for label in [kAudioChannelLabel_Mono, kAudioChannelLabel_Center] {
+            try LiveOutputQualification.validate(route: describedLiveRoute([label]), expected: mono)
+        }
+        for labels in [[kAudioChannelLabel_Right, kAudioChannelLabel_Left],
+                       [kAudioChannelLabel_Unknown, kAudioChannelLabel_Unknown],
+                       [kAudioChannelLabel_Discrete_0, kAudioChannelLabel_Discrete_1],
+                       [kAudioChannelLabel_Left, kAudioChannelLabel_Center]] {
+            #expect(throws: (any Error).self) {
+                try LiveOutputQualification.validate(route: describedLiveRoute(labels), expected: stereo)
+            }
+        }
+        #expect(throws: (any Error).self) {
+            try LiveOutputQualification.validate(route: describedLiveRoute([kAudioChannelLabel_Left]), expected: mono)
+        }
+    }
+
     @Test func invalidLimitsAndMalformedImagesAreRejected() throws {
         #expect(throws: (any Error).self) { try LiveAudioQueue(total: 0) }
         #expect(throws: (any Error).self) { try LiveAudioQueue(total: 100, blockSize: 65537) }
@@ -152,6 +188,21 @@ struct LivePlaybackTests {
         #expect(throws: (any Error).self) { try nativeImage(rgb: Data(count: 11), width: 2, height: 2) }
         #expect(try nativeImage(rgb: Data(count: 12), width: 2, height: 2).width == 2)
     }
+}
+
+private func describedLiveRoute(_ labels: [AudioChannelLabel]) throws -> AVAudioFormat {
+    let offset = try #require(MemoryLayout<AudioChannelLayout>.offset(of: \.mChannelDescriptions))
+    let bytes = offset + MemoryLayout<AudioChannelDescription>.stride * labels.count
+    let raw = UnsafeMutableRawPointer.allocate(byteCount: bytes, alignment: MemoryLayout<AudioChannelLayout>.alignment)
+    defer { raw.deallocate() }
+    raw.initializeMemory(as: UInt8.self, repeating: 0, count: bytes)
+    let layout = raw.assumingMemoryBound(to: AudioChannelLayout.self)
+    layout.pointee.mChannelLayoutTag = kAudioChannelLayoutTag_UseChannelDescriptions
+    layout.pointee.mNumberChannelDescriptions = UInt32(labels.count)
+    let descriptions = raw.advanced(by: offset).assumingMemoryBound(to: AudioChannelDescription.self)
+    for (index, label) in labels.enumerated() { descriptions[index].mChannelLabel = label }
+    let copied = AVAudioChannelLayout(layout: layout)
+    return AVAudioFormat(standardFormatWithSampleRate: 48000, channelLayout: copied)
 }
 
 private func liveFixture() throws -> Project {
@@ -180,10 +231,15 @@ private final class LiveFakeDecoder: PlaybackDecoder {
     var current: Int64 = 0
     var scheduled: [Int64] = []
     var starts = 0
+    var stops = 0
     var resets = 0
     var onStart: (() -> Void)?
+    var route = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2)!
+    func validateRoute(format: AVAudioFormat) throws {
+        try LiveOutputQualification.validate(route: route, expected: format)
+    }
     func start() { starts += 1; isRunning = true; isPlaying = true; onStart?() }
-    func stop() { isRunning = false; isPlaying = false }
+    func stop() { stops += 1; isRunning = false; isPlaying = false }
     func reset() { resets += 1 }
     func clock() -> (sample: Int64, rate: Double)? {
         if !samples.isEmpty { current = samples.removeFirst() }
@@ -200,6 +256,23 @@ private final class LiveFakeDecoder: PlaybackDecoder {
 }
 
 struct LiveRecoveryTests {
+    @Test @MainActor func incompatibleHardwareRouteDoesNotStartOrDiscardPausedPosition() async throws {
+        let output = LiveFakeOutput()
+        let monitor = try liveMonitor(output)
+        try await monitor.seek(toFrame: 30)
+        let sample = monitor.transport.sampleIndex
+        output.route = try #require(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1))
+        await #expect(throws: (any Error).self) { try await monitor.play() }
+        #expect(output.starts == 0)
+        #expect(output.scheduled.isEmpty)
+        #expect(!monitor.transport.isPlaying)
+        #expect(monitor.transport.sampleIndex == sample)
+        output.route = try #require(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2))
+        try await monitor.play()
+        #expect(output.starts == 1)
+        #expect(monitor.transport.sampleIndex == sample)
+        await monitor.close()
+    }
     @Test(arguments: [Int64(100), Int64(1024)]) @MainActor func starvationPausesAtLastAcceptedSampleAndExplicitPlayRestartsClock(acceptedSample: Int64) async throws {
         let output = LiveFakeOutput()
         // First pump tick is accepted; the next reading starves at the exact
@@ -311,6 +384,33 @@ private final class LiveBlockedDecoder: PlaybackDecoder {
 }
 
 struct LiveCancellationTests {
+    @Test @MainActor func routeChangeDuringPrimingFailsBeforeOutputStarts() async throws {
+        let project = try liveFixture()
+        let barrier = LiveDecodeBarrier()
+        let session = try NativePlaybackSession(project: project, maximumPendingRequests: 2, maximumCacheBytes: 0,
+            worker: SerialDecodeWorker(factory: { _ in LiveBlockedDecoder(barrier) }))
+        let output = LiveFakeOutput()
+        let monitor = try NativeLivePlayback(project: project, session: session, output: output)
+        let priming = Task { try await monitor.play() }
+        await barrier.wait()
+        output.route = try #require(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1))
+        for _ in 0..<4 { barrier.release.signal() }
+        await #expect(throws: (any Error).self) { try await priming.value }
+        #expect(output.starts == 0)
+        // Failed admission flushes the player through stop; an engine reset is
+        // reserved for an actual configuration notification or output failure.
+        #expect(output.stops == 1)
+        #expect(!output.isRunning)
+        #expect(!monitor.transport.isPlaying)
+        #expect(monitor.transport.sampleIndex == 0)
+        output.route = try #require(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2))
+        for _ in 0..<4 { barrier.release.signal() }
+        try await monitor.play()
+        #expect(output.starts == 1)
+        #expect(monitor.transport.sampleIndex == 0)
+        await monitor.close()
+    }
+
     @Test @MainActor func pauseSeekReplaceAndCloseRejectBlockedPriming() async throws {
         for action in ["pause", "seek", "replace", "close", "cancel"] {
             let project = try liveFixture()

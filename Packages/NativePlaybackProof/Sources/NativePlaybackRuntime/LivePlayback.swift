@@ -51,6 +51,36 @@ enum LiveOutputQualification {
             throw ProofFailure("Live proof supports canonical mono/stereo output only")
         }
     }
+    /// AVAudioFormat permits an absent layout for mono/stereo. When hardware
+    /// supplies speaker metadata, require a canonical tag or exact named channel
+    /// order rather than guessing a map. No automatic downmix/upmix is qualified.
+    static func validate(route: AVAudioFormat, expected: AVAudioFormat) throws {
+        guard (1...2).contains(route.channelCount), route.channelCount == expected.channelCount,
+              route.sampleRate.isFinite, route.sampleRate > 0 else {
+            throw ProofFailure("Live hardware output must match the sequence's mono/stereo channel count; choose a compatible route")
+        }
+        if let layout = route.channelLayout {
+            let tag = route.channelCount == 1 ? kAudioChannelLayoutTag_Mono : kAudioChannelLayoutTag_Stereo
+            guard layout.layoutTag == tag || canonicalDescriptions(layout, channels: route.channelCount) else {
+                throw ProofFailure("Live hardware output has an unsupported speaker layout; choose a canonical mono/stereo route")
+            }
+        }
+        // Hardware sample-rate conversion is AVAudioEngine's responsibility;
+        // timeline progress still uses the separately validated player clock.
+    }
+    private static func canonicalDescriptions(_ layout: AVAudioChannelLayout, channels: AVAudioChannelCount) -> Bool {
+        guard layout.layoutTag == kAudioChannelLayoutTag_UseChannelDescriptions,
+              layout.layout.pointee.mNumberChannelDescriptions == channels,
+              let offset = MemoryLayout<AudioChannelLayout>.offset(of: \.mChannelDescriptions) else { return false }
+        let descriptions = UnsafeRawPointer(layout.layout).advanced(by: offset)
+            .assumingMemoryBound(to: AudioChannelDescription.self)
+        if channels == 1 {
+            return descriptions[0].mChannelLabel == kAudioChannelLabel_Mono ||
+                descriptions[0].mChannelLabel == kAudioChannelLabel_Center
+        }
+        return channels == 2 && descriptions[0].mChannelLabel == kAudioChannelLabel_Left &&
+            descriptions[1].mChannelLabel == kAudioChannelLabel_Right
+    }
     static func clock(sample: Int64, rate: Double, expectedRate: Double) throws -> Int64 {
         guard rate == expectedRate else { throw ProofFailure("Player clock sample rate differs from sequence") }
         guard sample >= 0 else { throw ProofFailure("Invalid player clock sample") }
@@ -110,6 +140,7 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
     var isRunning: Bool { get }
     var isPlaying: Bool { get }
     var configurationObject: AnyObject { get }
+    func validateRoute(format: AVAudioFormat) throws
     func start() throws
     func stop()
     func reset()
@@ -130,7 +161,16 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
         engine.attach(player)
         engine.connect(player, to: engine.mainMixerNode, format: format)
     }
-    func start() throws { try engine.start(); player.play() }
+    func validateRoute(format: AVAudioFormat) throws {
+        try LiveOutputQualification.validate(route: engine.outputNode.outputFormat(forBus: 0), expected: format)
+    }
+    func start() throws {
+        try validateRoute(format: format)
+        try engine.start()
+        do { try validateRoute(format: format) }
+        catch { engine.stop(); throw error }
+        player.play()
+    }
     func stop() { player.stop(); engine.stop() }
     func reset() { engine.reset() }
     func clock() -> (sample: Int64, rate: Double)? {
@@ -198,6 +238,7 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
         guard !closed else { throw PlaybackSessionError.closed }
         guard !replacing else { throw PlaybackSessionError.busy }
         guard pump == nil, !transport.isPlaying else { return }
+        try output.validateRoute(format: format)
         video?.cancel(); video = nil; requestedFrame = nil
         let token = UUID(); operation = token
         guard transport.plan.audioSamples > 0 else { throw ProofFailure("Cannot play an empty sequence") }
@@ -218,6 +259,7 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
             } onCancel: { preparation.cancel() }
             guard token == operation else { throw CancellationError() }
             priming = nil
+            try output.validateRoute(format: format)
             try output.start()
             let generation = transport.generation
             pump = Task { [weak self] in
