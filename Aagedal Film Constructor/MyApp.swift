@@ -1,3 +1,4 @@
+import EditorCore
 import SwiftUI
 
 @main struct MyApp: App {
@@ -38,7 +39,12 @@ private struct DocumentWorkspace: View {
                     store.load(document)
                     loaded = true
                     observeDocumentBaseline()
-                    LaunchPerformanceEvents.record("workspace_loaded")
+                    LaunchPerformanceEvents.record("workspace_loaded", details: [
+                        "savedDocument": fileURL != nil,
+                        "assetCount": store.project.assets.count,
+                        "trackCount": store.project.tracks.count,
+                        "clipCount": store.project.tracks.reduce(0) { $0 + $1.clips.count }
+                    ])
                 } else {
                     store.resumeMediaAccess()
                 }
@@ -112,6 +118,8 @@ private struct LaunchInteractionProbe: NSViewRepresentable {
     final class ProbeButton: NSButton {
         private var timer: Timer?
         private var recorded = false
+        private var clickPending = false
+        private var lastGateState: String?
 
         init() {
             super.init(frame: .zero)
@@ -127,6 +135,7 @@ private struct LaunchInteractionProbe: NSViewRepresentable {
             super.viewDidMoveToWindow()
             timer?.invalidate()
             guard window != nil, !recorded else { return }
+            lastGateState = nil
             LaunchPerformanceEvents.record("probe_attached", windowNumber: window?.windowNumber ?? -1)
             timer = Timer.scheduledTimer(withTimeInterval: 0.01, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.checkWindow() }
@@ -134,22 +143,30 @@ private struct LaunchInteractionProbe: NSViewRepresentable {
         }
 
         private func checkWindow() {
-            guard let window, window.isVisible, window.isKeyWindow,
-                  NSDocumentController.shared.document(for: window) != nil,
-                  bounds.width > 0, bounds.height > 0 else { return }
-            timer?.invalidate()
-            timer = nil
-            recorded = true
+            guard !recorded, let window else { return }
+            let hasDocument = NSDocumentController.shared.document(for: window) != nil
+            let hasBounds = bounds.width > 0 && bounds.height > 0
+            let state = "\(window.isVisible)/\(window.isKeyWindow)/\(hasDocument)/\(hasBounds)/\(NSApplication.shared.isActive)"
+            if state != lastGateState {
+                lastGateState = state
+                LaunchPerformanceEvents.record("readiness_gate_changed", windowNumber: window.windowNumber,
+                    details: ["visible": window.isVisible, "key": window.isKeyWindow,
+                              "hasDocument": hasDocument, "hasBounds": hasBounds,
+                              "applicationActive": NSApplication.shared.isActive])
+            }
+            guard window.isVisible, window.isKeyWindow, hasDocument, hasBounds, !clickPending else { return }
             window.contentView?.layoutSubtreeIfNeeded()
             window.displayIfNeeded()
+            clickPending = true
             record("workspace_visible")
-            // A later main-loop turn verifies that the loaded workspace can
-            // handle input, rather than treating onAppear as interaction.
+            // Readiness can change before this later turn. Keep polling until
+            // the control action confirms input, and retry if it lost the key window.
             DispatchQueue.main.async { [weak self] in self?.sendProbeClick() }
         }
 
         private func sendProbeClick() {
-            guard let window, window.isVisible, window.isKeyWindow else { return }
+            defer { clickPending = false }
+            guard !recorded, let window, window.isVisible, window.isKeyWindow else { return }
             let point = convert(NSPoint(x: bounds.midX, y: bounds.midY), to: nil)
             // Queue mouse-up before dispatching mouse-down: NSButton's tracking
             // loop consumes the queued release just as it consumes user input.
@@ -165,7 +182,13 @@ private struct LaunchInteractionProbe: NSViewRepresentable {
             window.sendEvent(down)
         }
 
-        @objc private func interacted() { record("scripted_interaction_processed") }
+        @objc private func interacted() {
+            guard !recorded else { return }
+            recorded = true
+            timer?.invalidate()
+            timer = nil
+            record("scripted_interaction_processed")
+        }
 
         private func record(_ event: String) {
             LaunchPerformanceEvents.record(event, windowNumber: window?.windowNumber ?? -1)

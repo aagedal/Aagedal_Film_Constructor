@@ -76,12 +76,12 @@ final class WorkspaceApplicationDelegate: NSObject, NSApplicationDelegate {
 
 /// Diagnostic milestones are deliberately distinct from window/input readiness.
 enum LaunchPerformanceEvents {
-    static func record(_ event: String, windowNumber: Int = -1) {
+    static func record(_ event: String, windowNumber: Int = -1, details: [String: Any] = [:]) {
         guard let path = ProcessInfo.processInfo.environment["AFC_LAUNCH_PROBE_LOG"],
-              let data = try? JSONSerialization.data(withJSONObject: [
+              let data = try? JSONSerialization.data(withJSONObject: details.merging([
                 "event": event, "uptimeSeconds": ProcessInfo.processInfo.systemUptime,
                 "pid": ProcessInfo.processInfo.processIdentifier, "windowNumber": windowNumber
-              ], options: [.sortedKeys]),
+              ], uniquingKeysWith: { _, milestone in milestone }), options: [.sortedKeys]),
               let handle = FileHandle(forWritingAtPath: path) else { return }
         defer { try? handle.close() }
         do {
