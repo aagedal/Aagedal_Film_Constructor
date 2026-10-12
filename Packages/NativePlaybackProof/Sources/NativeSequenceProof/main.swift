@@ -134,7 +134,9 @@ func executeProof(projectURL: URL, output: URL, replacementURL: URL?) async thro
         throw ProofFailure("Transport did not stop at exact sequence end")
     }
     var videoCaptures: [VideoCapture] = []
-    let seekFrames: [Int64] = [0, 2, 3, 60, 119, 120, 179, 60, 15, 15]
+    let hasPartialFinalFrame = try plan.duration != plan.settings.frameRate.time(forFrames: plan.videoFrames)
+    var seekFrames: [Int64] = [0, 2, 3, 60, 119, 120, 179, 60, 15, 15]
+    if hasPartialFinalFrame { seekFrames.insert(plan.videoFrames - 1, at: seekFrames.count - 1) }
     for (index, frame) in seekFrames.enumerated() where frame < plan.videoFrames {
         let rebuilt = index == seekFrames.count - 1
         if rebuilt { monitor.resetDecoders() }
@@ -153,7 +155,8 @@ func executeProof(projectURL: URL, output: URL, replacementURL: URL?) async thro
             pngFile: pngName, asynchronousFile: asyncName, request: try plan.videoFrame(at: frame)))
     }
     var audioCaptures: [AudioCapture] = []
-    let seekSamples: [Int64] = [0, 48047, 48048, 240239, 115315, 48048, plan.audioSamples - 1024, 144144, 120120, 168168, 192192, 144144, 48047]
+    var seekSamples: [Int64] = [0, 48047, 48048, 240239, 115315, 48048, plan.audioSamples - 1024, 144144, 120120, 168168, 192192, 144144, 48047]
+    if hasPartialFinalFrame { seekSamples.insert(plan.audioSamples - 1, at: seekSamples.count - 1) }
     for (index, sample) in seekSamples.enumerated() where sample >= 0 && sample < plan.audioSamples {
         let count = Int(min(2048, plan.audioSamples - sample))
         let rebuilt = index == seekSamples.count - 1

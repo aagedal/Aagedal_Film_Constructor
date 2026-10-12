@@ -1,0 +1,1052 @@
+{
+  "passed": true,
+  "variants": [
+    {
+      "name": "baseline",
+      "libraryVersion": "9.0.2",
+      "initialPlanReplaced": false,
+      "sequentialVideo": {
+        "frames": 180,
+        "maxMeanRGBError": 2.0
+      },
+      "asynchronousVideo": {
+        "frames": 180,
+        "maxMeanRGBError": 2.0
+      },
+      "asynchronousAudio": {
+        "samplesPerChannel": 288288,
+        "maxErrorInS16Units": 0.5
+      },
+      "asynchronousCacheBytes": 122880,
+      "asynchronousPendingRequests": 0,
+      "transportClockObservations": 282,
+      "mixedAudio": {
+        "samplesPerChannel": 288288,
+        "maxErrorInS16Units": 0.5
+      },
+      "scheduledAudio": {
+        "samplesPerChannel": 288288,
+        "maxErrorInS16Units": 0.5
+      },
+      "videoSeeks": [
+        {
+          "frame": 0,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 2,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 3,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 60,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 119,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 120,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 179,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 60,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 15,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 15,
+          "rebuilt": true,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        }
+      ],
+      "audioSeeks": [
+        {
+          "startSample": 0,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0
+          }
+        },
+        {
+          "startSample": 48047,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 48048,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 240239,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 115315,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 48048,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 287264,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 1024,
+            "maxErrorInS16Units": 0
+          },
+          "asynchronous": {
+            "samplesPerChannel": 1024,
+            "maxErrorInS16Units": 0
+          },
+          "scheduled": {
+            "samplesPerChannel": 1024,
+            "maxErrorInS16Units": 0
+          }
+        },
+        {
+          "startSample": 144144,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 120120,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 168168,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 192192,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 144144,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 48047,
+          "rebuilt": true,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        }
+      ],
+      "artifacts": {
+        "png-seek-1.rgb": "227fae7d0138661ab68c4fb8ce1f7421d42c580a436c058b6effe8abc7ea46ef",
+        "png-seek-0.rgb": "3b7ec669bc8762ac8f80820c7b70c4297550e63856d7a5123a39cabd09935467",
+        "png-seek-2.rgb": "c71ead82b7e653ed4c2b899c121bdb72315b789de61f0f74b7a04c59d541403a",
+        "png-seek-3.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "png-seek-7.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "png-seek-6.rgb": "24f9e33af417893ac148c7b373b8f49de57c401d9136b95ef5a4bc877880ea42",
+        "png-seek-4.rgb": "9d28c5f34bb2ad83de78341e82365fcd00da046d8ab3f0e3e7ea3f87405584e7",
+        "png-seek-5.rgb": "112e859a95235edf9b80ef650e6129979cd5bd74161a331a41bc5a59113afa83",
+        "project.json": "108fbd21a97b44bc22f6307ebf741b5e069ec5eeb02026fd2f74d88433e3fd00",
+        "render.mov": "31f89b180bc7fb505624768db2232af7df9e8ad4dab50f22751bc52fedbf7828",
+        "reference.rgb": "fca712495b86fd2d6e25c5a4e2f58732285836b919a9df69b86ac53c06469d03",
+        "reference.pcm": "d83167c967428da0100cff32f8799ae2d055abafc51c8c023dbcb5168e11a7e0",
+        "command.json": "7cbd922eaa90805618b41ddb65a7770bc4b4f3ac1285325f676f3990dafb2df1",
+        "png-seek-8.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "png-seek-9.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "native/audio-seek-2-48048-scheduled.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/seek-4-frame-119.rgb": "9d28c5f34bb2ad83de78341e82365fcd00da046d8ab3f0e3e7ea3f87405584e7",
+        "native/async-audio-seek-8-120120.f32": "7fee92df5624deb79cb4f3aba5efdf5397797eb8153e5aa013435b1f2c0384f8",
+        "native/seek-4-frame-119.png": "493cc360fbe127db3f9f3f52047a2aeea2352c514a768962e621d8546904dcc1",
+        "native/async-audio-seek-11-144144.f32": "74fc44b5df5bbddb346ca926f63fc3e41029cf66317fab6f67cee82109c0bac4",
+        "native/asynchronous.rgb": "1c1f8b56a0505b7ae4fae77b96278742f57a9629ecaf993bbcc0de1c1c121275",
+        "native/asynchronous.f32": "5dc416a439f716f698d1ae607a85ad62cb0140751bf3b70c15175cfc286164f3",
+        "native/audio-seek-11-144144-scheduled.f32": "74fc44b5df5bbddb346ca926f63fc3e41029cf66317fab6f67cee82109c0bac4",
+        "native/audio-seek-4-115315-scheduled.f32": "6de924f5c5f58484df90be856ca787def5cc5933a4ce871eca5724c4171ef899",
+        "native/seek-7-frame-60.png": "9e0de6a8f7a210b4f9d225aac8a927a5f2d9adbdbb7c0083c14cd4768a5ae3da",
+        "native/async-audio-seek-6-287264.f32": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47",
+        "native/async-audio-seek-10-192192.f32": "c3afb4be1eab74db7d441814e8a758feb014de4237827c8ee108bac013fe2449",
+        "native/audio-seek-7-144144-mixed.f32": "74fc44b5df5bbddb346ca926f63fc3e41029cf66317fab6f67cee82109c0bac4",
+        "native/seek-7-frame-60.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "native/audio-seek-5-48048-scheduled.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/async-seek-4-frame-119.rgb": "9d28c5f34bb2ad83de78341e82365fcd00da046d8ab3f0e3e7ea3f87405584e7",
+        "native/seek-0-frame-0.rgb": "3b7ec669bc8762ac8f80820c7b70c4297550e63856d7a5123a39cabd09935467",
+        "native/native.rgb": "1c1f8b56a0505b7ae4fae77b96278742f57a9629ecaf993bbcc0de1c1c121275",
+        "native/async-audio-seek-9-168168.f32": "67024dc9b6a3ddbc4f5756257781fda3672a268b653f5d0d4d3fcbec9f76d39a",
+        "native/seek-0-frame-0.png": "c319e79c3a303e087d15cfa1db859d4739ed774d3a01f349f87a45e14052d10f",
+        "native/audio-seek-3-240239-scheduled.f32": "6fa3319db361a0afeb36ab0f971a7cc4895ccf12d3363e100c25a6c3ed50dd4a",
+        "native/audio-seek-8-120120-mixed.f32": "7fee92df5624deb79cb4f3aba5efdf5397797eb8153e5aa013435b1f2c0384f8",
+        "native/async-audio-seek-3-240239.f32": "6fa3319db361a0afeb36ab0f971a7cc4895ccf12d3363e100c25a6c3ed50dd4a",
+        "native/async-seek-0-frame-0.rgb": "3b7ec669bc8762ac8f80820c7b70c4297550e63856d7a5123a39cabd09935467",
+        "native/audio-seek-11-144144-mixed.f32": "74fc44b5df5bbddb346ca926f63fc3e41029cf66317fab6f67cee82109c0bac4",
+        "native/async-seek-7-frame-60.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "native/audio-seek-6-287264-mixed.f32": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47",
+        "native/audio-seek-0-0-scheduled.f32": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "native/audio-seek-10-192192-mixed.f32": "c3afb4be1eab74db7d441814e8a758feb014de4237827c8ee108bac013fe2449",
+        "native/audio-seek-6-287264-scheduled.f32": "9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47",
+        "native/audio-seek-1-48047-scheduled.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/audio-seek-3-240239-mixed.f32": "6fa3319db361a0afeb36ab0f971a7cc4895ccf12d3363e100c25a6c3ed50dd4a",
+        "native/seek-6-frame-179.png": "54296a0d40006fb7335b7abb87d8141df69571ee5fa60e1548c94e3a382a10cc",
+        "native/seek-2-frame-3.rgb": "c71ead82b7e653ed4c2b899c121bdb72315b789de61f0f74b7a04c59d541403a",
+        "native/audio-seek-4-115315-mixed.f32": "6de924f5c5f58484df90be856ca787def5cc5933a4ce871eca5724c4171ef899",
+        "native/seek-6-frame-179.rgb": "24f9e33af417893ac148c7b373b8f49de57c401d9136b95ef5a4bc877880ea42",
+        "native/audio-seek-8-120120-scheduled.f32": "7fee92df5624deb79cb4f3aba5efdf5397797eb8153e5aa013435b1f2c0384f8",
+        "native/seek-2-frame-3.png": "1723cd6b193e623cf577180a364f16eff9e917c59405e907ebc40f02bbf45acd",
+        "native/async-audio-seek-12-48047.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/audio-seek-0-0-mixed.f32": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "native/async-seek-5-frame-120.rgb": "112e859a95235edf9b80ef650e6129979cd5bd74161a331a41bc5a59113afa83",
+        "native/async-seek-9-frame-15.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "native/async-audio-seek-0-0.f32": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "native/audio-seek-10-192192-scheduled.f32": "c3afb4be1eab74db7d441814e8a758feb014de4237827c8ee108bac013fe2449",
+        "native/mixed.f32": "5dc416a439f716f698d1ae607a85ad62cb0140751bf3b70c15175cfc286164f3",
+        "native/async-audio-seek-2-48048.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/manifest.json": "ab95f8db1b2f9ee1a155314b565ceb139727fb8edbfd995d1179faa55e47abd2",
+        "native/async-seek-8-frame-15.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "native/async-audio-seek-1-48047.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/async-seek-2-frame-3.rgb": "c71ead82b7e653ed4c2b899c121bdb72315b789de61f0f74b7a04c59d541403a",
+        "native/audio-seek-12-48047-mixed.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/audio-seek-12-48047-scheduled.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/scheduled.f32": "5dc416a439f716f698d1ae607a85ad62cb0140751bf3b70c15175cfc286164f3",
+        "native/async-seek-3-frame-60.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "native/async-seek-1-frame-2.rgb": "227fae7d0138661ab68c4fb8ce1f7421d42c580a436c058b6effe8abc7ea46ef",
+        "native/audio-seek-2-48048-mixed.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/async-seek-6-frame-179.rgb": "24f9e33af417893ac148c7b373b8f49de57c401d9136b95ef5a4bc877880ea42",
+        "native/seek-9-frame-15.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "native/async-audio-seek-4-115315.f32": "6de924f5c5f58484df90be856ca787def5cc5933a4ce871eca5724c4171ef899",
+        "native/seek-9-frame-15.png": "b610656b22bea4be32553e386c035efd1a182a5d1f93ec57dae06cce7226c649",
+        "native/audio-seek-9-168168-scheduled.f32": "67024dc9b6a3ddbc4f5756257781fda3672a268b653f5d0d4d3fcbec9f76d39a",
+        "native/seek-5-frame-120.png": "778ec1a7ff0ea9db4b13761f14b1b37ed4d9a4162f585e44352e7c05c3d021db",
+        "native/seek-5-frame-120.rgb": "112e859a95235edf9b80ef650e6129979cd5bd74161a331a41bc5a59113afa83",
+        "native/audio-seek-9-168168-mixed.f32": "67024dc9b6a3ddbc4f5756257781fda3672a268b653f5d0d4d3fcbec9f76d39a",
+        "native/seek-8-frame-15.png": "b610656b22bea4be32553e386c035efd1a182a5d1f93ec57dae06cce7226c649",
+        "native/seek-3-frame-60.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "native/seek-8-frame-15.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "native/seek-3-frame-60.png": "9e0de6a8f7a210b4f9d225aac8a927a5f2d9adbdbb7c0083c14cd4768a5ae3da",
+        "native/async-audio-seek-5-48048.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/seek-1-frame-2.rgb": "227fae7d0138661ab68c4fb8ce1f7421d42c580a436c058b6effe8abc7ea46ef",
+        "native/audio-seek-1-48047-mixed.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/async-audio-seek-7-144144.f32": "74fc44b5df5bbddb346ca926f63fc3e41029cf66317fab6f67cee82109c0bac4",
+        "native/seek-1-frame-2.png": "19bb046309b1e2384d06c1f24a88d0ef8964975c4a4349551bae36b1e71e6436",
+        "native/audio-seek-7-144144-scheduled.f32": "74fc44b5df5bbddb346ca926f63fc3e41029cf66317fab6f67cee82109c0bac4",
+        "native/audio-seek-5-48048-mixed.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c"
+      }
+    },
+    {
+      "name": "partial-final-frame-audio-tail-rebuild",
+      "libraryVersion": "9.0.2",
+      "initialPlanReplaced": true,
+      "sequentialVideo": {
+        "frames": 181,
+        "maxMeanRGBError": 2.0
+      },
+      "asynchronousVideo": {
+        "frames": 181,
+        "maxMeanRGBError": 2.0
+      },
+      "asynchronousAudio": {
+        "samplesPerChannel": 288289,
+        "maxErrorInS16Units": 0.5
+      },
+      "asynchronousCacheBytes": 122888,
+      "asynchronousPendingRequests": 0,
+      "transportClockObservations": 282,
+      "mixedAudio": {
+        "samplesPerChannel": 288289,
+        "maxErrorInS16Units": 0.5
+      },
+      "scheduledAudio": {
+        "samplesPerChannel": 288289,
+        "maxErrorInS16Units": 0.5
+      },
+      "videoSeeks": [
+        {
+          "frame": 0,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 2,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 3,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 60,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 119,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 120,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 179,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 60,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 15,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        },
+        {
+          "frame": 180,
+          "rebuilt": false,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 0.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 0.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 0.0
+          }
+        },
+        {
+          "frame": 15,
+          "rebuilt": true,
+          "raw": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "nativePNG": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          },
+          "asynchronous": {
+            "frames": 1,
+            "maxMeanRGBError": 2.0
+          }
+        }
+      ],
+      "audioSeeks": [
+        {
+          "startSample": 0,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0
+          }
+        },
+        {
+          "startSample": 48047,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 48048,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 240239,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 115315,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 48048,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 287265,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 1024,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 1024,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 1024,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 144144,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 120120,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 168168,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 192192,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 144144,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 288288,
+          "rebuilt": false,
+          "mixed": {
+            "samplesPerChannel": 1,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 1,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 1,
+            "maxErrorInS16Units": 0.5
+          }
+        },
+        {
+          "startSample": 48047,
+          "rebuilt": true,
+          "mixed": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "asynchronous": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          },
+          "scheduled": {
+            "samplesPerChannel": 2048,
+            "maxErrorInS16Units": 0.5
+          }
+        }
+      ],
+      "artifacts": {
+        "initial-project.json": "108fbd21a97b44bc22f6307ebf741b5e069ec5eeb02026fd2f74d88433e3fd00",
+        "png-seek-1.rgb": "227fae7d0138661ab68c4fb8ce1f7421d42c580a436c058b6effe8abc7ea46ef",
+        "png-seek-0.rgb": "3b7ec669bc8762ac8f80820c7b70c4297550e63856d7a5123a39cabd09935467",
+        "png-seek-2.rgb": "c71ead82b7e653ed4c2b899c121bdb72315b789de61f0f74b7a04c59d541403a",
+        "png-seek-3.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "png-seek-7.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "png-seek-6.rgb": "24f9e33af417893ac148c7b373b8f49de57c401d9136b95ef5a4bc877880ea42",
+        "png-seek-4.rgb": "9d28c5f34bb2ad83de78341e82365fcd00da046d8ab3f0e3e7ea3f87405584e7",
+        "png-seek-5.rgb": "112e859a95235edf9b80ef650e6129979cd5bd74161a331a41bc5a59113afa83",
+        "project.json": "67ecdcc6d9ad22a6bacf8c3a82a919731e178cba95849080c4c1622566e83384",
+        "render.mov": "b2d4aac5551ff33e7ff065b311a82af9350872e4362ab69a49b328d323099fd0",
+        "reference.rgb": "6c4a66b7ecc4394849a80801ae7b8021e8ccf222beaee2d8197be7bfbcd9dfaf",
+        "reference.pcm": "2d0133fbddaa494d2ca5319912874c1e828fad4ed291dfbde93fceefdb44dde5",
+        "command.json": "7fa770b550fd330f9784a228b81cb9c4e88ea3f439bb7f14738b9072b87f1593",
+        "png-seek-10.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "png-seek-8.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "png-seek-9.rgb": "e19d750c09c65857034cb57d3021349141c001da44d8e310a5281090f9b1f78a",
+        "native/audio-seek-2-48048-scheduled.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/seek-4-frame-119.rgb": "9d28c5f34bb2ad83de78341e82365fcd00da046d8ab3f0e3e7ea3f87405584e7",
+        "native/async-audio-seek-8-120120.f32": "7fee92df5624deb79cb4f3aba5efdf5397797eb8153e5aa013435b1f2c0384f8",
+        "native/seek-4-frame-119.png": "493cc360fbe127db3f9f3f52047a2aeea2352c514a768962e621d8546904dcc1",
+        "native/async-audio-seek-11-144144.f32": "74fc44b5df5bbddb346ca926f63fc3e41029cf66317fab6f67cee82109c0bac4",
+        "native/asynchronous.rgb": "4e2110f10e5a873d6d5e1b4a8f1f0fd40b1b8f1efeaae8905288404544188305",
+        "native/async-audio-seek-12-288288.f32": "f4a9dcf9eaf869c57ba1e8499e926a64c9113b4ab57308b6840e6c7044f72090",
+        "native/asynchronous.f32": "7e312be29b5079b80b92ef7a07ddc976b065345c850c2b2e4e336442b8f348b4",
+        "native/audio-seek-11-144144-scheduled.f32": "74fc44b5df5bbddb346ca926f63fc3e41029cf66317fab6f67cee82109c0bac4",
+        "native/audio-seek-4-115315-scheduled.f32": "6de924f5c5f58484df90be856ca787def5cc5933a4ce871eca5724c4171ef899",
+        "native/seek-7-frame-60.png": "9e0de6a8f7a210b4f9d225aac8a927a5f2d9adbdbb7c0083c14cd4768a5ae3da",
+        "native/async-audio-seek-10-192192.f32": "c3afb4be1eab74db7d441814e8a758feb014de4237827c8ee108bac013fe2449",
+        "native/async-audio-seek-6-287265.f32": "b4fff4e08dc7407bfb8be4a2fa37f7cdde9b2cc706b65bcc0a884c209e2f7cfa",
+        "native/audio-seek-7-144144-mixed.f32": "74fc44b5df5bbddb346ca926f63fc3e41029cf66317fab6f67cee82109c0bac4",
+        "native/seek-7-frame-60.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "native/audio-seek-5-48048-scheduled.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/seek-9-frame-180.rgb": "e19d750c09c65857034cb57d3021349141c001da44d8e310a5281090f9b1f78a",
+        "native/seek-9-frame-180.png": "7b276fb708ed2f95168c040cf1b1c5407e2543230d3a64ea93b0399eed17ceb1",
+        "native/audio-seek-6-287265-mixed.f32": "b4fff4e08dc7407bfb8be4a2fa37f7cdde9b2cc706b65bcc0a884c209e2f7cfa",
+        "native/async-seek-4-frame-119.rgb": "9d28c5f34bb2ad83de78341e82365fcd00da046d8ab3f0e3e7ea3f87405584e7",
+        "native/seek-0-frame-0.rgb": "3b7ec669bc8762ac8f80820c7b70c4297550e63856d7a5123a39cabd09935467",
+        "native/native.rgb": "4e2110f10e5a873d6d5e1b4a8f1f0fd40b1b8f1efeaae8905288404544188305",
+        "native/async-audio-seek-9-168168.f32": "67024dc9b6a3ddbc4f5756257781fda3672a268b653f5d0d4d3fcbec9f76d39a",
+        "native/seek-0-frame-0.png": "c319e79c3a303e087d15cfa1db859d4739ed774d3a01f349f87a45e14052d10f",
+        "native/audio-seek-3-240239-scheduled.f32": "6eff1bb7af96a5656b20e29840255c25605254d539a89af50ef68fd2e3472b1d",
+        "native/audio-seek-8-120120-mixed.f32": "7fee92df5624deb79cb4f3aba5efdf5397797eb8153e5aa013435b1f2c0384f8",
+        "native/async-audio-seek-3-240239.f32": "6eff1bb7af96a5656b20e29840255c25605254d539a89af50ef68fd2e3472b1d",
+        "native/async-seek-0-frame-0.rgb": "3b7ec669bc8762ac8f80820c7b70c4297550e63856d7a5123a39cabd09935467",
+        "native/audio-seek-11-144144-mixed.f32": "74fc44b5df5bbddb346ca926f63fc3e41029cf66317fab6f67cee82109c0bac4",
+        "native/async-seek-7-frame-60.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "native/audio-seek-0-0-scheduled.f32": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "native/async-seek-9-frame-180.rgb": "e19d750c09c65857034cb57d3021349141c001da44d8e310a5281090f9b1f78a",
+        "native/audio-seek-10-192192-mixed.f32": "c3afb4be1eab74db7d441814e8a758feb014de4237827c8ee108bac013fe2449",
+        "native/audio-seek-1-48047-scheduled.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/seek-10-frame-15.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "native/audio-seek-3-240239-mixed.f32": "6eff1bb7af96a5656b20e29840255c25605254d539a89af50ef68fd2e3472b1d",
+        "native/seek-6-frame-179.png": "54296a0d40006fb7335b7abb87d8141df69571ee5fa60e1548c94e3a382a10cc",
+        "native/seek-2-frame-3.rgb": "c71ead82b7e653ed4c2b899c121bdb72315b789de61f0f74b7a04c59d541403a",
+        "native/audio-seek-4-115315-mixed.f32": "6de924f5c5f58484df90be856ca787def5cc5933a4ce871eca5724c4171ef899",
+        "native/seek-6-frame-179.rgb": "24f9e33af417893ac148c7b373b8f49de57c401d9136b95ef5a4bc877880ea42",
+        "native/audio-seek-8-120120-scheduled.f32": "7fee92df5624deb79cb4f3aba5efdf5397797eb8153e5aa013435b1f2c0384f8",
+        "native/seek-2-frame-3.png": "1723cd6b193e623cf577180a364f16eff9e917c59405e907ebc40f02bbf45acd",
+        "native/seek-10-frame-15.png": "b610656b22bea4be32553e386c035efd1a182a5d1f93ec57dae06cce7226c649",
+        "native/audio-seek-6-287265-scheduled.f32": "b4fff4e08dc7407bfb8be4a2fa37f7cdde9b2cc706b65bcc0a884c209e2f7cfa",
+        "native/audio-seek-0-0-mixed.f32": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "native/async-seek-5-frame-120.rgb": "112e859a95235edf9b80ef650e6129979cd5bd74161a331a41bc5a59113afa83",
+        "native/audio-seek-12-288288-mixed.f32": "f4a9dcf9eaf869c57ba1e8499e926a64c9113b4ab57308b6840e6c7044f72090",
+        "native/async-audio-seek-0-0.f32": "4fe7b59af6de3b665b67788cc2f99892ab827efae3a467342b3bb4e3bc8e5bfe",
+        "native/audio-seek-10-192192-scheduled.f32": "c3afb4be1eab74db7d441814e8a758feb014de4237827c8ee108bac013fe2449",
+        "native/mixed.f32": "7e312be29b5079b80b92ef7a07ddc976b065345c850c2b2e4e336442b8f348b4",
+        "native/audio-seek-12-288288-scheduled.f32": "f4a9dcf9eaf869c57ba1e8499e926a64c9113b4ab57308b6840e6c7044f72090",
+        "native/async-audio-seek-2-48048.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/manifest.json": "bc2b51fd32c31f69c5eb4ec60884a2a98ce713152776beb1a4ff5e7f8abe2450",
+        "native/async-seek-8-frame-15.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "native/async-audio-seek-1-48047.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/async-seek-2-frame-3.rgb": "c71ead82b7e653ed4c2b899c121bdb72315b789de61f0f74b7a04c59d541403a",
+        "native/audio-seek-13-48047-scheduled.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/scheduled.f32": "7e312be29b5079b80b92ef7a07ddc976b065345c850c2b2e4e336442b8f348b4",
+        "native/async-seek-3-frame-60.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "native/async-seek-1-frame-2.rgb": "227fae7d0138661ab68c4fb8ce1f7421d42c580a436c058b6effe8abc7ea46ef",
+        "native/audio-seek-2-48048-mixed.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/async-seek-6-frame-179.rgb": "24f9e33af417893ac148c7b373b8f49de57c401d9136b95ef5a4bc877880ea42",
+        "native/async-audio-seek-4-115315.f32": "6de924f5c5f58484df90be856ca787def5cc5933a4ce871eca5724c4171ef899",
+        "native/async-seek-10-frame-15.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "native/audio-seek-9-168168-scheduled.f32": "67024dc9b6a3ddbc4f5756257781fda3672a268b653f5d0d4d3fcbec9f76d39a",
+        "native/async-audio-seek-13-48047.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/seek-5-frame-120.png": "778ec1a7ff0ea9db4b13761f14b1b37ed4d9a4162f585e44352e7c05c3d021db",
+        "native/audio-seek-13-48047-mixed.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/seek-5-frame-120.rgb": "112e859a95235edf9b80ef650e6129979cd5bd74161a331a41bc5a59113afa83",
+        "native/audio-seek-9-168168-mixed.f32": "67024dc9b6a3ddbc4f5756257781fda3672a268b653f5d0d4d3fcbec9f76d39a",
+        "native/seek-8-frame-15.png": "b610656b22bea4be32553e386c035efd1a182a5d1f93ec57dae06cce7226c649",
+        "native/seek-3-frame-60.rgb": "08a95280bd7b57759d713a20f28de16348f916a0c7edf87149755aafe0a31581",
+        "native/seek-8-frame-15.rgb": "5c59217bf15ad5aaf9b72c28429e0a1badc6ca7b65307bec9654bbc077e5660d",
+        "native/seek-3-frame-60.png": "9e0de6a8f7a210b4f9d225aac8a927a5f2d9adbdbb7c0083c14cd4768a5ae3da",
+        "native/async-audio-seek-5-48048.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c",
+        "native/seek-1-frame-2.rgb": "227fae7d0138661ab68c4fb8ce1f7421d42c580a436c058b6effe8abc7ea46ef",
+        "native/audio-seek-1-48047-mixed.f32": "023ae76d7653bd28fe70786affb4a4d02fa3abb644e4d816dcfa2f5694c056b7",
+        "native/async-audio-seek-7-144144.f32": "74fc44b5df5bbddb346ca926f63fc3e41029cf66317fab6f67cee82109c0bac4",
+        "native/seek-1-frame-2.png": "19bb046309b1e2384d06c1f24a88d0ef8964975c4a4349551bae36b1e71e6436",
+        "native/audio-seek-7-144144-scheduled.f32": "74fc44b5df5bbddb346ca926f63fc3e41029cf66317fab6f67cee82109c0bac4",
+        "native/audio-seek-5-48048-mixed.f32": "956fe9b043f9be569312302949060d81aed6c698cf9e6605b87c6252cec9fd7c"
+      }
+    }
+  ],
+  "limitations": [
+    "Development dynamically linked libraries, no bundled/signed distribution",
+    "Bounded square-pixel SDR CFR video and matching-rate PCM audio only",
+    "Native CGImage/PNG captures and offline AVAudioEngine; no live display/CoreAudio A/V sync",
+    "Only recorded video scaling/PNG-alpha/JPEG fixtures qualified; no general image-format/color/VFR conformance, compressed audio/resampling, video transitions or proxies",
+    "First source access qualifies all selected-stream timestamps; launch/interactive performance unmeasured"
+  ],
+  "fixtureBarcodes": [
+    {
+      "frames": 300,
+      "maxMeanRGBError": 0.0
+    },
+    {
+      "frames": 300,
+      "maxMeanRGBError": 0.0
+    }
+  ],
+  "partialTail": {
+    "videoFrames": 181,
+    "audioSamples": 288289,
+    "exactDuration": "288289/48000",
+    "finalFrameBlack": true
+  }
+}

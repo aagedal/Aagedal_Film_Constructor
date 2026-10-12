@@ -55,6 +55,8 @@ public struct NativeAudioReadRequest: Equatable, Codable, Sendable {
 /// FFmpeg compilation. The decoder still has to qualify rates, CFR and geometry.
 public struct NativePlaybackPlan: Equatable, Sendable {
     public let settings: SequenceSettings
+    /// Exact edit duration; the final video frame may cover only part of its interval.
+    public let duration: RationalTime
     public let videoFrames: Int64
     /// Ceiling of the exact sequence duration in samples, including a possible silent tail.
     public let audioSamples: Int64
@@ -87,8 +89,7 @@ public struct NativePlaybackPlan: Equatable, Sendable {
               settings.audioLayout == .mono || settings.audioLayout == .stereo else {
             throw EditorCoreError.invalidModel("Native prototype requires even raster dimensions and mono/stereo output")
         }
-        let frames = try Self.integral(renderPlan.duration.multiplied(by: settings.frameRate.value),
-                                       "Sequence duration must align to frames")
+        let frames = try Self.ceiling(renderPlan.duration.multiplied(by: settings.frameRate.value))
         guard frames > 0 else { throw EditorCoreError.invalidModel("Cannot play an empty sequence") }
         let exactSamples = try renderPlan.duration.multiplied(by: Int64(settings.audioSampleRate))
         let samples = try Self.add(exactSamples.numerator / exactSamples.denominator,
@@ -201,7 +202,8 @@ public struct NativePlaybackPlan: Equatable, Sendable {
                                        duration: component.timelineRange.duration, fadeIn: component.fadeIn, fadeOut: component.fadeOut))
             }
         }
-        self.settings = settings; videoFrames = frames; audioSamples = samples
+        self.settings = settings; duration = renderPlan.duration
+        videoFrames = frames; audioSamples = samples
         self.video = video; self.audio = audio
     }
 
@@ -261,6 +263,10 @@ public struct NativePlaybackPlan: Equatable, Sendable {
     private static func integral(_ time: RationalTime, _ message: String) throws -> Int64 {
         guard time.denominator == 1, time.numerator >= 0 else { throw EditorCoreError.invalidModel(message) }
         return time.numerator
+    }
+    private static func ceiling(_ time: RationalTime) throws -> Int64 {
+        guard time.numerator >= 0 else { throw EditorCoreError.invalidModel("Negative playback duration") }
+        return try add(time.numerator / time.denominator, time.numerator % time.denominator == 0 ? 0 : 1)
     }
     private static func add(_ lhs: Int64, _ rhs: Int64) throws -> Int64 {
         let sum = lhs.addingReportingOverflow(rhs)

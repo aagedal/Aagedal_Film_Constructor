@@ -468,6 +468,9 @@ rates. Track stable container stream indices and per-stream timing offsets.
       qualify these policies with injected output clocks and cancellation tests.
 - [x] Bound retained native source decoders with configurable LRU context/decoded
       source byte limits; qualify eviction/reopen using PNG and PCM sources.
+- [x] Preserve exact edit duration when sample-aligned audio ends between video
+      frames; qualify final-frame coverage, final-sample seeks and offline clock
+      parity with rendered output.
 - [x] Test adjacency, multiple overlaps, free siblings, custom names, failed edit
       rollback, exact fractional rates, DF boundaries, and preserved audio sync.
 
@@ -571,12 +574,18 @@ remaining signed/native playback checks.
 - [x] Add a fixed MOV/ProRes HQ/PCM development workflow using sequence output
       settings and timecode, progress, cancellation and verified publication.
       Additional output presets and full source/container qualification remain open.
+- [x] Qualify zero-origin CFR source timestamps through bounded full decoded-frame
+      scans, including misleading average/nominal rate metadata, while preserving
+      mixed CFR rates, differing rasters and audio resampling.
 - [ ] Add stream-copy eligibility using codec/packet metadata; qualify exact
       single-source trims, compatible cuts-only concatenation, and video-copy /
       audio-render export, with clear reasons and no silent boundary shifts.
 - [x] Add a pure, conservative single-range assessment with separate picture/audio
       reasons and an explicit source/range/container packet-evidence contract.
       Producing that evidence and performing qualified copy exports remain open.
+- [x] Add a separate development ProRes HQ/PCM MOV range verifier with exact packet
+      cuts, payload/timestamp comparisons, isolated boundary decoding and decoded
+      frame/sample/timecode qualification. App export integration remains open.
 - [ ] Verify copied packet payloads, decoded boundary frames, timestamps, duration,
       timecode, and A/V sync across supported containers/codecs.
 - [ ] Verify outputs using FFprobe, decoded frame checks, channel identification
@@ -602,6 +611,9 @@ does not require implementing every proposed interchange adapter.
 - [ ] Check preview/export parity, deterministic frame counts, start timecode,
       dropped/duplicated conform frames, geometry, channel maps, and audio sync.
 - [ ] Measure launch-to-interaction against the two-second target in Release builds.
+- [x] Add opt-in actual Release workspace/input instrumentation and isolated launch
+      measurement. Local fresh-preference/warm-cache evidence passes; cold launch,
+      populated projects and signed distribution acceptance remain open.
 - [ ] Profile large projects; bound caches and keep import/generation off the UI thread.
 - [x] Add reproducible synthetic 5,000/10,000-clip profiling, remove quadratic
       overlap and repeated asset/crossfade scans, and cache workspace derived
@@ -1298,3 +1310,72 @@ launch-performance claim has been validated yet.
   computer-use pipe closed before responding, Apple events were unauthorized,
   and the read-only window query could not produce a window capture. The isolated
   app process did start; no user documents were closed or changed.
+
+### Partial-frame playback and render-source qualification checkpoint (2026-10-12)
+
+- Native playback now retains exact edit duration independently from the ceiled
+  output frame count. Sample-aligned audio tails can end between video frames;
+  uncovered picture stays black and transport stops at the exact edit end.
+  Frame-aligned video edits and sample-aligned audio edits remain required.
+- Real native/FFmpeg parity passes baseline and primed-plan replacement with
+  181 video frames and 288,289 stereo samples. Final-frame/last-sample seeks,
+  backward seeks, rebuilding and 282 offline clock observations pass. Maximum
+  mean RGB error is 2.0; PCM error is 0.5 s16 unit. Core regressions cover 24,
+  24000/1001, 30000/1001 and one-sample audio-only playback. See
+  [retained evidence](docs/evidence/native-partial-tail-20261012/README.md).
+- Render preflight fully scans selected decoded video timestamps using exact
+  rational arithmetic and half-tick container quantization. It rejects a real
+  irregular-timestamp source whose average and nominal rates both report 24,
+  decoded raster changes, exposed rotation/SAR/HDR metadata, invalid audio sample
+  rates and inadequate decoded source coverage. Different CFR rates/rasters and
+  44.1-to-48 kHz audio resampling still pass.
+- Preflight stops and reaps helpers after 30 seconds or 2 MB output; the full scan
+  also caps 100,000 frames. Long/slow sources are refused rather than partially
+  qualified. Export and shared-process proxy smokes pass, including timeout and
+  output overflow. Dynamic color management and general audio timestamp continuity,
+  live display/device timing and shipping-app sequence playback remain open.
+
+### Exact single-range stream-copy development checkpoint (2026-10-12)
+
+- Added a separate bounded ProRes HQ/PCM MOV remux verifier. It requires exact
+  shared picture/PCM packet cuts and directly rejects MOV edit-list media offsets,
+  preroll, rate changes and multi-edit timing hidden by zero-based probe results.
+- Real nonzero ranges pass at 24, 25, 24000/1001, 30000/1001 and 60000/1001:
+  every packet payload hash, exact rebased PTS/DTS/duration, decoded picture frame,
+  integer PCM sample and advanced MOV timecode packet matches. First/last ProRes
+  packets also decode independently in fresh processes. Originals are unchanged.
+- Ten regressions pass with explicit real helpers, including unsupported
+  closed/open-GOP H.264, AAC, unaligned cuts, hidden MOV offsets, bounded capture
+  and overwrite refusal. See [scope and reproduction](docs/stream-copy.md).
+- The proof supplies no importer-connected evidence and enables no app export
+  mode. Cuts-only concatenation, mixed copied/rendered streams, interframe/
+  compressed-audio copy, DF timecode and signed/native receiver qualification
+  remain open. This is a qualified development subset, not complete stream-copy.
+
+### Release workspace startup and responsiveness checkpoint (2026-10-12)
+
+- Actual isolated Release launches exposed a missing-window startup path:
+  AppKit could finish launching without calling the untitled-file callback.
+  A guarded did-finish fallback now requests the existing deferred/coalesced
+  workspace creation only for AppKit's explicit default-launch flag. File,
+  print, service and restoration launches are excluded; existing and queued
+  documents retain precedence. The expanded startup policy smoke passes.
+- Opt-in instrumentation waits for a loaded, visible, key document window and
+  routes mouse events to a native control, recording the action actually handled
+  on a later main-loop turn. Normal sessions create no probe control or timer.
+- The first successful five-run Release experiment handles interaction in
+  1.157–1.284 seconds (median 1.215), including Launch Services/process startup
+  and harness observation overhead. Each run has fresh preferences; later runs
+  use warm OS caches. A repeat creates/loads all five workspaces but records
+  interaction in only four: one never reaches the visible/key-window gate before
+  timeout. The passing repeat samples are 1.108–1.383 seconds. Activation/readiness
+  consistency remains unqualified; the failed sample is retained. See
+  [method and retained evidence](docs/release-launch-performance.md).
+- Verification passes 32 Python regressions (three optional real-media cases
+  skipped), 86 XCTest cases (two optional dependency checks skipped), 74 Swift
+  Testing cases, shortcut/startup/save-protection smokes and unsigned Debug and
+  Release builds. The real stream-copy matrix and 43 native runtime cases pass
+  separately. Xcode/cache and macOS audio/window checks required host access.
+- Reboot-cold startup, populated-project controls, signed sandbox/notarization,
+  media/helper initialization and physical/compositor latency remain open. The
+  full two-second Release acceptance target is not marked complete.

@@ -99,6 +99,70 @@ struct NativePlaybackPlanTests {
         #expect(throws: (any Error).self) { try plan.audioBlock(startSample: 1602, sampleCount: 1) }
     }
 
+    @Test func sampleAlignedAudioTailCoversPartialVideoFrameWithoutExtendingTransport() throws {
+        for rate in [try FrameRate(24), try FrameRate(24000, 1001), try FrameRate(30000, 1001)] {
+            var project = try fixture()
+            project.settings.frameRate = rate
+            project.tracks = [project.tracks[1], project.tracks[2]]
+            project.tracks[0].clips[0].sourceRange = try TimeRange(start: .zero, duration: rate.time(forFrames: 1))
+            // End one sample after the first complete output-frame interval.
+            let firstFrameSamples = try rate.time(forFrames: 1).multiplied(by: 48000)
+            let endSample = firstFrameSamples.numerator / firstFrameSamples.denominator + 1
+            project.tracks[1].clips[0].timelineStart = .zero
+            project.tracks[1].clips[0].sourceRange = try TimeRange(start: .zero, duration: RationalTime(endSample, 48000))
+            let renderPlan = try TimelineRenderPlan(project: project)
+            let native = try NativePlaybackPlan(renderPlan)
+            let command = try FFmpegRenderCompiler.compile(renderPlan, outputURL: URL(fileURLWithPath: "/private/tmp/partial-frame.mov"))
+            #expect(native.duration == renderPlan.duration)
+            #expect(native.videoFrames == 2)
+            #expect(native.videoFrames == command.videoFrames)
+            #expect(native.audioSamples == endSample)
+            #expect(native.audioSamples == command.audioSamples)
+            #expect(try native.videoFrame(at: 0)?.sourceFrame == 0)
+            #expect(try native.videoFrame(at: 1) == nil) // The picture ended; the audio tail stays black.
+            #expect(try native.audioBlock(startSample: endSample - 1, sampleCount: 1).count == 2)
+            #expect(throws: (any Error).self) { try native.audioBlock(startSample: endSample, sampleCount: 1) }
+            var transport = try NativePlaybackTransport(plan: native)
+            #expect(transport.duration == renderPlan.duration)
+            let token = try transport.play()
+            try transport.update(clockSample: endSample - 1, generation: token)
+            #expect(transport.isPlaying)
+            let penultimateFrame = try RationalTime(endSample - 1, 48000).multiplied(by: rate.value)
+            #expect(transport.frameIndex == penultimateFrame.numerator / penultimateFrame.denominator)
+            try transport.update(clockSample: endSample, generation: token)
+            #expect(!transport.isPlaying)
+            #expect(transport.position == native.duration)
+            #expect(transport.frameIndex == nil)
+            #expect(transport.sampleIndex == endSample)
+            try transport.seek(toFrame: 1)
+            #expect(transport.frameIndex == 1)
+            try transport.seek(toFrame: 2)
+            #expect(transport.position == native.duration)
+            #expect(transport.frameIndex == nil)
+        }
+    }
+
+    @Test func oneSampleAudioOnlySequenceHasOneBlackFrameAndExactEnd() throws {
+        var project = try fixture()
+        project.tracks = [project.tracks[2]]
+        project.tracks[0].clips[0].timelineStart = .zero
+        project.tracks[0].clips[0].sourceRange = try TimeRange(start: RationalTime(5, 48000), duration: RationalTime(1, 48000))
+        let plan = try compile(project)
+        #expect(plan.videoFrames == 1)
+        #expect(plan.audioSamples == 1)
+        #expect(try plan.videoFrame(at: 0) == nil)
+        #expect(try plan.audioBlock(startSample: 0, sampleCount: 1).allSatisfy { $0.sourceStartSample == 5 && $0.sampleCount == 1 })
+        var transport = try NativePlaybackTransport(plan: plan)
+        let token = try transport.play()
+        try transport.update(clockSample: .max, generation: token)
+        #expect(transport.position == plan.duration)
+        #expect(transport.frameIndex == nil)
+        #expect(transport.sampleIndex == 1)
+        #expect(!transport.isPlaying)
+        try transport.play()
+        #expect(transport.position == .zero)
+    }
+
     @Test func fixtureAudioPreservesAbsoluteSamplesSeparateStreamsAndGain() throws {
         let project = try fixture()
         let plan = try compile(project)

@@ -21,7 +21,7 @@ public struct FFmpegRenderCommand: Equatable, Codable, Sendable {
 public enum FFmpegRenderCompiler {
     /// Source qualification must be performed by the caller: the canonical plan
     /// does not carry pixel aspect, rotation, color or variable-frame-rate metadata.
-    public static let qualificationLimitations = "Development export requires square-pixel SDR sources without rotation; source geometry, color management and VFR mappings are not qualified. Nonzero stream offsets are unsupported. PNG/JPEG stills use only the first decoded frame."
+    public static let qualificationLimitations = "Development export requires square-pixel SDR sources without rotation; color management and VFR mappings are not qualified. Video source checks scan the full stream and refuse sources exceeding 30 seconds of checking, 2 MB of probe output, or 100,000 frames. Nonzero stream offsets are unsupported. PNG/JPEG stills use only the first decoded frame."
 
     /// Explicit prototype subset: frame-aligned video/stills, sample-aligned audio,
     /// zero stream offsets, mono/stereo output, originals.

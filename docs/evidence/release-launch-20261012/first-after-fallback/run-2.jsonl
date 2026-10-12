@@ -1,0 +1,6 @@
+{"event":"application_did_finish_launching","pid":18216,"uptimeSeconds":430835.49451145838,"windowNumber":-1}
+{"event":"default_launch","pid":18216,"uptimeSeconds":430835.49481545837,"windowNumber":-1}
+{"event":"workspace_loaded","pid":18216,"uptimeSeconds":430835.73464208335,"windowNumber":-1}
+{"event":"probe_attached","pid":18216,"uptimeSeconds":430835.74922533333,"windowNumber":37228}
+{"event":"workspace_visible","pid":18216,"uptimeSeconds":430835.94838825002,"windowNumber":37228}
+{"event":"scripted_interaction_processed","pid":18216,"uptimeSeconds":430835.95509054168,"windowNumber":37228}
