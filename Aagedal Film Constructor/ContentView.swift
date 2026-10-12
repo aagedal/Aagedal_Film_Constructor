@@ -4,6 +4,7 @@ import EditorCore
 
 struct ContentView: View {
     @ObservedObject var store: EditorStore
+    var saveProtection: ProjectSaveProtection? = nil
     @AppStorage("workspace.showMediaBin") private var showMediaBin = true
     @AppStorage("workspace.showInspector") private var showInspector = true
     @AppStorage("workspace.showTimeline") private var showTimeline = true
@@ -75,13 +76,18 @@ struct ContentView: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            HStack {
-                if store.isImporting { ProgressView().controlSize(.small) }
-                Text(store.statusMessage).lineLimit(1)
-                Spacer()
-                Text("Source preview · timeline playback coming next").foregroundStyle(.secondary)
+            VStack(spacing: 0) {
+                if let saveProtection {
+                    ProjectSaveProtectionNotice(protection: saveProtection)
+                }
+                HStack {
+                    if store.isImporting { ProgressView().controlSize(.small) }
+                    Text(store.statusMessage).lineLimit(1)
+                    Spacer()
+                    Text("Source preview · timeline playback coming next").foregroundStyle(.secondary)
+                }
+                .font(.caption).padding(.horizontal, 12).padding(.vertical, 6)
             }
-            .font(.caption).padding(.horizontal, 12).padding(.vertical, 6)
             .background(.bar)
         }
         .sheet(item: $store.proxyCreationDraft) { draft in
@@ -219,6 +225,41 @@ struct ContentView: View {
     private func assetKind(_ asset: MediaAsset) -> String {
         if asset.streams.contains(where: { $0.kind == .video }) { return "Video" }
         return asset.streams.isEmpty ? "Still image" : "Audio"
+    }
+}
+
+private struct ProjectSaveProtectionNotice: View {
+    @ObservedObject var protection: ProjectSaveProtection
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let reminder = protection.reminderMessage {
+                HStack(spacing: 10) {
+                    Label(reminder, systemImage: "externaldrive.badge.exclamationmark")
+                    Spacer()
+                    Button("Save project…") {
+                        NSApp.sendAction(#selector(NSDocument.save(_:)), to: nil, from: nil)
+                    }
+                    Button("Remind me later", action: protection.dismissReminder)
+                }
+            }
+            if let status = protection.backupStatusMessage {
+                Label(status, systemImage: "clock.arrow.circlepath")
+                    .foregroundStyle(.secondary)
+            }
+            if let date = protection.lastBackupDate, let folder = protection.backupsURL {
+                HStack {
+                    Label("Backup saved \(date.formatted(date: .omitted, time: .shortened))", systemImage: "clock.arrow.circlepath")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Show backups") { NSWorkspace.shared.open(folder) }
+                        .help("Open timestamped project snapshots in Finder")
+                }
+            }
+        }
+        .font(.caption)
+        .padding(.horizontal, 12)
+        .padding(.vertical, protection.reminderMessage == nil && protection.backupStatusMessage == nil && protection.lastBackupDate == nil ? 0 : 8)
     }
 }
 

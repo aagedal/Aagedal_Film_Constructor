@@ -3,10 +3,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 extension UTType {
-    static let filmConstructorProject = UTType(exportedAs: "com.aagedal.filmconstructor.project", conformingTo: .json)
+    nonisolated static let filmConstructorProject = UTType(exportedAs: "com.aagedal.filmconstructor.project", conformingTo: .json)
 }
 
-struct ProjectDocument: FileDocument {
+nonisolated struct ProjectDocument: FileDocument, Sendable {
     static var readableContentTypes: [UTType] { [.filmConstructorProject] }
     var project: Project
     var mediaBookmarks: [UUID: Data]
@@ -18,6 +18,13 @@ struct ProjectDocument: FileDocument {
         self.mediaBookmarks = mediaBookmarks
         self.proxyBookmarks = proxyBookmarks
         self.proxyJobs = proxyJobs
+    }
+
+    /// Restoration can supply untitled work before any edit callback fires. An
+    /// empty document has deterministic settings and contains no generated IDs.
+    var differsFromNewDocument: Bool {
+        project != Project(settings: try! SequenceSettings())
+            || !mediaBookmarks.isEmpty || !proxyBookmarks.isEmpty || !proxyJobs.isEmpty
     }
 
     init(configuration: ReadConfiguration) throws {
@@ -112,7 +119,7 @@ struct ProjectDocument: FileDocument {
     }
 }
 
-enum ProjectFileError: LocalizedError {
+nonisolated enum ProjectFileError: LocalizedError {
     case unsupportedVersion(Int)
     var errorDescription: String? {
         switch self {

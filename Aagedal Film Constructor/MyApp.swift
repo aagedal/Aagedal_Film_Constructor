@@ -1,10 +1,11 @@
 import SwiftUI
 
 @main struct MyApp: App {
+    @NSApplicationDelegateAdaptor(WorkspaceApplicationDelegate.self) private var applicationDelegate
     @StateObject private var commandRegistry = EditorCommandRegistry()
     var body: some Scene {
         DocumentGroup(newDocument: ProjectDocument()) { configuration in
-            DocumentWorkspace(document: configuration.$document)
+            DocumentWorkspace(document: configuration.$document, fileURL: configuration.fileURL)
         }
         .defaultSize(width: 1280, height: 800)
         .commands { EditorCommands(registry: commandRegistry) }
@@ -15,42 +16,80 @@ import SwiftUI
 
 private struct DocumentWorkspace: View {
     @Binding var document: ProjectDocument
+    var fileURL: URL?
     @StateObject private var store = EditorStore()
+    @StateObject private var saveProtection = ProjectSaveProtection()
     @State private var loaded = false
+    @State private var storeActive = false
 
     var body: some View {
-        ContentView(store: store)
+        ContentView(store: store, saveProtection: saveProtection)
             .focusedSceneValue(\.editorStore, store)
             .onAppear {
-                guard !loaded else { return }
-                store.load(document)
-                loaded = true
+                saveProtection.start()
+                guard !storeActive else { return }
+                storeActive = true
+                if !loaded {
+                    store.load(document)
+                    loaded = true
+                    observeDocumentBaseline()
+                } else {
+                    store.resumeMediaAccess()
+                }
             }
             .onChange(of: store.project) { _, project in
-                if loaded { document = ProjectDocument(project: project, mediaBookmarks: store.mediaBookmarks, proxyBookmarks: store.proxyBookmarks, proxyJobs: store.proxyJobs) }
+                syncDocumentFromStore()
             }
             .onChange(of: store.mediaBookmarks) { _, bookmarks in
-                if loaded { document = ProjectDocument(project: store.project, mediaBookmarks: bookmarks, proxyBookmarks: store.proxyBookmarks, proxyJobs: store.proxyJobs) }
+                syncDocumentFromStore()
             }
             .onChange(of: store.proxyBookmarks) { _, bookmarks in
-                if loaded { document = ProjectDocument(project: store.project, mediaBookmarks: store.mediaBookmarks, proxyBookmarks: bookmarks, proxyJobs: store.proxyJobs) }
+                syncDocumentFromStore()
             }
             .onChange(of: store.proxyJobs) { _, jobs in
-                if loaded { document = ProjectDocument(project: store.project, mediaBookmarks: store.mediaBookmarks, proxyBookmarks: store.proxyBookmarks, proxyJobs: jobs) }
+                syncDocumentFromStore()
             }
             .onChange(of: document.proxyJobs) { _, jobs in
-                if loaded && jobs != store.proxyJobs { store.load(document) }
+                if loaded && jobs != store.proxyJobs { reloadDocument() }
             }
             .onChange(of: document.project) { _, project in
-                if loaded && project != store.project { store.load(document) }
+                if loaded && project != store.project { reloadDocument() }
             }
             .onChange(of: document.mediaBookmarks) { _, bookmarks in
-                if loaded && bookmarks != store.mediaBookmarks { store.load(document) }
+                if loaded && bookmarks != store.mediaBookmarks { reloadDocument() }
             }
             .onChange(of: document.proxyBookmarks) { _, bookmarks in
-                if loaded && bookmarks != store.proxyBookmarks { store.load(document) }
+                if loaded && bookmarks != store.proxyBookmarks { reloadDocument() }
             }
-            .onDisappear { store.close() }
+            .onChange(of: fileURL) { _, _ in
+                if loaded { observeDocumentBaseline() }
+            }
+            .onDisappear {
+                saveProtection.stop()
+                storeActive = false
+                store.close()
+            }
+    }
+
+    private func syncDocumentFromStore() {
+        guard loaded,
+              document.project != store.project || document.mediaBookmarks != store.mediaBookmarks
+                || document.proxyBookmarks != store.proxyBookmarks || document.proxyJobs != store.proxyJobs else { return }
+        document = ProjectDocument(project: store.project, mediaBookmarks: store.mediaBookmarks,
+                                   proxyBookmarks: store.proxyBookmarks, proxyJobs: store.proxyJobs)
+        saveProtection.observe(document: document, fileURL: fileURL, hasChanges: true)
+    }
+
+    private func reloadDocument() {
+        // A saved document establishes a clean baseline; restored untitled work
+        // still needs saving even before another user edit arrives.
+        store.load(document)
+        observeDocumentBaseline()
+    }
+
+    private func observeDocumentBaseline() {
+        saveProtection.observe(document: document, fileURL: fileURL,
+                               hasChanges: fileURL == nil && document.differsFromNewDocument)
     }
 }
 

@@ -2,7 +2,9 @@
 
 Open `Aagedal Film Constructor.xcodeproj` in Xcode 27 or compatible, choose the
 **Aagedal Film Constructor** scheme and **My Mac**, then Run. The app requires
-macOS 14+. On the initial file dialog choose **New Document** (or use File → New).
+macOS 14+. Launch opens an empty untitled workspace. Drop files from Finder
+straight onto it; no project creation dialog is required. File → New creates
+another workspace, while File → Open opens an existing project.
 
 1. Import a short MOV/MP4, WAV/M4A, or PNG/JPEG using **Import**, ⌘I, or dropping files from Finder onto the workspace.
    Import inspects media asynchronously. Select each file in the bin to preview
@@ -41,6 +43,16 @@ macOS 14+. On the initial file dialog choose **New Document** (or use File → N
 7. Save with ⌘S as an `.afcproject`, close, and reopen using ⌘O. Check that files,
    clip timings, links, tracks, and sequence settings survive. Native documents
    autosave after saving and expose the usual Save/Duplicate/Revert commands.
+   An edited untitled workspace suggests saving after about five minutes, with
+   **Save project…** and **Remind me later** controls. Unchanged empty workspaces
+   do not prompt. Saved projects also retain automatic timestamped snapshots:
+   after 15 seconds without edits, at least 60 seconds between backups, and
+   within 120 seconds during continuous editing. The latest 20 snapshots per
+   project path are retained under the app's Application Support directory.
+   **Show backups** opens that folder; open a snapshot as a normal `.afcproject`
+   and use Save As/Duplicate to recover without replacing your current project.
+   Backups preserve project data/bookmarks, not copies of source media. Backup
+   failures appear in the workspace and retry on the next allowed interval.
 8. To exercise relinking, move a test original in Finder, reopen its project,
    select it in the bin, and click **Relink media…**. Select matching media with
    the same stream identities/channel layouts and sufficient source duration.

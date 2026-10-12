@@ -6,7 +6,18 @@ import UniformTypeIdentifiers
 
 @MainActor
 final class EditorStore: ObservableObject {
-    @Published var project: Project = Project(settings: try! SequenceSettings())
+    @Published var project: Project = Project(settings: try! SequenceSettings()) {
+        didSet {
+            cachedDuration = nil
+            cachedAssets = nil
+            cachedClips = nil
+        }
+    }
+    // Project changes invalidate derived values; transport/selection updates can
+    // then read them without rebuilding and validating the entire render plan.
+    private var cachedDuration: Double?
+    private var cachedAssets: [UUID: MediaAsset]?
+    private var cachedClips: [UUID: TimelineClip]?
     @Published var mediaBookmarks: [UUID: Data] = [:]
     @Published var proxyBookmarks: [UUID: Data] = [:]
     @Published var proxyJobs: [ProxyGenerationJob] = []
@@ -45,9 +56,26 @@ final class EditorStore: ObservableObject {
 
     var canUndo: Bool { !undoHistory.isEmpty }
     var canRedo: Bool { !redoHistory.isEmpty }
-    var duration: Double { (try? TimelineRenderPlan(project: project).duration.seconds) ?? 0 }
-    var selectedAsset: MediaAsset? { project.assets.first { $0.id == selectedAssetID } }
-    var selectedClip: TimelineClip? { project.tracks.flatMap(\.clips).first { $0.id == selectedClipID } }
+    var duration: Double {
+        if let cachedDuration { return cachedDuration }
+        let value = (try? TimelineRenderPlan(project: project).duration.seconds) ?? 0
+        cachedDuration = value
+        return value
+    }
+    func asset(id: UUID) -> MediaAsset? {
+        if cachedAssets == nil {
+            cachedAssets = Dictionary(project.assets.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        }
+        return cachedAssets?[id]
+    }
+    var selectedAsset: MediaAsset? { selectedAssetID.flatMap { asset(id: $0) } }
+    var selectedClip: TimelineClip? {
+        guard let selectedClipID else { return nil }
+        if cachedClips == nil {
+            cachedClips = Dictionary(project.tracks.flatMap(\.clips).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        }
+        return cachedClips?[selectedClipID]
+    }
     var canControlSourceTransport: Bool { sourcePlayer != nil || pendingSourceTransport != nil }
 
     func load(_ document: ProjectDocument) {
@@ -66,6 +94,13 @@ final class EditorStore: ObservableObject {
             var restored = job; restored.prepareAfterReopen(); return restored
         }
         proxyQueueProgress = [:]
+        resumeMediaAccess()
+    }
+
+    /// A temporarily hidden workspace releases media resources in close(). Restore
+    /// them without replacing the editing session or clearing its history/selection.
+    func resumeMediaAccess() {
+        mediaPreviewRevision = UUID()
         resolveProxyBookmarks()
         for index in project.assets.indices {
             let id = project.assets[index].id
@@ -79,6 +114,7 @@ final class EditorStore: ObservableObject {
                 } catch { statusMessage = "Some media needs relinking. Select it in the bin and choose Relink." }
             }
         }
+        refreshSourcePreview()
     }
 
     func holdAccess(_ url: URL) {

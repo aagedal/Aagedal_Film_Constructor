@@ -63,6 +63,18 @@ private func session(_ probe: Probe, cache: Int = 24, pending: Int = 2) throws -
 }
 
 struct PlaybackSessionTests {
+    @Test func invalidSourceRetentionLimitsFailAtSessionConstruction() throws {
+        let project = try fixture()
+        #expect(throws: ProofFailure.self) {
+            try NativePlaybackSession(project: project,
+                decoderLimits: NativeDecoderLimits(maximumActiveDecoders: 0))
+        }
+        #expect(throws: ProofFailure.self) {
+            try NativePlaybackSession(project: project,
+                decoderLimits: NativeDecoderLimits(retainedSourceByteLimit: -1))
+        }
+    }
+
     @Test func mixedCacheEvictsLeastRecentlyUsedWithinByteBudget() async throws {
         let probe = Probe()
         let monitor = try session(probe)

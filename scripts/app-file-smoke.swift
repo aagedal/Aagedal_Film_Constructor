@@ -23,6 +23,8 @@ struct AppFileSmoke {
         try await exerciseSourcePlayback(audio: audio)
         let still = try await MediaImporter.inspect(url: imageURL)
         try check(still.asset.streams.isEmpty && still.asset.duration.seconds == 5, "Still image import")
+        try exerciseDerivedProjectValues(asset: still.asset)
+        try await exerciseWorkspaceResume(still: still)
         try await exerciseStillPreview(directory: directory, still: still, audio: audio)
         try exerciseProxyDocument(directory: directory)
         let corruptURL = directory.appendingPathComponent("corrupt.png")
@@ -186,7 +188,7 @@ struct AppFileSmoke {
         try exerciseAudioFades()
         try exerciseAudioCrossfades()
         try exerciseShortcuts()
-        print("App file smoke passed: EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
     }
 
     @MainActor
@@ -693,6 +695,39 @@ struct AppFileSmoke {
     }
 
     @MainActor
+    static func exerciseWorkspaceResume(still: ImportedMedia) async throws {
+        let store = EditorStore()
+        defer { store.close() }
+        try store.registerImportedMedia(still)
+        // Resolve grants once before recording the baseline, as document load does.
+        store.resumeMediaAccess()
+        await store.sourcePreviewTask?.value
+        store.appendSelectedAsset()
+        store.selectedClipID = store.project.tracks.flatMap(\.clips).first!.id
+        store.playheadSeconds = 2
+        let expected = store.project
+        let selection = (store.selectedAssetID, store.selectedAssetIDs, store.selectedClipID)
+        let history = (store.canUndo, store.canRedo)
+        try check(store.previewImage != nil, "Workspace fixture has a source image before hiding")
+        store.close()
+        try check(store.previewImage == nil && store.sourcePlayer == nil, "Hidden workspace releases its source resources")
+        store.resumeMediaAccess()
+        await store.sourcePreviewTask?.value
+        try check(store.project == expected && store.playheadSeconds == 2,
+                  "Resuming preserves project and playhead")
+        try check(store.selectedAssetID == selection.0 && store.selectedAssetIDs == selection.1 && store.selectedClipID == selection.2,
+                  "Resuming preserves source and clip selection")
+        try check(store.canUndo == history.0 && store.canRedo == history.1 && store.previewImage != nil,
+                  "Resuming restores source preview without replacing editing history")
+        store.undo()
+        try check(store.project.tracks.flatMap(\.clips).isEmpty && store.canRedo,
+                  "An edit made before hiding remains undoable after resume")
+        store.redo()
+        try check(store.project.tracks.flatMap(\.clips).count == 1,
+                  "Resume preserves redo semantics for the original edit")
+    }
+
+    @MainActor
     static func exerciseStillPreview(directory: URL, still: ImportedMedia, audio: ImportedMedia) async throws {
         let largeURL = directory.appendingPathComponent("oriented-large.jpg")
         let context = CGContext(data: nil, width: 4096, height: 2048, bitsPerComponent: 8, bytesPerRow: 4096 * 4,
@@ -737,6 +772,33 @@ struct AppFileSmoke {
         store.selectAssets([])
         await deselected?.value
         try check(store.previewImage == nil && store.selectedAsset == nil, "Deselection rejects pending still preview")
+    }
+
+    @MainActor
+    static func exerciseDerivedProjectValues(asset: MediaAsset) throws {
+        let store = EditorStore()
+        defer { store.close() }
+        store.project.assets = [asset]
+        store.selectedAssetID = asset.id
+        try check(store.duration == 0 && store.selectedAsset == asset, "Empty sequence derived values")
+        var ids: [UUID] = []
+        try store.change { ids = try $0.appendAsset(asset.id) }
+        store.selectedClipID = ids[0]
+        let originalClip = store.selectedClip!
+        try check(store.duration == 5 && store.selectedClip?.assetID == asset.id, "Append invalidates derived values")
+        store.project.assets[0].name = "Renamed source"
+        store.project.tracks[0].clips[0].scalingMode = .fill
+        try check(store.selectedAsset?.name == "Renamed source" && store.asset(id: asset.id)?.name == "Renamed source"
+                  && store.selectedClip?.scalingMode == .fill, "Nested project mutations invalidate lookup caches")
+        try store.change { $0.tracks[0].clips[0].timelineStart = try RationalTime(3) }
+        try check(store.duration == 8, "Moved clip invalidates cached duration")
+        store.undo()
+        try check(store.duration == 5 && store.selectedClip?.timelineStart == originalClip.timelineStart, "Undo invalidates derived values")
+        store.redo()
+        try check(store.duration == 8, "Redo invalidates derived values")
+        store.load(ProjectDocument())
+        try check(store.duration == 0 && store.asset(id: asset.id) == nil && store.selectedClip == nil,
+                  "Document replacement discards old derived values")
     }
 
     static func check(_ condition: Bool, _ message: String) throws {
