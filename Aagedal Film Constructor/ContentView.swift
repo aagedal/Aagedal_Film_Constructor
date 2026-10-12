@@ -71,6 +71,7 @@ struct ContentView: View {
                     Button("Render sequence…", action: store.beginRenderExport)
                     Button("Export FCPXML…", action: store.exportFCPXML)
                     Button("Export track EDL…", action: store.beginEDLExport)
+                    Button("Export OpenTimelineIO…", action: store.exportOTIO)
                 } label: { Label("Export", systemImage: "square.and.arrow.up") }
                 .disabled(store.duration <= 0)
             }

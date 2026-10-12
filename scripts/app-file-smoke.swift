@@ -91,11 +91,22 @@ struct AppFileSmoke {
                   "Track EDL captures the project and starts on the selected clip's track")
         store.beginRenderExport()
         try check(store.renderExportDraft == nil, "An EDL sheet prevents a second export sheet")
+        store.exportOTIO()
+        try check(store.errorMessage == nil && store.project == edlSnapshot.project,
+                  "An EDL sheet prevents OpenTimelineIO export without changing the document")
         store.undo()
         try check(store.edlExportDraft?.project == edlSnapshot.project,
                   "Subsequent edits preserve the EDL snapshot")
         store.redo()
         store.edlExportDraft = nil
+        let beforeOTIO = store.project
+        let otioHistory = (store.canUndo, store.canRedo)
+        store.exportOTIO()
+        try check(store.errorMessage?.contains("OpenTimelineIO") == true,
+                  "Unsupported stills fail OpenTimelineIO validation before opening a save panel")
+        try check(store.project == beforeOTIO && store.canUndo == otioHistory.0 && store.canRedo == otioHistory.1,
+                  "Refused OpenTimelineIO export preserves the project and undo history")
+        store.errorMessage = nil
         try exerciseInterchangeDestinationProtection(directory: directory, asset: audio.asset)
         let emptyExport = EditorStore()
         emptyExport.beginRenderExport()
@@ -415,6 +426,11 @@ struct AppFileSmoke {
         store.seek(to: 2)
         reloaded.perform(.splitClip, store: store, scope: .timeline)
         try check(store.project.tracks.flatMap(\.clips).count == 2, "Timeline command dispatch")
+        try check(reloaded.isEnabled(.exportOTIO, store: store, scope: .source),
+                  "OpenTimelineIO is available from any panel as a document command")
+        store.beginEDLExport()
+        try check(!reloaded.isEnabled(.exportOTIO, store: store, scope: .timeline),
+                  "An active export sheet disables OpenTimelineIO commands")
     }
 
     @MainActor

@@ -147,6 +147,13 @@ unsupported edits are refused. Other tracks are excluded rather than flattened.
 See [EDL workflow and limits](docs/edl-export.md). Native receiver conform is
 unqualified.
 
+OpenTimelineIO export is available from the Export menu and can be assigned a
+keyboard shortcut. It preserves layered cuts, gaps and original media references
+within a conservative mono/stereo subset, refusing fades, channel remapping and
+other unsupported edits before showing a save panel. See
+[OTIO timing and qualification](docs/otio-export.md). Receiving-editor import and
+spatial conform remain unqualified.
+
 `Packages/NativePlaybackProof` now includes a standalone live monitor development
 window with bounded audio scheduling, node sample-clock transport, play/pause,
 seeks and stale-result rejection. Video now supports bounded fit/fill/none scaling,

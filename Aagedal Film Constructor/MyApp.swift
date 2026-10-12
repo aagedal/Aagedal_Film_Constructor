@@ -131,6 +131,7 @@ private struct EditorCommands: Commands {
             command(.exportSequence)
             command(.exportFCPXML)
             command(.exportEDL)
+            command(.exportOTIO)
         }
         CommandGroup(after: .sidebar) {
             Toggle("Show Media Bin", isOn: $showMediaBin)

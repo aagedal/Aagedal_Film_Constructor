@@ -62,6 +62,7 @@ final class EditorCommandRegistry: ObservableObject {
         case .exportSequence: store.beginRenderExport()
         case .exportFCPXML: store.exportFCPXML()
         case .exportEDL: store.beginEDLExport()
+        case .exportOTIO: store.exportOTIO()
         }
     }
     func isEnabled(_ command: EditorCommandID, store: EditorStore?, scope: EditorCommandScope) -> Bool {
@@ -77,7 +78,7 @@ final class EditorCommandRegistry: ObservableObject {
         case .previousFrame, .nextFrame: return true
         case .playReverse: return store.sourcePlayer != nil
         case .pausePlayback, .playForward: return store.canControlSourceTransport
-        case .exportSequence, .exportFCPXML, .exportEDL: return store.duration > 0 && store.renderExportDraft == nil && store.edlExportDraft == nil && store.audioAppendAsset == nil
+        case .exportSequence, .exportFCPXML, .exportEDL, .exportOTIO: return store.duration > 0 && store.renderExportDraft == nil && store.edlExportDraft == nil && store.audioAppendAsset == nil
         }
     }
     private static var isEditingText: Bool { NSApp?.keyWindow?.firstResponder is NSTextView }

@@ -3,7 +3,7 @@ import Foundation
 enum EditorCommandScope: String, Codable { case document, source, timeline }
 
 enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
-    case undo, redo, importMedia, appendSource, splitClip, previousFrame, nextFrame, deleteClip, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL
+    case undo, redo, importMedia, appendSource, splitClip, previousFrame, nextFrame, deleteClip, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -21,12 +21,13 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .exportSequence: "Render Sequence…"
         case .exportFCPXML: "Export FCPXML…"
         case .exportEDL: "Export Track EDL…"
+        case .exportOTIO: "Export OpenTimelineIO…"
         }
     }
     var isPlayback: Bool { [.playReverse, .pausePlayback, .playForward].contains(self) }
     var scope: EditorCommandScope {
         switch self {
-        case .undo, .redo, .importMedia, .exportSequence, .exportFCPXML, .exportEDL: .document
+        case .undo, .redo, .importMedia, .exportSequence, .exportFCPXML, .exportEDL, .exportOTIO: .document
         case .appendSource, .playReverse, .pausePlayback, .playForward: .source
         default: .timeline
         }
@@ -45,7 +46,7 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .pausePlayback: ShortcutBinding(key: "k")
         case .playForward: ShortcutBinding(key: "l")
         case .exportSequence: ShortcutBinding(key: "e", command: true, shift: true)
-        case .exportFCPXML, .exportEDL: ShortcutBinding(key: "")
+        case .exportFCPXML, .exportEDL, .exportOTIO: ShortcutBinding(key: "")
         }
     }
 }

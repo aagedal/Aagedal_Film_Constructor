@@ -585,7 +585,9 @@ remaining signed/native playback checks.
       counts and MOV timecode packets at 24, 24000/1001, 30000/1001 DF and
       60000/1001 DF. Native receiver and broader source acceptance remain open.
 - [ ] Add FCPXML sequence export and validate real layered-video/audio imports.
-- [ ] Evaluate OTIO export using its official core/validator; document its subset.
+- [x] Evaluate OTIO export using its official core/validator; document its subset.
+      Layered cuts/gaps pass official core read/write and timing qualification;
+      receiving-editor import and spatial conform remain unqualified.
 - [x] Define and implement a conservative selected-track cuts-only CMX3600 EDL
       exporter with explicit source timing declarations, exact source/record
       timecode and no flattening. Native receiver conform remains unqualified.
@@ -1246,3 +1248,29 @@ launch-performance claim has been validated yet.
   Signed sandbox execution, native proxy dialog gestures, broad-format/VFR mapping,
   sequence proxy monitoring and release packaging remain open. See
   [helper setup](docs/media-helper-packaging.md) and [proxy tests](docs/proxies.md).
+
+### OTIO and live output route checkpoint (2026-10-12)
+
+- The app exports OpenTimelineIO from the workspace and File menu, with optional
+  shortcut assignment. Layered cuts/gaps, original references, source ranges and
+  sequence start are retained. Unsupported effects, stream/channel mappings,
+  geometry, stills and edits requiring rounding fail before choosing a destination.
+  Original alias protection and snapshot media access follow existing interchange
+  exports; refusal preserves document and undo history.
+- Official OTIO 0.18.1 core read/write, schema equivalence and every child timing
+  pass at 24, 25, 24000/1001, 30000/1001 and 60000/1001 using Python 3.12.
+  Exact rational timing and DF/NDF intent are retained in namespaced metadata;
+  receiving-editor import, spatial conform and a direct C++ bridge remain open.
+  See [the supported subset and reproduction](docs/otio-export.md).
+- Native live output checks canonical hardware mono/stereo channels before/after
+  priming and engine startup. Canonical tags and explicit ordered speaker labels
+  are accepted; incompatible routes pause without discarding position and permit
+  explicit retry. Actual local output uses Left/Right channel descriptions.
+- Verification passes 158 core cases (one optional FCPXML DTD check skipped),
+  including official OTIO qualification; 43 native runtime cases; 22 Python
+  regressions; shortcut and app-file smokes; and unsigned macOS Debug build.
+  Actual scripted play/seek/pause/resume/close passes with no errors or underruns
+  and at most 4096 queued samples. macOS service checks required host access.
+- Physical device switching, measured A/V timing, shipping-app sequence playback
+  and release dependency packaging remain open. See retained
+  [output route evidence](docs/evidence/native-output-route-20261012/README.md).

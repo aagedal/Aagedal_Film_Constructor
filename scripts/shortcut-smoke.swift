@@ -18,6 +18,7 @@ import Foundation
         precondition(defaults[.exportSequence] == ShortcutBinding(key: "e", command: true, shift: true))
         precondition(defaults[.exportFCPXML]?.isEmpty == true)
         precondition(defaults[.exportEDL]?.isEmpty == true && EditorCommandID.exportEDL.scope == .document)
+        precondition(defaults[.exportOTIO]?.isEmpty == true && EditorCommandID.exportOTIO.scope == .document)
         precondition(ShortcutBinding(key: "j").validationError(for: .playForward, bindings: defaults)?.contains("Backwards") == true)
         precondition(ShortcutBinding(key: "p").validationError(for: .pausePlayback, bindings: defaults) == nil)
         let customized = ShortcutBinding(key: "k", command: true, shift: true)
