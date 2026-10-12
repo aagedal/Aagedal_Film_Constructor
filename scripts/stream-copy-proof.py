@@ -122,23 +122,44 @@ def select_range(packets, stream, start, end):
 
 
 def timecode_count(label, rate):
-    # Deliberately restrict this proof to non-drop labels and the tested CFR rates.
-    match = re.fullmatch(r'(\d\d):(\d\d):(\d\d):(\d\d)', label or '')
-    require(match is not None, 'Only explicit non-drop MOV timecode is qualified')
-    hour, minute, second, frame = map(int, match.groups())
+    match = re.fullmatch(r'(\d\d):(\d\d):(\d\d)([:;])(\d\d)', label or '')
+    require(match is not None, 'Require explicit MOV SMPTE timecode')
+    hour, minute, second, frame = map(int, (*match.groups()[:3], match.group(5)))
     nominal = round(rate)
     require(hour < 24 and minute < 60 and second < 60 and frame < nominal,
             'Invalid timecode label')
-    return ((hour * 60 + minute) * 60 + second) * nominal + frame
+    count = ((hour * 60 + minute) * 60 + second) * nominal + frame
+    if match.group(4) == ';':
+        require(rate in (Fraction(30000, 1001), Fraction(60000, 1001)),
+                'Drop-frame timecode requires 30000/1001 or 60000/1001')
+        dropped = nominal // 15
+        require(minute % 10 == 0 or second != 0 or frame >= dropped,
+                'Invalid skipped drop-frame label')
+        total_minutes = hour * 60 + minute
+        count -= dropped * (total_minutes - total_minutes // 10)
+    return count
 
 
-def timecode_label(count, rate):
+def timecode_label(count, rate, drop_frame=False):
     nominal = round(rate)
-    require(0 <= count < 86400 * nominal, 'Timecode day wrap is unsupported')
+    if drop_frame:
+        require(rate in (Fraction(30000, 1001), Fraction(60000, 1001)),
+                'Drop-frame timecode requires 30000/1001 or 60000/1001')
+        dropped = nominal // 15
+        per_minute = nominal * 60 - dropped
+        per_ten_minutes = nominal * 600 - dropped * 9
+        require(0 <= count < per_ten_minutes * 144, 'Timecode day wrap is unsupported')
+        blocks, remainder = divmod(count, per_ten_minutes)
+        count += dropped * 9 * blocks
+        if remainder >= dropped:
+            count += dropped * ((remainder - dropped) // per_minute)
+    else:
+        require(0 <= count < 86400 * nominal, 'Timecode day wrap is unsupported')
     seconds, frame = divmod(count, nominal)
     minutes, second = divmod(seconds, 60)
     hour, minute = divmod(minutes, 60)
-    return f'{hour:02}:{minute:02}:{second:02}:{frame:02}'
+    separator = ';' if drop_frame else ':'
+    return f'{hour:02}:{minute:02}:{second:02}{separator}{frame:02}'
 
 
 def packet_bytes(path, packet):
@@ -151,9 +172,14 @@ def packet_bytes(path, packet):
     return data
 
 
-def require_zero_mov_edits(path):
-    """Inspect MOV edit lists; FFprobe can conceal media offsets by rebasing them."""
+def require_zero_mov_edits(path, rate=None, drop_frame=None):
+    """Inspect hidden edits and optionally the actual tmcd sample description.
+
+    Field layout/flags: developer.apple.com/documentation/quicktime-file-format/
+    timecode_sample_description. Probe labels alone do not prove this format.
+    """
     boxes = 0
+    timecode_descriptions = []
     with path.open('rb') as source:
         def walk(start, end, depth=0):
             nonlocal boxes
@@ -174,7 +200,7 @@ def require_zero_mov_edits(path):
                     size = end - position
                 require(size >= header_size and position + size <= end, 'Invalid MOV box extent')
                 payload = position + header_size
-                if kind in (b'moov', b'trak', b'edts'):
+                if kind in (b'moov', b'trak', b'edts', b'mdia', b'minf', b'stbl'):
                     walk(payload, position + size, depth + 1)
                 elif kind == b'elst':
                     require(size - header_size <= 128, 'Multiple/oversize MOV edits are unsupported')
@@ -187,8 +213,37 @@ def require_zero_mov_edits(path):
                             int.from_bytes(data[8 + width:8 + 2 * width], 'big', signed=True) == 0 and
                             data[-4:] == b'\0\1\0\0',
                             'Nonzero MOV media offset, preroll, delay or rate edit is unsupported')
+                elif kind == b'stsd' and rate is not None:
+                    source.seek(payload)
+                    data = source.read(min(size - header_size, 1024 * 1024 + 1))
+                    require(8 <= len(data) <= 1024 * 1024 and data[:4] == b'\0' * 4,
+                            'Invalid/bounded MOV sample description')
+                    entries = int.from_bytes(data[4:8], 'big')
+                    require(entries <= 64, 'Too many MOV sample descriptions')
+                    cursor = 8
+                    for _ in range(entries):
+                        require(cursor + 8 <= len(data), 'Truncated MOV sample description')
+                        entry_size = int.from_bytes(data[cursor:cursor + 4], 'big')
+                        require(entry_size >= 16 and cursor + entry_size <= len(data),
+                                'Invalid MOV sample description extent')
+                        entry = data[cursor:cursor + entry_size]
+                        if entry[4:8] == b'tmcd':
+                            require(len(entry) >= 34 and entry[8:14] == b'\0' * 6 and
+                                    entry[16:20] == b'\0' * 4 and entry[33] == 0,
+                                    'Invalid MOV timecode sample description')
+                            flags = int.from_bytes(entry[20:24], 'big')
+                            scale = int.from_bytes(entry[24:28], 'big')
+                            duration = int.from_bytes(entry[28:32], 'big')
+                            require(duration > 0 and scale > 0 and flags & ~7 == 0,
+                                    'Counter/unknown MOV timecode format is unsupported')
+                            timecode_descriptions.append((bool(flags & 1), Fraction(scale, duration), entry[32]))
+                        cursor += entry_size
+                    require(cursor == len(data), 'Trailing MOV sample description bytes')
                 position += size
         walk(0, path.stat().st_size)
+    if rate is not None:
+        require(timecode_descriptions == [(drop_frame, rate, round(rate))],
+                'MOV timecode drop-frame flag/rate/nominal frames differ from label/video')
 
 
 def qualify(tools, source, start, end):
@@ -247,6 +302,7 @@ def qualify(tools, source, start, end):
             'Unsupported MOV timecode packet extent')
     label = video.get('tags', {}).get('timecode')
     count = timecode_count(label, rate)
+    require_zero_mov_edits(source, rate, ';' in label)
     require(tc.get('tags', {}).get('timecode') == label and
             int.from_bytes(packet_bytes(source, tcp[0]), 'big') == count,
             'Timecode label and underlying frame count differ')
@@ -270,6 +326,12 @@ def file_hash(path):
     return digest.hexdigest()
 
 
+COPY_METADATA_FIELDS = ('codec_name', 'codec_tag_string', 'profile', 'pix_fmt', 'width', 'height',
+                        'sample_aspect_ratio', 'color_range', 'color_space', 'color_transfer',
+                        'color_primaries', 'chroma_location', 'field_order', 'sample_rate',
+                        'channels', 'channel_layout', 'bits_per_raw_sample', 'extradata_hash')
+
+
 def verify(tools, source, start, end, scratch):
     require(scratch.is_dir() and scratch.stat().st_mode & 0o777 == 0o700,
             'Scratch must be a private directory with mode 0700')
@@ -279,21 +341,21 @@ def verify(tools, source, start, end, scratch):
     initial_hash = file_hash(source)
     probe, video, audio, vp, ap, rate, count = qualify(tools, source, start, end)
     output = scratch / 'copy.mov'
-    label = timecode_label(count + int(start * rate), rate)
+    drop_frame = ';' in video['tags']['timecode']
+    label = timecode_label(count + int(start * rate), rate, drop_frame)
+    # Also reject an extent crossing midnight, rather than silently wrapping the
+    # displayed label while the underlying MOV frame count remains unwrapped.
+    timecode_label(count + int(end * rate) - 1, rate, drop_frame)
     tools.ff(['-i', source, '-ss', seconds_argument(start), '-t', seconds_argument(end - start),
               '-map', f"0:{video['index']}", '-map', f"0:{audio['index']}", '-c', 'copy',
               '-timecode', label, output])
     result = tools.probe(output)
-    require_zero_mov_edits(output)
+    require_zero_mov_edits(output, rate, drop_frame)
     ov = next(s for s in result['streams'] if s['codec_type'] == 'video')
     oa = next(s for s in result['streams'] if s['codec_type'] == 'audio')
     duration = end - start
     for original, copied, packets in ((video, ov, vp), (audio, oa, ap)):
-        fields = ('codec_name', 'codec_tag_string', 'profile', 'pix_fmt', 'width', 'height',
-                  'sample_aspect_ratio', 'color_range', 'color_space', 'color_transfer',
-                  'color_primaries', 'chroma_location', 'field_order', 'sample_rate',
-                  'channels', 'channel_layout', 'bits_per_raw_sample', 'extradata_hash')
-        require(all(original.get(k) == copied.get(k) for k in fields),
+        require(all(original.get(k) == copied.get(k) for k in COPY_METADATA_FIELDS),
                 'Codec/geometry/color/channel metadata changed')
         actual = select_range(packets_for(result, copied), copied, Fraction(0), duration)
         require(len(actual) == len(packets), 'Packet count changed')
@@ -343,11 +405,119 @@ def verify(tools, source, start, end, scratch):
     require(file_hash(source) == initial_hash, 'Source changed')
     return {'sourceSHA256': initial_hash, 'sourceRange': [str(start), str(end)],
             'duration': str(duration), 'frameRate': str(rate), 'timecode': label,
+            'dropFrameTimecode': drop_frame,
             'videoPacketsAndDecodedFrames': frames, 'audioPackets': len(ap),
             'audioSamplesPerChannel': int(samples), 'channels': audio['channels'],
             'allPacketPayloadsAndExactTimestampsMatch': True,
             'allDecodedFramesAndAudioSamplesMatch': True,
             'isolatedFirstLastFramesMatch': True, 'sourceUnchanged': True,
+            'appStreamCopyQualified': False}
+
+
+def verify_concat(tools, ranges, scratch):
+    """Qualify two to four cuts-only ranges with exact packet/decode evidence.
+
+    Each range first passes the single-range proof. Never infer concatenation
+    eligibility from a matching codec name or from successful FFmpeg exit alone.
+    """
+    require(scratch.is_dir() and scratch.stat().st_mode & 0o777 == 0o700,
+            'Scratch must be a private directory with mode 0700')
+    require(2 <= len(ranges) <= 4, 'Concatenation proof requires two to four ranges')
+    require(not any(scratch.iterdir()), 'Concatenation scratch must be empty')
+    originals = []
+    duration = Fraction(0)
+    for index, (source, start, end) in enumerate(ranges):
+        require(source.is_absolute(), 'Source path must be absolute')
+        segment = scratch / f'range-{index}'
+        segment.mkdir(mode=0o700)
+        summary = verify(tools, source, start, end, segment)
+        probe, video, audio, vp, ap, rate, count = qualify(tools, source, start, end)
+        if originals:
+            first_video, first_audio, first_rate = originals[0][1:4]
+            require(rate == first_rate and all(
+                original.get(field) == baseline.get(field)
+                for original, baseline in ((video, first_video), (audio, first_audio))
+                for field in COPY_METADATA_FIELDS), 'Concatenation codec/geometry/color/audio formats differ')
+        originals.append((probe, video, audio, rate, count, vp, ap, summary))
+        duration += end - start
+    require(duration <= 60, 'Concatenation exceeds 60-second proof bound')
+    rate = originals[0][3]
+    label = originals[0][-1]['timecode']
+    drop_frame = ';' in label
+    initial_count = timecode_count(label, rate)
+    timecode_label(initial_count + int(duration * rate) - 1, rate, drop_frame)
+    # Only generated relative names enter this manifest. User paths and labels
+    # are never interpreted by ffconcat's quoting/directive grammar.
+    manifest = scratch / 'ranges.ffconcat'
+    manifest.write_text('ffconcat version 1.0\n' + ''.join(
+        f"file range-{index}/copy.mov\n" for index in range(len(ranges))))
+    output = scratch / 'copy.mov'
+    tools.ff(['-f', 'concat', '-safe', '1', '-i', manifest, '-map', '0:v:0', '-map', '0:a:0',
+              '-c', 'copy', '-timecode', label, output])
+    result = tools.probe(output)
+    require_zero_mov_edits(output, rate, drop_frame)
+    require(len(result['streams']) == 3, 'Concatenation has unexpected streams')
+    ov = next(s for s in result['streams'] if s['codec_type'] == 'video')
+    oa = next(s for s in result['streams'] if s['codec_type'] == 'audio')
+    require(Fraction(ov['avg_frame_rate']) == Fraction(ov['r_frame_rate']) == rate,
+            'Concatenation frame rate changed')
+    for slot, copied, packet_slot in ((1, ov, 5), (2, oa, 6)):
+        require(all(originals[0][slot].get(k) == copied.get(k) for k in COPY_METADATA_FIELDS),
+                'Concatenation metadata changed')
+        actual = select_range(packets_for(result, copied), copied, Fraction(0), duration)
+        expected = []
+        cursor = Fraction(0)
+        for (_, start, end), original in zip(ranges, originals):
+            for packet in original[packet_slot]:
+                expected.append((packet, original[slot], cursor - start))
+            cursor += end - start
+        require(len(actual) == len(expected), 'Concatenation packet count changed')
+        for (packet, stream, offset), copied_packet in zip(expected, actual):
+            require(packet['data_hash'] == copied_packet['data_hash'] and packet['size'] == copied_packet['size'],
+                    'Concatenation packet payload changed')
+            require(stamp(packet, stream) + offset == stamp(copied_packet, copied) and
+                    stamp(packet, stream, 'dts') + offset == stamp(copied_packet, copied, 'dts') and
+                    stamp(packet, stream, 'duration') == stamp(copied_packet, copied, 'duration'),
+                    'Concatenation timestamps are not exact at a cut')
+    otc = next(s for s in result['streams'] if s.get('codec_tag_string') == 'tmcd')
+    tcp = packets_for(result, otc)
+    require(len(tcp) == 1 and ov.get('tags', {}).get('timecode') == label and
+            otc.get('tags', {}).get('timecode') == label and stamp(tcp[0], otc) == 0 and
+            stamp(tcp[0], otc, 'duration') == duration and
+            int.from_bytes(packet_bytes(output, tcp[0]), 'big') == initial_count,
+            'Concatenation timecode packet/label/extent changed')
+    expected_frames, expected_pcm = [], bytearray()
+    width = {'pcm_s16le': 2, 'pcm_s24le': 3}[oa['codec_name']] * oa['channels']
+    for index, ((source, start, end), original) in enumerate(zip(ranges, originals)):
+        segment = scratch / f'range-{index}' / 'copy.mov'
+        frames = tools.video_hashes(segment)
+        # Verify independently decoded first/last frames at every joined cut,
+        # including internal joins, rather than only the final output edges.
+        first = len(expected_frames)
+        expected_frames.extend(frames)
+        for position in (first, len(expected_frames) - 1):
+            packet = packets_for(result, ov)[position]
+            isolated = scratch / f'join-{index}-{position}.prores'
+            with isolated.open('xb') as target:
+                target.write(packet_bytes(output, packet))
+            require(tools.video_hashes(isolated, image=True) == [expected_frames[position]],
+                    'Concatenation cut frame is not independently decodable')
+        expected_pcm.extend(tools.audio(segment, oa['codec_name']))
+        require(file_hash(source) == original[-1]['sourceSHA256'], 'Source changed during concatenation')
+    frames, samples = duration * rate, duration * 48000
+    require(frames.denominator == samples.denominator == 1 and
+            len(expected_frames) == int(frames) and tools.video_hashes(output) == expected_frames,
+            'Concatenation decoded frames differ')
+    require(len(expected_pcm) == int(samples) * width and tools.audio(output, oa['codec_name']) == expected_pcm,
+            'Concatenation decoded audio samples differ')
+    # Recheck all originals after the final decode as well.
+    require(all(file_hash(source) == original[-1]['sourceSHA256']
+                for (source, _, _), original in zip(ranges, originals)), 'Source changed')
+    return {'ranges': [original[-1] for original in originals], 'duration': str(duration),
+            'frameRate': str(rate), 'timecode': label, 'dropFrameTimecode': drop_frame,
+            'videoPacketsAndDecodedFrames': int(frames), 'audioSamplesPerChannel': int(samples),
+            'allPacketPayloadsAndExactTimestampsMatch': True, 'allCutBoundaryFramesDecodeIndependently': True,
+            'allDecodedFramesAndAudioSamplesMatch': True, 'sourceUnchanged': True,
             'appStreamCopyQualified': False}
 
 

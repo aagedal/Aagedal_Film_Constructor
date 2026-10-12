@@ -42,7 +42,9 @@ and does not enable the app export mode.
 
 The deliberately narrow input contract is QuickTime MOV with exactly one ProRes
 HQ (`apch`, `yuv422p10le`) picture stream, one whole 48 kHz mono/stereo signed
-16/24-bit little-endian PCM stream, and one explicit non-drop timecode track.
+16/24-bit little-endian PCM stream, and one explicit timecode track. Non-drop
+labels are supported at every listed rate; drop-frame labels are supported at
+30000/1001 and 60000/1001.
 Supported rates are 24, 25, 24000/1001, 30000/1001 and 60000/1001. Sources must
 have zero stream offsets, identical A/V extents, square pixels and no rotation,
 side data, codec delay/padding, timestamp reordering or packet gaps. MOV edit
@@ -65,7 +67,12 @@ also compares all decoded picture-frame hashes, every decoded integer PCM
 sample, channel layout, codec/geometry/color metadata, exact output frame rate,
 stream duration and sync, and the MOV timecode packet's frame count and extent.
 The timecode label advances by the exact source in-point frame count; it is not
-copied unchanged. Seeking arguments are conservatively truncated to FFmpeg's
+copied unchanged. The actual MOV timecode sample description must agree with the
+picture rate, nominal frame count and label's drop-frame mode. Counter and unknown
+flags are rejected. These fields follow Apple's [timecode sample description](https://developer.apple.com/documentation/quicktime-file-format/timecode_sample_description)
+and [flag definitions](https://developer.apple.com/documentation/quicktime-file-format/timecode_sample_description/flags).
+Skipped drop-frame labels and a selected extent crossing midnight are rejected.
+Seeking arguments are conservatively truncated to FFmpeg's
 microsecond precision, but an output only passes if its rational packet times
 are exact. No adjusted cut is accepted.
 
@@ -97,6 +104,49 @@ matrix qualifies exact nonzero ranges at all five rates and rejects non-frame
 cuts, video-aligned but PCM-packet-unaligned cuts, closed/open-GOP H.264 and AAC.
 Additional pure regressions reject hidden MOV offsets, timestamp gaps/reordering,
 zero packet duration, delay/padding side data, excessive subprocess output and
-existing destinations. Drop-frame timecode, compressed/interframe copy,
-concatenation, VFR, HDR, larger/other raster formats, arbitrary MOV metadata,
+existing destinations. Compressed/interframe copy,
+VFR, HDR, larger/other raster formats, arbitrary MOV metadata,
 source relocation races and app-level evidence freshness remain unqualified.
+
+## Exact cuts-only concatenation development proof (2026-10-12)
+
+[`scripts/stream-copy-concat-proof.py`](../scripts/stream-copy-concat-proof.py)
+qualifies two to four ranges of compatible sources within the same narrow MOV
+contract. Each range first passes the complete single-range proof. Source codec
+parameters, color/geometry and audio format must match, and the assembled sequence
+must remain within 60 seconds. Only generated relative names enter the FFconcat
+manifest, so original paths never become concat directives. Existing scratch
+contents and destinations are refused.
+
+The concatenated output must preserve every compressed packet payload, exact
+rebased PTS/DTS/duration at every join, all decoded video frames and integer PCM
+samples, and the first selected range's advanced timecode across the full sequence.
+The first/last frame of every segment, including internal joins, must decode
+independently from the final output's isolated packets. Original fingerprints
+are checked again after final decoding. A successful FFmpeg command alone does
+not establish eligibility.
+
+Create a JSON manifest with exact rational seconds, for example:
+
+```json
+[
+  {"source": "/absolute/a.mov", "start": "8/3", "end": "16/3"},
+  {"source": "/absolute/b.mov", "start": "0", "end": "8/3"}
+]
+```
+
+```sh
+python3 scripts/stream-copy-concat-proof.py /absolute/ffmpeg /absolute/ffprobe \
+  /absolute/ranges.json /absolute/new-private-scratch
+```
+
+The expanded real-media suite passes 17 tests. Retained
+[`result.json`](evidence/stream-copy-cuts-20261012/result.json) records nine
+single-range cases (including both DF rates across ordinary/tenth-minute
+boundaries), four two-source concatenations at 24, 24000/1001, 30000/1001 DF
+and 60000/1001 DF, and explicit incompatible-audio/midnight rejections. Every
+minute boundary through a full DF day is exercised by pure arithmetic tests.
+Four additional pure tests cover the concat manifest and destination isolation.
+This enables no app stream-copy mode or importer evidence. Mixed copied/rendered
+streams, receiver conform, interframe/compressed audio, arbitrary metadata and
+signed execution remain open.
