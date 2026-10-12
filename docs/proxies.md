@@ -99,12 +99,21 @@ anamorphic, rotated, HDR, full-range and incompatible scaled rasters must fail
 without publishing. Independent FFprobe checks confirm video-only output, MOV
 timecode, rational frame rate and SDR tags. `scripts/proxy-workspace-smoke.sh`
 exercises source composition, transport switching, grants, history, and reopen.
+Its native AVFoundation captures compare five exact frames of an asymmetric moving
+picture against hires after document reopen, checking raster and decoded RGB PSNR.
+Native audio readers compare the original mono and delayed stereo PCM at absolute
+presentation timestamps, including a quarter-second empty MOV edit and audio tails
+beyond the proxy picture. Switching is checked both within the picture and within
+that audio tail. EditorCore regression checks also compare final FFmpeg commands
+before/after proxy registration and reject missing originals even with a proxy.
 `scripts/proxy-queue-smoke.sh` covers persisted jobs, manual resume, interrupted
 publication recovery, destination conflicts, single-job retries, stale sources,
 cancellation, legacy documents and queue/undo separation.
 These tests use development helpers and unsigned runners; native dialog gestures,
 hardware playback quality/sync, and signed sandbox grants across launches still
 require manual qualification. Edited-sequence monitoring is not enabled.
+The workspace smoke honors the same `AFC_SMOKE_FFMPEG` and `AFC_SMOKE_FFPROBE`
+overrides as the service smoke (and its earlier `FFMPEG`/`FFPROBE` overrides).
 
 The expanded service smoke passes with both the development Homebrew FFmpeg 9.0.2
 pair and the local static FFmpeg/FFprobe 9.0.1 full build used for development

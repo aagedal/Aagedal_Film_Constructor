@@ -84,6 +84,17 @@ private func proxyFixture() throws -> MediaProxy {
     #expect(try TimelineRenderPlan(project: project) == originalPlan)
     #expect(try FCPXMLExporter.export(project: project) == originalXML)
     #expect(!originalXML.xml.contains("proxy.mov"))
+    let output = URL(fileURLWithPath: "/tmp/final-render.mov")
+    let originalCommand = try FFmpegRenderCompiler.compile(originalPlan, outputURL: output)
+    let proxyCommand = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: output)
+    #expect(proxyCommand == originalCommand)
+    #expect(proxyCommand.inputs.allSatisfy { $0.url == asset.originalURL })
+    #expect(!proxyCommand.arguments.contains(project.assets[0].proxy!.url.path))
+    // A usable proxy does not silently authorize a lower-resolution final render.
+    project.assets[0].originalURL = nil
+    #expect(throws: (any Error).self) {
+        try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: output)
+    }
 }
 
 @Test func proxyOutputIntegrityPersistsWithoutInventingLegacyHashes() throws {

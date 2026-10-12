@@ -11,6 +11,8 @@ struct ProxyWorkspaceSmoke {
         let source = directory.appendingPathComponent("source.mov")
         let imported = try await MediaImporter.inspect(url: source)
         try check(imported.asset.streams.filter { $0.kind == .audio }.count == 2, "Two original audio streams imported")
+        let audioStreams = imported.asset.streams.filter { $0.kind == .audio }
+        try check(audioStreams.map { $0.audioLayout?.channels.count } == [1, 2], "Distinct mono and stereo layouts imported")
         try check(imported.asset.duration.seconds > 2.9, "Audio duration exceeds picture duration")
         let service = ProxyGenerationService(ffmpegURL: URL(fileURLWithPath: CommandLine.arguments[2]), ffprobeURL: URL(fileURLWithPath: CommandLine.arguments[3]))
         let proxy = try await service.generate(asset: imported.asset, preset: .proResProxy, scaleDivisor: 2, to: directory.appendingPathComponent("proxy.mov"))
@@ -44,9 +46,47 @@ struct ProxyWorkspaceSmoke {
             try check(audio.segments.contains { $0.sourceURL?.standardizedFileURL == source.standardizedFileURL }, "Composition audio references original URL")
             try check(try await audio.load(.timeRange).duration.seconds > 2.9, "Composition keeps longer original audio duration")
         }
+        let original = AVURLAsset(url: source)
+        let originalAudios = try await original.loadTracks(withMediaType: .audio)
+        let delayedSegments = try await originalAudios[1].load(.segments).filter { !$0.isEmpty }
+        try check(delayedSegments.first?.timeMapping.target.start == CMTime(value: 1, timescale: 4),
+                  "Original stereo fixture has a quarter-second delayed nonempty edit")
+        for (audio, originalAudio) in zip(audios, originalAudios) {
+            let originalRange = try await originalAudio.load(.timeRange)
+            try check(try await audio.load(.timeRange) == originalRange, "Composition preserves exact original audio extent and offset")
+            let segments = audio.segments.filter { !$0.isEmpty }
+            // Composition segments reference original asset coordinates, whose
+            // edit list contains the delayed samples; their source range is not
+            // the source track's sample-media mapping.
+            try check(segments.count == 1 && segments[0].timeMapping.source == originalRange && segments[0].timeMapping.target == originalRange,
+                      "Composition preserves exact audio asset-to-monitor mapping")
+            let descriptions = try await audio.load(.formatDescriptions)
+            let originals = try await originalAudio.load(.formatDescriptions)
+            try check(descriptions.first.map { CMAudioFormatDescriptionGetStreamBasicDescription($0)?.pointee.mChannelsPerFrame }
+                      == originals.first.map { CMAudioFormatDescriptionGetStreamBasicDescription($0)?.pointee.mChannelsPerFrame },
+                      "Composition preserves original mono/stereo channel count")
+            guard let description = originals.first, let format = CMAudioFormatDescriptionGetStreamBasicDescription(description) else {
+                throw SmokeError.failed("Original audio format unavailable")
+            }
+            let sourceSamples = try decodedAudio(asset: original, track: originalAudio, format: format.pointee, end: originalRange.end)
+            let proxySamples = try decodedAudio(asset: composition, track: audio, format: format.pointee, end: originalRange.end)
+            try check(sourceSamples == proxySamples, "Native composition retains exact original PCM samples and timestamps")
+        }
+        try await verifyPictures(original: original, proxyComposition: composition, size: CGSize(width: proxy.width, height: proxy.height))
         reopened.setPlaybackRepresentation(.original)
         _ = try await awaitPlayer(reopened)
         try check(abs(reopened.sourcePlayer!.currentTime().seconds - 0.75) < 0.02, "Hires switch preserves position")
+        let tailPosition = CMTime(value: 11, timescale: 4)
+        await reopened.sourcePlayer?.seek(to: tailPosition, toleranceBefore: .zero, toleranceAfter: .zero)
+        reopened.setPlaybackRepresentation(.proxy)
+        let audioTail = try await awaitPlayer(reopened)
+        try check(abs(audioTail.currentTime().seconds - tailPosition.seconds) < 0.02,
+                  "Proxy switching preserves nonzero position beyond proxy picture in original audio tail")
+        reopened.setPlaybackRepresentation(.original)
+        let originalTail = try await awaitPlayer(reopened)
+        try check(abs(originalTail.currentTime().seconds - tailPosition.seconds) < 0.02,
+                  "Hires switching preserves original audio-tail position")
+        await originalTail.seek(to: position, toleranceBefore: .zero, toleranceAfter: .zero)
         reopened.setPlaybackRepresentation(.proxy)
         reopened.setPlaybackRepresentation(.original)
         reopened.setPlaybackRepresentation(.proxy)
@@ -173,7 +213,7 @@ struct ProxyWorkspaceSmoke {
             try reopened.registerProxy(proxy, for: imported.asset, epoch: oldEpoch, sourceRevision: nil)
             throw SmokeError.failed("Old document generation accepted")
         } catch EditorCoreError.invalidModel { }
-        print("Proxy workspace smoke passed: composition, original audio, switching, persistence, relink validation and undo, fallback, and stale registration")
+        print("Proxy workspace smoke passed: native decoded picture geometry/frame correspondence, original mono/stereo audio offsets, switching, persistence, relink validation and undo, fallback, and stale registration")
     }
 
     @MainActor private static func awaitPlayer(_ store: EditorStore) async throws -> AVPlayer {
@@ -189,5 +229,81 @@ struct ProxyWorkspaceSmoke {
     }
     private static func check(_ condition: Bool, _ message: String) throws {
         if !condition { throw SmokeError.failed(message) }
+    }
+
+    /// Capture through the native source-monitor composition, rather than testing
+    /// only FFmpeg's generated file. Motion plus asymmetric spatial color detects
+    /// a wrong frame, flip, crop, or changed display geometry after save/reopen.
+    private static func verifyPictures(original: AVAsset, proxyComposition: AVAsset, size: CGSize) async throws {
+        let hires = AVAssetImageGenerator(asset: original)
+        let proxy = AVAssetImageGenerator(asset: proxyComposition)
+        for generator in [hires, proxy] {
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = size
+            generator.requestedTimeToleranceBefore = .zero
+            generator.requestedTimeToleranceAfter = .zero
+        }
+        for frame in [0, 7, 18, 35, 47] {
+            let time = CMTime(value: Int64(frame), timescale: 24)
+            let a = try await hires.image(at: time)
+            let b = try await proxy.image(at: time)
+            try check(a.actualTime == time && b.actualTime == time, "Native monitor captures corresponding exact frame \(frame)")
+            try check(a.image.width == Int(size.width) && a.image.height == Int(size.height)
+                      && b.image.width == a.image.width && b.image.height == a.image.height,
+                      "Native monitor preserves scaled display raster")
+            let lhs = try pixels(a.image), rhs = try pixels(b.image)
+            var squaredError = 0.0
+            for index in lhs.indices where index % 4 != 3 {
+                let difference = Double(lhs[index]) - Double(rhs[index])
+                squaredError += difference * difference
+            }
+            let mse = squaredError / Double(a.image.width * a.image.height * 3)
+            let psnr = mse == 0 ? Double.infinity : 10 * log10(255 * 255 / mse)
+            try check(psnr > 28, "Native monitor geometry/frame correspondence at frame \(frame): PSNR \(psnr)")
+        }
+    }
+
+    private static func pixels(_ image: CGImage) throws -> [UInt8] {
+        var data = [UInt8](repeating: 0, count: image.width * image.height * 4)
+        let success = data.withUnsafeMutableBytes { bytes in
+            guard let context = CGContext(data: bytes.baseAddress, width: image.width, height: image.height,
+                bitsPerComponent: 8, bytesPerRow: image.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+            return true
+        }
+        try check(success, "Capture pixels readable")
+        return data
+    }
+
+    private static func decodedAudio(asset: AVAsset, track: AVAssetTrack, format: AudioStreamBasicDescription, end: CMTime) throws -> [Float] {
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+            AVFormatIDKey: kAudioFormatLinearPCM, AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true, AVLinearPCMIsNonInterleaved: false
+        ])
+        reader.add(output)
+        try check(reader.startReading(), "Native audio decoding starts")
+        // Readers may choose different chunk boundaries and synthesize silence
+        // for empty edits. Compare samples at their absolute monitor timestamps.
+        let channels = Int(format.mChannelsPerFrame)
+        var samples = [Float](repeating: 0, count: Int((end.seconds * format.mSampleRate).rounded()) * channels)
+        var decodedCount = 0
+        while let buffer = output.copyNextSampleBuffer() {
+            guard let block = CMSampleBufferGetDataBuffer(buffer) else { throw SmokeError.failed("Decoded audio has no sample buffer") }
+            let count = CMBlockBufferGetDataLength(block)
+            var bytes = Data(count: count)
+            let result = bytes.withUnsafeMutableBytes { storage in
+                CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: count, destination: storage.baseAddress!)
+            }
+            try check(result == kCMBlockBufferNoErr, "Native audio samples readable")
+            let decoded = bytes.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+            let start = Int((CMSampleBufferGetPresentationTimeStamp(buffer).seconds * format.mSampleRate).rounded()) * channels
+            try check(start >= 0 && start + decoded.count <= samples.count, "Decoded audio fits original extent")
+            samples.replaceSubrange(start..<(start + decoded.count), with: decoded)
+            decodedCount += decoded.count
+        }
+        try check(reader.status == .completed && decodedCount > 0, "Native audio decoding completes")
+        return samples
     }
 }
