@@ -31,6 +31,8 @@ playground.xcworkspace
 
 .build/
 __pycache__/
+.local/
+Configuration/LocalMediaHelpers.xcconfig
 
 # CocoaPods
 #

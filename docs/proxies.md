@@ -89,8 +89,15 @@ decoded frame timestamps before encoding, so it is deliberately conservative and
 does not yet provide a streaming qualification path for large media.
 
 Run `scripts/proxy-service-smoke.sh` with explicit development helpers to exercise
-real encoding, fractional-rate/timecode preservation, unsupported media rejection,
-cancellation, failure and atomic publication. `scripts/proxy-workspace-smoke.sh`
+real encoding, fractional-rate/timecode and SDR color-tag preservation, unsupported
+media rejection, cancellation, failure and atomic publication. Its decoded-frame
+checks compare every frame against the scaled original, including a spatially
+asymmetric moving pattern that detects flips, crops and wrong stream selection.
+An audio-first source with two audio and two video streams verifies the first
+imported video's absolute stream index; original bytes remain unchanged. VFR,
+anamorphic, rotated, HDR, full-range and incompatible scaled rasters must fail
+without publishing. Independent FFprobe checks confirm video-only output, MOV
+timecode, rational frame rate and SDR tags. `scripts/proxy-workspace-smoke.sh`
 exercises source composition, transport switching, grants, history, and reopen.
 `scripts/proxy-queue-smoke.sh` covers persisted jobs, manual resume, interrupted
 publication recovery, destination conflicts, single-job retries, stale sources,
@@ -98,3 +105,17 @@ cancellation, legacy documents and queue/undo separation.
 These tests use development helpers and unsigned runners; native dialog gestures,
 hardware playback quality/sync, and signed sandbox grants across launches still
 require manual qualification. Edited-sequence monitoring is not enabled.
+
+The expanded service smoke passes with both the development Homebrew FFmpeg 9.0.2
+pair and the local static FFmpeg/FFprobe 9.0.1 full build used for development
+embedding. To qualify a particular prepared helper pair, set both executable paths:
+
+```sh
+AFC_SMOKE_FFMPEG=/path/to/ffmpeg AFC_SMOKE_FFPROBE=/path/to/ffprobe \
+  scripts/proxy-service-smoke.sh
+```
+
+The fixtures set frame color metadata explicitly with `setparams`; encoder output
+color flags alone can leave generated FFmpeg 9 fixtures untagged. Rotated fixtures
+use an input display-rotation override so their MOV display matrix is actually
+present.

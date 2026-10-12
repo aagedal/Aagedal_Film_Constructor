@@ -41,6 +41,27 @@ enum ProxySmokeFailure: Error { case failed(String) }
         try check(proxy.width == 80 && proxy.height == 48 && proxy.frameCount == 24 && proxy.frameRate == RationalTime(24000, 1001), "Verified scaled proxy metadata")
         let h264 = try await service.generate(asset: source, preset: .h264, scaleDivisor: 4, to: directory.appendingPathComponent("h264.mov"))
         try check(h264.width == 40 && h264.height == 24 && h264.frameCount == proxy.frameCount, "Verified H264 proxy")
+        let multistream = MediaAsset(name: "multistream.mov", originalURL: directory.appendingPathComponent("multistream.mov"),
+                                     duration: try RationalTime(1), streams: [.init(index: 0, kind: .audio), .init(index: 1, kind: .audio), .init(index: 2, kind: .video), .init(index: 3, kind: .video)])
+        let multistreamBefore = try Data(contentsOf: multistream.originalURL!)
+        let geometry = try await service.generate(asset: multistream, preset: .proResProxy, scaleDivisor: 2,
+                                                  to: directory.appendingPathComponent("geometry-prores.mov"))
+        try check(geometry.videoStreamIndex == 2 && geometry.width == 160 && geometry.height == 96 && geometry.frameCount == 24,
+                  "Audio-first multivideo source selects the first imported video by absolute stream index")
+        let geometryH264 = try await service.generate(asset: multistream, preset: .h264, scaleDivisor: 4,
+                                                      to: directory.appendingPathComponent("geometry-h264.mov"))
+        try check(geometryH264.videoStreamIndex == 2 && geometryH264.width == 80 && geometryH264.height == 48,
+                  "H264 geometry uses the same imported source stream")
+        try check(try Data(contentsOf: multistream.originalURL!) == multistreamBefore,
+                  "Multivideo and both original audio stream bytes remain unchanged")
+        var wrongStream = multistream
+        wrongStream.streams = [.init(index: 0, kind: .video)]
+        let wrongStreamOutput = directory.appendingPathComponent("wrong-stream.mov")
+        do {
+            _ = try await service.generate(asset: wrongStream, preset: .proResProxy, scaleDivisor: 2, to: wrongStreamOutput)
+            throw ProxySmokeFailure.failed("Audio stream masquerading as imported video accepted")
+        } catch is SequenceExportError { }
+        try check(!FileManager.default.fileExists(atPath: wrongStreamOutput.path), "Invalid imported stream never publishes")
         let recorded = try await ProxyGenerationService.validateProxyFile(proxy)
         try check(recorded == proxy.outputIntegrity, "Generated proxy records verified output bytes")
         let relocated = directory.appendingPathComponent("relocated.mov")
@@ -69,7 +90,7 @@ enum ProxySmokeFailure: Error { case failed(String) }
             throw ProxySmokeFailure.failed("Existing destination accepted")
         } catch is SequenceExportError { }
         try check(try Data(contentsOf: prores) == originalProxy, "Previous proxy preserved")
-        for name in ["vfr.mov", "sar.mov"] {
+        for name in ["vfr.mov", "sar.mov", "rotated.mov", "hdr.mov", "full-range.mov", "scale.mov"] {
             let output = directory.appendingPathComponent("rejected-\(name)")
             do {
                 _ = try await service.generate(asset: asset(name), preset: .proResProxy, scaleDivisor: 2, to: output)
@@ -118,6 +139,6 @@ enum ProxySmokeFailure: Error { case failed(String) }
         try check(try Data(contentsOf: source.originalURL!) == before, "Original bytes preserved")
         let leftovers = try FileManager.default.contentsOfDirectory(atPath: directory.path).filter { $0.hasPrefix(".afc-proxy-") }
         try check(leftovers.isEmpty, "Private staging cleaned")
-        print("Proxy service smoke passed: ProRes/H264, output SHA256, relocated/tampered proxy, legacy rejection, rational CFR, VFR/SAR rejection, no overwrite, failure, cancellation, originals preserved")
+        print("Proxy service smoke passed: ProRes/H264, output SHA256, relocated/tampered proxy, legacy rejection, rational CFR, spatial geometry/multivideo mapping, VFR/SAR/rotation/HDR/full-range/scale rejection, no overwrite, failure, cancellation, originals preserved")
     }
 }
