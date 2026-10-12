@@ -1,0 +1,297 @@
+{
+  "toolFingerprints": {
+    "ffmpeg": {
+      "version": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+      "sha256": "c8173e9755795978bce8e104f8d7044fabe7d6d84044aba37d3648c6f4e4e1a8"
+    },
+    "ffprobe": {
+      "version": "ffprobe version 9.0.2 Copyright (c) 2007-2026 the FFmpeg developers",
+      "sha256": "56559c234422b0e3722c54b2bd99bbd8cd83d3732a13a6d207589982a6b7085e"
+    }
+  },
+  "cases": [
+    {
+      "case": "24-ndf",
+      "frameRate": "24",
+      "decodedVideoFrames": 180,
+      "decodedBarcodeFramesChecked": 180,
+      "exactVideoTimestampsChecked": 180,
+      "raster": [
+        160,
+        90
+      ],
+      "sampleAspectRatio": "1:1",
+      "startFrameCount": 86400,
+      "timecodePacketFrameCount": 86400,
+      "readBackTimecode": "01:00:00:00",
+      "audioSamplesPerChannel": 360000,
+      "audioActiveSamples": [
+        60000,
+        300000
+      ],
+      "channelChecks": [
+        {
+          "sample": 60000,
+          "channel": 0,
+          "frequency": 880,
+          "amplitude": 2047.5396006232868,
+          "otherChannelFrequencyLeakage": 2.191665647881279e-13,
+          "maxPhaseSampleError": 1.0449165192817418
+        },
+        {
+          "sample": 60000,
+          "channel": 1,
+          "frequency": 440,
+          "amplitude": 2047.5417282580747,
+          "otherChannelFrequencyLeakage": 0.01647529081046737,
+          "maxPhaseSampleError": 1.0449165200273
+        },
+        {
+          "sample": 180000,
+          "channel": 0,
+          "frequency": 880,
+          "amplitude": 2047.5396006232868,
+          "otherChannelFrequencyLeakage": 2.191665647881279e-13,
+          "maxPhaseSampleError": 1.0449165190673284
+        },
+        {
+          "sample": 180000,
+          "channel": 1,
+          "frequency": 440,
+          "amplitude": 2047.5417282580747,
+          "otherChannelFrequencyLeakage": 0.01647529081046737,
+          "maxPhaseSampleError": 1.0449165213040033
+        },
+        {
+          "sample": 295200,
+          "channel": 0,
+          "frequency": 880,
+          "amplitude": 2047.5396006232868,
+          "otherChannelFrequencyLeakage": 2.191665647881279e-13,
+          "maxPhaseSampleError": 1.0449165272752907
+        },
+        {
+          "sample": 295200,
+          "channel": 1,
+          "frequency": 440,
+          "amplitude": 2047.5417282580747,
+          "otherChannelFrequencyLeakage": 0.01647529081046737,
+          "maxPhaseSampleError": 1.0449165198724586
+        }
+      ]
+    },
+    {
+      "case": "23976-ndf",
+      "frameRate": "24000/1001",
+      "decodedVideoFrames": 180,
+      "decodedBarcodeFramesChecked": 180,
+      "exactVideoTimestampsChecked": 180,
+      "raster": [
+        160,
+        90
+      ],
+      "sampleAspectRatio": "1:1",
+      "startFrameCount": 86398,
+      "timecodePacketFrameCount": 86398,
+      "readBackTimecode": "00:59:59:22",
+      "audioSamplesPerChannel": 360360,
+      "audioActiveSamples": [
+        60060,
+        300300
+      ],
+      "channelChecks": [
+        {
+          "sample": 60060,
+          "channel": 0,
+          "frequency": 880,
+          "amplitude": 2047.5396006232872,
+          "otherChannelFrequencyLeakage": 3.098329113847862e-13,
+          "maxPhaseSampleError": 1.0449165192817418
+        },
+        {
+          "sample": 60060,
+          "channel": 1,
+          "frequency": 440,
+          "amplitude": 2047.5417282580747,
+          "otherChannelFrequencyLeakage": 0.016475290810294314,
+          "maxPhaseSampleError": 1.0449165200273
+        },
+        {
+          "sample": 180180,
+          "channel": 0,
+          "frequency": 880,
+          "amplitude": 2047.5396006232866,
+          "otherChannelFrequencyLeakage": 1.518825045667662e-13,
+          "maxPhaseSampleError": 0.9779714654529528
+        },
+        {
+          "sample": 180180,
+          "channel": 1,
+          "frequency": 440,
+          "amplitude": 2047.5417282580747,
+          "otherChannelFrequencyLeakage": 0.016475290810398356,
+          "maxPhaseSampleError": 1.0449165213040033
+        },
+        {
+          "sample": 295500,
+          "channel": 0,
+          "frequency": 880,
+          "amplitude": 2047.5396006232868,
+          "otherChannelFrequencyLeakage": 2.1739828944822305e-13,
+          "maxPhaseSampleError": 1.044916521724872
+        },
+        {
+          "sample": 295500,
+          "channel": 1,
+          "frequency": 440,
+          "amplitude": 2047.5417282580752,
+          "otherChannelFrequencyLeakage": 0.016475290809795394,
+          "maxPhaseSampleError": 1.0449165198724586
+        }
+      ]
+    },
+    {
+      "case": "2997-df",
+      "frameRate": "30000/1001",
+      "decodedVideoFrames": 180,
+      "decodedBarcodeFramesChecked": 180,
+      "exactVideoTimestampsChecked": 180,
+      "raster": [
+        160,
+        90
+      ],
+      "sampleAspectRatio": "1:1",
+      "startFrameCount": 1798,
+      "timecodePacketFrameCount": 1798,
+      "readBackTimecode": "00:00:59;28",
+      "audioSamplesPerChannel": 288288,
+      "audioActiveSamples": [
+        48048,
+        240240
+      ],
+      "channelChecks": [
+        {
+          "sample": 48048,
+          "channel": 0,
+          "frequency": 880,
+          "amplitude": 2047.5396006232866,
+          "otherChannelFrequencyLeakage": 3.321254777915952e-15,
+          "maxPhaseSampleError": 1.0449165195798287
+        },
+        {
+          "sample": 48048,
+          "channel": 1,
+          "frequency": 440,
+          "amplitude": 2047.5417282580752,
+          "otherChannelFrequencyLeakage": 0.016475290810194783,
+          "maxPhaseSampleError": 1.044916519484559
+        },
+        {
+          "sample": 144144,
+          "channel": 0,
+          "frequency": 880,
+          "amplitude": 2047.5396006232868,
+          "otherChannelFrequencyLeakage": 3.1708713508340176e-13,
+          "maxPhaseSampleError": 1.0449165199618164
+        },
+        {
+          "sample": 144144,
+          "channel": 1,
+          "frequency": 440,
+          "amplitude": 2047.5417282580752,
+          "otherChannelFrequencyLeakage": 0.016475290810894327,
+          "maxPhaseSampleError": 1.0449165217512473
+        },
+        {
+          "sample": 235440,
+          "channel": 0,
+          "frequency": 880,
+          "amplitude": 2047.5396006232868,
+          "otherChannelFrequencyLeakage": 4.270780044542986e-14,
+          "maxPhaseSampleError": 0.9779714562091613
+        },
+        {
+          "sample": 235440,
+          "channel": 1,
+          "frequency": 440,
+          "amplitude": 2047.5417282580752,
+          "otherChannelFrequencyLeakage": 0.01647529081047722,
+          "maxPhaseSampleError": 1.0449165178501971
+        }
+      ]
+    },
+    {
+      "case": "5994-df",
+      "frameRate": "60000/1001",
+      "decodedVideoFrames": 180,
+      "decodedBarcodeFramesChecked": 180,
+      "exactVideoTimestampsChecked": 180,
+      "raster": [
+        160,
+        90
+      ],
+      "sampleAspectRatio": "1:1",
+      "startFrameCount": 3596,
+      "timecodePacketFrameCount": 3596,
+      "readBackTimecode": "00:00:59;56",
+      "audioSamplesPerChannel": 144144,
+      "audioActiveSamples": [
+        24024,
+        120120
+      ],
+      "channelChecks": [
+        {
+          "sample": 24024,
+          "channel": 0,
+          "frequency": 880,
+          "amplitude": 2047.5396006232868,
+          "otherChannelFrequencyLeakage": 1.181998499870942e-13,
+          "maxPhaseSampleError": 1.044916519484559
+        },
+        {
+          "sample": 24024,
+          "channel": 1,
+          "frequency": 440,
+          "amplitude": 2047.5417282580747,
+          "otherChannelFrequencyLeakage": 0.01647529081061494,
+          "maxPhaseSampleError": 1.044916519782646
+        },
+        {
+          "sample": 72072,
+          "channel": 0,
+          "frequency": 880,
+          "amplitude": 2047.5396006232868,
+          "otherChannelFrequencyLeakage": 1.1509015302795169e-13,
+          "maxPhaseSampleError": 1.0449165217512473
+        },
+        {
+          "sample": 72072,
+          "channel": 1,
+          "frequency": 440,
+          "amplitude": 2047.5417282580752,
+          "otherChannelFrequencyLeakage": 0.01647529081035388,
+          "maxPhaseSampleError": 1.044916519878143
+        },
+        {
+          "sample": 115320,
+          "channel": 0,
+          "frequency": 880,
+          "amplitude": 2047.5396006232868,
+          "otherChannelFrequencyLeakage": 2.858173477551074e-13,
+          "maxPhaseSampleError": 1.0449165206775888
+        },
+        {
+          "sample": 115320,
+          "channel": 1,
+          "frequency": 440,
+          "amplitude": 2047.5417282580747,
+          "otherChannelFrequencyLeakage": 0.016475290810145437,
+          "maxPhaseSampleError": 1.0449165207251099
+        }
+      ]
+    }
+  ],
+  "nativeReceiverQualified": false,
+  "mpvParityTested": false,
+  "sourceGeometryColorRotationVFRQualified": false
+}
