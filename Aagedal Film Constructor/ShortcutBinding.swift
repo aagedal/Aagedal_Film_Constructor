@@ -3,7 +3,7 @@ import Foundation
 enum EditorCommandScope: String, Codable { case document, source, timeline }
 
 enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
-    case toggleViewer, undo, redo, importMedia, appendSource, splitClip, previousFrame, nextFrame, deleteClip, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO
+    case toggleViewer, undo, redo, importMedia, appendSource, markSourceIn, markSourceOut, clearSourceMarks, splitClip, previousFrame, nextFrame, deleteClip, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -12,6 +12,9 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .redo: "Redo"
         case .importMedia: "Import Media…"
         case .appendSource: "Append Selected Source"
+        case .markSourceIn: "Mark Source In"
+        case .markSourceOut: "Mark Source Out (Exclusive)"
+        case .clearSourceMarks: "Clear Source Marks"
         case .splitClip: "Split at Playhead"
         case .previousFrame: "Previous Frame"
         case .nextFrame: "Next Frame"
@@ -29,7 +32,7 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
     var scope: EditorCommandScope {
         switch self {
         case .toggleViewer, .undo, .redo, .importMedia, .exportSequence, .exportFCPXML, .exportEDL, .exportOTIO: .document
-        case .appendSource, .playReverse, .pausePlayback, .playForward: .source
+        case .appendSource, .markSourceIn, .markSourceOut, .clearSourceMarks, .playReverse, .pausePlayback, .playForward: .source
         default: .timeline
         }
     }
@@ -40,6 +43,9 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .redo: ShortcutBinding(key: "z", command: true, shift: true)
         case .importMedia: ShortcutBinding(key: "i", command: true)
         case .appendSource: ShortcutBinding(key: "e", command: true)
+        case .markSourceIn: ShortcutBinding(key: "i")
+        case .markSourceOut: ShortcutBinding(key: "o")
+        case .clearSourceMarks: ShortcutBinding(key: "x", option: true)
         case .splitClip: ShortcutBinding(key: "b", command: true)
         case .previousFrame: ShortcutBinding(key: "left", command: true, option: true)
         case .nextFrame: ShortcutBinding(key: "right", command: true, option: true)
@@ -78,7 +84,7 @@ struct ShortcutBinding: Codable, Equatable {
         guard namedKeys.contains(candidate.key) || (candidate.key.count == 1 && candidate.key.unicodeScalars.allSatisfy { !$0.properties.isWhitespace && !CharacterSet.controlCharacters.contains($0) }) else {
             return "Enter one character or left, right, up, down, delete, return, escape, space, or tab."
         }
-        guard commandID.isPlayback || commandID == .toggleViewer || candidate.command || candidate.option || candidate.control else {
+        guard commandID.isPlayback || [.toggleViewer, .markSourceIn, .markSourceOut, .clearSourceMarks].contains(commandID) || candidate.command || candidate.option || candidate.control else {
             return "Include Command, Option, or Control to preserve text entry."
         }
         if candidate.command && !candidate.option && !candidate.control && ["q", "w", "n", "o", "s", "h", "m", ",", "c", "v", "x", "a", "f"].contains(candidate.key) {

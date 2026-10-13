@@ -35,6 +35,8 @@ final class EditorStore: ObservableObject {
     var proxyGenerationTask: Task<Void, Never>?
     var proxyRelinkTask: Task<Void, Never>?
     @Published var isRelinkingProxy = false
+    // Source marks are per-asset working selections, separate from document edits.
+    @Published var sourceRanges: [UUID: TimeRange] = [:]
     @Published var selectedAssetID: UUID?
     @Published var selectedClipID: UUID?
     @Published var audioAppendAsset: MediaAsset?
@@ -88,6 +90,7 @@ final class EditorStore: ObservableObject {
         isImporting = false
         undoHistory = []; redoHistory = []
         selectedMediaBinID = nil
+        sourceRanges = [:]
         selectedAssetIDs = []; selectedAssetID = nil; selectedClipID = nil; playheadSeconds = 0
         previewImage = nil
         statusMessage = "Import media to begin."
@@ -405,6 +408,48 @@ final class EditorStore: ObservableObject {
         }
     }
 
+    var selectedSourceRange: TimeRange? {
+        guard let asset = selectedAsset else { return nil }
+        return sourceRanges[asset.id] ?? (try? TimeRange(start: .zero, duration: asset.duration))
+    }
+
+    func clearSourceMarks() {
+        guard let id = selectedAssetID else { return }
+        sourceRanges.removeValue(forKey: id)
+    }
+
+    /// Out is an exclusive boundary. Qualified CFR picture marks snap to source
+    /// frames; other media uses an explicit microsecond clock rather than guessed cadence.
+    func markSource(inPoint: Bool) {
+        guard let asset = selectedAsset, let range = selectedSourceRange else { return }
+        let seconds = pendingSourceTransport?.time.seconds ?? sourcePlayer?.currentTime().seconds ?? 0
+        guard seconds.isFinite else { return }
+        do {
+            let clamped = max(0, min(asset.duration.seconds, seconds))
+            let position: RationalTime
+            if clamped >= asset.duration.seconds {
+                position = asset.duration
+            } else if let rate = asset.streams.first(where: { $0.kind == .video })?.videoFormat?.frameRate {
+                let frames = (clamped * rate.value.seconds).rounded()
+                guard frames.isFinite, frames < Double(Int64.max) else { throw EditorCoreError.overflow }
+                position = try RationalTime(Int64(frames)).divided(by: rate.value)
+            } else {
+                let ticks = (clamped * 1_000_000).rounded()
+                guard ticks.isFinite, ticks < Double(Int64.max) else { throw EditorCoreError.overflow }
+                position = try RationalTime(Int64(ticks), 1_000_000)
+            }
+            let start = inPoint ? position : range.start
+            let end = inPoint ? try range.end() : position
+            guard try end.compared(to: asset.duration) != .orderedDescending else {
+                throw EditorCoreError.invalidModel("Mark exceeds source duration")
+            }
+            sourceRanges[asset.id] = try TimeRange(start: start, duration: end.subtracting(start))
+            statusMessage = inPoint ? "Source In marked." : "Source Out marked (exclusive)."
+        } catch {
+            errorMessage = "In must precede Out. Clear marks to use the full source."
+        }
+    }
+
     func appendSelectedAsset() {
         guard let asset = selectedAsset else { return }
         if let stream = asset.streams.first(where: { $0.kind == .audio }),
@@ -415,7 +460,7 @@ final class EditorStore: ObservableObject {
         }
         do {
             var ids: [UUID] = []
-            try change { ids = try $0.appendAsset(asset.id) }
+            try change { ids = try $0.appendAsset(asset.id, sourceRange: selectedSourceRange) }
             selectedClipID = ids.first
             statusMessage = "Added to sequence. Video and audio components edit together."
         } catch { report(error) }
@@ -425,17 +470,17 @@ final class EditorStore: ObservableObject {
         guard let asset = selectedAsset, asset.streams.contains(where: { $0.kind == .audio }) else { return }
         audioAppendAsset = asset
     }
-    func previewAudioAppend(assetID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting]) throws -> Project {
+    func previewAudioAppend(assetID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], sourceRange: TimeRange? = nil) throws -> Project {
         var candidate = project
-        try candidate.appendAsset(assetID, audioSelections: selections, routing: routing)
+        try candidate.appendAsset(assetID, sourceRange: sourceRange, audioSelections: selections, routing: routing)
         return candidate
     }
-    func applyAudioAppend(assetID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], expectedProject: Project) throws {
+    func applyAudioAppend(assetID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], expectedProject: Project, sourceRange: TimeRange? = nil) throws {
         guard project == expectedProject else {
             throw EditorCoreError.invalidModel("The project changed while selecting audio. Reopen append to review the current sequence.")
         }
         var ids: [UUID] = []
-        try change { ids = try $0.appendAsset(assetID, audioSelections: selections, routing: routing) }
+        try change { ids = try $0.appendAsset(assetID, sourceRange: sourceRange, audioSelections: selections, routing: routing) }
         selectedClipID = ids.first
         statusMessage = "Added to sequence with the selected audio channels and output routing."
     }

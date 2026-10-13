@@ -521,6 +521,9 @@ sequence previews and renders at the same positions with exact output timing.
       DocumentGroup autosave, validated relinking, and basic sequence setup.
 - [x] Connect horizontal drag/move, inspector trim, split/delete, selection, and
       atomic linked-component undo/redo; video edits snap to sequence frames.
+- [x] Add per-source In/Out working marks, exact qualified CFR snapping,
+      source-scoped remappable I/O shortcuts and atomic range append for linked
+      picture/audio including explicit channel selection.
 - [x] Add linked drag trim handles, adjacency snapping, frame stepping, and
       sequence/start timecode controls.
 - [x] Expose lossless rational frame-rate entry/presets and sequence audio output
@@ -1606,3 +1609,27 @@ launch-performance claim has been validated yet.
   retention cleanup, saved settings, app undo/redo and playback identity.
   Xcode caches and bookmark services require host access. Native interactive
   acceptance and signed/runtime packaging remain open.
+
+### Source range assembly checkpoint (2026-10-13)
+
+- Source monitor now offers compact In, Out and clear icons with accessible labels,
+  tooltips and range/duration readouts. Out is exclusive. I/O and Option-X defaults
+  are remappable, source-scoped and protected during text entry.
+- Marks remain per-asset working selections during the editing session. Bin/viewer
+  selection and representation changes retain them; opening another document clears
+  them. They do not dirty the document or add undo steps. Appended clip ranges are
+  persisted through the existing document model.
+- Qualified CFR picture snaps to exact source cadence. Other media uses microsecond
+  positions without inventing a frame rate. Invalid and empty ranges preserve the
+  previous marks. Still images retain their existing full five-second default.
+- Both core placement paths accept validated source ranges. Linked components use
+  identical offsets/durations, append timing uses the chosen extent, and explicit
+  audio drafts capture their range for both preview and commit. Append remains one
+  undoable edit. Finder drops continue to place the full imported source.
+- Validation covers fractional source offsets, linked A/V ranges, selected audio
+  routing, still extents, exact sequence duration, saved round trips, invalid-range
+  rollback, source-scoped shortcuts, marking without document mutation and app
+  append undo/redo. Full repository verification passes (95 XCTest cases with two
+  existing skips, 87 Swift Testing cases, workspace policy smokes, Python checks
+  and an unsigned Debug app build); the host app-file smoke also passes.
+  Interactive source-player acceptance remains open.

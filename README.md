@@ -34,7 +34,7 @@ naming, empty-track retention, and audio gain. Static gain is undoable and uses
 the shared playback/render plan; collision-created siblings inherit it. Main
 workspace actions use icons with tooltips and accessibility labels.
 Imports use the bin selected when inspection starts. Import AVFoundation-supported video/audio and still images,
-preview sources, append linked video/audio, drag move/trim with snapping, split/delete clips, undo/redo,
+preview sources, mark source In/Out with compact icons or remappable I/O shortcuts, append the selected range as linked video/audio, drag move/trim with snapping, split/delete clips, undo/redo,
 and save/reopen `.afcproject` documents. Media access is retained with sandbox
 bookmarks; missing originals can be relinked. DocumentGroup supplies native
 new/open/save and autosave behavior. An approximately five-minute first-save

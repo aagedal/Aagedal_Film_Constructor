@@ -9,6 +9,40 @@ final class ProjectAssemblyTests: XCTestCase {
                        MediaStream(index: 1, kind: .audio, audioLayout: layout)])
     }
 
+    func testSourceRangeAppendPreservesExactLinkedOffsetsAndEnd() throws {
+        let asset = try audiovisual()
+        var project = Project(settings: try SequenceSettings(), assets: [asset])
+        let range = try TimeRange(start: RationalTime(1001, 24000), duration: RationalTime(7007, 24000))
+        let ids = try project.appendAsset(asset.id, sourceRange: range)
+        let first = project.tracks.flatMap(\.clips)
+        XCTAssertEqual(Set(first.map(\.sourceRange)), [range])
+        XCTAssertEqual(Set(first.compactMap(\.linkGroupID)).count, 1)
+        XCTAssertEqual(first.map(\.id), ids)
+        let next = try project.appendAsset(asset.id, sourceRange: range)
+        XCTAssertEqual(Set(project.tracks.flatMap(\.clips).filter { next.contains($0.id) }.map(\.timelineStart)), [range.duration])
+        XCTAssertEqual(try TimelineRenderPlan(project: project).duration, try range.duration.multiplied(by: 2))
+        XCTAssertEqual(try JSONDecoder().decode(Project.self, from: JSONEncoder().encode(project)), project)
+    }
+
+    func testExplicitAudioAndStillRangesAndInvalidRangeRollback() throws {
+        let asset = try audiovisual()
+        let still = MediaAsset(name: "Still", duration: try RationalTime(5), streams: [])
+        var project = Project(settings: try SequenceSettings(), assets: [asset, still])
+        let range = try TimeRange(start: RationalTime(2), duration: RationalTime(3))
+        let selection = AudioSourceSelection(channels: [SourceChannel(streamIndex: 1, channelIndex: 1)], layout: .mono)
+        try project.appendAsset(asset.id, sourceRange: range, audioSelections: [selection], routing: [AudioRouting(outputChannels: [0])])
+        try project.appendAsset(still.id, sourceRange: range)
+        XCTAssertEqual(Set(project.tracks.flatMap(\.clips).map(\.sourceRange)), [range])
+        let before = project
+        let invalid = try TimeRange(start: RationalTime(9), duration: RationalTime(2))
+        XCTAssertThrowsError(try project.appendAsset(asset.id, sourceRange: invalid))
+        XCTAssertEqual(project, before)
+        var malformed = range
+        malformed.duration = .zero
+        XCTAssertThrowsError(try project.appendAsset(still.id, sourceRange: malformed))
+        XCTAssertEqual(project, before)
+    }
+
     func testAppendPlacesLinkedPictureAndSoundAndReusesTracks() throws {
         let asset = try audiovisual()
         var project = Project(settings: try SequenceSettings())

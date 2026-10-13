@@ -198,7 +198,8 @@ struct ContentView: View {
                 } description: {
                     Text("Import or drop video, audio, or still images into this bin.")
                 } actions: {
-                    Button("Import media…", action: store.importMedia).disabled(store.isImporting)
+                    Button(action: store.importMedia) { Label("Import media", systemImage: "plus.rectangle.on.folder") }
+                        .labelStyle(.iconOnly).help("Import media").disabled(store.isImporting)
                 }
                 .frame(maxHeight: .infinity)
             } else {
@@ -353,7 +354,10 @@ struct ContentView: View {
                     VStack(spacing: 10) {
                         Image(systemName: "play.rectangle").font(.system(size: 38))
                         Text(store.selectedAsset == nil ? "Select media to preview" : "Source preview unavailable")
-                        if store.selectedAsset != nil { Button("Relink media…", action: store.relinkSelectedAsset) }
+                        if store.selectedAsset != nil {
+                            Button(action: store.relinkSelectedAsset) { Label("Relink media", systemImage: "link") }
+                                .labelStyle(.iconOnly).help("Relink media")
+                        }
                     }.foregroundStyle(.white.opacity(0.7))
                 }
             }
@@ -376,8 +380,24 @@ struct ContentView: View {
                         .help("Play source forwards")
                         .disabled(!store.canControlSourceTransport)
                 }
-                if let asset = store.selectedAsset { Text("\(asset.duration.seconds, specifier: "%.2f") seconds").font(.caption.monospacedDigit()) }
             }.padding(10)
+            if let range = store.selectedSourceRange {
+                HStack(spacing: 10) {
+                    Button { store.markSource(inPoint: true) } label: { Label("Mark In", systemImage: "arrow.right.to.line") }
+                        .labelStyle(.iconOnly).help("Mark source In (I by default)").disabled(!store.canControlSourceTransport)
+                    Button { store.markSource(inPoint: false) } label: { Label("Mark Out", systemImage: "arrow.left.to.line") }
+                        .labelStyle(.iconOnly).help("Mark source Out, exclusive (O by default)").disabled(!store.canControlSourceTransport)
+                    Text("\(range.start.seconds, specifier: "%.2f") – \((try? range.end().seconds) ?? 0, specifier: "%.2f") s")
+                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        .help("Selected source range; Out is exclusive")
+                    Spacer()
+                    Text("\(range.duration.seconds, specifier: "%.2f") s").font(.caption.monospacedDigit())
+                    Button(action: store.clearSourceMarks) { Label("Clear source marks", systemImage: "xmark") }
+                        .labelStyle(.iconOnly).help("Clear marks (Option-X by default)")
+                        .disabled(store.selectedAssetID.map { store.sourceRanges[$0] == nil } ?? true)
+                }.padding(.horizontal, 10).padding(.bottom, 10)
+            }
+
         }
     }
 

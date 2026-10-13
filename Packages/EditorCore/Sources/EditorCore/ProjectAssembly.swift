@@ -12,7 +12,7 @@ public extension Project {
     /// Place the first picture and audio stream together, or a still for streamless image assets.
     /// A nil placement appends after the latest component on any track. Overlaps use sibling tracks.
     @discardableResult
-    mutating func appendAsset(_ assetID: UUID, at time: RationalTime? = nil) throws -> [UUID] {
+    mutating func appendAsset(_ assetID: UUID, at time: RationalTime? = nil, sourceRange: TimeRange? = nil) throws -> [UUID] {
         try validate()
         guard let asset = assets.first(where: { $0.id == assetID }) else {
             throw EditorCoreError.invalidModel("Missing media asset")
@@ -31,14 +31,14 @@ public extension Project {
             }
             audioSelections.append(AudioSourceSelection(channels: channels, layout: settings.audioLayout))
         }
-        return try appendAsset(assetID, at: time, audioSelections: audioSelections,
+        return try appendAsset(assetID, at: time, sourceRange: sourceRange, audioSelections: audioSelections,
                                routing: audioSelections.map { _ in AudioRouting() })
     }
 
     /// Place picture with explicitly selected audio components and their output maps.
     /// Empty audio selections place picture only. Every component shares one link group.
     @discardableResult
-    mutating func appendAsset(_ assetID: UUID, at time: RationalTime? = nil,
+    mutating func appendAsset(_ assetID: UUID, at time: RationalTime? = nil, sourceRange: TimeRange? = nil,
                               audioSelections: [AudioSourceSelection], routing: [AudioRouting]) throws -> [UUID] {
         try validate()
         guard let asset = assets.first(where: { $0.id == assetID }) else {
@@ -72,7 +72,11 @@ public extension Project {
             }
         }
         let start = try time ?? TimelineRenderPlan(project: self).duration
-        let sourceRange = try TimeRange(start: .zero, duration: asset.duration)
+        let sourceRange = try sourceRange ?? TimeRange(start: .zero, duration: asset.duration)
+        try sourceRange.validate()
+        guard try sourceRange.end().compared(to: asset.duration) != .orderedDescending else {
+            throw EditorCoreError.invalidModel("Source range exceeds media duration")
+        }
         var selections: [(ClipSelection, AudioRouting)] = []
         if let video = asset.streams.first(where: { $0.kind == .video }) {
             selections.append((.video(streamIndex: video.index), AudioRouting()))

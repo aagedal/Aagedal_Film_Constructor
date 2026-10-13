@@ -31,6 +31,7 @@ struct AppFileSmoke {
         try await exerciseStillPreview(directory: directory, still: still, audio: audio)
         try exerciseProxyDocument(directory: directory)
         try exerciseTrackSettings()
+        try exerciseSourceMarks()
         try exerciseSequenceSettings()
         try exerciseSequenceMatching()
         let corruptURL = directory.appendingPathComponent("corrupt.png")
@@ -205,7 +206,51 @@ struct AppFileSmoke {
         try exerciseAudioFades()
         try exerciseAudioCrossfades()
         try exerciseShortcuts()
-        print("App file smoke passed: track/family naming/gain/retention/undo/redo/document round trip, viewer context/Tab command dispatch/special-key mapping/selection and playhead preservation, exact sequence settings/persistence/render-plan propagation/atomic undo/redo/track and family route rejection, nested-bin persistence/navigation/batch moves/undo/bookmarks/captured imports/deleted-destination fallback, Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: exact source marks/scoped I/O commands/linked range append/explicit audio preview/undo/redo/clear/document reset, track/family naming/gain/retention/undo/redo/document round trip, viewer context/Tab command dispatch/special-key mapping/selection and playhead preservation, exact sequence settings/persistence/render-plan propagation/atomic undo/redo/track and family route rejection, nested-bin persistence/navigation/batch moves/undo/bookmarks/captured imports/deleted-destination fallback, Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
+    }
+
+    @MainActor
+    static func exerciseSourceMarks() throws {
+        let store = EditorStore()
+        defer { store.close() }
+        let rate = try FrameRate(24000, 1001)
+        let format = try VideoSourceFormat(width: 1920, height: 1080, frameRate: rate)
+        let asset = MediaAsset(name: "Marked take", duration: try RationalTime(10), streams: [
+            MediaStream(index: 0, kind: .video, videoFormat: format),
+            MediaStream(index: 1, kind: .audio, audioLayout: .stereo)
+        ])
+        store.project = Project(settings: try SequenceSettings(), assets: [asset])
+        store.selectedAssetID = asset.id
+        let before = store.project
+        store.pendingSourceTransport = (CMTime(seconds: 1, preferredTimescale: 60000), false)
+        let registry = EditorCommandRegistry(defaults: UserDefaults(suiteName: "afc.source-marks.smoke")!)
+        registry.reset()
+        registry.perform(.markSourceIn, store: store, scope: .timeline)
+        try check(store.sourceRanges.isEmpty, "Source marking shortcuts respect timeline focus")
+        registry.perform(.markSourceIn, store: store, scope: .source)
+        store.pendingSourceTransport = (CMTime(seconds: 3, preferredTimescale: 60000), false)
+        registry.perform(.markSourceOut, store: store, scope: .source)
+        let range = try unwrap(store.selectedSourceRange, "Missing source range")
+        try check(range.start == RationalTime(1001, 1000), "In snaps to exact source cadence")
+        try check(try range.end() == RationalTime(3003, 1000), "Out snaps to exact source cadence")
+        try check(store.project == before && !store.canUndo, "Marks do not edit the document")
+        store.pendingSourceTransport = (CMTime.zero, false)
+        store.markSource(inPoint: false)
+        try check(store.selectedSourceRange == range && store.errorMessage != nil, "Invalid marks preserve selection")
+        store.errorMessage = nil
+        let selection = AudioSourceSelection(channels: [SourceChannel(streamIndex: 1, channelIndex: 0)], layout: .mono)
+        let candidate = try store.previewAudioAppend(assetID: asset.id, selections: [selection], routing: [AudioRouting(outputChannels: [0])], sourceRange: range)
+        try check(Set(candidate.tracks.flatMap(\.clips).map(\.sourceRange)) == [range], "Explicit audio preview uses the same range")
+        store.appendSelectedAsset()
+        try check(Set(store.project.tracks.flatMap(\.clips).map(\.sourceRange)) == [range], "Append uses marks for picture and audio")
+        store.undo()
+        try check(store.project == before && store.selectedSourceRange == range, "Append undo keeps source marks")
+        store.redo()
+        try check(store.duration == range.duration.seconds, "Append redo restores marked duration")
+        store.clearSourceMarks()
+        try check(store.selectedSourceRange?.duration == asset.duration, "Clear restores full source extent")
+        store.load(ProjectDocument(project: before))
+        try check(store.sourceRanges.isEmpty, "Loading another document clears working marks")
     }
 
     @MainActor

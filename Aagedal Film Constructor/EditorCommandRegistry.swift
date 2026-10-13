@@ -53,6 +53,9 @@ final class EditorCommandRegistry: ObservableObject {
         case .redo: store.redo()
         case .importMedia: store.importMedia()
         case .appendSource: store.appendSelectedAsset()
+        case .markSourceIn: store.markSource(inPoint: true)
+        case .markSourceOut: store.markSource(inPoint: false)
+        case .clearSourceMarks: store.clearSourceMarks()
         case .splitClip: store.splitSelectedClip()
         case .previousFrame: store.stepPlayhead(frames: -1)
         case .nextFrame: store.stepPlayhead(frames: 1)
@@ -79,6 +82,8 @@ final class EditorCommandRegistry: ObservableObject {
         case .redo: return store.canRedo
         case .importMedia: return !store.isImporting
         case .appendSource: return store.selectedAsset != nil && !store.isImporting
+        case .markSourceIn, .markSourceOut: return store.sourcePlayer != nil || store.pendingSourceTransport != nil
+        case .clearSourceMarks: return store.selectedAssetID.map { store.sourceRanges[$0] != nil } ?? false
         case .splitClip, .deleteClip: return store.selectedClip != nil
         case .previousFrame, .nextFrame: return true
         case .playReverse: return store.sequencePlayback == nil && store.sourcePlayer != nil

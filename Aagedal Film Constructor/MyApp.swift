@@ -251,6 +251,11 @@ private struct EditorCommands: Commands {
             command(.pausePlayback)
             command(.playForward)
         }
+        CommandMenu("Source") {
+            command(.markSourceIn)
+            command(.markSourceOut)
+            command(.clearSourceMarks)
+        }
         CommandMenu("Timeline") {
             command(.appendSource)
             command(.splitClip)
