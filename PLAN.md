@@ -1697,3 +1697,21 @@ launch-performance claim has been validated yet.
   GitHub asset; its production-bundle proxy smoke passes both codecs. The real
   prepared cache is reusable with network calls blocked. GitHub CI now runs the
   Python tooling regression suite on PRs and main updates.
+
+### NLE timeline shortcuts checkpoint (2026-10-14)
+
+- Added remappable Shift+Z timeline fit with previous-zoom restoration and a
+  toolbar button. Fit uses available viewport width and supports long sequences.
+- Added Q/W ripple start/end trims at the playhead. Aligned linked components
+  trim together; downstream clips on every track shift by the removed interval.
+  Source edits, track timing, fade bounding and crossfade reconciliation commit
+  as one undoable transaction. Earlier content and downstream gaps are preserved.
+- The scoped first implementation refuses overlapping unrelated content,
+  mismatched linked extents and linked groups straddling the ripple boundary.
+  Implicit splitting of connected/overlapping clips remains future work.
+- Existing source I/O and J/K/L commands were exercised again. New commands use
+  the same text-entry protection, Settings remapping and conflict checks. Migration
+  preserves existing custom bindings when a new default conflicts.
+- Verification: shortcut model smoke, app-file smoke including dispatch,
+  scope/playhead/undo/remapping/migration, five ripple core regressions and full
+  EditorCore suite (100 tests, two opt-in tests skipped), normal unsigned Xcode build.

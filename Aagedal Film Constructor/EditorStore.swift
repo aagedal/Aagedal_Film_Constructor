@@ -42,6 +42,7 @@ final class EditorStore: ObservableObject {
     @Published var audioAppendAsset: MediaAsset?
     @Published var renderExportDraft: SequenceExportDraft?
     @Published var edlExportDraft: EDLExportDraft?
+    @Published var timelineFitRequest = UUID()
     @Published var playheadSeconds: Double = 0
     @Published var errorMessage: String?
     @Published var isImporting = false
@@ -566,6 +567,25 @@ final class EditorStore: ObservableObject {
     func splitSelectedClip() {
         guard let id = selectedClipID else { return }
         do { edit(.split(clipID: id, at: try editTime(playheadSeconds))) } catch { report(error) }
+    }
+    var canRippleTrimSelectedClip: Bool {
+        guard let clip = selectedClip, let at = try? editTime(playheadSeconds),
+              let end = try? clip.timelineRange().end() else { return false }
+        return (try? at.compared(to: clip.timelineStart)) == .orderedDescending &&
+            (try? at.compared(to: end)) == .orderedAscending
+    }
+    func rippleTrimSelectedClip(edge: TimelineTrimEdge) {
+        guard let clip = selectedClip else { return }
+        do {
+            let at = try editTime(playheadSeconds)
+            try change {
+                var engine = try TimelineEditEngine(project: $0)
+                try engine.apply(.rippleTrim(clipID: clip.id, edge: edge, at: at))
+                $0 = engine.project
+            }
+            focusSequenceViewer()
+            seek(to: edge == .leading ? clip.timelineStart.seconds : at.seconds)
+        } catch { report(error) }
     }
     func moveSelectedClip(to seconds: Double) {
         guard let id = selectedClipID, let track = project.tracks.first(where: { $0.clips.contains { $0.id == id } }) else { return }

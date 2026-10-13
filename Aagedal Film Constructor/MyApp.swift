@@ -259,6 +259,9 @@ private struct EditorCommands: Commands {
         CommandMenu("Timeline") {
             command(.appendSource)
             command(.splitClip)
+            command(.rippleTrimStart)
+            command(.rippleTrimEnd)
+            command(.zoomTimelineToFit)
             Divider()
             command(.previousFrame)
             command(.nextFrame)
