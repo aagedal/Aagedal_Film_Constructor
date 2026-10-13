@@ -1,0 +1,9 @@
+{
+  "version": "9.0.2",
+  "url": "https://github.com/aagedal/Aagedal_Film_Constructor/releases/download/media-helpers-9.0.2/ffmpeg-9.0.2-full-signed.zip",
+  "sha256": "5989664a399ab795df0d326a7571509ad4f2ceb913f323f89332309df6a6ce3e",
+  "binaries": {
+    "ffmpeg": "ec3d81944809bf5d0173edb77b8dbf8eaeabf2388289812ce87b3f90fbe410c6",
+    "ffprobe": "f2cabc2f9dbd8bd0325b4ed105cf434de9117ceda984bea1bf1e03450876d5ad"
+  }
+}

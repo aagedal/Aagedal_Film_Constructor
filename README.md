@@ -75,10 +75,13 @@ change. Proxy jobs persist with the project and can be manually resumed after
 interruption or reopening. See [proxy scope and testing](docs/proxies.md).
 A development sequence render workflow
 exports MOV/ProRes 422 HQ with PCM audio, progress, cancellation, and FFprobe
-verification when explicitly prepared helpers are bundled. PNG/JPEG stills,
+verification using the automatically bundled pinned helpers. PNG/JPEG stills,
 layered video, channel maps, gain, fades and crossfades are supported within the
 qualified subset. The export dialog reports source geometry/color/VFR limitations.
-See [helper preparation](docs/media-helper-packaging.md). A prepared local build
+Xcode builds now automatically download and bundle the pinned signed Apple Silicon
+FFmpeg/FFprobe 9.0.2 pair on the first build, then reuse a verified local cache.
+No machine-local path configuration is required. See
+[automatic helper packaging and offline setup](docs/media-helper-packaging.md). A prepared local build
 can be selected persistently for Debug with
 `python3 scripts/configure-local-media-helpers.py --prepared-dir /absolute/prepared-helpers`.
 Run `scripts/bundled-proxy-smoke.sh /absolute/built.app` to test proxy generation

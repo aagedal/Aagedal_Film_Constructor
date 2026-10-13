@@ -1648,3 +1648,26 @@ launch-performance claim has been validated yet.
   smoke passes verified MOV, timing/geometry qualification, resampling, failure
   handling, destination protection and cancellation cleanup. Native runtime bridge
   packaging, signed sandbox app acceptance and complete release review remain open.
+
+### Reproducible Xcode helper bootstrap checkpoint (2026-10-14)
+
+- Fresh Debug and Release builds now fetch the pinned signed Apple Silicon
+  FFmpeg/FFprobe 9.0.2 archive from a repository dependency release. Checked-in
+  configuration records the URL, archive hash and both executable hashes; no
+  machine-specific path or ignored local selection is required.
+- Bootstrap validates archive/executable hashes and code signatures, then runs
+  existing capability/dependency preparation and atomically publishes a cache.
+  Cached builds validate all prepared files without network access. A file lock
+  serializes concurrent bootstrap builds and failed preparation stays unpublished.
+- Existing explicit prepared-directory overrides remain available. Set
+  `AFC_BUNDLE_MEDIA_HELPERS=NO` to intentionally build without tools; removing the
+  local Debug override returns to automatic bundling. Offline cache seeding accepts
+  only the exact pinned archive. Download/integrity failures fail the build visibly.
+- New tests cover archive rejection before execution, safe known-member extraction,
+  binary hash checking, cache reuse without network, modified/missing/unexpected
+  files and symlink rejection. Full Python checks pass with existing fixture skips.
+- A disposable checkout without `.local` or `LocalMediaHelpers.xcconfig` passes
+  unsigned Debug and Release builds. The Debug build downloads the actual pinned
+  GitHub asset; its production-bundle proxy smoke passes both codecs. The real
+  prepared cache is reusable with network calls blocked. GitHub CI now runs the
+  Python tooling regression suite on PRs and main updates.

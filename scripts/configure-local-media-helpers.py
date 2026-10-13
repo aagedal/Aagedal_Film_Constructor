@@ -10,7 +10,7 @@ def configure(directory):
     config = root / 'Configuration' / 'LocalMediaHelpers.xcconfig'
     if directory is None:
         config.unlink(missing_ok=True)
-        print('Local Debug helpers disabled; rebuild to remove bundled helpers.')
+        print('Local Debug override removed; rebuild to use pinned automatic helpers.')
         return
     if not directory.is_absolute() or not directory.is_dir() or directory.is_symlink():
         raise ValueError('Supply an absolute prepared directory, not a link')
