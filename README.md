@@ -41,9 +41,11 @@ through **Show backups**; source media is referenced, not copied. See
 Finder drops onto the timeline import and place files directly at the drop time;
 multiple files are placed consecutively. Compatible target tracks and automatic
 collision siblings are supported, with one undo step per imported file.
-Finder file drops, persistent panel visibility, sequence timecode and frame
-stepping, and an empty-track cleanup preference are
-available. Timeline clips display asynchronous filmstrips and channel waveforms;
+Finder file drops, persistent panel visibility, exact integer/decimal/fractional
+sequence frame rates, audio output layout/sample-rate settings, sequence timecode
+and frame stepping, and an empty-track cleanup preference are available.
+The mono/stereo/5.1 output configuration is saved; current sequence playback and
+rendered export require mono/stereo. Timeline clips display asynchronous filmstrips and channel waveforms;
 Settings includes persistent keyboard shortcut remapping and conflict checks.
 Source playback supports J (silent reverse), K (pause), and L (forward), with
 monitor buttons and text-entry protection. The app now includes a macOS icon.

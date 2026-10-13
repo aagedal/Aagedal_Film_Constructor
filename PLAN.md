@@ -521,6 +521,8 @@ sequence previews and renders at the same positions with exact output timing.
       atomic linked-component undo/redo; video edits snap to sequence frames.
 - [x] Add linked drag trim handles, adjacency snapping, frame stepping, and
       sequence/start timecode controls.
+- [x] Expose lossless rational frame-rate entry/presets and sequence audio output
+      rate/layout with atomic timecode application, route validation and undo.
 - [ ] Add live sequence transport.
 - [x] Add asynchronous filmstrips/waveforms and fit/fill/no-scaling controls.
       Scaling is persisted; sequence preview/render geometry remains unqualified.
@@ -1471,3 +1473,27 @@ launch-performance claim has been validated yet.
 - Native interactive UI acceptance remains unqualified; this checkpoint adds
   media organization and does not close runtime packaging, stream-copy app export,
   signed distribution or receiver-conform milestones.
+
+
+### Exact sequence output settings checkpoint (2026-10-13)
+
+- The inspector accepts integer, literal decimal and exact fractional frame rates,
+  offers standard integer/NTSC fraction presets and restores the exact stored
+  fraction. Decimal values no longer silently select a nearby NTSC rate. Core
+  parsing uses checked integer arithmetic and exact upper-bound comparisons.
+- Width, height, frame rate, audio sample rate, mono/stereo/5.1 output layout and
+  start timecode apply as one validated undoable edit. Existing clip/source times
+  and routing remain intact. Incompatible track or retained family maps reject
+  the complete change without losing undo/redo history. Saved custom layouts
+  remain available without reinterpretation.
+- First-clip matching remains open: the importer does not yet retain qualified
+  source raster, orientation/pixel aspect or exact frame-rate metadata. This
+  checkpoint does not close full output-layout/hardware parity or release runtime
+  qualification.
+- Verification: the regression suite passes 44 Python tests (eight optional
+  dependency/media skips), 90 XCTest cases (two optional skips), 78 Swift Testing
+  cases and the workspace policy smokes. The expanded macOS app-file smoke checks
+  exact entry, decimal/DF refusal, unwrapped timecode preservation, output-plan
+  propagation, persistence and atomic route/history rejection. Unsigned Debug
+  and Release app builds pass. Xcode package caches and bookmark services require
+  host access; sandboxed Xcode package resolution cannot finish.

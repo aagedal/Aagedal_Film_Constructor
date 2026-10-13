@@ -410,6 +410,8 @@ private struct ProjectInspector: View {
     @State private var height = "1080"
     @State private var frameRate = "24"
     @State private var startTimecode = "00:00:00:00"
+    @State private var audioSampleRate = "48000"
+    @State private var audioLayout = ChannelLayout.stereo
     @State private var editingAudio = false
     @State private var fadeInDuration = "0"
     @State private var fadeOutDuration = "0"
@@ -474,21 +476,30 @@ private struct ProjectInspector: View {
                         numericField("Width", text: $width)
                         numericField("Height", text: $height)
                         numericField("Frames / second", text: $frameRate)
-                        Button("Apply settings") {
-                            guard let w = Int(width), let h = Int(height), let rate = Double(frameRate), rate.isFinite else { store.errorMessage = "Enter valid dimensions and a frame rate."; return }
-                            store.updateSequence(width: w, height: h, frameRate: rate)
-                        }
-                        Divider()
-                        numericField("Start timecode", text: $startTimecode)
-                        Button("Apply timecode") {
-                            do {
-                                store.updateStartTimecode(try Timecode(parsing: startTimecode, rate: store.project.settings.frameRate))
-                            } catch {
-                                store.errorMessage = "Enter valid HH:MM:SS:FF timecode, or HH:MM:SS;FF for drop frame at 29.97/59.94 fps."
+                        Menu("Frame rate presets") {
+                            ForEach(["24", "25", "30", "50", "60", "24000/1001", "30000/1001", "60000/1001"], id: \.self) { rate in
+                                Button(rate) { frameRate = rate }
                             }
                         }
-                        Text("\(store.project.settings.audioSampleRate) Hz · \(store.project.settings.audioLayout.channels.count) output channels")
+                        Text("Enter an exact fraction, integer or decimal. Use 30000/1001 for 29.97 fps drop frame.")
                             .font(.caption).foregroundStyle(.secondary)
+                        numericField("Audio sample rate (Hz)", text: $audioSampleRate)
+                        Picker("Output layout", selection: $audioLayout) {
+                            Text("Mono").tag(ChannelLayout.mono)
+                            Text("Stereo").tag(ChannelLayout.stereo)
+                            Text("5.1 surround").tag(ChannelLayout.surround51)
+                            if ![ChannelLayout.mono, .stereo, .surround51].contains(audioLayout) {
+                                Text("Saved layout (\(audioLayout.channels.count) channels)").tag(audioLayout)
+                            }
+                        }
+                        if audioLayout != .mono && audioLayout != .stereo {
+                            Text("This output layout can be saved, but sequence playback and rendered export currently require mono or stereo.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        numericField("Start timecode", text: $startTimecode)
+                        Text("Use HH:MM:SS:FF, or HH:MM:SS;FF for drop frame. Existing audio output maps must remain compatible.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Button("Apply settings") { applySequenceSettings() }
                     }.padding(5)
                 }
                 GroupBox("Editing") {
@@ -625,10 +636,21 @@ private struct ProjectInspector: View {
         fadeDraftClip = clip
         refreshCrossfade()
     }
+    private func applySequenceSettings() {
+        guard let w = Int(width), let h = Int(height), let sampleRate = Int(audioSampleRate) else {
+            store.errorMessage = "Enter valid dimensions and an audio sample rate."
+            return
+        }
+        store.updateSequence(width: w, height: h, frameRateText: frameRate,
+                             audioSampleRate: sampleRate, audioLayout: audioLayout,
+                             startTimecodeLabel: startTimecode)
+    }
     private func refreshSettings() {
         width = String(store.project.settings.width)
         height = String(store.project.settings.height)
-        frameRate = String(format: "%.6g", store.project.settings.frameRate.value.seconds)
+        frameRate = store.project.settings.frameRate.editableText
+        audioSampleRate = String(store.project.settings.audioSampleRate)
+        audioLayout = store.project.settings.audioLayout
         startTimecode = (try? store.project.settings.startTimecode.formatted(rate: store.project.settings.frameRate)) ?? "00:00:00:00"
     }
 }

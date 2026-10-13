@@ -43,12 +43,25 @@ the bin and choose **Append with audio selection…** to configure it.
    step buttons or ⌥⌘← / ⌥⌘→ to navigate sequence frames. The readout shows
    sequence timecode, including the start offset set in the inspector. Click
    the timecode readout to enter a position and jump to it.
-5. Change sequence raster/frame rate or clip scaling in the inspector. Scaling
-   is stored for future sequence monitoring/export; the source monitor displays
-   the original media.
-6. In the inspector set **Start timecode**, then **Apply timecode**. Use
-   `HH:MM:SS:FF`, or `HH:MM:SS;FF` for drop frame at 29.97/59.94 fps. Invalid
-   labels are rejected. Start timecode changes labels without shifting clips.
+5. Change sequence raster/frame rate or clip scaling in the inspector. Frame
+   rate accepts an integer, exact fraction (for example `24000/1001`) or literal
+   decimal. **Frame rate presets** includes the standard fractional rates:
+   select `30000/1001` or `60000/1001` for drop frame. Decimal `29.97` stays
+   exactly `2997/100` and does not support drop frame. Reopening the inspector
+   shows the stored fraction without rounding it.
+6. Set **Audio sample rate (Hz)**, **Output layout** (mono/stereo/5.1), and
+   **Start timecode**, then **Apply settings**. Use `HH:MM:SS:FF`, or
+   `HH:MM:SS;FF` for drop frame at `30000/1001` or `60000/1001`. Picture,
+   audio and timecode settings form one undoable change. Invalid labels or
+   incompatible existing track/family output maps reject the complete change.
+   Identity-routed tracks require the same sequence layout; explicit routes must
+   still address existing output channels. Configure routing in **Audio source
+   channels…** before changing the output layout, or start with an empty project.
+   Audio sample-rate changes preserve clip times and use the sequence rate in
+   render/monitor plans. The development renderer and monitor currently support
+   mono/stereo outputs; a 5.1 output configuration is saved but cannot yet be
+   monitored or rendered. Source 5.1 components can still map explicitly to
+   mono/stereo sequence outputs. Start timecode changes labels without shifting clips.
    Toggle **Remove empty tracks after edits** to preserve unused tracks. Use
    **Panels** in the toolbar or the **View** menu to hide/show the bin, inspector,
    and timeline; these panel choices persist across launches.
