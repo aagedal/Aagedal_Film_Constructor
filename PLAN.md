@@ -1633,3 +1633,18 @@ launch-performance claim has been validated yet.
   existing skips, 87 Swift Testing cases, workspace policy smokes, Python checks
   and an unsigned Debug app build); the host app-file smoke also passes.
   Interactive source-player acceptance remains open.
+
+### Signed helper integration checkpoint (2026-10-14)
+
+- Prepared the user-supplied signed FFmpeg/FFprobe 9.0.2 arm64 pair for this
+  checkout's persistent local Debug selection, retaining supplied build,
+  qualification and notarization reports. Binary hashes match the report and
+  both signatures validate with macOS host services.
+- Existing packaging verifies capabilities, matching configurations, system-only
+  dependencies and prepared hashes. An unsigned Debug build embeds both helpers
+  without changing their signatures. Binaries and local configuration stay ignored.
+- Production-bundle lookup and ProRes Proxy/H.264 generation pass exact fractional
+  frame-count/raster/hash checks while preserving originals. The export-service
+  smoke passes verified MOV, timing/geometry qualification, resampling, failure
+  handling, destination protection and cancellation cleanup. Native runtime bridge
+  packaging, signed sandbox app acceptance and complete release review remain open.

@@ -57,3 +57,37 @@ proxy presets using the production `Bundle.main` lookup, with developer loader
 paths cleared. It verifies raster, exact fractional frame rate/count and output
 SHA256 while preserving the original fixture. This is an unsigned integration
 test; it does not qualify signed sandbox execution or native UI gestures.
+
+## Signed 9.0.2 local integration (2026-10-14)
+
+The user-supplied `ffmpeg-9.0.2-full-signed.zip` contains both Apple Silicon
+helpers, a build README, qualification metadata and a notarization report.
+Extracted executable SHA-256 values match the qualification metadata:
+
+- FFmpeg: `ec3d81944809bf5d0173edb77b8dbf8eaeabf2388289812ce87b3f90fbe410c6`
+- FFprobe: `f2cabc2f9dbd8bd0325b4ed105cf434de9117ceda984bea1bf1e03450876d5ad`
+
+Both pass `codesign --verify --strict` with host services. Signature checks in
+this tool sandbox initially reported an invalid signature; the same unchanged
+files validate outside the sandbox. The supplied report records accepted
+notarization; online notarization was not independently checked here.
+
+Preparation confirms matching version/configuration, required render capabilities
+and system-only dynamic dependencies. This checkout's ignored Debug configuration
+now selects `.local/media-helpers-9.0.2-signed`. The original archive and prepared
+binaries remain outside version control. An unsigned Debug app build embeds the
+pair successfully; its copy phase preserves the existing helper signatures.
+The production-bundle proxy smoke passes both ProRes Proxy and H.264 presets
+(24 frames at 24000/1001, 80×48 raster, verified SHA-256, originals preserved).
+Signing an app build still applies the configured sandbox-inheritance entitlements
+and signs the helpers with the app identity.
+
+The export-service smoke also passes with this pair: verified MOV output,
+CFR/VFR/offset and geometry qualification, resampling, failure reporting,
+destination protection and cancellation cleanup.
+
+The archived build README and qualification reports are retained as local provenance.
+Complete dependency notices and corresponding-source review remain outstanding,
+and the prepared manifest retains `releaseCertified: false`. These CLI binaries
+support proxies and rendered export; they do not supply the FFmpeg-library bridge
+needed for native sequence monitoring.
