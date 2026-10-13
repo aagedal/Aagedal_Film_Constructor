@@ -35,7 +35,7 @@ the shared playback/render plan; collision-created siblings inherit it. Main
 workspace actions use icons with tooltips and accessibility labels.
 Imports use the bin selected when inspection starts. Import AVFoundation-supported video/audio and still images,
 preview sources, mark source In/Out with compact icons or remappable I/O shortcuts, append the selected range as linked video/audio, drag move/trim with snapping, split/delete clips, undo/redo,
-and save/reopen `.afcproject` documents. Media access is retained with sandbox
+and save/reopen `.afcproject` documents. Timeline shortcuts include Shift+Z to fit/restore zoom and Q/W to ripple-trim a selected clip to the playhead; aligned linked components trim together and later clips shift across tracks. Overlapping unrelated content is refused by this first ripple implementation. Media access is retained with sandbox
 bookmarks; missing originals can be relinked. DocumentGroup supplies native
 new/open/save and autosave behavior. An approximately five-minute first-save
 reminder and automatic timestamped
@@ -62,8 +62,8 @@ same source, track family, and gain can be combined into one explicitly mapped
 component. See [basic testing instructions](docs/basic-workspace.md).
 
 This is the first usable assembly workspace. The viewer has one Source/Sequence icon toggle and a remappable Tab shortcut.
-Media-bin clicks select Source; timeline clicks and clip/ruler drags select Sequence. Native timeline monitoring is available in an opt-in development
-workspace build; default Xcode builds report the missing native runtime explicitly.
+Media-bin clicks select Source; timeline clicks and clip/ruler drags select Sequence. Normal Xcode builds use system AVFoundation timeline preview. A broader native
+FFmpeg monitor is available in an opt-in development workspace build.
 See [sequence monitoring](docs/sequence-monitor.md) for building and exercising
 the enabled app controls. Release runtime/helper packaging remains unfinished.
 The bin supports batch ProRes Proxy/H.264 creation, cancellable verified jobs,
@@ -213,6 +213,8 @@ the native FFmpeg runtime and report a visible preview error.
 Run `scripts/system-sequence-smoke.sh /absolute/path/ffmpeg` to verify generated
 ProRes/PCM decoded frames and live transport; the fixture generator requires
 FFmpeg, while the system preview itself has no external playback dependency.
-Native-enabled development builds continue to use the native backend. Broader
-codec, fractional-frame, audio-parity, signed sandbox and measured A/V timing
-qualification remain open.
+Native-enabled development builds continue to use the native backend. Generated ProRes/PCM, H.264/AAC and closed-GOP HEVC/AAC fixtures now pass decoded
+seek checks at 24, 23.976, 29.97 and 59.94 fps. Open-GOP HEVC trim preview can return
+black and remains unqualified. See [system preview evidence](docs/evidence/system-sequence-20261014/README.md).
+Audio waveform parity, broader real-world media, signed sandbox and measured A/V
+timing qualification remain open.

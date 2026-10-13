@@ -73,6 +73,20 @@ import EditorCore
             try require(fractionalFrame == frame, "Fractional seek must preserve frame identity")
         }
         await fractionalBackend.close()
+        // Nine 24000/1001 frames round to slightly more than nine in Double.
+        // End clamping must still select frame eight, not an out-of-range frame nine.
+        var short = project
+        short.settings.frameRate = try FrameRate(24000, 1001)
+        short.tracks = [project.tracks[2]]
+        short.tracks[0].clips[0].timelineStart = .zero
+        short.tracks[0].clips[0].sourceRange = try TimeRange(start: .zero, duration: short.settings.frameRate.time(forFrames: 9))
+        short.tracks[0].clips[0].fadeIn = .init(); short.tracks[0].clips[0].fadeOut = .init()
+        let shortBackend = try AVFoundationSequenceBackend(project: short, videoProxies: [:])
+        var shortFrame: Int64?
+        shortBackend.display = { _, frame in shortFrame = frame }
+        try await shortBackend.seek(toFrame: Int64.max)
+        try require(shortFrame == 8, "Exact fractional end clamp must not invent a tenth frame")
+        await shortBackend.close()
         var unsupported = project
         unsupported.tracks[2].template.routing.outputChannels = [1, 0]
         let rejected = try AVFoundationSequenceBackend(project: unsupported, videoProxies: [:])
@@ -89,6 +103,6 @@ import EditorCore
         try require(controller.image != nil && controller.displayedFrameIndex == 59,
             "Scrubbing beyond the sequence end must display the clamped last frame: \(controller.message)")
         controller.deactivate()
-        print("System sequence smoke passed: decoded trims, overlap precedence, reverse/fractional seeks, black gaps, live transport, end scrub, cleanup and routing rejection.")
+        print("System sequence smoke passed: decoded trims, overlap precedence, reverse/fractional seeks, black gaps, live transport, end scrub/exact fractional end clamp, cleanup and routing rejection.")
     }
 }

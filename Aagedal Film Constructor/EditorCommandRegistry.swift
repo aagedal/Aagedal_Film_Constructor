@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import EditorCore
 import SwiftUI
 
 @MainActor
@@ -15,6 +16,14 @@ final class EditorCommandRegistry: ObservableObject {
            let saved = try? JSONDecoder().decode([String: ShortcutBinding].self, from: data) {
             for command in EditorCommandID.allCases {
                 if let value = saved[command.rawValue] { resolved[command] = value.normalized }
+            }
+            // Newly introduced defaults must not erase an existing custom map.
+            // Leave a new command unbound if its default is already in use.
+            for command in EditorCommandID.allCases where saved[command.rawValue] == nil {
+                let binding = resolved[command]!
+                if !binding.isEmpty && EditorCommandID.allCases.contains(where: {
+                    $0 != command && saved[$0.rawValue] != nil && resolved[$0] == binding
+                }) { resolved[command] = ShortcutBinding(key: "") }
             }
             // Validate the complete restored map, including conflicts with defaults.
             if EditorCommandID.allCases.contains(where: { resolved[$0]?.validationError(for: $0, bindings: resolved) != nil }) {
@@ -48,6 +57,9 @@ final class EditorCommandRegistry: ObservableObject {
         }
         guard command.isPlayback || scope == .document || command.scope == .document || scope == command.scope else { return }
         switch command {
+        case .zoomTimelineToFit: store.timelineFitRequest = UUID()
+        case .rippleTrimStart: store.rippleTrimSelectedClip(edge: .leading)
+        case .rippleTrimEnd: store.rippleTrimSelectedClip(edge: .trailing)
         case .toggleViewer: store.toggleViewer()
         case .undo: store.undo()
         case .redo: store.redo()
@@ -77,6 +89,8 @@ final class EditorCommandRegistry: ObservableObject {
         if Self.isEditingText { return command == .undo || command == .redo }
         guard command.isPlayback || scope == .document || command.scope == .document || scope == command.scope else { return false }
         switch command {
+        case .zoomTimelineToFit: return store.duration > 0
+        case .rippleTrimStart, .rippleTrimEnd: return store.canRippleTrimSelectedClip
         case .toggleViewer: return true
         case .undo: return store.canUndo
         case .redo: return store.canRedo

@@ -29,8 +29,10 @@ broader sequence-engine path; it still needs redistributable dependency packagin
   scrub/step controls, edit invalidation and verified proxy selection.
 - [x] Exercise decoded trims, upper-video precedence, reverse/repeated seeks,
   black picture gaps, live play/pause, cleanup and unsupported routing rejection.
-- [ ] Qualify broader system codecs, fractional cadence, audio waveform parity,
-  hardware synchronization and signed sandbox media grants.
+- [x] Qualify generated ProRes/PCM, H.264/AAC and closed-GOP HEVC/AAC decoded seeks
+  at 24, 24000/1001, 30000/1001 and 60000/1001; preserve rational trim boundaries.
+- [ ] Qualify broader real-world streams (open-GOP HEVC trim currently fails),
+  audio waveform parity, hardware synchronization and signed sandbox media grants.
 - [ ] Package the native FFmpeg runtime to extend preview to stills, explicit
   channel mapping, gain above unity and broader formats.
 
@@ -1697,3 +1699,37 @@ launch-performance claim has been validated yet.
   GitHub asset; its production-bundle proxy smoke passes both codecs. The real
   prepared cache is reusable with network calls blocked. GitHub CI now runs the
   Python tooling regression suite on PRs and main updates.
+
+### NLE timeline shortcuts checkpoint (2026-10-14)
+
+- Added remappable Shift+Z timeline fit with previous-zoom restoration and a
+  toolbar button. Fit uses available viewport width and supports long sequences.
+- Added Q/W ripple start/end trims at the playhead. Aligned linked components
+  trim together; downstream clips on every track shift by the removed interval.
+  Source edits, track timing, fade bounding and crossfade reconciliation commit
+  as one undoable transaction. Earlier content and downstream gaps are preserved.
+- The scoped first implementation refuses overlapping unrelated content,
+  mismatched linked extents and linked groups straddling the ripple boundary.
+  Implicit splitting of connected/overlapping clips remains future work.
+- Existing source I/O and J/K/L commands were exercised again. New commands use
+  the same text-entry protection, Settings remapping and conflict checks. Migration
+  preserves existing custom bindings when a new default conflicts.
+- Verification: shortcut model smoke, app-file smoke including dispatch,
+  scope/playhead/undo/remapping/migration, five ripple core regressions and full
+  EditorCore suite (100 tests, two opt-in tests skipped), normal unsigned Xcode build.
+
+### System codec/cadence and exact timing checkpoint (2026-10-14)
+
+- Carried exact rational source ranges, timeline placement and video instruction
+  boundaries into system compositions. Timing outside CMTime's supported scale
+  now fails visibly instead of rounding. Approximate audio envelope ramps remain.
+- Replaced floating-point last-frame ceiling with integer rational arithmetic;
+  the nine-frame 24000/1001 end-clamp regression requires frame eight.
+- Added a retained decoded-barcode matrix: 12 passing ProRes/PCM, H.264/AAC and
+  closed-GOP HEVC/AAC cases at integer and three fractional rates, 1,344 decoded
+  seeks, black gaps, trim/layer boundaries, end clamps and live transport.
+- Four open-GOP HEVC cases returned black at a trimmed boundary without player
+  error. These remain unqualified; the optional negative matrix records failures
+  and returns nonzero. Broader GOP/media, waveform parity, signed sandbox and
+  physical A/V timing acceptance remain open.
+- See [retained system preview evidence](docs/evidence/system-sequence-20261014/README.md).

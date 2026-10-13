@@ -27,9 +27,22 @@ qualified picture metadata use originals until their media is reimported.
 
 ## Default build and development runtime
 
-The normal Xcode app does not link development FFmpeg libraries. Sequence mode
-therefore explicitly reports that native playback is unavailable. Bundled FFmpeg
-and FFprobe executables alone do not supply the FFmpeg-library runtime.
+Normal Xcode builds use the system AVFoundation backend for timeline preview.
+It consumes the shared render plan with trims, upper-video precedence, black gaps,
+fit/fill/no-scaling and verified proxy picture with original audio. Whole mono/stereo
+streams must match the sequence layout with identity channel routing and gain up
+to unity. Nonlinear fades/crossfades use approximate volume ramps. Still clips,
+explicit channel maps and boosted gain require the native FFmpeg runtime.
+
+The generated codec/cadence matrix qualifies ProRes/PCM, H.264/AAC and closed-GOP
+HEVC/AAC at 24, 23.976, 29.97 and 59.94 fps. Open-GOP HEVC trims can return black
+without a decoder error and remain unqualified. See [system preview evidence](evidence/system-sequence-20261014/README.md)
+for reproduction and limits. Audio waveform parity, measured A/V timing and signed
+sandbox media grants remain open.
+
+The normal app does not link development FFmpeg libraries. Bundled FFmpeg and
+FFprobe executables alone do not supply that library runtime. Native-enabled
+builds use the existing FFmpeg bridge instead of the system backend.
 
 An opt-in development harness compiles the production controller against the
 existing qualified `NativePlaybackRuntime` bridge, generates a two-second 80x48,

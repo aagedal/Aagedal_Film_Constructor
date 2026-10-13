@@ -1,6 +1,6 @@
 import Foundation
 
-/// These commands do not ripple: collision resolution never changes unrelated clip times.
+/// Collision resolution preserves unrelated times; explicit ripple commands close time across tracks.
 public enum EditCommand: Sendable {
     case place(clip: TimelineClip, trackID: UUID)
     case placeInFamily(clip: TimelineClip, familyID: UUID)
@@ -10,6 +10,9 @@ public enum EditCommand: Sendable {
     /// A linked split requires the cut to be inside every component. Both resulting halves remain linked.
     /// Cuts inside active fades are rejected because an edge fade cannot preserve a partial envelope.
     case split(clipID: UUID, at: RationalTime)
+    /// Shorten an aligned linked group at the playhead and close the removed interval
+    /// across every track. Unrelated clips intersecting that interval reject the edit.
+    case rippleTrim(clipID: UUID, edge: TimelineTrimEdge, at: RationalTime)
     case delete(clipID: UUID)
     /// Change only the selected audio component, preserving linked components.
     case setAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, duration: RationalTime, curve: AudioFadeCurve = .equalPower)
@@ -24,6 +27,7 @@ public enum EditCommand: Sendable {
 public enum TimelineEditError: Error, Equatable, Sendable {
     case missingClip, missingTrack, missingFamily, incompatibleTrack, duplicateClip
     case invalidSplit, unsupportedLinkedSplit
+    case invalidRippleTrim, rippleTrimOverlap
     case invalidAudioCrossfade, missingAudioCrossfade
     case invalidAudioSelection, incompatibleAudioRouting, incompatibleAudioConsolidation
 }
@@ -33,6 +37,10 @@ extension TimelineEditError: LocalizedError {
         switch self {
         case .invalidAudioCrossfade:
             return "Choose ordered audio clips with compatible layouts and routing. Existing overlaps must match the crossfade duration; adjacent cuts need sufficient source handles. Paired edges must be free of independent fades and durations must use whole audio samples."
+        case .invalidRippleTrim:
+            return "Place the playhead inside the selected clip. Linked components must have matching start and end times."
+        case .rippleTrimOverlap:
+            return "Cannot ripple trim while another clip crosses the removed interval. Move or trim that clip first."
         case .missingAudioCrossfade: return "The audio crossfade no longer exists."
         default: return nil
         }
@@ -290,6 +298,47 @@ public struct TimelineEditEngine: Sendable {
                 if try clip.fadeIn.duration.compared(to: clip.sourceRange.duration) == .orderedDescending { clip.fadeIn.duration = clip.sourceRange.duration }
                 if try clip.fadeOut.duration.compared(to: clip.sourceRange.duration) == .orderedDescending { clip.fadeOut.duration = clip.sourceRange.duration }
                 try place(clip, on: component.trackID, in: &project)
+            }
+        case .rippleTrim(let clipID, let edge, let at):
+            let components = try linked(to: clipID, in: project)
+            let selected = components.first { $0.clip.id == clipID }!.clip
+            let end = try selected.timelineRange().end()
+            guard try at.compared(to: selected.timelineStart) == .orderedDescending,
+                  try at.compared(to: end) == .orderedAscending,
+                  components.allSatisfy({ $0.clip.timelineStart == selected.timelineStart && $0.clip.sourceRange.duration == selected.sourceRange.duration }) else {
+                throw TimelineEditError.invalidRippleTrim
+            }
+            let removed = try TimeRange(start: edge == .leading ? selected.timelineStart : at,
+                                        duration: edge == .leading ? at.subtracting(selected.timelineStart) : end.subtracting(at))
+            let removedEnd = try removed.end()
+            let ids = Set(components.map { $0.clip.id })
+            // Refuse implicit destructive edits to overlapping layers or connected clips.
+            // Also preserve a link group that would otherwise straddle the ripple boundary.
+            var shiftedGroups: Set<UUID> = []
+            var stationaryGroups: Set<UUID> = []
+            for clip in project.tracks.flatMap(\.clips) where !ids.contains(clip.id) {
+                guard try !clip.timelineRange().overlaps(removed) else { throw TimelineEditError.rippleTrimOverlap }
+                if let group = clip.linkGroupID {
+                    if try clip.timelineStart.compared(to: removedEnd) != .orderedAscending { shiftedGroups.insert(group) }
+                    else { stationaryGroups.insert(group) }
+                }
+            }
+            guard shiftedGroups.isDisjoint(with: stationaryGroups) else { throw TimelineEditError.rippleTrimOverlap }
+            for ti in project.tracks.indices {
+                for ci in project.tracks[ti].clips.indices {
+                    var clip = project.tracks[ti].clips[ci]
+                    if ids.contains(clip.id) {
+                        clip.sourceRange = try TimeRange(
+                            start: edge == .leading ? clip.sourceRange.start.adding(removed.duration) : clip.sourceRange.start,
+                            duration: clip.sourceRange.duration.subtracting(removed.duration))
+                        // The remaining picture starts at the old cut after a leading ripple.
+                        if try clip.fadeIn.duration.compared(to: clip.sourceRange.duration) == .orderedDescending { clip.fadeIn.duration = clip.sourceRange.duration }
+                        if try clip.fadeOut.duration.compared(to: clip.sourceRange.duration) == .orderedDescending { clip.fadeOut.duration = clip.sourceRange.duration }
+                    } else if try clip.timelineStart.compared(to: removedEnd) != .orderedAscending {
+                        clip.timelineStart = try clip.timelineStart.subtracting(removed.duration)
+                    }
+                    project.tracks[ti].clips[ci] = clip
+                }
             }
         case .split(let clipID, let at):
             let components = try linked(to: clipID, in: project)

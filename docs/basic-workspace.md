@@ -334,3 +334,28 @@ The audio sheet captures the range when opened. Undo/redo applies to the complet
 append. Marks remain with each source during the session and clear when loading
 another document; saved clips retain their exact selected ranges. Finder drops
 onto the timeline use the full imported media.
+
+### Timeline fit and ripple-trim shortcuts
+
+Use **Shift+Z** with timeline focus to fit the full sequence in the available
+width; repeat to restore the previous zoom. The timeline toolbar also has a fit
+button. Long sequences can fit below the zoom slider's former minimum.
+
+Select a timeline clip and put the playhead inside it. **Q** removes the portion
+from its start to the playhead; **W** removes the portion from the playhead to its
+end. Aligned linked video/audio components trim together. Both commands close the
+removed time on every track, moving later clips by the same amount and preserving
+source ranges on those later clips. Q moves the playhead to the resulting start
+cut; W leaves it at the end cut. Each command is one undoable edit.
+
+This first ripple implementation refuses unrelated clips crossing the removed
+interval, mismatched linked extents, and link groups straddling the ripple boundary.
+It does not implicitly split or discard overlapping picture/audio. Existing fades
+are bounded to the remaining extent; invalidated crossfade relations dissolve as
+with ordinary trims. No trim occurs when the playhead is outside or on a clip edge.
+
+The **Timeline** menu and **Settings → Keyboard Shortcuts** expose these commands.
+Q/W and Shift+Z are remappable and are suppressed during text entry. If an existing
+custom shortcut already uses a newly introduced default, that custom binding is
+preserved and the new command starts unbound. I/O source marks and J/K/L transport
+remain available; source J runs silent reverse and sequence reverse remains unavailable.

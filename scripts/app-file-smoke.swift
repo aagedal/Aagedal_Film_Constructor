@@ -32,6 +32,7 @@ struct AppFileSmoke {
         try exerciseProxyDocument(directory: directory)
         try exerciseTrackSettings()
         try exerciseSourceMarks()
+        try exerciseRippleTrimCommands()
         try exerciseSequenceSettings()
         try exerciseSequenceMatching()
         let corruptURL = directory.appendingPathComponent("corrupt.png")
@@ -206,7 +207,54 @@ struct AppFileSmoke {
         try exerciseAudioFades()
         try exerciseAudioCrossfades()
         try exerciseShortcuts()
-        print("App file smoke passed: exact source marks/scoped I/O commands/linked range append/explicit audio preview/undo/redo/clear/document reset, track/family naming/gain/retention/undo/redo/document round trip, viewer context/Tab command dispatch/special-key mapping/selection and playhead preservation, exact sequence settings/persistence/render-plan propagation/atomic undo/redo/track and family route rejection, nested-bin persistence/navigation/batch moves/undo/bookmarks/captured imports/deleted-destination fallback, Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: Q/W ripple scope/undo/playhead/remapping/migration and Shift+Z dispatch, exact source marks/scoped I/O commands/linked range append/explicit audio preview/undo/redo/clear/document reset, track/family naming/gain/retention/undo/redo/document round trip, viewer context/Tab command dispatch/special-key mapping/selection and playhead preservation, exact sequence settings/persistence/render-plan propagation/atomic undo/redo/track and family route rejection, nested-bin persistence/navigation/batch moves/undo/bookmarks/captured imports/deleted-destination fallback, Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
+    }
+
+    @MainActor
+    static func exerciseRippleTrimCommands() throws {
+        let asset = MediaAsset(name: "Shortcut fixture", duration: try RationalTime(8), streams: [MediaStream(index: 0, kind: .video)])
+        let template = TrackTemplate(kind: .video)
+        let family = TrackFamily(baseName: "Video", template: template)
+        let first = TimelineClip(assetID: asset.id, sourceRange: try TimeRange(start: .zero, duration: RationalTime(4)), selection: .video(streamIndex: 0))
+        var second = first; second.id = UUID(); second.timelineStart = try RationalTime(4)
+        let store = EditorStore()
+        defer { store.close() }
+        store.project = Project(settings: try SequenceSettings(), assets: [asset], families: [family], tracks: [TimelineTrack(familyID: family.id, template: template, clips: [first, second])])
+        store.selectedClipID = first.id
+        store.playheadSeconds = 2
+        let original = store.project
+        let registry = EditorCommandRegistry(defaults: UserDefaults(suiteName: "afc-ripple-shortcuts")!)
+        registry.reset()
+        try check(registry.isEnabled(.rippleTrimStart, store: store, scope: .timeline), "Q enabled inside selected clip")
+        try check(!registry.isEnabled(.rippleTrimStart, store: store, scope: .source), "Q restricted to timeline scope")
+        registry.perform(.rippleTrimStart, store: store, scope: .source)
+        try check(store.project == original, "Source focus must not ripple timeline")
+        registry.perform(.rippleTrimStart, store: store, scope: .timeline)
+        try check(store.project.tracks[0].clips[0].sourceRange.start == (try RationalTime(2)) && store.project.tracks[0].clips[1].timelineStart == (try RationalTime(2)), "Q trims source and closes following time")
+        try check(store.playheadSeconds == 0 && store.errorMessage == nil, "Leading ripple moves playhead to resulting cut")
+        store.undo(); try check(store.project == original, "Q is one undoable edit")
+        store.playheadSeconds = 2
+        registry.perform(.rippleTrimEnd, store: store, scope: .timeline)
+        try check(store.project.tracks[0].clips[0].sourceRange.duration == (try RationalTime(2)) && store.project.tracks[0].clips[1].timelineStart == (try RationalTime(2)), "W trims end and closes following time")
+        try check(store.playheadSeconds == 2, "Trailing ripple retains cut playhead")
+        try check(!registry.isEnabled(.rippleTrimEnd, store: store, scope: .timeline), "Ripple disabled at clip end")
+        let fitRequest = store.timelineFitRequest
+        registry.perform(.zoomTimelineToFit, store: store, scope: .timeline)
+        try check(store.timelineFitRequest != fitRequest, "Shift Z requests viewport fit")
+        let defaults = UserDefaults(suiteName: "afc-ripple-shortcuts")!
+        try check(registry.set(ShortcutBinding(key: "r", option: true), for: .rippleTrimStart) == nil, "Q command remains remappable")
+        let restored = EditorCommandRegistry(defaults: defaults)
+        try check(restored.binding(for: .rippleTrimStart) == ShortcutBinding(key: "r", option: true), "Ripple shortcut persists")
+        registry.reset()
+        var legacy = Dictionary(uniqueKeysWithValues: EditorCommandID.allCases.filter {
+            ![.rippleTrimStart, .rippleTrimEnd, .zoomTimelineToFit].contains($0)
+        }.map { ($0.rawValue, $0.defaultBinding) })
+        legacy[EditorCommandID.playForward.rawValue] = ShortcutBinding(key: "q")
+        defaults.set(try JSONEncoder().encode(legacy), forKey: "editor.keyboardShortcuts.v1")
+        let migrated = EditorCommandRegistry(defaults: defaults)
+        try check(migrated.binding(for: .playForward) == ShortcutBinding(key: "q") && migrated.binding(for: .rippleTrimStart).isEmpty,
+            "New defaults preserve old custom bindings and leave conflicting new command unbound")
+        migrated.reset()
     }
 
     @MainActor

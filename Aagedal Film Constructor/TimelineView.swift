@@ -5,6 +5,7 @@ struct TimelineView: View {
     @ObservedObject var store: EditorStore
     @FocusState private var timelineFocused: Bool
     @State private var pixelsPerSecond = 35.0
+    @State private var previousZoom: Double?
     @State private var showingTimecodeEntry = false
     @State private var timecodeEntry = ""
     @State private var viewport = CGRect.zero
@@ -16,7 +17,17 @@ struct TimelineView: View {
     @State private var dropViewport = CGRect.zero
     private let labelWidth: CGFloat = 145
     private var visibleDuration: Double { max(20, store.duration + 5) }
-    private var canvasWidth: CGFloat { max(650, visibleDuration * pixelsPerSecond) }
+    private var canvasWidth: CGFloat { max(1, viewport.width - labelWidth, visibleDuration * pixelsPerSecond) }
+    private var fittedZoom: Double { max(0.000001, min(100, (viewport.width - labelWidth - 12) / visibleDuration)) }
+    private func toggleZoomToFit() {
+        if let previousZoom, abs(pixelsPerSecond - fittedZoom) < 0.000001 {
+            pixelsPerSecond = previousZoom
+            self.previousZoom = nil
+        } else {
+            previousZoom = pixelsPerSecond
+            pixelsPerSecond = fittedZoom
+        }
+    }
     private var tickInterval: Double {
         let desired = max(75 / pixelsPerSecond, visibleDuration / 400)
         return [1.0, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600].first(where: { $0 >= desired }) ?? desired
@@ -55,8 +66,10 @@ struct TimelineView: View {
                 }
                 Text("\(store.playheadSeconds, specifier: "%.3f") s").font(.system(.caption, design: .monospaced))
                 Image(systemName: "minus.magnifyingglass").foregroundStyle(.secondary)
-                Slider(value: $pixelsPerSecond, in: 2...100).frame(width: 100).help("Timeline zoom")
+                Slider(value: $pixelsPerSecond, in: min(2, fittedZoom)...100).frame(width: 100).help("Timeline zoom")
                 Image(systemName: "plus.magnifyingglass").foregroundStyle(.secondary)
+                Button { store.timelineFitRequest = UUID() } label: { Label("Zoom Timeline to Fit", systemImage: "arrow.left.and.right.righttriangle.left.righttriangle.right") }
+                    .labelStyle(.iconOnly).help("Zoom timeline to fit; repeat to restore zoom").disabled(store.duration <= 0)
             }.padding(10)
             Divider()
             if store.project.tracks.isEmpty {
@@ -69,6 +82,7 @@ struct TimelineView: View {
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
             } else {
+                ScrollViewReader { scroller in
                 ScrollView([.horizontal, .vertical]) {
                     LazyVStack(alignment: .leading, spacing: 1) {
                         HStack(spacing: 0) {
@@ -85,6 +99,7 @@ struct TimelineView: View {
                             }
                         }
                     }
+                    .id("timelineStart")
                     .padding(.bottom, 15)
                     .frame(minHeight: viewport.height, alignment: .topLeading)
                     .contentShape(Rectangle())
@@ -92,6 +107,11 @@ struct TimelineView: View {
                 }
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { viewport = $0 }
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("timelineDrop")) } action: { dropViewport = $0 }
+                .onChange(of: store.timelineFitRequest) {
+                    toggleZoomToFit()
+                    scroller.scrollTo("timelineStart", anchor: .topLeading)
+                }
+                }
             }
         }
         .coordinateSpace(name: "timelineDrop")
