@@ -30,6 +30,7 @@ struct AppFileSmoke {
         try await exerciseWorkspaceResume(still: still)
         try await exerciseStillPreview(directory: directory, still: still, audio: audio)
         try exerciseProxyDocument(directory: directory)
+        try exerciseTrackSettings()
         try exerciseSequenceSettings()
         try exerciseSequenceMatching()
         let corruptURL = directory.appendingPathComponent("corrupt.png")
@@ -204,7 +205,49 @@ struct AppFileSmoke {
         try exerciseAudioFades()
         try exerciseAudioCrossfades()
         try exerciseShortcuts()
-        print("App file smoke passed: viewer context/Tab command dispatch/special-key mapping/selection and playhead preservation, exact sequence settings/persistence/render-plan propagation/atomic undo/redo/track and family route rejection, nested-bin persistence/navigation/batch moves/undo/bookmarks/captured imports/deleted-destination fallback, Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: track/family naming/gain/retention/undo/redo/document round trip, viewer context/Tab command dispatch/special-key mapping/selection and playhead preservation, exact sequence settings/persistence/render-plan propagation/atomic undo/redo/track and family route rejection, nested-bin persistence/navigation/batch moves/undo/bookmarks/captured imports/deleted-destination fallback, Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
+    }
+
+    @MainActor
+    static func exerciseTrackSettings() throws {
+        let store = EditorStore()
+        defer { store.close() }
+        store.project = try DemoProjectFactory.musicCollision()
+        let original = store.project
+        let track = original.tracks[0]
+        store.renameTrack(track.id, name: " Dialogue ")
+        try check(store.project.tracks[0].customName == "Dialogue", "Track custom name")
+        store.undo()
+        try check(store.project == original && store.canRedo, "Track rename undo")
+        store.renameTrackFamily(track.familyID, name: " ")
+        try check(store.project == original && store.canRedo, "Invalid family rename preserves redo")
+        store.redo()
+        store.renameTrackFamily(track.familyID, name: " Voice ")
+        try check(store.project.families[0].baseName == "Voice" && store.project.tracks[0].displayName(in: store.project) == "Dialogue", "Independent family naming")
+        let beforeGain = store.project
+        for invalid in ["NaN", "inf", "25", "-97", "text"] {
+            store.setTrackGain(track.id, decibels: invalid)
+            try check(store.project == beforeGain, "Invalid dB gain rejected")
+        }
+        store.setTrackGain(track.id, decibels: "-6")
+        let gained = store.project
+        try check(abs(gained.tracks[0].template.gain - pow(10, -6.0 / 20)) < 1e-12, "Gain converts dB to amplitude")
+        store.undo()
+        try check(store.project == beforeGain, "Gain undo")
+        store.redo()
+        try check(store.project == gained, "Gain redo")
+        store.setTrackRetention(track.id, retained: true)
+        let saved = try ProjectDocument(data: ProjectDocument(project: store.project).encodedData())
+        try check(saved.project == store.project, "Track settings document round trip")
+        for clip in track.clips {
+            store.selectedClipID = clip.id
+            store.deleteSelectedClip()
+        }
+        try check(store.project.tracks[0].clips.isEmpty, "Pinned empty track survives deletion")
+        store.setTrackRetention(track.id, retained: false)
+        try check(store.project.tracks.isEmpty, "Unpin empty track removes it")
+        store.undo()
+        try check(store.project.tracks[0].retained && store.project.tracks[0].clips.isEmpty, "Track removal undo")
     }
 
     @MainActor

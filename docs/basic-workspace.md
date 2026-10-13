@@ -292,3 +292,27 @@ use manual settings. Relinking re-inspects the replacement source.
 exact fractional CFR/B-frame timing and VFR/rotation/anamorphic refusal. Core tests
 cover explicit stream selection, persistence, legacy decoding and atomic refusal;
 `scripts/app-file-smoke.sh` checks the actual store's matching undo/redo history.
+
+## Track controls
+
+Click the sliders icon in a timeline track header. Enter a custom track name and
+apply with the checkmark; blank restores family numbering. Apply a family name
+separately to update automatically named siblings while preserving custom names.
+Enable **Keep track when empty** to retain a lane and its settings after deleting
+its last clip. Disabling it on an empty lane removes that lane when automatic
+cleanup is enabled. These changes support undo/redo and save/reopen.
+
+Audio tracks accept gain from −96 to +24 dB. Apply with the checkmark or Return.
+The speaker icon sets zero amplitude (silence); clicking it again restores 0 dB.
+It does not remember a previous gain. Gain applies to every clip on that track,
+including its fades, in sequence playback and rendered export. Source preview
+plays source audio. Existing siblings keep independent settings; a newly created
+collision sibling copies the originating track's gain and routing. Family
+creation templates remain independent of individual track gain edits.
+
+Naming and retention flag changes preserve active sequence playback. Removing an
+empty lane can rebuild the sequence. Gain changes pause
+and rebuild the sequence at its current position; press Play to resume. Native
+sequence playback still requires the development runtime. Toolbars and the bin
+footer use icon actions: hover for their names, or use the existing keyboard
+shortcuts. Menus and confirmation dialogs retain descriptive text.
