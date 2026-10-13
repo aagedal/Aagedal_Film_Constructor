@@ -759,6 +759,15 @@ final class EditorStore: ObservableObject {
             errorMessage = "Sequence settings could not be applied. Check the timecode and existing audio track/family output maps. \(error)"
         }
     }
+    func matchSequenceToSelectedSource(streamIndex: Int) {
+        guard let asset = selectedAsset else { return }
+        do {
+            try change { try $0.matchSequence(to: asset.id, streamIndex: streamIndex) }
+            statusMessage = "Sequence picture settings match \(asset.name)."
+        } catch {
+            errorMessage = "Sequence matching could not be applied. \(error)"
+        }
+    }
     func relinkSelectedAsset() {
         guard let asset = selectedAsset, !isImporting else { return }
         let panel = NSOpenPanel()

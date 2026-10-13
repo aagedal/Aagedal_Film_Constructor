@@ -14,14 +14,40 @@ public struct ChannelLayout: Hashable, Codable, Sendable {
     }
 }
 public enum MediaStreamKind: String, Codable, Sendable { case video, audio }
+/// Exact source properties qualified for sequence matching. Absent metadata means
+/// the importer could not prove a supported constant cadence and raster.
+public struct VideoSourceFormat: Equatable, Codable, Sendable {
+    public var width: Int
+    public var height: Int
+    public var frameRate: FrameRate
+    public init(width: Int, height: Int, frameRate: FrameRate) throws {
+        self.width = width; self.height = height; self.frameRate = frameRate
+        try validate()
+    }
+    public func validate() throws {
+        guard width > 0, height > 0, width <= 65536, height <= 65536 else {
+            throw EditorCoreError.invalidSettings
+        }
+        _ = try FrameRate(frameRate.value.numerator, frameRate.value.denominator)
+    }
+    private enum CodingKeys: String, CodingKey { case width, height, frameRate }
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        try self.init(width: c.decode(Int.self, forKey: .width),
+                      height: c.decode(Int.self, forKey: .height),
+                      frameRate: c.decode(FrameRate.self, forKey: .frameRate))
+    }
+}
 public struct MediaStream: Equatable, Codable, Sendable {
     public var index: Int
     public var kind: MediaStreamKind
     public var label: String?
     public var audioLayout: ChannelLayout?
+    public var videoFormat: VideoSourceFormat?
     public var timeOffset: RationalTime
-    public init(index: Int, kind: MediaStreamKind, label: String? = nil, audioLayout: ChannelLayout? = nil, timeOffset: RationalTime = .zero) {
+    public init(index: Int, kind: MediaStreamKind, label: String? = nil, audioLayout: ChannelLayout? = nil, timeOffset: RationalTime = .zero, videoFormat: VideoSourceFormat? = nil) {
         self.index = index; self.kind = kind; self.label = label; self.audioLayout = audioLayout; self.timeOffset = timeOffset
+        self.videoFormat = videoFormat
     }
 }
 public struct MediaAsset: Identifiable, Equatable, Codable, Sendable {
