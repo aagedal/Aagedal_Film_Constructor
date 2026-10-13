@@ -1,0 +1,150 @@
+{
+  "system": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "ffmpeg": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "cases": [
+    {
+      "case": "prores-pcm-24-1",
+      "passed": true,
+      "decodedSeeks": 112,
+      "endClamp": true,
+      "liveTransport": true,
+      "observation": "PASS prores-pcm-24-1.mov: 112 decoded seeks, end clamp and live transport at 24/1",
+      "fixtureSHA256": "28310e6635300ed1a5ea34435ba38d8c2f884b5356f4e04d7bc0c722d4f6415c"
+    },
+    {
+      "case": "h264-aac-24-1",
+      "passed": true,
+      "decodedSeeks": 112,
+      "endClamp": true,
+      "liveTransport": true,
+      "observation": "PASS h264-aac-24-1.mov: 112 decoded seeks, end clamp and live transport at 24/1",
+      "fixtureSHA256": "713ccfaf2318841cce93860ab02bd34773dd82429868b3f78a70c1a04521a313"
+    },
+    {
+      "case": "hevc-closed-gop-aac-24-1",
+      "passed": true,
+      "decodedSeeks": 112,
+      "endClamp": true,
+      "liveTransport": true,
+      "observation": "PASS hevc-closed-gop-aac-24-1.mov: 112 decoded seeks, end clamp and live transport at 24/1",
+      "fixtureSHA256": "0f08b241f3bdfb63a7af792b903a1426b5084be5669eb6e51cf800ac99bdaa98"
+    },
+    {
+      "case": "hevc-open-gop-aac-24-1",
+      "passed": false,
+      "decodedSeeks": null,
+      "endClamp": false,
+      "liveTransport": false,
+      "observation": "FAIL: hevc-open-gop-aac-24-1.mov frame 1, stripe 0: 0, expected 32",
+      "fixtureSHA256": "b79ea769ab27700136879b6109445fc86403076c34f71e9b4004a8f22eadae22"
+    },
+    {
+      "case": "prores-pcm-24000-1001",
+      "passed": true,
+      "decodedSeeks": 112,
+      "endClamp": true,
+      "liveTransport": true,
+      "observation": "PASS prores-pcm-24000-1001.mov: 112 decoded seeks, end clamp and live transport at 24000/1001",
+      "fixtureSHA256": "919f6a5bfbd1098e31d0be120040f82f032c8cafc444bd3ab1254a27a76cd1a1"
+    },
+    {
+      "case": "h264-aac-24000-1001",
+      "passed": true,
+      "decodedSeeks": 112,
+      "endClamp": true,
+      "liveTransport": true,
+      "observation": "PASS h264-aac-24000-1001.mov: 112 decoded seeks, end clamp and live transport at 24000/1001",
+      "fixtureSHA256": "4e7783ebb2819887eb9bf79c334cb1ae7ac3b971736f426d941076ec9ed5c7b3"
+    },
+    {
+      "case": "hevc-closed-gop-aac-24000-1001",
+      "passed": true,
+      "decodedSeeks": 112,
+      "endClamp": true,
+      "liveTransport": true,
+      "observation": "PASS hevc-closed-gop-aac-24000-1001.mov: 112 decoded seeks, end clamp and live transport at 24000/1001",
+      "fixtureSHA256": "2393b9c5d1cf7b159e9aaf28010f5acd578ca26a5c48f9a94775b5e84dc7eec8"
+    },
+    {
+      "case": "hevc-open-gop-aac-24000-1001",
+      "passed": false,
+      "decodedSeeks": null,
+      "endClamp": false,
+      "liveTransport": false,
+      "observation": "FAIL: hevc-open-gop-aac-24000-1001.mov frame 1, stripe 0: 0, expected 32",
+      "fixtureSHA256": "527dcc5444bee9424abc26a27a592350406bbd2fcb1c6c1d94178ea353c46d98"
+    },
+    {
+      "case": "prores-pcm-30000-1001",
+      "passed": true,
+      "decodedSeeks": 112,
+      "endClamp": true,
+      "liveTransport": true,
+      "observation": "PASS prores-pcm-30000-1001.mov: 112 decoded seeks, end clamp and live transport at 30000/1001",
+      "fixtureSHA256": "8fcf7a771b5c78b629c486ce1d1a7a9cedb6e04d1961340ea0899ab136c8b060"
+    },
+    {
+      "case": "h264-aac-30000-1001",
+      "passed": true,
+      "decodedSeeks": 112,
+      "endClamp": true,
+      "liveTransport": true,
+      "observation": "PASS h264-aac-30000-1001.mov: 112 decoded seeks, end clamp and live transport at 30000/1001",
+      "fixtureSHA256": "1c0ba2d0ddbc5c13741e06452fa8efdc993a5be755755306113b1f5dd2718aa5"
+    },
+    {
+      "case": "hevc-closed-gop-aac-30000-1001",
+      "passed": true,
+      "decodedSeeks": 112,
+      "endClamp": true,
+      "liveTransport": true,
+      "observation": "PASS hevc-closed-gop-aac-30000-1001.mov: 112 decoded seeks, end clamp and live transport at 30000/1001",
+      "fixtureSHA256": "6a91ad8e105e6026b3df40d089c142e1763a082820c3174c9a56486ee645b80e"
+    },
+    {
+      "case": "hevc-open-gop-aac-30000-1001",
+      "passed": false,
+      "decodedSeeks": null,
+      "endClamp": false,
+      "liveTransport": false,
+      "observation": "FAIL: hevc-open-gop-aac-30000-1001.mov frame 1, stripe 0: 0, expected 32",
+      "fixtureSHA256": "4c1568f33e1cf68d680bc69a8bab7c099303d947c0b9c6ac83b00fd49de9409a"
+    },
+    {
+      "case": "prores-pcm-60000-1001",
+      "passed": true,
+      "decodedSeeks": 112,
+      "endClamp": true,
+      "liveTransport": true,
+      "observation": "PASS prores-pcm-60000-1001.mov: 112 decoded seeks, end clamp and live transport at 60000/1001",
+      "fixtureSHA256": "3cb5d24110eda110013d041fc7b4e6f9cb603c1c0fb2cf31a0f82db19c38af24"
+    },
+    {
+      "case": "h264-aac-60000-1001",
+      "passed": true,
+      "decodedSeeks": 112,
+      "endClamp": true,
+      "liveTransport": true,
+      "observation": "PASS h264-aac-60000-1001.mov: 112 decoded seeks, end clamp and live transport at 60000/1001",
+      "fixtureSHA256": "5cf1fa1c39c7fa1686b251795a0c79aeba1c3e66f8dcdeefb84440026286d413"
+    },
+    {
+      "case": "hevc-closed-gop-aac-60000-1001",
+      "passed": true,
+      "decodedSeeks": 112,
+      "endClamp": true,
+      "liveTransport": true,
+      "observation": "PASS hevc-closed-gop-aac-60000-1001.mov: 112 decoded seeks, end clamp and live transport at 60000/1001",
+      "fixtureSHA256": "a096b4f22ae29a17c5daecf11d96d062b38475d36ea7acfb93112f01b2e5c0db"
+    },
+    {
+      "case": "hevc-open-gop-aac-60000-1001",
+      "passed": false,
+      "decodedSeeks": null,
+      "endClamp": false,
+      "liveTransport": false,
+      "observation": "FAIL: hevc-open-gop-aac-60000-1001.mov frame 1, stripe 0: 0, expected 32",
+      "fixtureSHA256": "6c6f62200df34bd44da5c5f7f2421e50bf33d3a400ff07e617f80a6ac29e451d"
+    }
+  ]
+}

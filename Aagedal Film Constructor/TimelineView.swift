@@ -68,8 +68,8 @@ struct TimelineView: View {
                 Image(systemName: "minus.magnifyingglass").foregroundStyle(.secondary)
                 Slider(value: $pixelsPerSecond, in: min(2, fittedZoom)...100).frame(width: 100).help("Timeline zoom")
                 Image(systemName: "plus.magnifyingglass").foregroundStyle(.secondary)
-                Button { store.timelineFitRequest = UUID() } label: { Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right") }
-                    .help("Zoom timeline to fit; repeat to restore zoom").disabled(store.duration <= 0)
+                Button { store.timelineFitRequest = UUID() } label: { Label("Zoom Timeline to Fit", systemImage: "arrow.left.and.right.righttriangle.left.righttriangle.right") }
+                    .labelStyle(.iconOnly).help("Zoom timeline to fit; repeat to restore zoom").disabled(store.duration <= 0)
             }.padding(10)
             Divider()
             if store.project.tracks.isEmpty {

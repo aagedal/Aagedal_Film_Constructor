@@ -41,12 +41,19 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
     private static func unsupported(_ message: String) -> NSError {
         NSError(domain: "SequencePreview", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
     }
-    private func time(_ seconds: Double) -> CMTime { CMTime(seconds: seconds, preferredTimescale: 600_000) }
+    private func time(_ exact: RationalTime) throws -> CMTime {
+        guard let timescale = Int32(exactly: exact.denominator) else {
+            throw Self.unsupported("Clip timing exceeds the system preview timebase. Use the native runtime.")
+        }
+        return CMTime(value: exact.numerator, timescale: timescale)
+    }
+    // Nonlinear audio envelopes are intentionally approximated by short ramps.
+    private func rampTime(_ seconds: Double) -> CMTime { CMTime(seconds: seconds, preferredTimescale: 600_000) }
 
     private func prepare() async throws {
         guard player == nil, !closed else { return }
         let composition = AVMutableComposition()
-        let duration = time(plan.duration.seconds)
+        let duration = try time(plan.duration)
         // Establish full duration, including leading/trailing gaps and audio-only edits.
         composition.insertEmptyTimeRange(CMTimeRange(start: .zero, duration: duration))
         hasVideo = false
@@ -96,8 +103,8 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             guard let track = composition.addMutableTrack(withMediaType: source.mediaType, preferredTrackID: kCMPersistentTrackID_Invalid) else {
                 throw Self.unsupported("Could not create a sequence preview track.")
             }
-            let range = CMTimeRange(start: time(component.sourceRange.start.seconds), duration: time(component.sourceRange.duration.seconds))
-            do { try track.insertTimeRange(range, of: source, at: time(component.timelineRange.start.seconds)) }
+            let range = try CMTimeRange(start: time(component.sourceRange.start), duration: time(component.sourceRange.duration))
+            do { try track.insertTimeRange(range, of: source, at: time(component.timelineRange.start)) }
             catch { throw Self.unsupported("Could not preview \(url.lastPathComponent) stream \(streamIndex): \(error.localizedDescription)") }
             if video {
                 hasVideo = true
@@ -150,7 +157,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 }
                 for (a, b) in zip(points, points.dropFirst()) {
                     parameters.setVolumeRamp(fromStartVolume: try volume(a), toEndVolume: try volume(b),
-                        timeRange: CMTimeRange(start: time(start + a), duration: time(b - a)))
+                        timeRange: CMTimeRange(start: rampTime(start + a), duration: rampTime(b - a)))
                 }
                 mixes.append(parameters)
             }
@@ -163,15 +170,16 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             let rate = plan.settings.frameRate.value
             guard let timescale = Int32(exactly: rate.numerator) else { throw Self.unsupported("Sequence frame rate exceeds the system preview timebase.") }
             videoComposition.frameDuration = CMTime(value: rate.denominator, timescale: timescale)
-            let boundaries = Set([0, plan.duration.seconds] + layers.flatMap {
-                [$0.0.timelineRange.start.seconds, $0.0.timelineRange.start.seconds + $0.0.timelineRange.duration.seconds]
-            }).sorted()
-            videoComposition.instructions = zip(boundaries, boundaries.dropFirst()).map { start, end in
+            let boundaries = try Set([.zero, plan.duration] + layers.flatMap {
+                [$0.0.timelineRange.start, try $0.0.timelineRange.end()]
+            }).sorted { try $0.compared(to: $1) == .orderedAscending }
+            videoComposition.instructions = try zip(boundaries, boundaries.dropFirst()).map { start, end in
                 let instruction = AVMutableVideoCompositionInstruction()
-                instruction.timeRange = CMTimeRange(start: time(start), duration: time(end - start))
+                instruction.timeRange = try CMTimeRange(start: time(start), duration: time(end.subtracting(start)))
                 instruction.backgroundColor = NSColor.black.cgColor
-                instruction.layerInstructions = layers.filter {
-                    $0.0.timelineRange.start.seconds <= start && $0.0.timelineRange.start.seconds + $0.0.timelineRange.duration.seconds > start
+                instruction.layerInstructions = try layers.filter {
+                    try $0.0.timelineRange.start.compared(to: start) != .orderedDescending &&
+                        $0.0.timelineRange.end().compared(to: start) == .orderedDescending
                 }.sorted {
                     if $0.0.layerOrder != $1.0.layerOrder { return $0.0.layerOrder < $1.0.layerOrder }
                     return $0.0.clipID.uuidString < $1.0.clipID.uuidString
@@ -183,6 +191,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             item.add(output); self.output = output
 
         }
+        try Task.checkCancellation()
         guard !closed else { throw CancellationError() }
         player = AVPlayer(playerItem: item)
         polling = Task { [weak self] in
@@ -209,11 +218,11 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
     func seek(toFrame frame: Int64) async throws {
         pause()
         try await prepare()
-        let last = max(0, ceil(plan.duration.seconds * plan.settings.frameRate.value.seconds) - 1)
-        let selectedFrame = Int64(min(Double(max(0, frame)), last))
+        let frameCount = try plan.duration.multiplied(by: plan.settings.frameRate.value)
+        let last = max(0, frameCount.numerator / frameCount.denominator - (frameCount.numerator % frameCount.denominator == 0 ? 1 : 0))
+        let selectedFrame = min(max(0, frame), last)
         let exact = try RationalTime(selectedFrame).divided(by: plan.settings.frameRate.value)
-        guard let timescale = Int32(exactly: exact.denominator) else { throw Self.unsupported("Sequence frame rate exceeds the system preview timebase.") }
-        target = CMTime(value: exact.numerator, timescale: timescale)
+        target = try time(exact)
         guard let player else { throw CancellationError() }
         let finished = await player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
         guard finished, !closed else { throw CancellationError() }
