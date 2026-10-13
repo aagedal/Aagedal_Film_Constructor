@@ -140,7 +140,8 @@ sequential parity. `scripts/mpv-seek-proof.py` demonstrates incorrect frames aft
 later/backward seeks and graph rebuilding, despite correct reported time positions.
 The unchanged export graph is unsuitable for interactive sequence monitoring.
 See the audit for reproduction and retained evidence. Native playback and helper
-packaging remain open; this does not enable media playback in the app.
+packaging remained open at that checkpoint. Ordinary app builds now use the
+AVFoundation sequence preview described below.
 
 The native fallback now has an exact `NativePlaybackPlan` scheduler and a separate
 development FFmpeg-library bridge in `Packages/NativePlaybackProof`. Its runner
@@ -198,3 +199,20 @@ Verified proxy picture preserves original framing and clip coordinates; audio an
 final renders retain originals. Switching pauses and rebuilds at the current
 playhead, with visible fallback for unavailable or unqualified proxies. See
 [sequence proxy evidence](docs/evidence/sequence-proxies-20261013/README.md).
+
+
+Normal Xcode builds now include timeline preview through AVFoundation. Append
+video/audio to the timeline, select **Sequence** in the viewer, then play, scrub
+or step frames. Trims, upper video precedence, gaps, fit/fill/no scaling, verified
+proxy picture with original audio, and static audio gain up to unity use the
+shared timeline plan. Whole mono/stereo audio streams must match the sequence
+layout and use identity routing. Fade and crossfade curves use approximate volume
+ramps. Unsupported formats, still clips, channel maps and boosted audio require
+the native FFmpeg runtime and report a visible preview error.
+
+Run `scripts/system-sequence-smoke.sh /absolute/path/ffmpeg` to verify generated
+ProRes/PCM decoded frames and live transport; the fixture generator requires
+FFmpeg, while the system preview itself has no external playback dependency.
+Native-enabled development builds continue to use the native backend. Broader
+codec, fractional-frame, audio-parity, signed sandbox and measured A/V timing
+qualification remain open.

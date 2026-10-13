@@ -17,6 +17,32 @@ publication and opt-in helper packaging; FCPXML has a validated structural subse
 This plan records the intended product and implementation order; unchecked
 items remain planned capabilities.
 
+## Current priority: usable timeline preview (2026-10-14)
+
+Prioritize normal-build timeline playback ahead of further assembly features.
+The existing MPV exact-seek and graph-rebuild failures remain the reason to keep
+MPV as a future source-viewer candidate. The native FFmpeg runtime remains the
+broader sequence-engine path; it still needs redistributable dependency packaging.
+
+- [x] Enable a system AVFoundation sequence backend in ordinary Xcode builds.
+  It consumes the canonical timeline render plan and existing monitor transport,
+  scrub/step controls, edit invalidation and verified proxy selection.
+- [x] Exercise decoded trims, upper-video precedence, reverse/repeated seeks,
+  black picture gaps, live play/pause, cleanup and unsupported routing rejection.
+- [ ] Qualify broader system codecs, fractional cadence, audio waveform parity,
+  hardware synchronization and signed sandbox media grants.
+- [ ] Package the native FFmpeg runtime to extend preview to stills, explicit
+  channel mapping, gain above unity and broader formats.
+
+System preview currently accepts video and whole mono/stereo audio streams whose
+layout matches the sequence, with identity routing and gain up to unity. Audio
+fades/crossfades use bounded piecewise volume ramps, so nonlinear fades are an
+approximation rather than sample-exact export parity. Still-image clips and
+unsupported selections fail visibly. Native-enabled development builds retain
+the native engine. Use `scripts/system-sequence-smoke.sh /absolute/path/ffmpeg`
+for generated-media checks; FFmpeg creates test fixtures only and is not required
+by the system preview at runtime.
+
 ## Product direction
 
 A focused native Swift/SwiftUI video editor with a simple workspace inspired by

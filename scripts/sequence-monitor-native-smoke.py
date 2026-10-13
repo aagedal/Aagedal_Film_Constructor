@@ -43,6 +43,7 @@ subprocess.run(['swiftc', '-swift-version', '6', '-default-isolation', 'MainActo
     '-I', str(repo / 'Packages/NativePlaybackProof/Sources/CFFmpeg'),
     '-Xcc', '-fmodule-map-file=' + str(modulemap),
     '-L', str(binary), '-lNativePlaybackRuntime',
+    str(repo / 'Aagedal Film Constructor/AVFoundationSequenceBackend.swift'),
     str(repo / 'Aagedal Film Constructor/SequencePlaybackController.swift'),
     str(repo / 'scripts/sequence-monitor-native-smoke.swift'),
     '-o', str(root / 'smoke'), *flags], env=env, check=True)
