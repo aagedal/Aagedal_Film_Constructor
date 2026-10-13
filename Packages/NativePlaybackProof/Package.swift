@@ -6,6 +6,7 @@ import PackageDescription
 let package = Package(
     name: "NativePlaybackProof",
     platforms: [.macOS(.v14)],
+    products: [.library(name: "NativePlaybackRuntime", type: .dynamic, targets: ["NativePlaybackRuntime"])],
     dependencies: [.package(path: "../EditorCore")],
     targets: [
         .systemLibrary(name: "CFFmpeg", pkgConfig: "libavformat"),

@@ -21,6 +21,7 @@ struct AppFileSmoke {
         try check(audio.asset.streams.count == 1 && audio.asset.streams[0].audioLayout == .stereo, "WAV stereo layout")
         try check(audio.bookmark != nil, "WAV bookmark")
         try await exerciseSourcePlayback(audio: audio)
+        try await exerciseSequenceCommands(audio: audio)
         let still = try await MediaImporter.inspect(url: imageURL)
         try check(still.asset.streams.isEmpty && still.asset.duration.seconds == 5, "Still image import")
         try await exerciseTimelineFileDrop(audioURL: audioURL, imageURL: imageURL, directory: directory)
@@ -436,6 +437,29 @@ struct AppFileSmoke {
                                  expectedClip: importedAudio)
         try check(store.selectedClip?.fadeOut == importedAudio.fadeOut,
                   "Changing one fade preserves the opposite edge's exact imported rational duration")
+    }
+
+    @MainActor
+    static func exerciseSequenceCommands(audio: ImportedMedia) async throws {
+        let store = EditorStore()
+        defer { store.close() }
+        try store.registerImportedMedia(audio)
+        store.appendSelectedAsset()
+        let backend = CommandSequenceBackend()
+        let controller = SequencePlaybackController(factory: { _ in backend })
+        store.sequencePlayback = controller
+        controller.activate(project: store.project, seconds: 0)
+        for _ in 0..<100 where controller.isPreparing { try await Task.sleep(for: .milliseconds(5)) }
+        let registry = EditorCommandRegistry(defaults: UserDefaults(suiteName: "afc-sequence-commands")!)
+        controller.play()
+        try check(controller.isPreparing, "Sequence play enters priming")
+        try check(registry.isEnabled(.pausePlayback, store: store, scope: .timeline), "K remains enabled while sequence primes")
+        try check(!registry.isEnabled(.playForward, store: store, scope: .timeline), "L is disabled while sequence primes")
+        try check(!registry.isEnabled(.playReverse, store: store, scope: .timeline), "Sequence mode cannot play source backwards")
+        registry.perform(.pausePlayback, store: store, scope: .timeline)
+        try await Task.sleep(for: .milliseconds(200))
+        try check(!backend.isPlaying && !controller.isPlaying, "K rejects delayed sequence play")
+        controller.deactivate()
     }
 
     @MainActor
@@ -945,4 +969,15 @@ struct AppFileSmoke {
         CGImageDestinationAddImage(destination, context.makeImage()!, nil)
         try check(CGImageDestinationFinalize(destination), "PNG fixture creation")
     }
+}
+
+@MainActor private final class CommandSequenceBackend: SequencePlaybackBackend {
+    var position: Double = 0
+    var isPlaying = false
+    var display: ((CGImage, Int64) -> Void)?
+    var failure: ((any Error) -> Void)?
+    func play() async throws { try await Task.sleep(for: .milliseconds(100)); isPlaying = true }
+    func pause() { isPlaying = false }
+    func seek(toFrame frame: Int64) async throws { position = Double(frame) / 24 }
+    func close() async { isPlaying = false }
 }

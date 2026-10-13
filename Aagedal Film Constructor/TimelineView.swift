@@ -8,6 +8,7 @@ struct TimelineView: View {
     @State private var showingTimecodeEntry = false
     @State private var timecodeEntry = ""
     @State private var viewport = CGRect.zero
+    @State private var interactingClipIDs: Set<UUID> = []
     @State private var clipFrames: [UUID: CGRect] = [:]
     @State private var crossfadeHoverID: UUID?
     @State private var isDropTargeted = false
@@ -149,14 +150,27 @@ struct TimelineView: View {
         .gesture(DragGesture(minimumDistance: 0).onChanged { value in store.seek(to: max(0, min(store.duration, value.location.x / pixelsPerSecond))) })
     }
 
+    private func visibleClips(in track: TimelineTrack) -> [TimelineClip] {
+        let range = TimelineClipVisibility.range(viewport: dropViewport, canvas: dropCanvasFrame, labelWidth: labelWidth)
+        return track.clips.filter { clip in
+            TimelineClipVisibility.includes(startSeconds: clip.timelineStart.seconds,
+                durationSeconds: clip.sourceRange.duration.seconds, pixelsPerSecond: pixelsPerSecond, range: range,
+                pinned: clip.id == store.selectedClipID || interactingClipIDs.contains(clip.id))
+        }
+    }
+
     private func trackLane(_ track: TimelineTrack) -> some View {
         ZStack(alignment: .topLeading) {
             Color(nsColor: .textBackgroundColor)
                 .contentShape(Rectangle())
                 .onTapGesture { location in store.seek(to: max(0, min(store.duration, location.x / pixelsPerSecond))) }
-            ForEach(track.clips) { clip in
+            ForEach(visibleClips(in: track)) { clip in
                 TimelineClipView(clip: clip, asset: store.asset(id: clip.assetID), selected: store.selectedClipID == clip.id, pixelsPerSecond: pixelsPerSecond, viewport: viewport, previewRevision: store.mediaPreviewRevision,
                     select: { store.selectedClipID = clip.id },
+                    interactionChanged: { active in
+                        if active { interactingClipIDs.insert(clip.id) }
+                        else { interactingClipIDs.remove(clip.id) }
+                    },
                     proposedMove: { store.proposedMove(clip: clip, to: $0, tolerance: 8 / pixelsPerSecond) },
                     move: { seconds in
                         store.selectedClipID = clip.id
@@ -240,6 +254,7 @@ private struct TimelineClipView: View {
     let viewport: CGRect
     let previewRevision: UUID
     let select: () -> Void
+    let interactionChanged: (Bool) -> Void
     let proposedMove: (Double) -> Double
     let move: (Double) -> Void
     let proposedTrim: (TimelineTrimEdge, Double) -> Double
@@ -251,6 +266,7 @@ private struct TimelineClipView: View {
     let hoverFade: (TimelineTrimEdge, CGPoint?, Double) -> Void
     let linkFade: (TimelineTrimEdge, CGPoint, Double, Project) -> Bool
     let setFade: (TimelineTrimEdge, Double, TimelineClip) -> Void
+    @GestureState private var interactionActive = false
     @GestureState private var dragOffset: CGFloat = 0
     @GestureState private var leadingDelta = 0.0
     @GestureState private var trailingDelta = 0.0
@@ -309,6 +325,7 @@ private struct TimelineClipView: View {
             .clipped()
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { clipFrame = $0; reportFrame($0) }
             .onDisappear {
+                interactionChanged(false)
                 reportFrame(.null)
                 hoverFade(.leading, nil, 0)
                 fadeGestureClip = nil
@@ -344,8 +361,10 @@ private struct TimelineClipView: View {
                     // Offline and unsupported sources keep the readable clip placeholder.
                 }
             }
+            .onChange(of: interactionActive) { _, active in interactionChanged(active) }
             .onTapGesture(perform: select)
             .gesture(DragGesture(minimumDistance: 3, coordinateSpace: .global)
+                .updating($interactionActive) { _, state, _ in state = true }
                 .updating($dragOffset) { value, state, _ in
                     state = (proposedMove(clip.timelineStart.seconds + value.translation.width / pixelsPerSecond) - clip.timelineStart.seconds) * pixelsPerSecond
                 }
@@ -404,6 +423,7 @@ private struct TimelineClipView: View {
             .offset(x: (edge == .leading ? inset : clipWidth - inset) - 7,
                     y: edge == .leading ? 0 : 12)
             .highPriorityGesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .updating($interactionActive) { _, state, _ in state = true }
                 .updating(edge == .leading ? $fadeInPreview : $fadeOutPreview) { value, state, _ in
                     let original = fadeGestureClip ?? clip
                     let start = edge == .leading ? original.fadeIn.duration.seconds : original.fadeOut.duration.seconds
@@ -438,6 +458,7 @@ private struct TimelineClipView: View {
             .frame(width: 10, height: 52)
             .contentShape(Rectangle())
             .highPriorityGesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .updating($interactionActive) { _, state, _ in state = true }
                 .updating(edge == .leading ? $leadingDelta : $trailingDelta) { value, state, _ in
                     state = proposedTrim(edge, value.translation.width / pixelsPerSecond)
                 }
