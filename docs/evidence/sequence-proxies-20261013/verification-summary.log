@@ -1,0 +1,11 @@
+Ran 44 tests in 0.413s
+OK (skipped=8)
+Shortcut model smoke passed: defaults, normalization, conflicts, reserved keys, text-entry protection, clearing, Codable round-trip.
+Sequence monitor lifecycle and proxy switching smoke passed
+PASS: default-launch fallback, untitled coalescing, non-default/existing/Finder/restored documents, reopen and creation failure
+PASS: first layout, scroll coordinates, boundaries, long/tiny clips, zoom, overscan and active gesture pinning
+PASS: fresh/restored untitled and saved document baselines, five-minute untitled reminder and snooze, save reset, debounce, minimum/maximum backup intervals, reopenable snapshot fidelity, retention, unchanged deduplication, source preservation, symlink refusal, retry and edits/Save As during in-flight backup
+	 Executed 93 tests, with 2 tests skipped and 0 failures (0 unexpected) in 0.029 (0.033) seconds
+	 Executed 93 tests, with 2 tests skipped and 0 failures (0 unexpected) in 0.029 (0.038) seconds
+✔ Test run with 82 tests in 2 suites passed after 0.066 seconds.
+** BUILD SUCCEEDED **

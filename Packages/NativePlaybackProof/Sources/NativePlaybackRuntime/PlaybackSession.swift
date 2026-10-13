@@ -49,14 +49,18 @@ private final class DecoderRelease: @unchecked Sendable {
 /// controls admission; this worker never calls back synchronously into the actor.
 final class SerialDecodeWorker: @unchecked Sendable {
     private let queue = DispatchQueue(label: "film-constructor.native-decode", qos: .userInitiated)
-    private let factory: @Sendable (Project) throws -> any PlaybackDecoder
+    private let factory: @Sendable (Project, [UUID: MediaProxy]) throws -> any PlaybackDecoder
     private var monitor: (any PlaybackDecoder)?
     private var planID: UUID?
     private let releaseLock = NSLock()
     private var releaseQueued = false
 
     init(factory: @escaping @Sendable (Project) throws -> any PlaybackDecoder = { try NativeMonitor(project: $0) }) {
-        self.factory = factory
+        self.factory = { project, _ in try factory(project) }
+    }
+
+    init(proxyFactory: @escaping @Sendable (Project, [UUID: MediaProxy]) throws -> any PlaybackDecoder) {
+        self.factory = proxyFactory
     }
 
     deinit {
@@ -66,7 +70,7 @@ final class SerialDecodeWorker: @unchecked Sendable {
         queue.async { withExtendedLifetime(retained) {} }
     }
 
-    func read<Value: Sendable>(project: Project, planID: UUID, epoch: CancellationFlag,
+    func read<Value: Sendable>(project: Project, videoProxies: [UUID: MediaProxy] = [:], planID: UUID, epoch: CancellationFlag,
                               operation: @escaping @Sendable (any PlaybackDecoder) throws -> Value) async throws -> Value {
         let cancellation = CancellationFlag()
         return try await withTaskCancellationHandler {
@@ -76,7 +80,7 @@ final class SerialDecodeWorker: @unchecked Sendable {
                     do {
                         try cancellation.check(); try epoch.check()
                         if self.planID != planID {
-                            let replacement = try self.factory(project)
+                            let replacement = try self.factory(project, videoProxies)
                             self.monitor = replacement
                             self.planID = planID
                         }
@@ -89,6 +93,17 @@ final class SerialDecodeWorker: @unchecked Sendable {
                 }
             }
         } onCancel: { cancellation.cancel() }
+    }
+
+    /// Complete only after admitted jobs finish and decoder teardown runs on its queue.
+    /// Cancellation of the caller cannot shorten this resource-lifetime barrier.
+    func drainAndRelease() async {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                self.monitor = nil; self.planID = nil
+                continuation.resume()
+            }
+        }
     }
 
     func release() {
@@ -110,6 +125,7 @@ public actor NativePlaybackSession {
     public private(set) var plan: NativePlaybackPlan
     public private(set) var epoch = UUID()
     private var project: Project
+    private var videoProxies: [UUID: MediaProxy]
     private var planID = UUID()
     private var epochCancellation = CancellationFlag()
     private let worker: SerialDecodeWorker
@@ -117,6 +133,7 @@ public actor NativePlaybackSession {
     private let maximumCacheBytes: Int
     private var pending = 0
     private var closed = false
+    private var closing: Task<Void, Never>?
     private enum Key: Hashable { case video(Int64), audio(Int64, Int) }
     private enum Payload {
         case video(Data), audio([Float])
@@ -128,38 +145,39 @@ public actor NativePlaybackSession {
     private var recency: [Key] = []
     private var cachedBytes = 0
 
-    public init(project: Project, maximumPendingRequests: Int = 4, maximumCacheBytes: Int = 8 * 1024 * 1024,
+    public init(project: Project, videoProxies: [UUID: MediaProxy] = [:], maximumPendingRequests: Int = 4, maximumCacheBytes: Int = 8 * 1024 * 1024,
                 decoderLimits: NativeDecoderLimits = NativeDecoderLimits()) throws {
         try decoderLimits.validate()
-        try self.init(project: project, maximumPendingRequests: maximumPendingRequests,
+        try self.init(project: project, videoProxies: videoProxies, maximumPendingRequests: maximumPendingRequests,
                       maximumCacheBytes: maximumCacheBytes,
-                      worker: SerialDecodeWorker(factory: { try NativeMonitor(project: $0, decoderLimits: decoderLimits) }))
+                      worker: SerialDecodeWorker(proxyFactory: { try NativeMonitor(project: $0, videoProxies: $1, decoderLimits: decoderLimits) }))
     }
 
-    init(project: Project, maximumPendingRequests: Int, maximumCacheBytes: Int, worker: SerialDecodeWorker) throws {
+    init(project: Project, videoProxies: [UUID: MediaProxy] = [:], maximumPendingRequests: Int, maximumCacheBytes: Int, worker: SerialDecodeWorker) throws {
         guard (1...64).contains(maximumPendingRequests), maximumCacheBytes >= 0 else {
             throw PlaybackSessionError.invalidLimits
         }
-        let plan = try Self.compile(project)
-        self.plan = plan; self.project = project; self.worker = worker
+        let plan = try Self.compile(project, videoProxies: videoProxies)
+        self.plan = plan; self.project = project; self.videoProxies = videoProxies; self.worker = worker
         self.maximumPendingRequests = maximumPendingRequests
         self.maximumCacheBytes = maximumCacheBytes
     }
 
-    private static func compile(_ project: Project) throws -> NativePlaybackPlan {
+    private static func compile(_ project: Project, videoProxies: [UUID: MediaProxy]) throws -> NativePlaybackPlan {
         let plan = try NativePlaybackPlan(TimelineRenderPlan(project: project))
         guard plan.settings.width <= 4096, plan.settings.height <= 4096 else {
             throw ProofFailure("Proof limits sequence raster to 4096²")
         }
+        _ = try NativeProxySelection.compile(project: project, videoProxies: videoProxies)
         return plan
     }
 
     /// Validate before invalidating. A rejected edit retains the old epoch/cache.
-    public func replace(project: Project) throws {
+    public func replace(project: Project, videoProxies: [UUID: MediaProxy] = [:]) throws {
         guard !closed else { throw PlaybackSessionError.closed }
-        let replacement = try Self.compile(project)
+        let replacement = try Self.compile(project, videoProxies: videoProxies)
         invalidate()
-        self.project = project; plan = replacement; planID = UUID()
+        self.project = project; self.videoProxies = videoProxies; plan = replacement; planID = UUID()
         clearCache()
         worker.release()
     }
@@ -175,9 +193,15 @@ public actor NativePlaybackSession {
 
     public func accepts(_ valueEpoch: UUID) -> Bool { !closed && valueEpoch == epoch }
 
-    public func close() {
-        guard !closed else { return }
-        invalidate(); closed = true; clearCache(); worker.release()
+    /// Concurrent callers share the same decoder-drain barrier. Security-scoped
+    /// media access may be released only after this await completes.
+    public func close() async {
+        if let closing { await closing.value; return }
+        invalidate(); closed = true; clearCache()
+        let worker = self.worker
+        let closing = Task { await worker.drainAndRelease() }
+        self.closing = closing
+        await closing.value
     }
 
     public func statistics() -> PlaybackSessionStatistics {
@@ -192,7 +216,7 @@ public actor NativePlaybackSession {
         if case .video(let value) = cached(key) { return .init(epoch: epoch, value: value) }
         let generation = try admit()
         defer { pending -= 1 }
-        let value = try await worker.read(project: project, planID: planID, epoch: epochCancellation) {
+        let value = try await worker.read(project: project, videoProxies: videoProxies, planID: planID, epoch: epochCancellation) {
             try $0.video(frame: frame)
         }
         try validateCompletion(generation)
@@ -209,7 +233,7 @@ public actor NativePlaybackSession {
         if case .audio(let value) = cached(key) { return .init(epoch: epoch, value: value) }
         let generation = try admit()
         defer { pending -= 1 }
-        let value = try await worker.read(project: project, planID: planID, epoch: epochCancellation) {
+        let value = try await worker.read(project: project, videoProxies: videoProxies, planID: planID, epoch: epochCancellation) {
             try $0.audio(start: start, count: count)
         }
         try validateCompletion(generation)

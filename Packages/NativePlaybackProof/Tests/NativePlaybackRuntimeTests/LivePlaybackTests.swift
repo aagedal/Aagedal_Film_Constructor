@@ -425,7 +425,25 @@ struct LiveCancellationTests {
             case "pause": monitor.pause()
             case "seek": try await monitor.seek(toFrame: monitor.transport.plan.videoFrames)
             case "replace": try await monitor.replace(project: project)
-            case "close": await monitor.close()
+            case "close":
+                let epoch = await session.epoch
+                var firstFinished = false
+                let closing = Task { await monitor.close(); firstFinished = true }
+                while await session.accepts(epoch) { await Task.yield() }
+                var secondStarted = false
+                var secondFinished = false
+                let secondClose = Task {
+                    secondStarted = true
+                    await monitor.close()
+                    secondFinished = true
+                }
+                while !secondStarted { await Task.yield() }
+                _ = await session.statistics()
+                await Task.yield()
+                #expect(!firstFinished && !secondFinished)
+                barrier.release.signal()
+                await closing.value; await secondClose.value
+                #expect(firstFinished && secondFinished)
             default: priming.cancel()
             }
             barrier.release.signal()

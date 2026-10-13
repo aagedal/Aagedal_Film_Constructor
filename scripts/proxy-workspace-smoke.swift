@@ -16,6 +16,7 @@ struct ProxyWorkspaceSmoke {
         try check(imported.asset.duration.seconds > 2.9, "Audio duration exceeds picture duration")
         let service = ProxyGenerationService(ffmpegURL: URL(fileURLWithPath: CommandLine.arguments[2]), ffprobeURL: URL(fileURLWithPath: CommandLine.arguments[3]))
         let proxy = try await service.generate(asset: imported.asset, preset: .proResProxy, scaleDivisor: 2, to: directory.appendingPathComponent("proxy.mov"))
+        try await verifySequenceResolution(asset: imported.asset, proxy: proxy, directory: directory)
         let store = EditorStore()
         defer { store.close() }
         try store.registerImportedMedia(imported)
@@ -261,6 +262,75 @@ struct ProxyWorkspaceSmoke {
             try await Task.sleep(for: .milliseconds(10))
         }
         throw SmokeError.failed("Source preview timed out")
+    }
+
+    @MainActor private static func verifySequenceResolution(asset: MediaAsset, proxy: MediaProxy, directory: URL) async throws {
+        var qualified = asset
+        qualified.proxy = proxy
+        guard let video = qualified.streams.first(where: { $0.kind == .video }), video.videoFormat != nil else {
+            throw SmokeError.failed("Generated sequence fixture has qualified original video metadata")
+        }
+        var settings = try SequenceSettings()
+        settings.frameRate = try FrameRate(proxy.frameRate.numerator, proxy.frameRate.denominator)
+        var project = Project(settings: settings, assets: [qualified])
+        try project.appendAsset(qualified.id, audioSelections: [], routing: [])
+        project.tracks[0].clips[0].sourceRange = try TimeRange(start: RationalTime(1, 4), duration: RationalTime(1))
+        let unchanged = project
+        let selection = try await EditorStore.resolveSequenceProxies(project: project, representation: .proxy)
+        try check(selection.videoProxies == [qualified.id: proxy] && selection.message.contains("original audio"),
+                  "Sequence selects verified proxy for qualified nonzero original source range")
+        try check(project == unchanged, "Sequence resolution leaves document identity and coordinates unchanged")
+        let original = try await EditorStore.resolveSequenceProxies(project: project, representation: .original)
+        try check(original.videoProxies.isEmpty && original.message.contains("original media"), "Sequence HiRes preference bypasses proxy selection")
+        var unused = qualified
+        unused.id = UUID()
+        unused.originalURL = directory.appendingPathComponent("unused-missing.mov")
+        project.assets.append(unused)
+        try check(try await EditorStore.resolveSequenceProxies(project: project, representation: .proxy).videoProxies.count == 1,
+                  "Sequence ignores unused missing bin media")
+        var fallback = project
+        fallback.assets[0].proxy?.outputIntegrity = nil
+        let legacy = try await EditorStore.resolveSequenceProxies(project: fallback, representation: .proxy)
+        try check(legacy.videoProxies.isEmpty && legacy.message.contains("unverified"), "Sequence rejects legacy proxy without generated integrity")
+        fallback = project
+        fallback.assets[0].proxy?.sourceFingerprint.modificationTime += 1
+        let stale = try await EditorStore.resolveSequenceProxies(project: fallback, representation: .proxy)
+        try check(stale.videoProxies.isEmpty && stale.message.contains("stale"), "Sequence falls back visibly for stale source fingerprint")
+        fallback = project
+        fallback.assets[0].proxy?.url = directory.appendingPathComponent("missing-proxy.mov")
+        let missing = try await EditorStore.resolveSequenceProxies(project: fallback, representation: .proxy)
+        try check(missing.videoProxies.isEmpty && missing.message.contains("missing"), "Sequence falls back visibly for missing proxy")
+        fallback = project
+        fallback.assets[0].originalURL = directory.appendingPathComponent("missing-original.mov")
+        let offline = try await EditorStore.resolveSequenceProxies(project: fallback, representation: .proxy)
+        try check(offline.videoProxies.isEmpty && offline.message.contains("original unavailable"),
+                  "Sequence never selects offline proxy picture with unavailable original audio")
+        fallback = project
+        fallback.tracks[0].clips[0].sourceRange = try TimeRange(start: RationalTime(1), duration: RationalTime(2))
+        let tail = try await EditorStore.resolveSequenceProxies(project: fallback, representation: .proxy)
+        try check(tail.videoProxies.isEmpty && tail.message.contains("unqualified"), "Sequence falls back for clip beyond proxy picture coverage")
+        fallback = project
+        fallback.assets[0].streams.append(MediaStream(index: 9, kind: .video, videoFormat: video.videoFormat))
+        fallback.tracks[0].clips[0].selection = .video(streamIndex: 9)
+        let wrongStream = try await EditorStore.resolveSequenceProxies(project: fallback, representation: .proxy)
+        try check(wrongStream.videoProxies.isEmpty && wrongStream.message.contains("unqualified"), "Sequence keeps alternate selected video stream on original")
+        fallback = project
+        fallback.assets[0].proxy?.width += 2
+        let geometry = try await EditorStore.resolveSequenceProxies(project: fallback, representation: .proxy)
+        try check(geometry.videoProxies.isEmpty && geometry.message.contains("unqualified"), "Sequence rejects changed proxy aspect geometry")
+        let bytes = try Data(contentsOf: proxy.url)
+        defer { try? bytes.write(to: proxy.url) }
+        let handle = try FileHandle(forWritingTo: proxy.url)
+        try handle.seekToEnd(); try handle.write(contentsOf: Data([0])); try handle.close()
+        let modified = try await EditorStore.resolveSequenceProxies(project: project, representation: .proxy)
+        try check(modified.videoProxies.isEmpty && modified.message.contains("modified"), "Sequence rejects modified generated proxy bytes")
+        try bytes.write(to: proxy.url)
+        let cancelled = Task { @MainActor in
+            try await EditorStore.resolveSequenceProxies(project: project, representation: .proxy)
+        }
+        cancelled.cancel()
+        do { _ = try await cancelled.value; throw SmokeError.failed("Cancelled sequence verification accepted") }
+        catch is CancellationError { }
     }
     private static func check(_ condition: Bool, _ message: String) throws {
         if !condition { throw SmokeError.failed(message) }

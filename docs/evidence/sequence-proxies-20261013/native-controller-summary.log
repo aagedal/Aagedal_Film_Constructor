@@ -1,0 +1,4 @@
+Native app controller original/proxy frame parity/nonzero switching/exact seek/play/sample-clock/pause/edit/replay/deactivation smoke passed
+Unsigned local development app only; runtime libraries remain at explicitly selected local paths.
+Launch: open -n -a '/private/tmp/afc-sequence-proxy-drain-20261013/Native Sequence Workspace.app' /private/tmp/afc-sequence-proxy-drain-20261013/fixture.afcproject
+Select Sequence in the monitor; play/seek/edit controls use the production native adapter.

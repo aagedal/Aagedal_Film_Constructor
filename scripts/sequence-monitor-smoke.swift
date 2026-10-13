@@ -100,6 +100,64 @@ import EditorCore
                   "Rapid hide/show during a pending seek must drain and restore latest target")
         controller.deactivate()
         try await Task.sleep(for: .milliseconds(30))
-        print("Sequence monitor lifecycle smoke passed")
+        // Representation changes are asynchronous playback rebuilds, never document edits.
+        var selections: [[UUID: MediaProxy]] = []
+        var proxyBackends: [FakeSequenceBackend] = []
+        let proxy = MediaProxy(url: URL(fileURLWithPath: "/private/tmp/verified-proxy.mov"),
+            preset: .proResProxy, sourceFingerprint: .init(fileSize: 10, modificationTime: 1),
+            videoStreamIndex: 0, width: 40, height: 24, frameRate: try RationalTime(24), frameCount: 240)
+        let assetID = project.assets[0].id
+        var verificationStarted = false
+        var verificationCancelled = false
+        let proxyController = SequencePlaybackController(representationFactory: { _, proxies in
+            selections.append(proxies)
+            let backend = FakeSequenceBackend(); proxyBackends.append(backend); return backend
+        }, proxyResolver: { _, representation in
+            if representation == .proxy {
+                verificationStarted = true
+                do { try await Task.sleep(for: .milliseconds(40)) }
+                catch { verificationCancelled = true; throw error }
+                return SequenceProxySelection(videoProxies: [assetID: proxy], message: "Proxy picture · original audio")
+            }
+            return SequenceProxySelection()
+        })
+        proxyController.activate(project: project, seconds: 3)
+        try await settle(proxyController)
+        proxyController.play(); try await settle(proxyController)
+        proxyController.update(project: project, seconds: 3, representation: .proxy)
+        try check(!proxyController.isPlaying && proxyController.isPreparing,
+                  "Switching representation must pause before verification")
+        try await settle(proxyController)
+        try check(proxyBackends.count == 2 && proxyBackends[0].closed && selections.last == [assetID: proxy]
+                  && proxyBackends[1].position == 3 && !proxyController.isPlaying,
+                  "Verified proxy rebuild must close originals and preserve nonzero position")
+        try check(proxyController.message == "Proxy picture · original audio", "Resolved status must be visible")
+        proxyController.update(project: project, seconds: 4, representation: .original)
+        try await settle(proxyController)
+        try check(selections.last?.isEmpty == true && proxyBackends.last?.position == 4,
+                  "HiRes switch must discard proxy choices and preserve source coordinates")
+        verificationStarted = false
+        proxyController.update(project: project, seconds: 5, representation: .proxy)
+        while !verificationStarted { try await Task.sleep(for: .milliseconds(1)) }
+        // Yield so the new proxy verification has entered its cancellable operation.
+        try await Task.sleep(for: .milliseconds(10))
+        proxyController.update(project: project, seconds: 6, representation: .original)
+        try await settle(proxyController)
+        try check(verificationCancelled && selections.last?.isEmpty == true && proxyBackends.last?.position == 6,
+                  "Rapid toggles must cancel verification and reject obsolete proxy results")
+        verificationStarted = false; verificationCancelled = false
+        proxyController.update(project: project, seconds: 7, representation: .proxy)
+        while !verificationStarted { try await Task.sleep(for: .milliseconds(1)) }
+        proxyController.deactivate()
+        try await Task.sleep(for: .milliseconds(60))
+        try check(verificationCancelled && proxyBackends.last?.closed == true && !proxyController.isPlaying,
+                  "Hiding during verification must cancel work and release the backend")
+        proxyController.activate(project: project, seconds: 8, representation: .proxy)
+        try await settle(proxyController)
+        try check(proxyBackends.last?.position == 8 && selections.last == [assetID: proxy],
+                  "Reactivation must verify current preference and restore the latest playhead")
+        proxyController.deactivate()
+        try await Task.sleep(for: .milliseconds(30))
+        print("Sequence monitor lifecycle and proxy switching smoke passed")
     }
 }

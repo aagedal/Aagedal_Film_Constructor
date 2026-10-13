@@ -142,8 +142,8 @@ AVAudioEngine offline output, and replacement of an already-used edit plan again
 independent FFmpeg renders. Barcode, video-gap, overlapping-audio and H.264 B-frame
 fixtures pass. See [the native proof evidence](docs/evidence/native-playback-20261009/README.md)
 and [reproduction instructions](docs/media-engine-audit.md#native-sequence-fallback-proof-2026-10-09).
-The assembly workspace imports real media and supports qualified source proxies; live sequence playback and shipping
-media dependencies remain unfinished.
+The assembly workspace imports real media and supports qualified source proxies;
+shipping media dependencies and full live acceptance remain unfinished.
 
 The native development runtime now has an asynchronous serial decoder worker,
 bounded request admission, a shared byte-limited video/audio cache, cancellation,
@@ -185,3 +185,9 @@ Priming cancels across pause/seek/edit/close, and abandoned monitors release the
 polling tasks. [Recovery evidence](docs/evidence/native-recovery-20261012/README.md)
 includes deterministic injected-clock tests and a successful local scripted output
 run; physical starvation recovery and acoustic/display synchronization remain open.
+
+The HiRes/Proxy preference now also drives the opt-in native sequence monitor.
+Verified proxy picture preserves original framing and clip coordinates; audio and
+final renders retain originals. Switching pauses and rebuilds at the current
+playhead, with visible fallback for unavailable or unqualified proxies. See
+[sequence proxy evidence](docs/evidence/sequence-proxies-20261013/README.md).

@@ -567,10 +567,15 @@ a compatible track, create a crossfade, and undo both operations without lost sy
 - [x] Add a persisted, manually resumable proxy job queue with source validation,
       cancellation, interrupted-publication recovery and destination-conflict handling.
 - [x] Add a document-session hires/proxy source-preview toggle with
-      missing/stale-proxy status and fallback. Sequence monitoring remains open.
+      missing/stale-proxy status and fallback. Qualified native sequence switching
+      is connected in the opt-in development workspace.
 - [ ] Test frame/timecode correspondence, geometry, multiple audio streams, VFR
       mapping, switching at a nonzero playhead, and save/reopen.
 - [ ] Verify proxy playback does not change edits and final exports use originals.
+- [x] Connect the global representation preference to opt-in native sequence
+      playback with integrity verification, original geometry/audio, nonzero
+      playhead preservation and cancellable rebuilds. Shipping runtime and
+      broader format/hardware qualification remain open.
 - [x] Compare reopened native hires/proxy frames, timestamp-aligned mono/stereo
       PCM including delayed edits/tails, nonzero switching beyond proxy picture,
       and unchanged original-only render commands within the qualified subset.
@@ -1550,3 +1555,28 @@ launch-performance claim has been validated yet.
   24000/1001 and 30000/1001; VFR/rotation/SAR/single-frame refusal and cancellation
   pass. Unsigned Debug/Release app builds pass. Bookmark services and Xcode package
   caches require host access; sandboxed Xcode package resolution remains blocked.
+
+### Qualified sequence proxy monitoring checkpoint (2026-10-13)
+
+- The representation button is available in Source and Sequence viewers. The
+  opt-in native sequence controller verifies timeline-used proxy bytes off the
+  main actor, pauses immediately on switching, closes the old decoder and rebuilds
+  at the preserved playhead. Obsolete verification cancels across rapid toggles
+  and hiding the viewer; late results cannot install an old representation.
+  Native close waits for the decoder queue to drain before file-access grants can
+  be released, including concurrent and cancelled close callers.
+- Proxy picture maps its recorded source stream to proxy stream zero, with original
+  geometry for fit/fill/no-scaling. Audio retains original stream selections and
+  sample-timed processing. Transient proxy choices never modify saved edits or
+  original-only rendered export commands. Invalid native selections reject before
+  changing the active session epoch/cache.
+- Missing, stale, modified, legacy unhashed or unqualified proxies visibly fall
+  back to originals. Qualified imported picture metadata, identical source/proxy/
+  sequence cadence, matching aspect ratio, complete trim coverage and bounded
+  rasters are required. Missing originals do not enable silent sequence playback;
+  older projects without picture metadata fall back to HiRes. Source preview's
+  separate explicit offline-picture behavior is retained.
+- Verification and reproduction are recorded in
+  [sequence proxy evidence](docs/evidence/sequence-proxies-20261013/README.md).
+  Default Xcode builds still lack the native runtime. Shipping packaging,
+  hardware A/V timing, broader formats and signed sandbox acceptance remain open.

@@ -208,16 +208,16 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
     private var replacing = false
     private var configurationObserver: LiveAudioConfigurationObserver?
 
-    public convenience init(project: Project) throws {
-        try self.init(project: project, session: nil, output: nil)
+    public convenience init(project: Project, videoProxies: [UUID: MediaProxy] = [:]) throws {
+        try self.init(project: project, videoProxies: videoProxies, session: nil, output: nil)
     }
 
-    init(project: Project, session injectedSession: NativePlaybackSession?,
+    init(project: Project, videoProxies: [UUID: MediaProxy] = [:], session injectedSession: NativePlaybackSession?,
          output injectedOutput: (any LivePlaybackOutput)?) throws {
         let plan = try NativePlaybackPlan(TimelineRenderPlan(project: project))
         try LiveOutputQualification.validate(layout: plan.settings.audioLayout)
         transport = try NativePlaybackTransport(plan: plan)
-        session = try injectedSession ?? NativePlaybackSession(project: project, maximumPendingRequests: 2,
+        session = try injectedSession ?? NativePlaybackSession(project: project, videoProxies: videoProxies, maximumPendingRequests: 2,
                                              maximumCacheBytes: 8 * 1024 * 1024)
         guard let format = AVAudioFormat(standardFormatWithSampleRate: Double(plan.settings.audioSampleRate),
             channels: AVAudioChannelCount(plan.settings.audioLayout.channels.count)) else {
@@ -354,7 +354,7 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
 
     /// Clip/edit replacement retains the fixed output format. Validate before
     /// stopping the old plan; output-format changes require a new live monitor.
-    public func replace(project: Project) async throws {
+    public func replace(project: Project, videoProxies: [UUID: MediaProxy] = [:]) async throws {
         guard !closed else { throw PlaybackSessionError.closed }
         guard !replacing else { throw PlaybackSessionError.busy }
         let plan = try NativePlaybackPlan(TimelineRenderPlan(project: project))
@@ -364,10 +364,11 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
               plan.settings.audioLayout == transport.plan.settings.audioLayout else {
             throw ProofFailure("Live replacement requires bounded raster and unchanged output audio format")
         }
+        _ = try NativeProxySelection.compile(project: project, videoProxies: videoProxies)
         pause(); replacing = true
         let token = operation
         defer { replacing = false }
-        try await session.replace(project: project)
+        try await session.replace(project: project, videoProxies: videoProxies)
         guard !closed else { throw CancellationError() }
         // The session has committed the plan. Keep transport coherent, but never
         // submit a display request from a replacement invalidated while awaiting.
@@ -377,7 +378,7 @@ final class LiveAudioConfigurationObserver: @unchecked Sendable {
     }
 
     public func close() async {
-        guard !closed else { return }
+        guard !closed else { await session.close(); return }
         closed = true; configurationObserver = nil
         pause()
         await session.close()
