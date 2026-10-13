@@ -133,3 +133,34 @@ private func proxyFixture() throws -> MediaProxy {
     #expect(asset.resolvePlayback(representation: .original, sourceFingerprint: proxy.sourceFingerprint,
                                   proxyExists: true, proxyIntegrityMatches: false).status == .original)
 }
+
+@Test func hiresPreferenceFallsBackOnlyToVerifiedProxyWhenOriginalIsMissing() throws {
+    var proxy = try proxyFixture()
+    proxy.outputIntegrity = .init(fileSize: 4000, sha256Hex: String(repeating: "a", count: 64))
+    var asset = MediaAsset(name: "Source", originalURL: URL(fileURLWithPath: "/tmp/original.mov"),
+                           duration: try RationalTime(30), streams: [.init(index: 3, kind: .video)], proxy: proxy)
+    for preference in PlaybackRepresentation.allCases {
+        let resolution = asset.resolvePlayback(representation: preference, sourceFingerprint: nil,
+            proxyExists: true, proxyIntegrityMatches: true, originalExists: false)
+        #expect(resolution == .init(url: proxy.url, status: .originalUnavailable, usesProxy: true))
+        for verified in [Optional<Bool>.none, false] {
+            let unsafe = asset.resolvePlayback(representation: preference, sourceFingerprint: nil,
+                proxyExists: true, proxyIntegrityMatches: verified, originalExists: false)
+            #expect(unsafe.url == nil && !unsafe.usesProxy && unsafe.status == .modified)
+        }
+        let missing = asset.resolvePlayback(representation: preference, sourceFingerprint: nil,
+            proxyExists: false, proxyIntegrityMatches: true, originalExists: false)
+        #expect(missing.url == nil && missing.status == .missing)
+        let stale = asset.resolvePlayback(representation: preference,
+            sourceFingerprint: .init(fileSize: 9999, modificationTime: 1),
+            proxyExists: true, proxyIntegrityMatches: true, originalExists: false)
+        #expect(stale.url == nil && stale.status == .stale)
+    }
+    asset.proxy?.outputIntegrity = nil
+    let legacy = asset.resolvePlayback(representation: .original, sourceFingerprint: nil,
+        proxyExists: true, proxyIntegrityMatches: true, originalExists: false)
+    #expect(legacy.url == nil && !legacy.usesProxy && legacy.status == .unavailable)
+    // Online HiRes preference remains HiRes, even when the proxy is unavailable.
+    #expect(asset.resolvePlayback(representation: .original, sourceFingerprint: nil,
+        proxyExists: false, originalExists: true).url == asset.originalURL)
+}

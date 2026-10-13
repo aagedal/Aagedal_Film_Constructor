@@ -23,6 +23,7 @@ final class EditorStore: ObservableObject {
     @Published var proxyJobs: [ProxyGenerationJob] = []
     @Published var proxyQueueProgress: [UUID: SequenceExportProgress] = [:]
     @Published var showProxyQueue = false
+    @Published var showSequenceMonitor = false
     @Published var selectedMediaBinID: UUID?
     @Published var selectedAssetIDs: Set<UUID> = []
     @Published var proxyCreationDraft: ProxyCreationDraft?
@@ -330,6 +331,14 @@ final class EditorStore: ObservableObject {
             try change { try $0.moveAssets(ids, toMediaBin: binID) }
             selectAssets(selectedAssetIDs.intersection(Set(visibleBinAssets.map(\.id))))
         } catch { report(error) }
+    }
+
+    func focusSourceViewer() { if showSequenceMonitor { showSequenceMonitor = false } }
+    func focusSequenceViewer() { if !showSequenceMonitor { showSequenceMonitor = true } }
+    func toggleViewer() { showSequenceMonitor.toggle() }
+    func selectTimelineClip(_ id: UUID) {
+        focusSequenceViewer()
+        if selectedClipID != id { selectedClipID = id }
     }
 
     func selectAsset(_ id: UUID) {
@@ -719,18 +728,36 @@ final class EditorStore: ObservableObject {
             }
         } catch { report(error) }
     }
-    func updateSequence(width: Int, height: Int, frameRate: Double) {
+    func updateSequence(width: Int, height: Int, frameRateText: String,
+                        audioSampleRate: Int, audioLayout: ChannelLayout, startTimecodeLabel: String) {
         do {
-            try change { project in
-                // Preserve the standard fractional rates rather than persisting a rounded decimal.
-                let rate: FrameRate
-                if abs(frameRate - 29.97) < 0.001 { rate = try FrameRate(30000, 1001) }
-                else if abs(frameRate - 23.976) < 0.001 { rate = try FrameRate(24000, 1001) }
-                else if abs(frameRate - 59.94) < 0.001 { rate = try FrameRate(60000, 1001) }
-                else { rate = try FrameRate(time(frameRate).numerator, time(frameRate).denominator) }
-                project.settings.width = width; project.settings.height = height; project.settings.frameRate = rate
+            let rate = try FrameRate(parsing: frameRateText)
+            let current = project.settings
+            // The inspector displays a 24-hour label; retain an unwrapped saved
+            // count when neither the label nor its rate has been edited.
+            let timecode: Timecode
+            if rate == current.frameRate,
+               startTimecodeLabel == (try current.startTimecode.formatted(rate: rate)) {
+                timecode = current.startTimecode
+            } else {
+                timecode = try Timecode(parsing: startTimecodeLabel, rate: rate)
             }
-        } catch { report(error) }
+            updateSequence(try SequenceSettings(width: width, height: height, frameRate: rate,
+                                                audioSampleRate: audioSampleRate, audioLayout: audioLayout,
+                                                startTimecode: timecode))
+        } catch {
+            errorMessage = "Enter valid dimensions, an exact frame rate (for example 24000/1001), an audio sample rate and a timecode valid at that rate."
+        }
+    }
+    /// Commit the complete output configuration as one validated, undoable edit.
+    /// Existing clip timing and channel maps are retained; incompatible routes reject
+    /// the entire change instead of silently dropping or remapping channels.
+    func updateSequence(_ settings: SequenceSettings) {
+        do {
+            try change { $0.settings = settings }
+        } catch {
+            errorMessage = "Sequence settings could not be applied. Check the timecode and existing audio track/family output maps. \(error)"
+        }
     }
     func relinkSelectedAsset() {
         guard let asset = selectedAsset, !isImporting else { return }

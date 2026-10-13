@@ -9,7 +9,6 @@ struct ContentView: View {
     @AppStorage("workspace.showInspector") private var showInspector = true
     @AppStorage("workspace.showTimeline") private var showTimeline = true
     @State private var isDropTargeted = false
-    @State private var showSequenceMonitor = false
     @State private var binName = ""
     @State private var creatingBin = false
     @State private var renamingBin = false
@@ -21,9 +20,10 @@ struct ContentView: View {
                 if showMediaBin {
                     mediaBin.frame(minWidth: 210, idealWidth: 260, maxWidth: 380)
                         .focusedValue(\.editorCommandScope, .source)
+                        .simultaneousGesture(TapGesture().onEnded { store.focusSourceViewer() })
                 }
                 monitor.frame(minWidth: 320, maxWidth: .infinity)
-                    .focusedValue(\.editorCommandScope, showSequenceMonitor ? .timeline : .source)
+                    .focusedValue(\.editorCommandScope, store.showSequenceMonitor ? .timeline : .source)
                 if showInspector {
                     ProjectInspector(store: store).frame(minWidth: 240, idealWidth: 270, maxWidth: 340)
                 }
@@ -31,6 +31,7 @@ struct ContentView: View {
             .frame(minHeight: 260)
             if showTimeline {
                 TimelineView(store: store).frame(minHeight: 220, idealHeight: 320)
+                    .simultaneousGesture(TapGesture().onEnded { store.focusSequenceViewer() })
             }
         }
         .frame(minWidth: 960, minHeight: 600)
@@ -91,19 +92,19 @@ struct ContentView: View {
                     if store.isImporting { ProgressView().controlSize(.small) }
                     Text(store.statusMessage).lineLimit(1)
                     Spacer()
-                    Text(showSequenceMonitor ? "Sequence · originals" : "Source preview").foregroundStyle(.secondary)
+                    Text(store.showSequenceMonitor ? "Sequence · originals" : "Source preview").foregroundStyle(.secondary)
                 }
                 .font(.caption).padding(.horizontal, 12).padding(.vertical, 6)
             }
             .background(.bar)
         }
         .onChange(of: store.project) { _, project in
-            if showSequenceMonitor { sequencePlayback.update(project: project, seconds: store.playheadSeconds) }
+            if store.showSequenceMonitor { sequencePlayback.update(project: project, seconds: store.playheadSeconds) }
         }
         .onChange(of: store.playheadSeconds) { _, seconds in
-            if showSequenceMonitor { sequencePlayback.update(project: store.project, seconds: seconds) }
+            if store.showSequenceMonitor { sequencePlayback.update(project: store.project, seconds: seconds) }
         }
-        .onChange(of: showSequenceMonitor) { _, show in
+        .onChange(of: store.showSequenceMonitor) { _, show in
             if show {
                 store.pauseSource()
                 store.sequencePlayback = sequencePlayback
@@ -112,7 +113,7 @@ struct ContentView: View {
         }
         .onAppear {
             sequencePlayback.positionChanged = { seconds in store.playheadSeconds = seconds }
-            if showSequenceMonitor {
+            if store.showSequenceMonitor {
                 store.sequencePlayback = sequencePlayback
                 sequencePlayback.activate(project: store.project, seconds: store.playheadSeconds)
             }
@@ -194,7 +195,10 @@ struct ContentView: View {
                 }
                 .frame(maxHeight: .infinity)
             } else {
-                List(selection: Binding(get: { store.selectedAssetIDs }, set: store.selectAssets)) {
+                List(selection: Binding(get: { store.selectedAssetIDs }, set: { ids in
+                    store.focusSourceViewer()
+                    store.selectAssets(ids)
+                })) {
                     ForEach(store.visibleBinAssets) { asset in
                         HStack(alignment: .top, spacing: 9) {
                             Image(systemName: assetIcon(asset)).foregroundStyle(.secondary).frame(width: 20)
@@ -255,19 +259,25 @@ struct ContentView: View {
         }
     }
 
+    private var viewerToggle: some View {
+        Button(action: store.toggleViewer) {
+            Image(systemName: store.showSequenceMonitor ? "timeline.selection" : "film")
+        }
+        .accessibilityLabel("Switch source and sequence viewer")
+        .accessibilityValue(store.showSequenceMonitor ? "Sequence" : "Source")
+        .help(store.showSequenceMonitor ? "Switch to source viewer (Tab by default)" : "Switch to sequence viewer (Tab by default)")
+    }
+
     private var monitor: some View {
         VStack(spacing: 0) {
-            Picker("Monitor", selection: $showSequenceMonitor) {
-                Text("Source").tag(false)
-                Text("Sequence").tag(true)
-            }.pickerStyle(.segmented).frame(width: 200).padding(.top, 10)
-            if showSequenceMonitor { sequenceMonitor } else { sourceMonitor }
+            if store.showSequenceMonitor { sequenceMonitor } else { sourceMonitor }
         }
     }
 
     private var sequenceMonitor: some View {
         VStack(spacing: 0) {
             HStack {
+                viewerToggle
                 Text("Sequence monitor").font(.headline)
                 Spacer()
                 Text(store.playheadTimecode).monospacedDigit()
@@ -311,6 +321,7 @@ struct ContentView: View {
     private var sourceMonitor: some View {
         VStack(spacing: 0) {
             HStack {
+                viewerToggle
                 Text("Source monitor").font(.headline)
                 Spacer()
                 Text(store.selectedAsset?.name ?? "No source selected").foregroundStyle(.secondary).lineLimit(1)
@@ -331,10 +342,14 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             HStack {
-                Picker("Playback", selection: Binding(get: { store.playbackRepresentation }, set: store.setPlaybackRepresentation)) {
-                    Text("Hires").tag(PlaybackRepresentation.original)
-                    Text("Proxy").tag(PlaybackRepresentation.proxy)
-                }.pickerStyle(.segmented).frame(width: 140)
+                Button {
+                    store.setPlaybackRepresentation(store.playbackRepresentation == .proxy ? .original : .proxy)
+                } label: {
+                    Image(systemName: store.playbackRepresentation == .proxy ? "square.stack.3d.up.fill" : "square.stack.3d.up")
+                }
+                .accessibilityLabel(store.playbackRepresentation == .proxy ? "Prefer Proxy" : "Prefer HiRes")
+                .accessibilityValue(store.playbackRepresentation == .proxy ? "Proxy preferred" : "HiRes preferred")
+                .help(store.playbackRepresentation == .proxy ? "Proxy preferred. Click to prefer HiRes; available media is used as fallback." : "HiRes preferred. Click to prefer Proxy; available media is used as fallback.")
                 Text(store.proxyPlaybackMessage).font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Group {
@@ -410,6 +425,8 @@ private struct ProjectInspector: View {
     @State private var height = "1080"
     @State private var frameRate = "24"
     @State private var startTimecode = "00:00:00:00"
+    @State private var audioSampleRate = "48000"
+    @State private var audioLayout = ChannelLayout.stereo
     @State private var editingAudio = false
     @State private var fadeInDuration = "0"
     @State private var fadeOutDuration = "0"
@@ -474,21 +491,30 @@ private struct ProjectInspector: View {
                         numericField("Width", text: $width)
                         numericField("Height", text: $height)
                         numericField("Frames / second", text: $frameRate)
-                        Button("Apply settings") {
-                            guard let w = Int(width), let h = Int(height), let rate = Double(frameRate), rate.isFinite else { store.errorMessage = "Enter valid dimensions and a frame rate."; return }
-                            store.updateSequence(width: w, height: h, frameRate: rate)
-                        }
-                        Divider()
-                        numericField("Start timecode", text: $startTimecode)
-                        Button("Apply timecode") {
-                            do {
-                                store.updateStartTimecode(try Timecode(parsing: startTimecode, rate: store.project.settings.frameRate))
-                            } catch {
-                                store.errorMessage = "Enter valid HH:MM:SS:FF timecode, or HH:MM:SS;FF for drop frame at 29.97/59.94 fps."
+                        Menu("Frame rate presets") {
+                            ForEach(["24", "25", "30", "50", "60", "24000/1001", "30000/1001", "60000/1001"], id: \.self) { rate in
+                                Button(rate) { frameRate = rate }
                             }
                         }
-                        Text("\(store.project.settings.audioSampleRate) Hz · \(store.project.settings.audioLayout.channels.count) output channels")
+                        Text("Enter an exact fraction, integer or decimal. Use 30000/1001 for 29.97 fps drop frame.")
                             .font(.caption).foregroundStyle(.secondary)
+                        numericField("Audio sample rate (Hz)", text: $audioSampleRate)
+                        Picker("Output layout", selection: $audioLayout) {
+                            Text("Mono").tag(ChannelLayout.mono)
+                            Text("Stereo").tag(ChannelLayout.stereo)
+                            Text("5.1 surround").tag(ChannelLayout.surround51)
+                            if ![ChannelLayout.mono, .stereo, .surround51].contains(audioLayout) {
+                                Text("Saved layout (\(audioLayout.channels.count) channels)").tag(audioLayout)
+                            }
+                        }
+                        if audioLayout != .mono && audioLayout != .stereo {
+                            Text("This output layout can be saved, but sequence playback and rendered export currently require mono or stereo.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        numericField("Start timecode", text: $startTimecode)
+                        Text("Use HH:MM:SS:FF, or HH:MM:SS;FF for drop frame. Existing audio output maps must remain compatible.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Button("Apply settings") { applySequenceSettings() }
                     }.padding(5)
                 }
                 GroupBox("Editing") {
@@ -625,10 +651,21 @@ private struct ProjectInspector: View {
         fadeDraftClip = clip
         refreshCrossfade()
     }
+    private func applySequenceSettings() {
+        guard let w = Int(width), let h = Int(height), let sampleRate = Int(audioSampleRate) else {
+            store.errorMessage = "Enter valid dimensions and an audio sample rate."
+            return
+        }
+        store.updateSequence(width: w, height: h, frameRateText: frameRate,
+                             audioSampleRate: sampleRate, audioLayout: audioLayout,
+                             startTimecodeLabel: startTimecode)
+    }
     private func refreshSettings() {
         width = String(store.project.settings.width)
         height = String(store.project.settings.height)
-        frameRate = String(format: "%.6g", store.project.settings.frameRate.value.seconds)
+        frameRate = store.project.settings.frameRate.editableText
+        audioSampleRate = String(store.project.settings.audioSampleRate)
+        audioLayout = store.project.settings.audioLayout
         startTimecode = (try? store.project.settings.startTimecode.formatted(rate: store.project.settings.frameRate)) ?? "00:00:00:00"
     }
 }

@@ -48,6 +48,7 @@ final class EditorCommandRegistry: ObservableObject {
         }
         guard command.isPlayback || scope == .document || command.scope == .document || scope == command.scope else { return }
         switch command {
+        case .toggleViewer: store.toggleViewer()
         case .undo: store.undo()
         case .redo: store.redo()
         case .importMedia: store.importMedia()
@@ -73,6 +74,7 @@ final class EditorCommandRegistry: ObservableObject {
         if Self.isEditingText { return command == .undo || command == .redo }
         guard command.isPlayback || scope == .document || command.scope == .document || scope == command.scope else { return false }
         switch command {
+        case .toggleViewer: return true
         case .undo: return store.canUndo
         case .redo: return store.canRedo
         case .importMedia: return !store.isImporting
@@ -112,6 +114,7 @@ extension ShortcutBinding {
         case "return": return .return
         case "escape": return .escape
         case "space": return .space
+        case "tab": return .tab
         default: return normalized.key.first.map { KeyEquivalent($0) }
         }
     }

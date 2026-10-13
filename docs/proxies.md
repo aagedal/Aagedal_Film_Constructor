@@ -37,13 +37,22 @@ registration. Registration and its independent sandbox bookmark form one undoabl
 edit. Undo removes the reference rather than deleting generated media; old outputs
 are retained so redo and earlier project versions can still reference them.
 
-Use **Hires / Proxy** below the source monitor to switch all source previews in
-the current document session. Switching preserves source position and forward
+Use the representation icon below the source monitor to toggle **Prefer HiRes**
+and **Prefer Proxy** for source previews in the current document session.
+Switching preserves source position and forward
 playback intent, including rapid switches while the new representation loads.
 Proxy video is combined with original audio tracks, retaining their channels and
 source offsets. Silent reverse transport remains available. Missing, stale, or
-unusable proxies fall back to originals with visible status. Original media is
-required to validate the source and provide audio. Proxy registration does not
+unusable proxies fall back to originals with visible status. If the original is
+missing, unreadable, or reported unplayable by AVFoundation, either preference can
+preview an intact generated proxy
+whose recorded byte integrity passes verification. This fallback is picture only:
+the monitor explicitly reports that original audio is unavailable. Older proxies
+without recorded integrity cannot be used while the original is offline. Source
+positions beyond the proxy picture (such as a longer original audio tail) remain
+pending with an explicit unavailable status until HiRes is restored; no earlier
+proxy frame is substituted. Restoring the original and refreshing the viewer
+returns playback to the preferred representation. Proxy registration does not
 change timeline edits, clip scaling, sequence settings, filmstrips or waveforms.
 Rendered exports and FCPXML continue to reference originals.
 

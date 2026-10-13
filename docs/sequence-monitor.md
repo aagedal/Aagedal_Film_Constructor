@@ -43,7 +43,8 @@ open -n -a '/private/tmp/afc-native-workspace-proof/Native Sequence Workspace.ap
   /private/tmp/afc-native-workspace-proof/fixture.afcproject
 ```
 
-Select Sequence above the monitor, then play or seek in the timeline. This app uses
+Click the timeline to select Sequence, or use the viewer header icon / Tab,
+then play or seek in the timeline. This app uses
 a distinct development bundle identifier. Its FFmpeg libraries remain at the
 explicitly selected local paths and the runtime remains in the output build tree;
 keep both available. It does not include executable media helpers, so workflows

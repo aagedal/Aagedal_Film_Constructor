@@ -40,7 +40,7 @@ struct KeyboardShortcutSettings: View {
                 }.frame(width: 270)
             }
             Button("Reset All to Defaults…") { confirmReset = true }
-            Text("Standard application and text shortcuts are reserved. Playback commands allow unmodified keys and control the source across workspace panels. Editor commands leave text entry unchanged.")
+            Text("Standard application and text shortcuts are reserved. Playback and viewer commands allow unmodified keys. Tab switches the source/sequence viewer by default; playback controls the active viewer. Editor commands leave text entry unchanged.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .padding(24)

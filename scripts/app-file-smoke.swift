@@ -30,6 +30,7 @@ struct AppFileSmoke {
         try await exerciseWorkspaceResume(still: still)
         try await exerciseStillPreview(directory: directory, still: still, audio: audio)
         try exerciseProxyDocument(directory: directory)
+        try exerciseSequenceSettings()
         let corruptURL = directory.appendingPathComponent("corrupt.png")
         try Data("invalid image".utf8).write(to: corruptURL)
         do {
@@ -202,7 +203,7 @@ struct AppFileSmoke {
         try exerciseAudioFades()
         try exerciseAudioCrossfades()
         try exerciseShortcuts()
-        print("App file smoke passed: nested-bin persistence/navigation/batch moves/undo/bookmarks/captured imports/deleted-destination fallback, Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: viewer context/Tab command dispatch/special-key mapping/selection and playhead preservation, exact sequence settings/persistence/render-plan propagation/atomic undo/redo/track and family route rejection, nested-bin persistence/navigation/batch moves/undo/bookmarks/captured imports/deleted-destination fallback, Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
     }
 
     @MainActor
@@ -275,7 +276,7 @@ struct AppFileSmoke {
         store.audioAppendAsset = MediaAsset(name: "Pending audio", duration: try RationalTime(1))
         try check(!store.importMediaToTimeline(urls: [audioURL], at: 0), "Audio draft excludes timeline drops")
         store.audioAppendAsset = nil
-        store.updateSequence(width: 1920, height: 1080, frameRate: 29.97)
+        store.updateSequence(try SequenceSettings(frameRate: FrameRate(30000, 1001)))
         let baseline = store.project
         let captured = try baseline.settings.frameRate.time(forFrames: 30)
         try check(store.importMediaToTimeline(urls: [audioURL, imageURL], at: 1.01),
@@ -592,11 +593,27 @@ struct AppFileSmoke {
         let store = EditorStore()
         defer { store.close() }
         try store.registerImportedMedia(ImportedMedia(asset: MediaAsset(name: "Shortcut fixture", duration: try RationalTime(5)), bookmark: nil))
+        try check(reloaded.binding(for: .toggleViewer).keyEquivalent == .tab, "Tab key equivalent is a named special key")
+        try check(reloaded.isEnabled(.toggleViewer, store: store, scope: .source), "Viewer switching is available across panel scopes")
+        let original = store.project
+        store.playheadSeconds = 1
+        reloaded.perform(.toggleViewer, store: store, scope: .source)
+        try check(store.showSequenceMonitor, "Tab switches from Source to Sequence")
+        store.focusSourceViewer()
+        try check(!store.showSequenceMonitor, "Media-bin interaction selects Source")
+        store.focusSequenceViewer()
+        try check(store.showSequenceMonitor, "Timeline interaction selects Sequence")
+        reloaded.perform(.toggleViewer, store: store, scope: .timeline)
+        try check(!store.showSequenceMonitor && store.project == original && store.playheadSeconds == 1,
+                  "Viewer toggling preserves edits and sequence playhead")
         try check(!reloaded.isEnabled(.appendSource, store: store, scope: .timeline), "Source commands respect timeline focus")
         reloaded.perform(.appendSource, store: store, scope: .timeline)
         try check(store.project.tracks.isEmpty, "Command dispatch rejects mismatched panel scope")
         reloaded.perform(.appendSource, store: store, scope: .source)
         try check(store.project.tracks.flatMap(\.clips).count == 1, "Source command dispatch")
+        store.selectTimelineClip(store.project.tracks[0].clips[0].id)
+        try check(store.showSequenceMonitor && store.selectedClipID == store.project.tracks[0].clips[0].id,
+                  "Timeline clip click/drag selects Sequence even with an existing clip selection")
         store.seek(to: 2)
         reloaded.perform(.splitClip, store: store, scope: .timeline)
         try check(store.project.tracks.flatMap(\.clips).count == 2, "Timeline command dispatch")
@@ -779,7 +796,7 @@ struct AppFileSmoke {
         store.stepPlayhead(frames: 1)
         try check(store.playheadTimecode == "00:00:00:03", "24 fps frame step advances exactly one frame")
 
-        store.updateSequence(width: 1920, height: 1080, frameRate: 29.97)
+        store.updateSequence(try SequenceSettings(frameRate: FrameRate(30000, 1001)))
         let beforeTimecode = store.project
         let start = try Timecode(parsing: "01:00:00;00", rate: store.project.settings.frameRate)
         store.updateStartTimecode(start)
@@ -807,6 +824,86 @@ struct AppFileSmoke {
         reopened.load(persisted)
         try check(reopened.project == store.project && reopened.playheadTimecode == "01:00:00;00",
                   "Sequence frame rate and start timecode survive document reopen")
+    }
+
+    @MainActor
+    static func exerciseSequenceSettings() throws {
+        let store = EditorStore()
+        defer { store.close() }
+        let baseline = try DemoProjectFactory.musicCollision()
+        store.load(ProjectDocument(project: baseline))
+        let rate = try FrameRate(parsing: "24000/1001")
+        let configured = try SequenceSettings(width: 1280, height: 720, frameRate: rate,
+                                             audioSampleRate: 44100, audioLayout: .stereo,
+                                             startTimecode: Timecode(parsing: "01:00:00:00", rate: rate))
+        store.updateSequence(width: 1280, height: 720, frameRateText: "24000/1001",
+                             audioSampleRate: 44100, audioLayout: .stereo, startTimecodeLabel: "01:00:00:00")
+        let changed = store.project
+        try check(changed.settings == configured && changed.tracks == baseline.tracks && changed.assets == baseline.assets,
+                  "Complete sequence settings preserve original clips, routing and media")
+        let plan = try TimelineRenderPlan(project: changed)
+        try check(plan.settings == configured, "Render plan uses exact sequence picture/audio/timecode settings")
+        let reopened = try ProjectDocument(data: ProjectDocument(project: changed).encodedData())
+        try check(reopened.project == changed, "Exact output settings survive save/reopen")
+        store.undo()
+        try check(store.project == baseline, "All sequence settings undo atomically")
+        store.redo()
+        try check(store.project == changed, "All sequence settings redo atomically")
+
+        var incompatible = configured
+        incompatible.audioLayout = .mono
+        store.updateSequence(incompatible)
+        try check(store.project == changed && store.errorMessage != nil,
+                  "Identity stereo track and family reject mono output without changing project")
+        var invalid = configured
+        invalid.audioSampleRate = 0
+        store.updateSequence(invalid)
+        try check(store.project == changed, "Invalid output settings reject the complete edit")
+        store.updateSequence(configured)
+        store.undo()
+        try check(store.project == baseline, "Rejected and unchanged settings add no undo entries")
+        store.updateSequence(incompatible)
+        store.redo()
+        try check(store.project == changed, "Rejected settings preserve redo history")
+
+        store.updateSequence(width: 1280, height: 720, frameRateText: "29.97",
+                             audioSampleRate: 44100, audioLayout: .stereo, startTimecodeLabel: "01:00:00;00")
+        try check(store.project == changed, "Literal decimal rate cannot silently enable drop frame")
+        store.updateSequence(width: 1280, height: 720, frameRateText: "NaN",
+                             audioSampleRate: 44100, audioLayout: .stereo, startTimecodeLabel: "01:00:00:00")
+        try check(store.project == changed, "Malformed frame-rate entry leaves output settings unchanged")
+        var unwrapped = baseline
+        unwrapped.settings.startTimecode = Timecode(frameCount: 24 * 86400 + 1)
+        store.load(ProjectDocument(project: unwrapped))
+        let displayed = try unwrapped.settings.startTimecode.formatted(rate: unwrapped.settings.frameRate)
+        store.updateSequence(width: 1920, height: 1080, frameRateText: "24",
+                             audioSampleRate: 44100, audioLayout: .stereo, startTimecodeLabel: displayed)
+        try check(store.project.settings.startTimecode == unwrapped.settings.startTimecode,
+                  "Unchanged displayed timecode retains unwrapped saved count on audio-only apply")
+        store.undo()
+        try check(store.project == unwrapped, "Unwrapped settings undo without changing start count")
+
+        // Explicit routing to retained output indices permits output expansion.
+        var mapped = baseline
+        mapped.families[0].template.routing.outputChannels = [0, 1]
+        mapped.tracks[0].template.routing.outputChannels = [0, 1]
+        store.load(ProjectDocument(project: mapped))
+        var surround = configured
+        surround.audioLayout = .surround51
+        store.updateSequence(surround)
+        try check(store.project.settings == surround && store.project.tracks == mapped.tracks,
+                  "Explicit stereo output maps survive expanding the sequence to 5.1")
+        var missingOutput = surround
+        missingOutput.audioLayout = .mono
+        let routed = store.project
+        store.updateSequence(missingOutput)
+        try check(store.project == routed && store.errorMessage != nil,
+                  "Output reconfiguration cannot discard an explicitly routed channel")
+        var familyOnly = mapped
+        familyOnly.tracks = []
+        store.load(ProjectDocument(project: familyOnly))
+        store.updateSequence(missingOutput)
+        try check(store.project == familyOnly, "Retained family templates also protect their output routing")
     }
 
     @MainActor

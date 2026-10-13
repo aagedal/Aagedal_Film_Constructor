@@ -4,8 +4,49 @@ public struct FrameRate: Hashable, Codable, Sendable {
     public let value: RationalTime
     public init(_ numerator: Int64, _ denominator: Int64 = 1) throws {
         let value = try RationalTime(numerator, denominator)
-        guard value.numerator > 0, value.seconds <= 1000 else { throw EditorCoreError.invalidFrameRate }
+        guard value.numerator > 0,
+              try value.compared(to: RationalTime(1000)) != .orderedDescending else { throw EditorCoreError.invalidFrameRate }
         self.value = value
+    }
+    /// Parses an integer, decimal, or numerator/denominator without rounding.
+    /// Decimal input is literal: `29.97` is `2997/100`, not `30000/1001`.
+    /// Components must contain ASCII digits; only exterior whitespace is ignored.
+    public init(parsing text: String) throws {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        func integer(_ text: Substring) throws -> Int64 {
+            guard !text.isEmpty, text.utf8.allSatisfy({ (48...57).contains($0) }),
+                  let value = Int64(text) else { throw EditorCoreError.invalidFrameRate }
+            return value
+        }
+        let numerator: Int64
+        let denominator: Int64
+        if text.contains("/") {
+            let parts = text.split(separator: "/", omittingEmptySubsequences: false)
+            guard parts.count == 2 else { throw EditorCoreError.invalidFrameRate }
+            numerator = try integer(parts[0])
+            denominator = try integer(parts[1])
+        } else if text.contains(".") {
+            let parts = text.split(separator: ".", omittingEmptySubsequences: false)
+            guard parts.count == 2, !parts[1].isEmpty, parts[1].count <= 18 else {
+                throw EditorCoreError.invalidFrameRate
+            }
+            let whole = try integer(parts[0])
+            let fraction = try integer(parts[1])
+            denominator = (0..<parts[1].count).reduce(Int64(1)) { value, _ in value * 10 }
+            let scaled = whole.multipliedReportingOverflow(by: denominator)
+            let combined = scaled.partialValue.addingReportingOverflow(fraction)
+            guard !scaled.overflow, !combined.overflow else { throw EditorCoreError.invalidFrameRate }
+            numerator = combined.partialValue
+        } else {
+            numerator = try integer(text[...])
+            denominator = 1
+        }
+        guard numerator > 0, denominator > 0 else { throw EditorCoreError.invalidFrameRate }
+        try self.init(numerator, denominator)
+    }
+    /// Canonical, lossless input text, including rates with recurring decimals.
+    public var editableText: String {
+        value.denominator == 1 ? String(value.numerator) : "\(value.numerator)/\(value.denominator)"
     }
     public var nominalFramesPerSecond: Int { Int(value.seconds.rounded()) }
     public var supportsDropFrame: Bool { value == (try! RationalTime(30000, 1001)) || value == (try! RationalTime(60000, 1001)) }
