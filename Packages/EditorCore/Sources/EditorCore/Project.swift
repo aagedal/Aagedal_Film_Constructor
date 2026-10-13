@@ -3,12 +3,16 @@ import Foundation
 public struct Project: Equatable, Codable, Sendable {
     public var settings: SequenceSettings
     public var assets: [MediaAsset]
+    public var mediaBins: [MediaBin]
+    /// Assets without an assignment live at the root of the media browser.
+    public var assetBinAssignments: [UUID: UUID]
     public var families: [TrackFamily]
     /// Frontmost video track first. Render consumers must preserve this explicit order.
     public var tracks: [TimelineTrack]
     public var audioCrossfades: [AudioCrossfade]
     public var preferences: EditorPreferences
-    public init(settings: SequenceSettings, assets: [MediaAsset] = [], families: [TrackFamily] = [], tracks: [TimelineTrack] = [], preferences: EditorPreferences = .init(), audioCrossfades: [AudioCrossfade] = []) {
+    public init(settings: SequenceSettings, assets: [MediaAsset] = [], families: [TrackFamily] = [], tracks: [TimelineTrack] = [], preferences: EditorPreferences = .init(), audioCrossfades: [AudioCrossfade] = [], mediaBins: [MediaBin] = [], assetBinAssignments: [UUID: UUID] = [:]) {
+        self.mediaBins = mediaBins; self.assetBinAssignments = assetBinAssignments
         self.settings = settings; self.assets = assets; self.families = families; self.tracks = tracks; self.preferences = preferences; self.audioCrossfades = audioCrossfades
     }
     /// Validate at document decoding/edit commit boundaries; mutable value models can represent an in-progress edit.
@@ -20,6 +24,7 @@ public struct Project: Equatable, Codable, Sendable {
         try unique(assets.map(\.id)); try unique(families.map(\.id)); try unique(tracks.map(\.id)); try unique(tracks.flatMap { $0.clips.map(\.id) })
         let assetsByID = Dictionary(uniqueKeysWithValues: assets.map { ($0.id, $0) })
         let familiesByID = Dictionary(uniqueKeysWithValues: families.map { ($0.id, $0) })
+        try validateMediaBins()
         try validateAudioCrossfades()
         for asset in assets {
             guard asset.duration.numerator > 0, Set(asset.streams.map(\.index)).count == asset.streams.count else { throw EditorCoreError.invalidModel("Invalid asset duration or stream identities") }
@@ -86,10 +91,10 @@ public struct Project: Equatable, Codable, Sendable {
             guard template.audioLayout == settings.audioLayout else { throw EditorCoreError.invalidModel("An explicit output map is required for differing layouts") }
         }
     }
-    private enum CodingKeys: String, CodingKey { case settings, assets, families, tracks, preferences, audioCrossfades }
+    private enum CodingKeys: String, CodingKey { case settings, assets, families, tracks, preferences, audioCrossfades, mediaBins, assetBinAssignments }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.init(settings: try c.decode(SequenceSettings.self, forKey: .settings), assets: try c.decode([MediaAsset].self, forKey: .assets), families: try c.decode([TrackFamily].self, forKey: .families), tracks: try c.decode([TimelineTrack].self, forKey: .tracks), preferences: try c.decode(EditorPreferences.self, forKey: .preferences), audioCrossfades: try c.decodeIfPresent([AudioCrossfade].self, forKey: .audioCrossfades) ?? [])
+        self.init(settings: try c.decode(SequenceSettings.self, forKey: .settings), assets: try c.decode([MediaAsset].self, forKey: .assets), families: try c.decode([TrackFamily].self, forKey: .families), tracks: try c.decode([TimelineTrack].self, forKey: .tracks), preferences: try c.decode(EditorPreferences.self, forKey: .preferences), audioCrossfades: try c.decodeIfPresent([AudioCrossfade].self, forKey: .audioCrossfades) ?? [], mediaBins: try c.decodeIfPresent([MediaBin].self, forKey: .mediaBins) ?? [], assetBinAssignments: try c.decodeIfPresent([UUID: UUID].self, forKey: .assetBinAssignments) ?? [:])
         try validate()
     }
 }
