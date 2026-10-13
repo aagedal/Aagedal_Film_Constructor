@@ -245,6 +245,8 @@ private struct EditorCommands: Commands {
             }
         }
         CommandMenu("Playback") {
+            command(.toggleViewer)
+            Divider()
             command(.playReverse)
             command(.pausePlayback)
             command(.playForward)

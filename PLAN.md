@@ -1497,3 +1497,28 @@ launch-performance claim has been validated yet.
   propagation, persistence and atomic route/history rejection. Unsigned Debug
   and Release app builds pass. Xcode package caches and bookmark services require
   host access; sandboxed Xcode package resolution cannot finish.
+
+
+### Contextual viewer and representation preference checkpoint (2026-10-13)
+
+- Source/Sequence selection uses one accessible icon button in the viewer header.
+  Tab toggles the viewer through the remappable command registry while text entry
+  remains protected. Media-bin clicks/selections choose Source; timeline clicks,
+  ruler scrubs and clip move/trim interactions choose Sequence, including clicking
+  an already selected clip. Switching preserves positions and pauses hidden playback.
+- Source representation selection uses one Prefer HiRes/Prefer Proxy icon toggle.
+  The preference remains independent of the actual playback representation; missing,
+  stale or modified proxies fall back to originals. Verified generated proxy picture
+  can be used when HiRes is unavailable, with explicit unavailable-original-audio
+  status. Offline fallback refuses unchecked legacy or modified proxies and retains
+  original asset identity and export references.
+- Sequence monitoring still requires the opt-in native runtime and uses originals;
+  this checkpoint does not qualify proxy sequence decoding or release packaging.
+- Verification passes `scripts/verify.sh`: 44 Python tests (eight optional skips),
+  90 XCTest cases (two optional skips), 79 Swift Testing cases, workspace policy
+  smokes and an unsigned Debug app build. Expanded app-file and native proxy
+  workspace smokes pass viewer command/selection state, verified offline picture,
+  explicit missing audio, nonzero seek preservation, unavailable audio-tail
+  position retention and restored-original seeking. Native fixtures cover readable
+  playable and missing originals; unsupported-codec fallback detection is present
+  but is not yet qualified with a native unsupported-codec fixture.

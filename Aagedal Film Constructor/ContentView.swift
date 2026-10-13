@@ -9,7 +9,6 @@ struct ContentView: View {
     @AppStorage("workspace.showInspector") private var showInspector = true
     @AppStorage("workspace.showTimeline") private var showTimeline = true
     @State private var isDropTargeted = false
-    @State private var showSequenceMonitor = false
     @State private var binName = ""
     @State private var creatingBin = false
     @State private var renamingBin = false
@@ -21,9 +20,10 @@ struct ContentView: View {
                 if showMediaBin {
                     mediaBin.frame(minWidth: 210, idealWidth: 260, maxWidth: 380)
                         .focusedValue(\.editorCommandScope, .source)
+                        .simultaneousGesture(TapGesture().onEnded { store.focusSourceViewer() })
                 }
                 monitor.frame(minWidth: 320, maxWidth: .infinity)
-                    .focusedValue(\.editorCommandScope, showSequenceMonitor ? .timeline : .source)
+                    .focusedValue(\.editorCommandScope, store.showSequenceMonitor ? .timeline : .source)
                 if showInspector {
                     ProjectInspector(store: store).frame(minWidth: 240, idealWidth: 270, maxWidth: 340)
                 }
@@ -31,6 +31,7 @@ struct ContentView: View {
             .frame(minHeight: 260)
             if showTimeline {
                 TimelineView(store: store).frame(minHeight: 220, idealHeight: 320)
+                    .simultaneousGesture(TapGesture().onEnded { store.focusSequenceViewer() })
             }
         }
         .frame(minWidth: 960, minHeight: 600)
@@ -91,19 +92,19 @@ struct ContentView: View {
                     if store.isImporting { ProgressView().controlSize(.small) }
                     Text(store.statusMessage).lineLimit(1)
                     Spacer()
-                    Text(showSequenceMonitor ? "Sequence · originals" : "Source preview").foregroundStyle(.secondary)
+                    Text(store.showSequenceMonitor ? "Sequence · originals" : "Source preview").foregroundStyle(.secondary)
                 }
                 .font(.caption).padding(.horizontal, 12).padding(.vertical, 6)
             }
             .background(.bar)
         }
         .onChange(of: store.project) { _, project in
-            if showSequenceMonitor { sequencePlayback.update(project: project, seconds: store.playheadSeconds) }
+            if store.showSequenceMonitor { sequencePlayback.update(project: project, seconds: store.playheadSeconds) }
         }
         .onChange(of: store.playheadSeconds) { _, seconds in
-            if showSequenceMonitor { sequencePlayback.update(project: store.project, seconds: seconds) }
+            if store.showSequenceMonitor { sequencePlayback.update(project: store.project, seconds: seconds) }
         }
-        .onChange(of: showSequenceMonitor) { _, show in
+        .onChange(of: store.showSequenceMonitor) { _, show in
             if show {
                 store.pauseSource()
                 store.sequencePlayback = sequencePlayback
@@ -112,7 +113,7 @@ struct ContentView: View {
         }
         .onAppear {
             sequencePlayback.positionChanged = { seconds in store.playheadSeconds = seconds }
-            if showSequenceMonitor {
+            if store.showSequenceMonitor {
                 store.sequencePlayback = sequencePlayback
                 sequencePlayback.activate(project: store.project, seconds: store.playheadSeconds)
             }
@@ -194,7 +195,10 @@ struct ContentView: View {
                 }
                 .frame(maxHeight: .infinity)
             } else {
-                List(selection: Binding(get: { store.selectedAssetIDs }, set: store.selectAssets)) {
+                List(selection: Binding(get: { store.selectedAssetIDs }, set: { ids in
+                    store.focusSourceViewer()
+                    store.selectAssets(ids)
+                })) {
                     ForEach(store.visibleBinAssets) { asset in
                         HStack(alignment: .top, spacing: 9) {
                             Image(systemName: assetIcon(asset)).foregroundStyle(.secondary).frame(width: 20)
@@ -255,19 +259,25 @@ struct ContentView: View {
         }
     }
 
+    private var viewerToggle: some View {
+        Button(action: store.toggleViewer) {
+            Image(systemName: store.showSequenceMonitor ? "timeline.selection" : "film")
+        }
+        .accessibilityLabel("Switch source and sequence viewer")
+        .accessibilityValue(store.showSequenceMonitor ? "Sequence" : "Source")
+        .help(store.showSequenceMonitor ? "Switch to source viewer (Tab by default)" : "Switch to sequence viewer (Tab by default)")
+    }
+
     private var monitor: some View {
         VStack(spacing: 0) {
-            Picker("Monitor", selection: $showSequenceMonitor) {
-                Text("Source").tag(false)
-                Text("Sequence").tag(true)
-            }.pickerStyle(.segmented).frame(width: 200).padding(.top, 10)
-            if showSequenceMonitor { sequenceMonitor } else { sourceMonitor }
+            if store.showSequenceMonitor { sequenceMonitor } else { sourceMonitor }
         }
     }
 
     private var sequenceMonitor: some View {
         VStack(spacing: 0) {
             HStack {
+                viewerToggle
                 Text("Sequence monitor").font(.headline)
                 Spacer()
                 Text(store.playheadTimecode).monospacedDigit()
@@ -311,6 +321,7 @@ struct ContentView: View {
     private var sourceMonitor: some View {
         VStack(spacing: 0) {
             HStack {
+                viewerToggle
                 Text("Source monitor").font(.headline)
                 Spacer()
                 Text(store.selectedAsset?.name ?? "No source selected").foregroundStyle(.secondary).lineLimit(1)
@@ -331,10 +342,14 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             HStack {
-                Picker("Playback", selection: Binding(get: { store.playbackRepresentation }, set: store.setPlaybackRepresentation)) {
-                    Text("Hires").tag(PlaybackRepresentation.original)
-                    Text("Proxy").tag(PlaybackRepresentation.proxy)
-                }.pickerStyle(.segmented).frame(width: 140)
+                Button {
+                    store.setPlaybackRepresentation(store.playbackRepresentation == .proxy ? .original : .proxy)
+                } label: {
+                    Image(systemName: store.playbackRepresentation == .proxy ? "square.stack.3d.up.fill" : "square.stack.3d.up")
+                }
+                .accessibilityLabel(store.playbackRepresentation == .proxy ? "Prefer Proxy" : "Prefer HiRes")
+                .accessibilityValue(store.playbackRepresentation == .proxy ? "Proxy preferred" : "HiRes preferred")
+                .help(store.playbackRepresentation == .proxy ? "Proxy preferred. Click to prefer HiRes; available media is used as fallback." : "HiRes preferred. Click to prefer Proxy; available media is used as fallback.")
                 Text(store.proxyPlaybackMessage).font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Group {

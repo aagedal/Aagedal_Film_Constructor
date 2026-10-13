@@ -33,7 +33,8 @@ struct ProxyWorkspaceSmoke {
         reopened.selectAsset(imported.asset.id)
         try check(reopened.selectedAsset?.proxy?.id == proxy.id && reopened.proxyBookmarks[imported.asset.id] != nil, "Save and reopen proxy identity and access")
         let position = CMTime(seconds: 0.75, preferredTimescale: 60000)
-        await reopened.sourcePlayer?.seek(to: position, toleranceBefore: .zero, toleranceAfter: .zero)
+        let initialPlayer = try await awaitPlayer(reopened)
+        await initialPlayer.seek(to: position, toleranceBefore: .zero, toleranceAfter: .zero)
         reopened.setPlaybackRepresentation(.proxy)
         let player = try await awaitPlayer(reopened)
         try check(abs(player.currentTime().seconds - 0.75) < 0.02 && player.rate == 0, "Proxy switch preserves paused source position")
@@ -76,8 +77,42 @@ struct ProxyWorkspaceSmoke {
         reopened.setPlaybackRepresentation(.original)
         _ = try await awaitPlayer(reopened)
         try check(abs(reopened.sourcePlayer!.currentTime().seconds - 0.75) < 0.02, "Hires switch preserves position")
+        let onlineAsset = reopened.selectedAsset
+        let offlineSource = directory.appendingPathComponent("offline-original.mov")
+        try FileManager.default.moveItem(at: source, to: offlineSource)
+        reopened.refreshSourcePreview(preservingTransport: true)
+        let offlinePlayer = try await awaitPlayer(reopened)
+        guard let offlineComposition = offlinePlayer.currentItem?.asset as? AVComposition else {
+            throw SmokeError.failed("Missing HiRes uses verified proxy composition")
+        }
+        try check(try await offlineComposition.loadTracks(withMediaType: .audio).isEmpty,
+                  "Offline proxy never invents or attempts unavailable original audio")
+        try check(reopened.playbackRepresentation == .original
+                  && reopened.proxyPlaybackMessage.contains("original audio unavailable")
+                  && abs(offlinePlayer.currentTime().seconds - 0.75) < 0.02,
+                  "HiRes preference stays selected, reports silent proxy fallback, preserves playhead")
+        try check(reopened.selectedAsset == onlineAsset,
+                  "Offline fallback preserves original identity and proxy identity")
+        reopened.setPlaybackRepresentation(.proxy)
+        _ = try await awaitPlayer(reopened)
+        try check(reopened.proxyPlaybackMessage.contains("original audio unavailable"),
+                  "Proxy preference also works offline with explicit missing-audio status")
+        try FileManager.default.moveItem(at: offlineSource, to: source)
+        reopened.setPlaybackRepresentation(.original)
+        _ = try await awaitPlayer(reopened)
         let tailPosition = CMTime(value: 11, timescale: 4)
         await reopened.sourcePlayer?.seek(to: tailPosition, toleranceBefore: .zero, toleranceAfter: .zero)
+        try FileManager.default.moveItem(at: source, to: offlineSource)
+        reopened.refreshSourcePreview(preservingTransport: true)
+        await reopened.sourcePreviewTask?.value
+        try check(reopened.sourcePlayer == nil && reopened.pendingSourceTransport?.time == tailPosition
+                  && reopened.proxyPlaybackMessage.contains("outside proxy picture"),
+                  "Offline audio tail preserves source position without clamping or showing wrong picture")
+        try FileManager.default.moveItem(at: offlineSource, to: source)
+        reopened.refreshSourcePreview(preservingTransport: true)
+        _ = try await awaitPlayer(reopened)
+        try check(abs(reopened.sourcePlayer!.currentTime().seconds - tailPosition.seconds) < 0.02,
+                  "Restored HiRes resumes at the preserved audio-tail source coordinate")
         reopened.setPlaybackRepresentation(.proxy)
         let audioTail = try await awaitPlayer(reopened)
         try check(abs(audioTail.currentTime().seconds - tailPosition.seconds) < 0.02,

@@ -113,13 +113,14 @@ extension EditorStore {
         sourcePlayer = nil; previewImage = nil
         guard let asset = selectedAsset, let originalURL = asset.originalURL else { pendingSourceTransport = nil; return }
         holdAccess(originalURL)
-        guard FileManager.default.isReadableFile(atPath: originalURL.path) else {
-            proxyPlaybackMessage = "Original media missing"
-            statusMessage = "Missing media: \(asset.name). Choose Relink in the inspector."
-            pendingSourceTransport = nil
-            return
-        }
+        let originalExists = FileManager.default.isReadableFile(atPath: originalURL.path)
         if asset.streams.isEmpty {
+            guard originalExists else {
+                proxyPlaybackMessage = "HiRes still image missing"
+                statusMessage = "Missing media: \(asset.name). Choose Relink in the inspector."
+                pendingSourceTransport = nil
+                return
+            }
             pendingSourceTransport = nil
             proxyPlaybackMessage = "Loading still image…"
             let epoch = mediaEpoch
@@ -139,33 +140,49 @@ extension EditorStore {
             return
         }
         if let url = asset.proxy?.url { holdAccess(url) }
-        let fingerprint = try? ProxyGenerationService.fingerprint(for: originalURL)
+        let fingerprint = originalExists ? try? ProxyGenerationService.fingerprint(for: originalURL) : nil
         let proxyExists = asset.proxy.map { FileManager.default.isReadableFile(atPath: $0.url.path) } ?? false
-        if let proxy = asset.proxy, proxy.outputIntegrity != nil, proxyExists, fingerprint == proxy.sourceFingerprint, playbackRepresentation == .proxy {
+        if let proxy = asset.proxy, proxy.outputIntegrity != nil, proxyExists,
+           (originalExists ? fingerprint == proxy.sourceFingerprint : true) {
             let representation = playbackRepresentation
             let epoch = mediaEpoch
             pendingSourceTransport = (time, playing)
             proxyPlaybackMessage = "Verifying proxy…"
             sourcePreviewTask = Task {
-                let matches = (try? await ProxyGenerationService.validateProxyFile(proxy)) != nil
+                // A readable source can still use a codec unsupported by AVFoundation.
+                // Probe only when a verified generated proxy could be a useful fallback.
+                let originalPlayable = originalExists
+                    ? (try? await AVURLAsset(url: originalURL).load(.isPlayable)) ?? false : false
+                guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset,
+                      representation == playbackRepresentation else { return }
+                let matches = representation == .original && originalPlayable
+                    ? false : (try? await ProxyGenerationService.validateProxyFile(proxy)) != nil
                 guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset,
                       representation == playbackRepresentation else { return }
                 let resolution = asset.resolvePlayback(representation: representation, sourceFingerprint: try? ProxyGenerationService.fingerprint(for: originalURL),
-                    proxyExists: proxyExists, proxyIntegrityMatches: matches)
+                    proxyExists: FileManager.default.isReadableFile(atPath: proxy.url.path), proxyIntegrityMatches: matches,
+                    originalExists: originalPlayable && FileManager.default.isReadableFile(atPath: originalURL.path))
                 installSourcePreview(asset: asset, originalURL: originalURL, resolution: resolution,
                     time: time, playing: playing, preservingTransport: preservingTransport)
             }
             return
         }
-        let resolution = asset.resolvePlayback(representation: playbackRepresentation, sourceFingerprint: fingerprint, proxyExists: proxyExists)
+        let resolution = asset.resolvePlayback(representation: playbackRepresentation, sourceFingerprint: fingerprint, proxyExists: proxyExists, originalExists: originalExists)
         installSourcePreview(asset: asset, originalURL: originalURL, resolution: resolution,
             time: time, playing: playing, preservingTransport: preservingTransport)
     }
 
     private func installSourcePreview(asset: MediaAsset, originalURL: URL, resolution: ProxyPlaybackResolution,
                                       time: CMTime, playing: Bool, preservingTransport: Bool) {
+        guard let playbackURL = resolution.url else {
+            proxyPlaybackMessage = "HiRes unavailable · no verified proxy available"
+            statusMessage = "Missing media: \(asset.name). Choose Relink in the inspector."
+            pendingSourceTransport = nil
+            return
+        }
         switch resolution.status {
-        case .original: proxyPlaybackMessage = "Original source"
+        case .original: proxyPlaybackMessage = "HiRes source"
+        case .originalUnavailable: proxyPlaybackMessage = "HiRes unavailable · proxy picture · original audio unavailable"
         case .available: proxyPlaybackMessage = "Proxy picture · original audio"
         case .modified: proxyPlaybackMessage = "Proxy modified · using original"
         case .missing: proxyPlaybackMessage = "Proxy missing · using original"
@@ -175,7 +192,7 @@ extension EditorStore {
         let representation = playbackRepresentation
         let epoch = mediaEpoch
         if !resolution.usesProxy {
-            let player = AVPlayer(url: originalURL)
+            let player = AVPlayer(url: playbackURL)
             sourcePlayer = player
             statusMessage = "Source preview: \(asset.name)"
             if pendingSourceTransport != nil || preservingTransport {
@@ -189,6 +206,15 @@ extension EditorStore {
             return
         }
         if pendingSourceTransport == nil { pendingSourceTransport = (time, playing) }
+        if resolution.status == .originalUnavailable, let proxy = asset.proxy,
+           let pictureDuration = try? RationalTime(proxy.frameCount).divided(by: proxy.frameRate),
+           (pendingSourceTransport?.time ?? time).seconds >= pictureDuration.seconds {
+            // AVFoundation discards trailing empty video segments. Keep the source
+            // coordinate rather than silently clamping an original audio-tail seek.
+            proxyPlaybackMessage = "HiRes unavailable · outside proxy picture · original audio unavailable"
+            statusMessage = "Source position preserved. Relink HiRes media to preview this audio tail."
+            return
+        }
         sourcePreviewTask = Task {
             var player: AVPlayer
             if resolution.usesProxy, let proxyURL = resolution.url {
@@ -206,28 +232,40 @@ extension EditorStore {
                     try video.insertTimeRange(range, of: picture, at: .zero)
                     // The generated proxy keeps the unrotated source raster. Preserve the
                     // original display transform instead of the proxy container metadata.
-                    guard let sourcePicture = try await original.loadTracks(withMediaType: .video).first else {
-                        throw EditorCoreError.invalidModel("Original picture unavailable.")
-                    }
-                    var transform = try await sourcePicture.load(.preferredTransform)
-                    let sourceSize = try await sourcePicture.load(.naturalSize)
-                    if let proxy = asset.proxy, sourceSize.width > 0 {
-                        let scale = CGFloat(proxy.width) / sourceSize.width
-                        transform.tx *= scale; transform.ty *= scale
-                    }
-                    video.preferredTransform = transform
-                    for sourceAudio in try await original.loadTracks(withMediaType: .audio) {
-                        guard let audio = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else {
-                            throw EditorCoreError.invalidModel("Original audio unavailable.")
+                    // Verified generated proxies are unrotated square-pixel media,
+                    // so offline picture needs no source transform or guessed audio.
+                    if resolution.status != .originalUnavailable {
+                        guard let sourcePicture = try await original.loadTracks(withMediaType: .video).first else {
+                            throw EditorCoreError.invalidModel("Original picture unavailable.")
                         }
-                        let audioRange = try await sourceAudio.load(.timeRange)
-                        let end = audioRange.end
-                        if end > audioRange.start {
-                            try audio.insertTimeRange(CMTimeRange(start: audioRange.start, end: end), of: sourceAudio, at: audioRange.start)
+                        var transform = try await sourcePicture.load(.preferredTransform)
+                        let sourceSize = try await sourcePicture.load(.naturalSize)
+                        if let proxy = asset.proxy, sourceSize.width > 0 {
+                            let scale = CGFloat(proxy.width) / sourceSize.width
+                            transform.tx *= scale; transform.ty *= scale
+                        }
+                        video.preferredTransform = transform
+                        for sourceAudio in try await original.loadTracks(withMediaType: .audio) {
+                            guard let audio = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+                                throw EditorCoreError.invalidModel("Original audio unavailable.")
+                            }
+                            let audioRange = try await sourceAudio.load(.timeRange)
+                            let end = audioRange.end
+                            if end > audioRange.start {
+                                try audio.insertTimeRange(CMTimeRange(start: audioRange.start, end: end), of: sourceAudio, at: audioRange.start)
+                            }
                         }
                     }
                     player = AVPlayer(playerItem: AVPlayerItem(asset: composition))
                 } catch {
+                    guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation else { return }
+                    guard resolution.status != .originalUnavailable,
+                          FileManager.default.isReadableFile(atPath: originalURL.path) else {
+                        proxyPlaybackMessage = "HiRes unavailable · proxy preview unavailable · original audio unavailable"
+                        statusMessage = "Cannot preview \(asset.name). Relink original media or regenerate its proxy."
+                        pendingSourceTransport = nil
+                        return
+                    }
                     player = AVPlayer(url: originalURL)
                     if !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation {
                         proxyPlaybackMessage = "Proxy preview unavailable · using original picture and audio"

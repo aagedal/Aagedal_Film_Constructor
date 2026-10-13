@@ -57,14 +57,15 @@ adaptation and optional confirmation. Aligned linked audio components with the
 same source, track family, and gain can be combined into one explicitly mapped
 component. See [basic testing instructions](docs/basic-workspace.md).
 
-This is the first usable assembly workspace. The monitor has Source/Sequence
-selection. Native timeline monitoring is available in an opt-in development
+This is the first usable assembly workspace. The viewer has one Source/Sequence icon toggle and a remappable Tab shortcut.
+Media-bin clicks select Source; timeline clicks and clip/ruler drags select Sequence. Native timeline monitoring is available in an opt-in development
 workspace build; default Xcode builds report the missing native runtime explicitly.
 See [sequence monitoring](docs/sequence-monitor.md) for building and exercising
 the enabled app controls. Release runtime/helper packaging remains unfinished.
 The bin supports batch ProRes Proxy/H.264 creation, cancellable verified jobs,
-saved proxy references, and a hires/proxy source-preview toggle with original
-audio and missing/stale/modified fallback. Newly generated proxies have recorded
+saved proxy references, and a Prefer HiRes/Prefer Proxy icon toggle. Source preview
+uses available media with fallback; proxies use original audio when available,
+or verified proxy picture with an explicit silent status when originals are unavailable. Newly generated proxies have recorded
 SHA-256 hashes and can be relinked after relocation with one undoable reference/grant
 change. Proxy jobs persist with the project and can be manually resumed after
 interruption or reopening. See [proxy scope and testing](docs/proxies.md).

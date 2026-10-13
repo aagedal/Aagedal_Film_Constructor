@@ -26,6 +26,13 @@ the bin and choose **Append with audio selection…** to configure it.
    anywhere in the workspace. From the start, J begins at the source end; from
    the end, L restarts at the beginning. Typing into text fields leaves playback
    unchanged. Playback shortcuts can be remapped in Settings.
+   The viewer follows media-bin clicks/selections (Source) and timeline
+   clicks, scrubs and clip drags (Sequence). Its header has one icon to switch
+   manually; **Tab** switches from any workspace panel and is remappable in
+   Settings. Text editing retains normal Tab behavior. Changing viewer preserves
+   each viewer's playhead and pauses the viewer being hidden. Sequence monitoring
+   requires the opt-in native development runtime described in
+   [sequence monitoring](sequence-monitor.md).
 2. Click **Append** or ⌘E. Video with audio creates linked components; moving,
    trimming, splitting, and deleting either component edits both. Append more
    sources to build a sequence.
@@ -180,13 +187,14 @@ the bin and choose **Append with audio selection…** to configure it.
 17. Select several video sources in the bin, right-click a selected item and
     choose **Create proxies…**. Choose ProRes Proxy (default) or H.264 and a
     resolution, then an output folder. Cancel a batch midway, check completed
-    jobs remain usable, and retry remaining assets. Switch **Hires / Proxy** at
+    jobs remain usable, and retry remaining assets. Toggle **Prefer HiRes / Prefer Proxy** using the representation icon at
     a nonzero source position, including during playback. Check visible fallback
     status after moving a proxy or changing its original; undo proxy registration
     and save/reopen to check separate media grants. Outputs and exports retain
     originals. See [qualification limits and tests](proxies.md).
 
-The monitor's **Source / Sequence** selector exposes edited-sequence controls.
+The viewer header icon or **Tab** switches Source/Sequence; timeline interactions
+select Sequence automatically and expose edited-sequence controls.
 An [opt-in development build](sequence-monitor.md) enables the native runtime;
 default builds explain that it is unavailable. Sequence mode uses originals,
 pauses on edits, follows timeline scrubs and frame steps, and routes K/L to

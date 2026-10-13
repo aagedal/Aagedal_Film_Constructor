@@ -147,7 +147,7 @@ struct TimelineView: View {
         }
         .frame(width: canvasWidth, height: 30)
         .contentShape(Rectangle())
-        .gesture(DragGesture(minimumDistance: 0).onChanged { value in store.seek(to: max(0, min(store.duration, value.location.x / pixelsPerSecond))) })
+        .gesture(DragGesture(minimumDistance: 0).onChanged { value in store.focusSequenceViewer(); store.seek(to: max(0, min(store.duration, value.location.x / pixelsPerSecond))) })
     }
 
     private func visibleClips(in track: TimelineTrack) -> [TimelineClip] {
@@ -163,22 +163,22 @@ struct TimelineView: View {
         ZStack(alignment: .topLeading) {
             Color(nsColor: .textBackgroundColor)
                 .contentShape(Rectangle())
-                .onTapGesture { location in store.seek(to: max(0, min(store.duration, location.x / pixelsPerSecond))) }
+                .onTapGesture { location in store.focusSequenceViewer(); store.seek(to: max(0, min(store.duration, location.x / pixelsPerSecond))) }
             ForEach(visibleClips(in: track)) { clip in
                 TimelineClipView(clip: clip, asset: store.asset(id: clip.assetID), selected: store.selectedClipID == clip.id, pixelsPerSecond: pixelsPerSecond, viewport: viewport, previewRevision: store.mediaPreviewRevision,
-                    select: { store.selectedClipID = clip.id },
+                    select: { store.selectTimelineClip(clip.id) },
                     interactionChanged: { active in
                         if active { interactingClipIDs.insert(clip.id) }
                         else { interactingClipIDs.remove(clip.id) }
                     },
                     proposedMove: { store.proposedMove(clip: clip, to: $0, tolerance: 8 / pixelsPerSecond) },
                     move: { seconds in
-                        store.selectedClipID = clip.id
+                        store.selectTimelineClip(clip.id)
                         store.moveSelectedClip(to: seconds)
                     },
                     proposedTrim: { store.proposedTrimDelta(clip: clip, edge: $0, delta: $1, tolerance: 8 / pixelsPerSecond) },
                     trim: { edge, delta in
-                        store.selectedClipID = clip.id
+                        store.selectTimelineClip(clip.id)
                         store.trimSelectedClip(edge: edge, delta: delta)
                     },
                     project: store.project,

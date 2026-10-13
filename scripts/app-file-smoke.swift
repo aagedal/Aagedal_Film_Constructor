@@ -203,7 +203,7 @@ struct AppFileSmoke {
         try exerciseAudioFades()
         try exerciseAudioCrossfades()
         try exerciseShortcuts()
-        print("App file smoke passed: exact sequence settings/persistence/render-plan propagation/atomic undo/redo/track and family route rejection, nested-bin persistence/navigation/batch moves/undo/bookmarks/captured imports/deleted-destination fallback, Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: viewer context/Tab command dispatch/special-key mapping/selection and playhead preservation, exact sequence settings/persistence/render-plan propagation/atomic undo/redo/track and family route rejection, nested-bin persistence/navigation/batch moves/undo/bookmarks/captured imports/deleted-destination fallback, Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
     }
 
     @MainActor
@@ -593,11 +593,27 @@ struct AppFileSmoke {
         let store = EditorStore()
         defer { store.close() }
         try store.registerImportedMedia(ImportedMedia(asset: MediaAsset(name: "Shortcut fixture", duration: try RationalTime(5)), bookmark: nil))
+        try check(reloaded.binding(for: .toggleViewer).keyEquivalent == .tab, "Tab key equivalent is a named special key")
+        try check(reloaded.isEnabled(.toggleViewer, store: store, scope: .source), "Viewer switching is available across panel scopes")
+        let original = store.project
+        store.playheadSeconds = 1
+        reloaded.perform(.toggleViewer, store: store, scope: .source)
+        try check(store.showSequenceMonitor, "Tab switches from Source to Sequence")
+        store.focusSourceViewer()
+        try check(!store.showSequenceMonitor, "Media-bin interaction selects Source")
+        store.focusSequenceViewer()
+        try check(store.showSequenceMonitor, "Timeline interaction selects Sequence")
+        reloaded.perform(.toggleViewer, store: store, scope: .timeline)
+        try check(!store.showSequenceMonitor && store.project == original && store.playheadSeconds == 1,
+                  "Viewer toggling preserves edits and sequence playhead")
         try check(!reloaded.isEnabled(.appendSource, store: store, scope: .timeline), "Source commands respect timeline focus")
         reloaded.perform(.appendSource, store: store, scope: .timeline)
         try check(store.project.tracks.isEmpty, "Command dispatch rejects mismatched panel scope")
         reloaded.perform(.appendSource, store: store, scope: .source)
         try check(store.project.tracks.flatMap(\.clips).count == 1, "Source command dispatch")
+        store.selectTimelineClip(store.project.tracks[0].clips[0].id)
+        try check(store.showSequenceMonitor && store.selectedClipID == store.project.tracks[0].clips[0].id,
+                  "Timeline clip click/drag selects Sequence even with an existing clip selection")
         store.seek(to: 2)
         reloaded.perform(.splitClip, store: store, scope: .timeline)
         try check(store.project.tracks.flatMap(\.clips).count == 2, "Timeline command dispatch")

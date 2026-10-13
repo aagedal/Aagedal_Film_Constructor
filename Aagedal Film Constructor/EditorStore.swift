@@ -23,6 +23,7 @@ final class EditorStore: ObservableObject {
     @Published var proxyJobs: [ProxyGenerationJob] = []
     @Published var proxyQueueProgress: [UUID: SequenceExportProgress] = [:]
     @Published var showProxyQueue = false
+    @Published var showSequenceMonitor = false
     @Published var selectedMediaBinID: UUID?
     @Published var selectedAssetIDs: Set<UUID> = []
     @Published var proxyCreationDraft: ProxyCreationDraft?
@@ -330,6 +331,14 @@ final class EditorStore: ObservableObject {
             try change { try $0.moveAssets(ids, toMediaBin: binID) }
             selectAssets(selectedAssetIDs.intersection(Set(visibleBinAssets.map(\.id))))
         } catch { report(error) }
+    }
+
+    func focusSourceViewer() { if showSequenceMonitor { showSequenceMonitor = false } }
+    func focusSequenceViewer() { if !showSequenceMonitor { showSequenceMonitor = true } }
+    func toggleViewer() { showSequenceMonitor.toggle() }
+    func selectTimelineClip(_ id: UUID) {
+        focusSequenceViewer()
+        if selectedClipID != id { selectedClipID = id }
     }
 
     func selectAsset(_ id: UUID) {
