@@ -25,6 +25,7 @@ struct AppFileSmoke {
         let still = try await MediaImporter.inspect(url: imageURL)
         try check(still.asset.streams.isEmpty && still.asset.duration.seconds == 5, "Still image import")
         try await exerciseTimelineFileDrop(audioURL: audioURL, imageURL: imageURL, directory: directory)
+        try await exerciseMediaBins(audioURL: audioURL, still: still)
         try exerciseDerivedProjectValues(asset: still.asset)
         try await exerciseWorkspaceResume(still: still)
         try await exerciseStillPreview(directory: directory, still: still, audio: audio)
@@ -201,7 +202,64 @@ struct AppFileSmoke {
         try exerciseAudioFades()
         try exerciseAudioCrossfades()
         try exerciseShortcuts()
-        print("App file smoke passed: Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: nested-bin persistence/navigation/batch moves/undo/bookmarks/captured imports/deleted-destination fallback, Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
+    }
+
+    @MainActor
+    static func exerciseMediaBins(audioURL: URL, still: ImportedMedia) async throws {
+        let store = EditorStore()
+        defer { store.close() }
+        store.createMediaBin(name: "Media sources")
+        let parent = try unwrap(store.selectedMediaBinID, "Created parent bin")
+        store.createMediaBin(name: "Sound")
+        let child = try unwrap(store.selectedMediaBinID, "Created child bin")
+        try check(store.project.mediaBins.last?.parentID == parent, "Create nested bin")
+        store.importMedia(urls: [audioURL])
+        store.selectMediaBin(nil)
+        for _ in 0..<500 where store.isImporting { try await Task.sleep(for: .milliseconds(10)) }
+        let imported = try unwrap(store.project.assets.first, "Imported into bin")
+        try check(store.project.assetBinAssignments[imported.id] == child, "Import captures destination before asynchronous inspection")
+        store.undo()
+        try check(store.project.assets.isEmpty && store.mediaBookmarks.isEmpty && store.project.assetBinAssignments.isEmpty,
+                  "Undo import restores media, grants and bin assignment together")
+        store.redo()
+        try check(store.project.assetBinAssignments[imported.id] == child, "Redo restores import bin")
+        try store.registerImportedMedia(still, binID: child)
+        store.selectMediaBin(child)
+        store.selectAssets(Set(store.visibleBinAssets.map(\.id)))
+        let beforeMove = store.project
+        let grants = store.mediaBookmarks
+        store.moveBinAssets(store.selectedAssetIDs, to: parent)
+        try check(store.visibleBinAssets.isEmpty && store.selectedAssetIDs.isEmpty, "Batch move clears hidden selection")
+        try check(store.project.assetBinAssignments.values.allSatisfy { $0 == parent } && store.mediaBookmarks == grants,
+                  "Batch bin move preserves all grants")
+        store.undo()
+        try check(store.project == beforeMove, "Batch move uses one undo transaction")
+        store.redo(); store.undo()
+        store.moveBinAssets([imported.id], to: child)
+        try check(store.canRedo, "No-op bin move preserves redo history")
+        store.selectMediaBin(child)
+        store.removeSelectedMediaBin()
+        try check(store.selectedMediaBinID == parent && store.project.assets.count == 2,
+                  "Remove bin promotes contents and navigates to parent")
+        store.undo()
+        try check(store.project == beforeMove, "Remove bin is undoable")
+        store.selectMediaBin(child)
+        store.renameSelectedMediaBin(name: "Audio")
+        store.moveMediaBin(parent, to: child)
+        try check(store.errorMessage != nil && store.project.mediaBins.first?.parentID == nil,
+                  "Cycle rejection leaves parent intact")
+        let document = ProjectDocument(project: store.project, mediaBookmarks: store.mediaBookmarks)
+        let reopened = try ProjectDocument(data: document.encodedData())
+        try check(reopened.project == store.project && reopened.mediaBookmarks == grants, "Bins round trip with grants")
+        store.load(ProjectDocument())
+        try check(store.selectedMediaBinID == nil, "Opening a document resets bin navigation")
+        store.createMediaBin(name: "Temporary")
+        store.importMedia(urls: [audioURL])
+        store.removeSelectedMediaBin()
+        for _ in 0..<500 where store.isImporting { try await Task.sleep(for: .milliseconds(10)) }
+        try check(store.project.assets.count == 1 && store.project.assetBinAssignments.isEmpty,
+                  "Import falls back to root when captured destination is removed")
     }
 
     @MainActor
@@ -931,6 +989,11 @@ struct AppFileSmoke {
         store.load(ProjectDocument())
         try check(store.duration == 0 && store.asset(id: asset.id) == nil && store.selectedClip == nil,
                   "Document replacement discards old derived values")
+    }
+
+    static func unwrap<T>(_ value: T?, _ message: String) throws -> T {
+        guard let value else { throw SmokeError.failed(message) }
+        return value
     }
 
     static func check(_ condition: Bool, _ message: String) throws {

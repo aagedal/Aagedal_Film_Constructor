@@ -34,7 +34,7 @@ import EditorCore
     }
     @MainActor static func main() async throws {
         let unavailable = SequencePlaybackController(useNativeDefault: false)
-        let project = Project(settings: try SequenceSettings())
+        let project = try DemoProjectFactory.musicCollision()
         unavailable.activate(project: project, seconds: 0)
         unavailable.play()
         try check(!unavailable.available && !unavailable.isPlaying && !unavailable.isPreparing,
@@ -62,6 +62,23 @@ import EditorCore
                   "Scrub and pause during priming must reject old play and preserve latest seek")
         controller.play(); try await settle(controller)
         try check(controller.isPlaying, "Explicit play can restart")
+        var organized = project
+        let binID = try organized.createMediaBin(name: "Sources")
+        controller.update(project: organized, seconds: 5)
+        try await settle(controller)
+        try check(controller.isPlaying && backends.count == 1, "Creating bins must preserve playing runtime")
+        try organized.updateMediaBin(id: binID, name: "Footage", parentID: nil)
+        controller.update(project: organized, seconds: 5)
+        try await settle(controller)
+        try check(controller.isPlaying && backends.count == 1, "Renaming bins must preserve playing runtime")
+        try organized.moveAssets([project.assets[0].id], toMediaBin: binID)
+        controller.update(project: organized, seconds: 5)
+        try await settle(controller)
+        try check(controller.isPlaying && backends.count == 1, "Moving media between bins must preserve playing runtime")
+        try organized.removeMediaBin(id: binID)
+        controller.update(project: organized, seconds: 5)
+        try await settle(controller)
+        try check(controller.isPlaying && backends.count == 1, "Removing bins must preserve playing runtime")
         var edited = project
         edited.preferences.automaticallyRemoveEmptyTracks.toggle()
         controller.update(project: edited, seconds: 4)

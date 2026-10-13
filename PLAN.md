@@ -503,6 +503,8 @@ sequence previews and renders at the same positions with exact output timing.
 
 - [x] Build the top-left bin, middle source monitor, top-right inspector, and
       full-width timeline with resizable panels.
+- [x] Add persistent nested media bins, batch organization, captured import
+      destinations and undoable rename/move/removal that preserves media.
 - [x] Launch directly into an untitled drop-ready workspace while retaining native
       document open/save/autosave behavior.
 - [x] Suggest first saving edited untitled work after approximately five minutes;
@@ -1444,3 +1446,28 @@ launch-performance claim has been validated yet.
   Xcode caches, macro, bookmark and audio checks require host access; the
   sandbox-only `verify.sh` invocation could not finish Xcode package resolution,
   so the app build was separately completed with host access.
+
+### Nested media-bin workspace checkpoint (2026-10-13)
+
+- Projects now persist named nested bins and stable asset-to-bin assignments.
+  Existing documents decode with media at the root. Validation refuses duplicate
+  identities, missing parents/assets/destinations and cycles; failed edits roll
+  back without changing timeline or media state.
+- The workspace supports folder navigation, create/rename/reparent, batch media
+  moves and bin dissolution that promotes media and child folders to the parent.
+  Each organization action is undoable. Media URLs, bookmarks, proxies and
+  render plans remain unchanged by organization.
+- Asynchronous imports and timeline file drops capture the selected destination
+  before inspection. Removed destinations fall back to the root, and selecting
+  imported media reveals its containing bin. Bin-only changes are excluded from
+  sequence runtime identity, preserving active playback.
+- Verification passes `scripts/verify.sh`: 44 Python tests (eight optional skips),
+  90 XCTest cases (two optional skips), 74 Swift Testing cases, workspace policy
+  smokes and an unsigned Debug build. The expanded macOS app-file smoke passes
+  nested-bin save/reopen, grants, batch history, captured destinations and deleted
+  destination fallback; the sequence lifecycle smoke preserves a playing backend
+  across bin creation, rename, media moves and removal. An unsigned Release build
+  also passes. Host access was needed for Xcode caches and bookmark services.
+- Native interactive UI acceptance remains unqualified; this checkpoint adds
+  media organization and does not close runtime packaging, stream-copy app export,
+  signed distribution or receiver-conform milestones.

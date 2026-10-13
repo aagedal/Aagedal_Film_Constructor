@@ -26,7 +26,10 @@ interchange plans, Media Converter/Player reuse audits, and implementation miles
 
 The macOS app opens directly into an untitled workspace ready for Finder file
 drops; save the project when you want to keep it. It has a resizable media bin, source monitor, inspector, and
-multitrack timeline. Import AVFoundation-supported video/audio and still images,
+multitrack timeline. The media browser supports saved nested sub-bins: create and
+rename folders, move selected media or bins, and remove a bin while keeping its
+contents. Organization supports undo/redo and does not interrupt sequence playback.
+Imports use the bin selected when inspection starts. Import AVFoundation-supported video/audio and still images,
 preview sources, append linked video/audio, drag move/trim with snapping, split/delete clips, undo/redo,
 and save/reopen `.afcproject` documents. Media access is retained with sandbox
 bookmarks; missing originals can be relinked. DocumentGroup supplies native
