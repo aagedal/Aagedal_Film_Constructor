@@ -21,12 +21,15 @@ private func fixture() throws -> Project {
 private final class Probe: @unchecked Sendable {
     private let lock = NSLock()
     private var reads = 0
+    private var releases = 0
     private var waiting: CheckedContinuation<Void, Never>?
     private var entered = false
     let release = DispatchSemaphore(value: 0)
     let block: Bool
     init(block: Bool = false) { self.block = block }
     var count: Int { lock.lock(); defer { lock.unlock() }; return reads }
+    var released: Int { lock.lock(); defer { lock.unlock() }; return releases }
+    func decoderReleased() { lock.lock(); releases += 1; lock.unlock() }
     func read() {
         lock.lock(); reads += 1; entered = true
         let continuation = waiting; waiting = nil; lock.unlock()
@@ -48,6 +51,7 @@ private final class FakeDecoder: PlaybackDecoder {
         self.probe = probe
         sourceOffset = UInt8(project.tracks[0].clips[0].sourceRange.start.numerator)
     }
+    deinit { probe.decoderReleased() }
     func video(frame: Int64) throws -> Data {
         probe.read()
         return Data(repeating: UInt8(frame) + sourceOffset, count: 12)
@@ -153,12 +157,38 @@ struct PlaybackSessionTests {
         #expect(try await monitor.video(frame: 0).value == Data(repeating: 1, count: 12))
     }
 
-    @Test func closeInvalidatesInFlightAndRejectsFutureRequests() async throws {
+    @Test @MainActor func closeDrainsInFlightDecodeAndConcurrentCloseBeforeReturning() async throws {
         let probe = Probe(block: true)
         let monitor = try session(probe)
         let task = Task { try await monitor.video(frame: 0) }
         await probe.waitForEntry()
-        await monitor.close(); probe.release.signal()
+        let epoch = await monitor.epoch
+        var firstFinished = false
+        let firstClose = Task { await monitor.close(); firstFinished = true }
+        // A closed admission proves the first close has invalidated the epoch,
+        // while the serial decode queue remains blocked on the source read.
+        while await monitor.accepts(epoch) { await Task.yield() }
+        var secondStarted = false
+        var secondFinished = false
+        let secondClose = Task {
+            secondStarted = true
+            await monitor.close()
+            secondFinished = true
+        }
+        while !secondStarted { await Task.yield() }
+        // Hop through the actor after the second close entered it. Both close
+        // tasks must be waiting for the same resource-lifetime barrier.
+        _ = await monitor.statistics()
+        await Task.yield()
+        #expect(!firstFinished && !secondFinished)
+        #expect(probe.released == 0)
+        await #expect(throws: PlaybackSessionError.closed) { try await monitor.video(frame: 0) }
+        firstClose.cancel(); secondClose.cancel()
+        #expect(!firstFinished && !secondFinished)
+        probe.release.signal()
+        await firstClose.value; await secondClose.value
+        #expect(firstFinished && secondFinished)
+        #expect(probe.released == 1)
         await #expect(throws: CancellationError.self) { try await task.value }
         await #expect(throws: PlaybackSessionError.closed) { try await monitor.video(frame: 0) }
         #expect(await monitor.statistics().cacheEntries == 0)

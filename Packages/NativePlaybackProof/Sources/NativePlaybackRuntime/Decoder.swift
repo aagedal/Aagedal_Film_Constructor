@@ -41,8 +41,8 @@ final class SourceDecoder {
     var retainedBytes: Int { Int(clamping: afc_decoder_retained_bytes(handle)) }
 
     public func video(frame: Int64, rate: FrameRate, width: Int, height: Int,
-                      scalingMode: ScalingMode) throws -> Data {
-        let geometry = try NativeVideoGeometry(sourceWidth: self.width, sourceHeight: self.height,
+                      scalingMode: ScalingMode, originalFormat: VideoSourceFormat? = nil) throws -> Data {
+        let geometry = try NativeVideoGeometry(sourceWidth: originalFormat?.width ?? self.width, sourceHeight: originalFormat?.height ?? self.height,
                                                width: width, height: height, mode: scalingMode)
         var bytes = [UInt8](repeating: 0, count: geometry.scaledWidth * geometry.scaledHeight * 3)
         var error = [CChar](repeating: 0, count: 1024)
@@ -157,10 +157,14 @@ final class SourceDecoderCache {
 public final class NativeMonitor {
     public private(set) var plan: NativePlaybackPlan
     private let decoders: SourceDecoderCache
+    private var proxySelections: [UUID: NativeProxySelection]
 
-    public init(project: Project, decoderLimits: NativeDecoderLimits = NativeDecoderLimits()) throws {
+    /// Video proxies must be integrity-verified by the caller for these asset IDs.
+    /// No attached rendition is selected implicitly; audio always uses originals.
+    public init(project: Project, videoProxies: [UUID: MediaProxy] = [:], decoderLimits: NativeDecoderLimits = NativeDecoderLimits()) throws {
         decoders = try SourceDecoderCache(limits: decoderLimits)
         plan = try NativePlaybackPlan(TimelineRenderPlan(project: project))
+        proxySelections = try NativeProxySelection.compile(project: project, videoProxies: videoProxies)
         guard plan.settings.width <= 4096, plan.settings.height <= 4096 else {
             throw ProofFailure("Proof limits sequence raster to 4096²")
         }
@@ -168,12 +172,14 @@ public final class NativeMonitor {
 
     /// Compile and validate before swapping; a failed edit keeps the prior plan
     /// and decoders. Successful replacement invalidates all decoded source state.
-    public func replace(project: Project) throws {
+    public func replace(project: Project, videoProxies: [UUID: MediaProxy] = [:]) throws {
         let replacement = try NativePlaybackPlan(TimelineRenderPlan(project: project))
         guard replacement.settings.width <= 4096, replacement.settings.height <= 4096 else {
             throw ProofFailure("Proof limits sequence raster to 4096²")
         }
+        let selections = try NativeProxySelection.compile(project: project, videoProxies: videoProxies)
         plan = replacement
+        proxySelections = selections
         resetDecoders()
     }
 
@@ -183,14 +189,22 @@ public final class NativeMonitor {
         let layers = try plan.videoLayers(at: frame)
         var output = Data(repeating: 0, count: plan.settings.width * plan.settings.height * 3)
         for request in layers.reversed() {
-            try decoders.withDecoder(key: SourceKey(url: request.url, streamIndex: request.streamIndex, isStill: request.isStill)) { source in
+            let proxy = proxySelections[request.clipID]
+            try decoders.withDecoder(key: SourceKey(url: proxy?.proxy.url ?? request.url,
+                                                    streamIndex: proxy == nil ? request.streamIndex : 0, isStill: request.isStill)) { source in
+                if let proxy {
+                    guard source.width == proxy.proxy.width, source.height == proxy.proxy.height else {
+                        throw ProofFailure("Decoded proxy raster differs from verified metadata")
+                    }
+                }
                 if request.isStill {
                     let rgba = try source.still(width: plan.settings.width, height: plan.settings.height,
                                                 scalingMode: request.scalingMode)
                     NativeStillComposition.over(rgba, onto: &output)
                 } else {
                     output = try source.video(frame: request.sourceFrame, rate: plan.settings.frameRate,
-                        width: plan.settings.width, height: plan.settings.height, scalingMode: request.scalingMode)
+                        width: plan.settings.width, height: plan.settings.height, scalingMode: request.scalingMode,
+                        originalFormat: proxy?.originalFormat)
                 }
             }
         }

@@ -8,6 +8,85 @@ struct ProxyCreationDraft: Identifiable {
 }
 
 extension EditorStore {
+    /// Sequence playback always needs original picture/audio access. Proxy checks
+    /// are transient playback choices and never rewrite the project's media records.
+    @MainActor static func resolveSequenceProxies(project: Project, representation: PlaybackRepresentation) async throws -> SequenceProxySelection {
+        try Task.checkCancellation()
+        guard representation == .proxy else { return SequenceProxySelection() }
+        let clips = project.tracks.flatMap(\.clips)
+        let usedIDs = Set(clips.map(\.assetID))
+        let assets = project.assets.filter { usedIDs.contains($0.id) }
+        var scopedURLs: [URL] = []
+        defer { scopedURLs.forEach { $0.stopAccessingSecurityScopedResource() } }
+        for asset in assets {
+            if let url = asset.originalURL, url.startAccessingSecurityScopedResource() { scopedURLs.append(url) }
+        }
+        let videoClips = Dictionary(grouping: clips.filter { if case .video = $0.selection { return true }; return false }, by: \.assetID)
+        var selected: [UUID: MediaProxy] = [:]
+        var fallbacks: [String: Int] = [:]
+        func fallback(_ reason: String) { fallbacks[reason, default: 0] += 1 }
+        // One integrity read at a time bounds I/O and memory, and each iteration
+        // observes cancellation before starting the next potentially large file.
+        for asset in assets {
+            guard let uses = videoClips[asset.id] else { continue }
+            try Task.checkCancellation()
+            guard let source = asset.originalURL, FileManager.default.isReadableFile(atPath: source.path) else {
+                fallback("original unavailable"); continue
+            }
+            guard let proxy = asset.proxy else { fallback("unavailable"); continue }
+            guard proxy.outputIntegrity != nil else { fallback("unverified"); continue }
+            if proxy.url.startAccessingSecurityScopedResource() { scopedURLs.append(proxy.url) }
+            guard FileManager.default.isReadableFile(atPath: proxy.url.path) else { fallback("missing"); continue }
+            guard let before = try? ProxyGenerationService.fingerprint(for: source), before == proxy.sourceFingerprint else {
+                fallback("stale"); continue
+            }
+            // Qualification uses original stream metadata and coordinates; a
+            // verified file alone cannot establish a clip's stream or cadence.
+            let qualified: Bool
+            do {
+                try proxy.validate()
+                qualified = try uses.allSatisfy { clip in
+                    guard case .video(let index) = clip.selection,
+                          index == proxy.videoStreamIndex,
+                          let stream = asset.streams.first(where: { $0.kind == .video && $0.index == index }),
+                          let format = stream.videoFormat, format.frameRate.value == proxy.frameRate,
+                          proxy.frameRate == project.settings.frameRate.value,
+                          format.width <= 4096, format.height <= 4096,
+                          proxy.width <= 4096, proxy.height <= 4096,
+                          Int64(format.width) * Int64(proxy.height) == Int64(format.height) * Int64(proxy.width) else { return false }
+                    let endFrame = try clip.sourceRange.end().multiplied(by: proxy.frameRate)
+                    return endFrame.denominator == 1 && endFrame.numerator <= proxy.frameCount
+                }
+            } catch { qualified = false }
+            guard qualified else { fallback("unqualified"); continue }
+            do {
+                _ = try await ProxyGenerationService.validateProxyFile(proxy)
+                try Task.checkCancellation()
+                guard try ProxyGenerationService.fingerprint(for: source) == before else { fallback("stale"); continue }
+                selected[asset.id] = proxy
+            } catch {
+                try Task.checkCancellation()
+                fallback("modified or unreadable")
+            }
+        }
+        try Task.checkCancellation()
+        // An original disappearing during another asset's verification cannot
+        // turn the sequence into silent, proxy-only playback.
+        for asset in assets where selected[asset.id] != nil {
+            guard let source = asset.originalURL, FileManager.default.isReadableFile(atPath: source.path),
+                  let proxy = selected[asset.id], (try? ProxyGenerationService.fingerprint(for: source)) == proxy.sourceFingerprint else {
+                selected[asset.id] = nil
+                fallback("original unavailable or changed")
+                continue
+            }
+        }
+        let picture = selected.isEmpty ? "original media" : "proxy picture · original audio"
+        let reasons = fallbacks.keys.sorted().map { "\(fallbacks[$0]!) \($0)" }.joined(separator: ", ")
+        let fallbackMessage = reasons.isEmpty ? "" : " · using originals for \(reasons) proxy assets"
+        return SequenceProxySelection(videoProxies: selected,
+            message: "Native sequence · \(picture)\(fallbackMessage) · development output")
+    }
+
     func beginProxyCreation(assetID: UUID? = nil) {
         if let assetID, !selectedAssetIDs.contains(assetID) { selectAsset(assetID) }
         let assets = project.assets.filter { selectedAssetIDs.contains($0.id) && $0.streams.contains(where: { $0.kind == .video }) }

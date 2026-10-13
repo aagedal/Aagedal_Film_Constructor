@@ -53,6 +53,13 @@ subprocess.run([str(args.ffmpeg), '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=
 for seconds, name in [('0.5', 'seek.rgb'), ('1', 'edited.rgb')]:
     subprocess.run([str(args.ffmpeg), '-v', 'error', '-ss', seconds, '-i', str(fixture),
         '-frames:v', '1', '-an', '-sws_flags', 'bilinear', '-pix_fmt', 'rgb24', '-f', 'rawvideo', str(root / name)], check=True)
+proxy = root / 'proxy.nut'
+# Distinct lossless picture makes accidental original decoding observable.
+subprocess.run([str(args.ffmpeg), '-v', 'error', '-i', str(fixture), '-an',
+    '-vf', 'negate', '-c:v', 'ffv1', '-pix_fmt', 'yuv420p', str(proxy)], check=True)
+subprocess.run([str(args.ffmpeg), '-v', 'error', '-ss', '0.5', '-i', str(proxy),
+    '-frames:v', '1', '-an', '-sws_flags', 'bilinear', '-pix_fmt', 'rgb24', '-f', 'rawvideo',
+    str(root / 'proxy-seek.rgb')], check=True)
 env['DYLD_LIBRARY_PATH'] = str(binary)
 subprocess.run([str(root / 'smoke'), str(fixture)], env=env, check=True, timeout=60)
 

@@ -12,7 +12,7 @@ struct ContentView: View {
     @State private var binName = ""
     @State private var creatingBin = false
     @State private var renamingBin = false
-    @StateObject private var sequencePlayback = SequencePlaybackController()
+    @StateObject private var sequencePlayback = SequencePlaybackController(proxyResolver: EditorStore.resolveSequenceProxies)
 
     var body: some View {
         VSplitView {
@@ -92,30 +92,35 @@ struct ContentView: View {
                     if store.isImporting { ProgressView().controlSize(.small) }
                     Text(store.statusMessage).lineLimit(1)
                     Spacer()
-                    Text(store.showSequenceMonitor ? "Sequence · originals" : "Source preview").foregroundStyle(.secondary)
+                    Text(store.showSequenceMonitor ? "Sequence preview" : "Source preview").foregroundStyle(.secondary)
                 }
                 .font(.caption).padding(.horizontal, 12).padding(.vertical, 6)
             }
             .background(.bar)
         }
         .onChange(of: store.project) { _, project in
-            if store.showSequenceMonitor { sequencePlayback.update(project: project, seconds: store.playheadSeconds) }
+            if store.showSequenceMonitor { sequencePlayback.update(project: project, seconds: store.playheadSeconds, representation: store.playbackRepresentation) }
         }
         .onChange(of: store.playheadSeconds) { _, seconds in
-            if store.showSequenceMonitor { sequencePlayback.update(project: store.project, seconds: seconds) }
+            if store.showSequenceMonitor { sequencePlayback.update(project: store.project, seconds: seconds, representation: store.playbackRepresentation) }
+        }
+        .onChange(of: store.playbackRepresentation) { _, representation in
+            if store.showSequenceMonitor {
+                sequencePlayback.update(project: store.project, seconds: store.playheadSeconds, representation: representation)
+            }
         }
         .onChange(of: store.showSequenceMonitor) { _, show in
             if show {
                 store.pauseSource()
                 store.sequencePlayback = sequencePlayback
-                sequencePlayback.activate(project: store.project, seconds: store.playheadSeconds)
+                sequencePlayback.activate(project: store.project, seconds: store.playheadSeconds, representation: store.playbackRepresentation)
             } else { store.sequencePlayback = nil; sequencePlayback.deactivate() }
         }
         .onAppear {
             sequencePlayback.positionChanged = { seconds in store.playheadSeconds = seconds }
             if store.showSequenceMonitor {
                 store.sequencePlayback = sequencePlayback
-                sequencePlayback.activate(project: store.project, seconds: store.playheadSeconds)
+                sequencePlayback.activate(project: store.project, seconds: store.playheadSeconds, representation: store.playbackRepresentation)
             }
         }
         .onDisappear { store.sequencePlayback = nil; sequencePlayback.deactivate() }
@@ -268,6 +273,17 @@ struct ContentView: View {
         .help(store.showSequenceMonitor ? "Switch to source viewer (Tab by default)" : "Switch to sequence viewer (Tab by default)")
     }
 
+    private var representationToggle: some View {
+        Button {
+            store.setPlaybackRepresentation(store.playbackRepresentation == .proxy ? .original : .proxy)
+        } label: {
+            Image(systemName: store.playbackRepresentation == .proxy ? "square.stack.3d.up.fill" : "square.stack.3d.up")
+        }
+        .accessibilityLabel(store.playbackRepresentation == .proxy ? "Prefer Proxy" : "Prefer HiRes")
+        .accessibilityValue(store.playbackRepresentation == .proxy ? "Proxy preferred" : "HiRes preferred")
+        .help(store.playbackRepresentation == .proxy ? "Proxy preferred. Click to prefer HiRes; available media is used as fallback." : "HiRes preferred. Click to prefer Proxy; available media is used as fallback.")
+    }
+
     private var monitor: some View {
         VStack(spacing: 0) {
             if store.showSequenceMonitor { sequenceMonitor } else { sourceMonitor }
@@ -296,6 +312,7 @@ struct ContentView: View {
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
+                    representationToggle
                     Button { store.stepPlayhead(frames: -1) } label: { Image(systemName: "backward.end.fill") }
                         .accessibilityLabel("Previous sequence frame")
                     Button(action: sequencePlayback.pause) { Image(systemName: "pause.fill") }
@@ -311,7 +328,7 @@ struct ContentView: View {
                 }
                 Text(sequencePlayback.message).font(.caption).foregroundStyle(.secondary)
                 if sequencePlayback.available {
-                    Text("Uses original media. Device and display timing are still under qualification.")
+                    Text("Original audio is retained. Device and display timing are still under qualification.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }.padding(10)
@@ -342,14 +359,7 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             HStack {
-                Button {
-                    store.setPlaybackRepresentation(store.playbackRepresentation == .proxy ? .original : .proxy)
-                } label: {
-                    Image(systemName: store.playbackRepresentation == .proxy ? "square.stack.3d.up.fill" : "square.stack.3d.up")
-                }
-                .accessibilityLabel(store.playbackRepresentation == .proxy ? "Prefer Proxy" : "Prefer HiRes")
-                .accessibilityValue(store.playbackRepresentation == .proxy ? "Proxy preferred" : "HiRes preferred")
-                .help(store.playbackRepresentation == .proxy ? "Proxy preferred. Click to prefer HiRes; available media is used as fallback." : "HiRes preferred. Click to prefer Proxy; available media is used as fallback.")
+                representationToggle
                 Text(store.proxyPlaybackMessage).font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Group {

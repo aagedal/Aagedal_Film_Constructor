@@ -37,8 +37,8 @@ registration. Registration and its independent sandbox bookmark form one undoabl
 edit. Undo removes the reference rather than deleting generated media; old outputs
 are retained so redo and earlier project versions can still reference them.
 
-Use the representation icon below the source monitor to toggle **Prefer HiRes**
-and **Prefer Proxy** for source previews in the current document session.
+Use the representation icon below either monitor to toggle **Prefer HiRes**
+and **Prefer Proxy** in the current document session.
 Switching preserves source position and forward
 playback intent, including rapid switches while the new representation loads.
 Proxy video is combined with original audio tracks, retaining their channels and
@@ -54,7 +54,17 @@ pending with an explicit unavailable status until HiRes is restored; no earlier
 proxy frame is substituted. Restoring the original and refreshing the viewer
 returns playback to the preferred representation. Proxy registration does not
 change timeline edits, clip scaling, sequence settings, filmstrips or waveforms.
-Rendered exports and FCPXML continue to reference originals.
+Rendered exports and interchange continue to reference originals.
+
+The opt-in native sequence monitor also uses this preference for qualified video
+proxies. Switching pauses output and rebuilds at the current timeline position;
+press Play to resume. Original audio is retained. Fit/fill/no-scaling use original
+raster geometry, so reducing proxy resolution does not change framing. Sequence
+playback verifies only timeline-used proxy files and falls back to originals for
+missing/stale/modified or unqualified proxies. It requires original media and
+qualified imported picture metadata; offline proxy-only sequence playback is not
+supported. See [sequence monitoring](sequence-monitor.md) for cadence/coverage
+limits and the development build command.
 
 Proxy references and separate file-access grants survive save/open. Relinking an
 original clears its proxy reference in the same undoable action. To relocate a
@@ -120,7 +130,8 @@ publication recovery, destination conflicts, single-job retries, stale sources,
 cancellation, legacy documents and queue/undo separation.
 These tests use development helpers and unsigned runners; native dialog gestures,
 hardware playback quality/sync, and signed sandbox grants across launches still
-require manual qualification. Edited-sequence monitoring is not enabled.
+require manual qualification. Edited-sequence monitoring requires the opt-in native
+runtime; normal builds still report it unavailable.
 The workspace smoke honors the same `AFC_SMOKE_FFMPEG` and `AFC_SMOKE_FFPROBE`
 overrides as the service smoke (and its earlier `FFMPEG`/`FFPROBE` overrides).
 

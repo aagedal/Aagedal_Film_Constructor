@@ -1,0 +1,11 @@
+◇ Suite ProxyPlaybackTests started.
+◇ Test closeDrainsInFlightDecodeAndConcurrentCloseBeforeReturning() started.
+◇ Test rejectsUnqualifiedMetadataAndRetainsPriorSession() started.
+◇ Test decodedProxyPreservesTrimGeometryAndOriginalPCMForEveryScalingMode() started.
+◇ Test selectionsAreExplicitAndDoNotRewritePlanOrAudio() started.
+✔ Test selectionsAreExplicitAndDoNotRewritePlanOrAudio() passed after 0.001 seconds.
+✔ Test rejectsUnqualifiedMetadataAndRetainsPriorSession() passed after 0.002 seconds.
+✔ Test closeDrainsInFlightDecodeAndConcurrentCloseBeforeReturning() passed after 0.012 seconds.
+✔ Test decodedProxyPreservesTrimGeometryAndOriginalPCMForEveryScalingMode() passed after 0.223 seconds.
+✔ Suite ProxyPlaybackTests passed after 0.224 seconds.
+✔ Test run with 46 tests in 8 suites passed after 0.224 seconds.

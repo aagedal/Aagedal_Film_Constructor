@@ -1,12 +1,29 @@
 # Edited-sequence monitor
 
 The workspace has Source and Sequence monitor modes. Sequence mode reads the
-edited timeline, uses originals, forwards timeline seeks and frame stepping, and
+edited timeline, retains original audio, forwards timeline seeks and frame stepping, and
 routes K/L to sequence pause/play. Reverse sequence playback is unavailable.
 Edits pause output, clear the previous image, close its decoder session, and rebuild
 at the current playhead. Rapid seeks coalesce. Pause and scrubs during asynchronous
 priming invalidate the pending play. Switching monitor modes or closing the
 workspace shuts down sequence output; returning rebuilds at the preserved playhead.
+Shutdown awaits decoder work and teardown before releasing media-access grants.
+
+The representation button is available in both viewer modes. **Prefer Proxy**
+verifies used timeline proxies asynchronously, then rebuilds at the current
+playhead without changing edits. Switching pauses playback; choose Play to resume.
+Rapid preference changes and hiding the viewer cancel verification. Missing,
+stale, modified, legacy unhashed or unqualified proxies fall back to originals with
+visible reasons. Sequence playback requires originals; it does not substitute
+silent proxy-only output when original audio is unavailable.
+
+Sequence proxy support requires imported qualified source picture metadata,
+matching source/proxy/sequence cadence, zero stream offsets, complete trim coverage,
+matching aspect ratio and rasters within the native 4096-pixel limit. Lower-resolution
+proxy picture is composed using original dimensions for fit/fill/no-scaling;
+proxy stream zero replaces only its recorded original video stream. Audio uses the
+original stream selection, channel maps, gain and envelopes. Older projects without
+qualified picture metadata use originals until their media is reimported.
 
 ## Default build and development runtime
 
@@ -34,7 +51,10 @@ when running under a restricted agent sandbox.
 
 The output includes the SwiftPM runtime build, controller smoke executable,
 `fixture.nut`, a normal `fixture.afcproject`, and independent FFmpeg `seek.rgb` and
-`edited.rgb` reference captures. With `--build-workspace` it also includes
+`edited.rgb` reference captures, plus a distinct lossless proxy fixture and
+`proxy-seek.rgb`. The synthetic proxy changes picture intentionally to expose an
+accidental original decode; generated ProRes proxy verification is covered separately
+by the workspace proxy smoke. With `--build-workspace` it also includes
 `Native Sequence Workspace.app`. Launch the isolated app using the command emitted
 by the script, for example:
 
@@ -59,7 +79,8 @@ performed. A local library may itself require a newer OS than the package target
 controller with Swift 6/default MainActor isolation. Its injected delayed backend
 checks explicit missing-runtime state, scrub coalescing, pause during priming,
 scrub plus pause during priming preserving the pending target, edited-plan
-replacement and prior-backend closure, deactivation, and reappearance. The app-file
+replacement and prior-backend closure, deactivation, and reappearance. It also checks nonzero representation switching, resolved status,
+obsolete verification cancellation and hiding/reappearing during verification. The app-file
 smoke checks that K remains enabled during preparation, L is disabled then, reverse
 source transport is disabled in Sequence mode, and K rejects a delayed sequence play.
 
@@ -68,15 +89,20 @@ It requires the exact playhead callback at 0.5 seconds and displayed frame 12
 before starting output. Every RGB byte of that frame is compared with an independent
 FFmpeg capture with maximum two-level rounding tolerance. After trimming both
 components to source second one, output frame zero is compared the same way.
-It checks live player sample-clock progress, stable pause position, edited-plan
+The same nonzero frame is also compared against the distinct proxy reference,
+then against HiRes after switching back. The document and original-only FFmpeg
+render command remain identical across switches. It checks live player sample-clock progress, stable pause position, edited-plan
 replay and synchronous deactivation pause. It does not instrument completion of
 native decoder shutdown or security-scope release; the injected lifecycle checks
 verify the controller calls and awaits backend closure.
 
 Native sequence qualification remains the runtime's existing bounded SDR,
 square-pixel CFR video and matching-rate PCM subset, with supported still/fade
-behavior documented in the native proof. Sequence proxies, broader compressed
+behavior documented in the native proof. Broader compressed
 audio/resampling/VFR/color support, shipping runtime packaging, measured acoustic
 A/V timing, display presentation latency, device-switch acceptance and startup
 latency remain open. Polling only publishes the native player's accepted sample
 position; it does not advance the playhead using elapsed wall time.
+
+See [sequence proxy evidence](evidence/sequence-proxies-20261013/README.md) for
+runtime, controller and app-resolution verification and remaining limits.
