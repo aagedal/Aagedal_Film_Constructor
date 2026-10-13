@@ -37,6 +37,10 @@ public struct Project: Equatable, Codable, Sendable {
             for stream in asset.streams {
                 guard stream.index >= 0, (stream.kind == .audio) == (stream.audioLayout != nil) else { throw EditorCoreError.invalidModel("Invalid source stream") }
                 try stream.audioLayout?.validate()
+                if let format = stream.videoFormat {
+                    guard stream.kind == .video else { throw EditorCoreError.invalidModel("Video format on an audio stream") }
+                    try format.validate()
+                }
             }
         }
         for family in families {

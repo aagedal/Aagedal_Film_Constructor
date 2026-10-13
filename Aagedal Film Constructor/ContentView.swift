@@ -489,6 +489,19 @@ private struct ProjectInspector: View {
                 GroupBox("Sequence") {
                     VStack(alignment: .leading, spacing: 10) {
                         numericField("Width", text: $width)
+                        if store.project.tracks.allSatisfy({ $0.clips.isEmpty }), let asset = store.selectedAsset {
+                            ForEach(asset.streams.filter { $0.kind == .video && $0.videoFormat != nil }, id: \.index) { stream in
+                                if let format = stream.videoFormat {
+                                    Button("Match \(stream.label ?? "video"): \(format.width) × \(format.height), \(format.frameRate.editableText) fps") {
+                                        store.matchSequenceToSelectedSource(streamIndex: stream.index)
+                                    }
+                                }
+                            }
+                            if asset.streams.contains(where: { $0.kind == .video }) && !asset.streams.contains(where: { $0.videoFormat != nil }) {
+                                Text("Source matching needs verified constant frame timing and square-pixel, unrotated picture. Set sequence settings manually for this source.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
                         numericField("Height", text: $height)
                         numericField("Frames / second", text: $frameRate)
                         Menu("Frame rate presets") {

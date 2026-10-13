@@ -267,3 +267,28 @@ Run `scripts/app-file-smoke.sh` for nested navigation, batch undo/redo, captured
 imports, removed-destination fallback, bookmarks and save/reopen checks. macOS
 bookmark services must be accessible. Core `MediaBinTests` cover legacy decoding,
 malformed references/cycles, rollback and unchanged render plans.
+
+## Matching the first picture source
+
+Import and select a video before adding timeline clips. The Sequence inspector
+offers **Match Video** with its dimensions and exact frame rate for each qualified
+video stream. Choose it to set picture settings in one undoable edit, then append
+the source. Audio sample rate/layout and sequence start timecode remain as set;
+an incompatible drop-frame timecode refuses the whole match. Imports never change
+sequence settings automatically, and matching is unavailable after clips exist.
+
+The importer retains optional qualified format metadata with the original stream.
+It scans compressed sample presentation timestamps/durations, sorting B-frames
+into presentation order, and requires a single exact constant cadence and stable
+format. It accepts only identity orientation and square-pixel full-raster picture.
+The scan runs off the main actor with a 100,000-sample/five-second budget; exhausting
+that budget leaves matching unavailable while retaining ordinary import. A blocking
+filesystem/AVFoundation read can exceed the time budget. This is sample-metadata
+qualification, not a decoded-pixel, color-management or broad-format guarantee.
+VFR, rotated/anamorphic picture and legacy projects without qualified metadata
+use manual settings. Relinking re-inspects the replacement source.
+
+`scripts/source-format-smoke.sh` uses local development FFmpeg fixtures to check
+exact fractional CFR/B-frame timing and VFR/rotation/anamorphic refusal. Core tests
+cover explicit stream selection, persistence, legacy decoding and atomic refusal;
+`scripts/app-file-smoke.sh` checks the actual store's matching undo/redo history.

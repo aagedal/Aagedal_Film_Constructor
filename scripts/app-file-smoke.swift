@@ -31,6 +31,7 @@ struct AppFileSmoke {
         try await exerciseStillPreview(directory: directory, still: still, audio: audio)
         try exerciseProxyDocument(directory: directory)
         try exerciseSequenceSettings()
+        try exerciseSequenceMatching()
         let corruptURL = directory.appendingPathComponent("corrupt.png")
         try Data("invalid image".utf8).write(to: corruptURL)
         do {
@@ -824,6 +825,37 @@ struct AppFileSmoke {
         reopened.load(persisted)
         try check(reopened.project == store.project && reopened.playheadTimecode == "01:00:00;00",
                   "Sequence frame rate and start timecode survive document reopen")
+    }
+
+    @MainActor
+    static func exerciseSequenceMatching() throws {
+        let store = EditorStore()
+        defer { store.close() }
+        let rate = try FrameRate(24000, 1001)
+        let asset = MediaAsset(name: "Qualified picture", duration: try RationalTime(2), streams: [
+            MediaStream(index: 0, kind: .video, videoFormat: try VideoSourceFormat(width: 1280, height: 720, frameRate: rate))
+        ])
+        let baseline = Project(settings: try SequenceSettings(), assets: [asset])
+        store.load(ProjectDocument(project: baseline))
+        store.selectAsset(asset.id)
+        store.matchSequenceToSelectedSource(streamIndex: 0)
+        let matched = store.project
+        try check(matched.settings.width == 1280 && matched.settings.height == 720 && matched.settings.frameRate == rate,
+                  "Source matching applies exact picture format")
+        try check(matched.assets == baseline.assets && matched.settings.audioLayout == baseline.settings.audioLayout,
+                  "Matching retains media and explicit audio settings")
+        store.undo()
+        try check(store.project == baseline, "Source matching undo is atomic")
+        store.matchSequenceToSelectedSource(streamIndex: 99)
+        try check(store.project == baseline && store.errorMessage != nil, "Unqualified matching is refused")
+        store.redo()
+        try check(store.project == matched, "Failed matching preserves redo")
+        store.appendSelectedAsset()
+        let populated = store.project
+        store.matchSequenceToSelectedSource(streamIndex: 0)
+        try check(store.project == populated && store.errorMessage != nil, "Existing timeline refuses source matching")
+        store.undo()
+        try check(store.project == matched, "Refused matching preserves append undo")
     }
 
     @MainActor

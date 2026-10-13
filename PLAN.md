@@ -523,6 +523,10 @@ sequence previews and renders at the same positions with exact output timing.
       sequence/start timecode controls.
 - [x] Expose lossless rational frame-rate entry/presets and sequence audio output
       rate/layout with atomic timecode application, route validation and undo.
+- [x] Offer explicit first-picture source matching before timeline placement for
+      qualified square-pixel, unrotated CFR video streams; persist exact source
+      dimensions/cadence and preserve audio settings/timecode with atomic undo.
+      Broad-format, orientation and VFR matching remain open.
 - [ ] Add live sequence transport.
 - [x] Add asynchronous filmstrips/waveforms and fit/fill/no-scaling controls.
       Scaling is persisted; sequence preview/render geometry remains unqualified.
@@ -1522,3 +1526,27 @@ launch-performance claim has been validated yet.
   position retention and restored-original seeking. Native fixtures cover readable
   playable and missing originals; unsupported-codec fallback detection is present
   but is not yet qualified with a native unsupported-codec fixture.
+
+### Qualified first-picture sequence matching checkpoint (2026-10-13)
+
+- Imported video streams retain optional validated raster and exact rational
+  cadence metadata. Older saved streams decode without it. The off-main-actor
+  importer scans compressed sample timing in presentation order and requires
+  stable format, full single-segment coverage and exact constant cadence.
+  Rotated, anamorphic, VFR, retimed/multiple-segment and single-frame sources
+  remain importable without offering automatic matching.
+- Before adding timeline clips, the Sequence inspector offers an explicit match
+  for each qualified selected-source video stream. Picture settings apply in one
+  undoable edit; audio settings, media and start timecode remain intact. Existing
+  timeline clips or an incompatible DF timecode reject the complete edit without
+  changing undo/redo history. Subsequent imports never change sequence settings.
+- The bounded scan permits at most 100,000 buffers and checks a five-second
+  deadline between synchronous reads; a blocked AVFoundation call cannot be
+  interrupted. This proves sample metadata, not decoded geometry/color or full
+  format coverage. Broad matching and native gesture acceptance remain open.
+- Verification passes 44 Python regressions (eight optional skips), 93 XCTest
+  cases (two optional skips), 82 Swift Testing cases, workspace policy smokes and
+  the expanded host app-file smoke. Real H.264/B-frame fixtures pass at 24,
+  24000/1001 and 30000/1001; VFR/rotation/SAR/single-frame refusal and cancellation
+  pass. Unsigned Debug/Release app builds pass. Bookmark services and Xcode package
+  caches require host access; sandboxed Xcode package resolution remains blocked.
