@@ -316,3 +316,21 @@ and rebuild the sequence at its current position; press Play to resume. Native
 sequence playback still requires the development runtime. Toolbars and the bin
 footer use icon actions: hover for their names, or use the existing keyboard
 shortcuts. Menus and confirmation dialogs retain descriptive text.
+
+### Select a source range before appending
+
+Scrub or pause in the Source monitor, then mark In with the inward arrow icon
+(or **I**) and Out with its matching icon (or **O**). Out is an exclusive boundary:
+the appended range ends at that position. The compact readout shows the selected
+start, end and duration. Clear with the × icon or **Option-X** to append the full
+source again. These shortcuts can be remapped in Settings and apply in the source
+workspace; typing into a field does not set marks.
+
+Marks snap to the source frame rate when qualified CFR metadata is available.
+Audio and sources without qualified cadence use microsecond positions. In must
+precede Out; an invalid mark leaves the previous range intact. Append uses the
+same range for linked picture and audio, including **Append with audio selection…**.
+The audio sheet captures the range when opened. Undo/redo applies to the completed
+append. Marks remain with each source during the session and clear when loading
+another document; saved clips retain their exact selected ranges. Finder drops
+onto the timeline use the full imported media.

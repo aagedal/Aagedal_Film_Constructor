@@ -1,14 +1,17 @@
 #!/bin/bash
-# Opt-in Xcode build phase; bundled tools are selected only by AFC_MEDIA_HELPER_DIR.
+# Xcode build phase: pinned automatic helpers, with explicit override/opt-out.
 set -euo pipefail
 : "${TARGET_BUILD_DIR:?Xcode TARGET_BUILD_DIR is required}"
 : "${UNLOCALIZED_RESOURCES_FOLDER_PATH:?Xcode resource destination is required}"
 DESTINATION="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Helpers"
-if [[ -z "${AFC_MEDIA_HELPER_DIR:-}" ]]; then
+if [[ "${AFC_BUNDLE_MEDIA_HELPERS:-YES}" == NO ]]; then
     rm -rf "$DESTINATION"
     exit 0
 fi
 : "${SRCROOT:?Xcode SRCROOT is required}"
+if [[ -z "${AFC_MEDIA_HELPER_DIR:-}" ]]; then
+    AFC_MEDIA_HELPER_DIR="$(python3 "$SRCROOT/scripts/bootstrap-media-helpers.py")"
+fi
 python3 - "$AFC_MEDIA_HELPER_DIR" <<'PY'
 import hashlib
 import json

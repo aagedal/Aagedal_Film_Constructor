@@ -521,6 +521,9 @@ sequence previews and renders at the same positions with exact output timing.
       DocumentGroup autosave, validated relinking, and basic sequence setup.
 - [x] Connect horizontal drag/move, inspector trim, split/delete, selection, and
       atomic linked-component undo/redo; video edits snap to sequence frames.
+- [x] Add per-source In/Out working marks, exact qualified CFR snapping,
+      source-scoped remappable I/O shortcuts and atomic range append for linked
+      picture/audio including explicit channel selection.
 - [x] Add linked drag trim handles, adjacency snapping, frame stepping, and
       sequence/start timecode controls.
 - [x] Expose lossless rational frame-rate entry/presets and sequence audio output
@@ -1606,3 +1609,65 @@ launch-performance claim has been validated yet.
   retention cleanup, saved settings, app undo/redo and playback identity.
   Xcode caches and bookmark services require host access. Native interactive
   acceptance and signed/runtime packaging remain open.
+
+### Source range assembly checkpoint (2026-10-13)
+
+- Source monitor now offers compact In, Out and clear icons with accessible labels,
+  tooltips and range/duration readouts. Out is exclusive. I/O and Option-X defaults
+  are remappable, source-scoped and protected during text entry.
+- Marks remain per-asset working selections during the editing session. Bin/viewer
+  selection and representation changes retain them; opening another document clears
+  them. They do not dirty the document or add undo steps. Appended clip ranges are
+  persisted through the existing document model.
+- Qualified CFR picture snaps to exact source cadence. Other media uses microsecond
+  positions without inventing a frame rate. Invalid and empty ranges preserve the
+  previous marks. Still images retain their existing full five-second default.
+- Both core placement paths accept validated source ranges. Linked components use
+  identical offsets/durations, append timing uses the chosen extent, and explicit
+  audio drafts capture their range for both preview and commit. Append remains one
+  undoable edit. Finder drops continue to place the full imported source.
+- Validation covers fractional source offsets, linked A/V ranges, selected audio
+  routing, still extents, exact sequence duration, saved round trips, invalid-range
+  rollback, source-scoped shortcuts, marking without document mutation and app
+  append undo/redo. Full repository verification passes (95 XCTest cases with two
+  existing skips, 87 Swift Testing cases, workspace policy smokes, Python checks
+  and an unsigned Debug app build); the host app-file smoke also passes.
+  Interactive source-player acceptance remains open.
+
+### Signed helper integration checkpoint (2026-10-14)
+
+- Prepared the user-supplied signed FFmpeg/FFprobe 9.0.2 arm64 pair for this
+  checkout's persistent local Debug selection, retaining supplied build,
+  qualification and notarization reports. Binary hashes match the report and
+  both signatures validate with macOS host services.
+- Existing packaging verifies capabilities, matching configurations, system-only
+  dependencies and prepared hashes. An unsigned Debug build embeds both helpers
+  without changing their signatures. Binaries and local configuration stay ignored.
+- Production-bundle lookup and ProRes Proxy/H.264 generation pass exact fractional
+  frame-count/raster/hash checks while preserving originals. The export-service
+  smoke passes verified MOV, timing/geometry qualification, resampling, failure
+  handling, destination protection and cancellation cleanup. Native runtime bridge
+  packaging, signed sandbox app acceptance and complete release review remain open.
+
+### Reproducible Xcode helper bootstrap checkpoint (2026-10-14)
+
+- Fresh Debug and Release builds now fetch the pinned signed Apple Silicon
+  FFmpeg/FFprobe 9.0.2 archive from a repository dependency release. Checked-in
+  configuration records the URL, archive hash and both executable hashes; no
+  machine-specific path or ignored local selection is required.
+- Bootstrap validates archive/executable hashes and code signatures, then runs
+  existing capability/dependency preparation and atomically publishes a cache.
+  Cached builds validate all prepared files without network access. A file lock
+  serializes concurrent bootstrap builds and failed preparation stays unpublished.
+- Existing explicit prepared-directory overrides remain available. Set
+  `AFC_BUNDLE_MEDIA_HELPERS=NO` to intentionally build without tools; removing the
+  local Debug override returns to automatic bundling. Offline cache seeding accepts
+  only the exact pinned archive. Download/integrity failures fail the build visibly.
+- New tests cover archive rejection before execution, safe known-member extraction,
+  binary hash checking, cache reuse without network, modified/missing/unexpected
+  files and symlink rejection. Full Python checks pass with existing fixture skips.
+- A disposable checkout without `.local` or `LocalMediaHelpers.xcconfig` passes
+  unsigned Debug and Release builds. The Debug build downloads the actual pinned
+  GitHub asset; its production-bundle proxy smoke passes both codecs. The real
+  prepared cache is reusable with network calls blocked. GitHub CI now runs the
+  Python tooling regression suite on PRs and main updates.

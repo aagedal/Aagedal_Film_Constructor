@@ -5,6 +5,7 @@ import EditorCore
 struct AudioSourceEditor: View {
     @ObservedObject var store: EditorStore
     @State private var clip: TimelineClip?
+    @State private var sourceRange: TimeRange?
     @State private var originalProject: Project
     @State private var asset: MediaAsset
     @Environment(\.dismiss) private var dismiss
@@ -23,6 +24,7 @@ struct AudioSourceEditor: View {
     init(store: EditorStore, clip: TimelineClip) {
         self.store = store
         _clip = State(initialValue: Optional(clip))
+        _sourceRange = State(initialValue: nil)
         _originalProject = State(initialValue: store.project)
         _asset = State(initialValue: store.project.assets.first { $0.id == clip.assetID }!)
         guard case .audio(let selection) = clip.selection else { preconditionFailure("Audio component required") }
@@ -36,6 +38,7 @@ struct AudioSourceEditor: View {
     init(store: EditorStore, asset: MediaAsset) {
         self.store = store
         _clip = State(initialValue: nil)
+        _sourceRange = State(initialValue: store.selectedSourceRange)
         _originalProject = State(initialValue: store.project)
         _asset = State(initialValue: asset)
         let stream = asset.streams.first { $0.kind == .audio }
@@ -183,7 +186,7 @@ struct AudioSourceEditor: View {
             if let clip {
                 candidate = try store.previewAudioSelection(clipID: clip.id, selections: pendingSelections, routing: pendingRouting, replacingClipIDs: pendingReplacementIDs)
             } else {
-                candidate = try store.previewAudioAppend(assetID: asset.id, selections: pendingSelections, routing: pendingRouting)
+                candidate = try store.previewAudioAppend(assetID: asset.id, selections: pendingSelections, routing: pendingRouting, sourceRange: sourceRange)
             }
             let changedTracks = candidate.tracks.filter { track in
                 guard track.template.kind == .audio else { return false }
@@ -210,7 +213,7 @@ struct AudioSourceEditor: View {
             if let clip {
                 try store.applyAudioSelection(clipID: clip.id, selections: pendingSelections, routing: pendingRouting, replacingClipIDs: pendingReplacementIDs, expectedProject: originalProject)
             } else {
-                try store.applyAudioAppend(assetID: asset.id, selections: pendingSelections, routing: pendingRouting, expectedProject: originalProject)
+                try store.applyAudioAppend(assetID: asset.id, selections: pendingSelections, routing: pendingRouting, expectedProject: originalProject, sourceRange: sourceRange)
             }
             dismiss()
         } catch { errorMessage = String(describing: error) }
