@@ -51,19 +51,21 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItemGroup {
-                Button(action: store.importMedia) { Label("Import media", systemImage: "plus.rectangle.on.folder") }
-                    .disabled(store.isImporting)
-                Button(action: store.appendSelectedAsset) { Label("Append to timeline", systemImage: "text.badge.plus") }
-                    .disabled(store.selectedAsset == nil || store.isImporting)
+                Button(action: store.importMedia) { Image(systemName: "plus.rectangle.on.folder").accessibilityLabel("Import media") }
+                    .help("Import media into the selected bin").disabled(store.isImporting)
+                Button(action: store.appendSelectedAsset) { Image(systemName: "text.badge.plus").accessibilityLabel("Append to timeline") }
+                    .help("Append selected media to timeline").disabled(store.selectedAsset == nil || store.isImporting)
                 Menu {
                     Button("Append with audio selection…", action: store.beginAudioAppend)
                         .disabled(store.selectedAsset?.streams.contains(where: { $0.kind == .audio }) != true || store.isImporting)
-                } label: { Label("Audio placement", systemImage: "waveform.badge.plus") }
+                } label: { Image(systemName: "waveform.badge.plus").accessibilityLabel("Audio placement") }
+                .help("Audio placement options")
                 Menu {
                     Button("Create proxies…") { store.beginProxyCreation() }
                         .disabled(!store.project.assets.contains { store.selectedAssetIDs.contains($0.id) && $0.streams.contains { $0.kind == .video } } || store.proxyGenerationTask != nil || store.isRelinkingProxy)
                     Button("Proxy queue…") { store.showProxyQueue = true }
-                } label: { Label("Proxies", systemImage: "film.stack") }
+                } label: { Image(systemName: "film.stack").accessibilityLabel("Proxies") }
+                .help("Proxy creation and queue")
                 Menu {
                     Toggle("Media bin", isOn: $showMediaBin)
                     Toggle("Inspector", isOn: $showInspector)
@@ -72,15 +74,15 @@ struct ContentView: View {
                     Button("Show all panels") {
                         showMediaBin = true; showInspector = true; showTimeline = true
                     }
-                } label: { Label("Panels", systemImage: "rectangle.3.group") }
+                } label: { Image(systemName: "rectangle.3.group").accessibilityLabel("Panels") }
                 .help("Show or hide workspace panels")
                 Menu {
                     Button("Render sequence…", action: store.beginRenderExport)
                     Button("Export FCPXML…", action: store.exportFCPXML)
                     Button("Export track EDL…", action: store.beginEDLExport)
                     Button("Export OpenTimelineIO…", action: store.exportOTIO)
-                } label: { Label("Export", systemImage: "square.and.arrow.up") }
-                .disabled(store.duration <= 0)
+                } label: { Image(systemName: "square.and.arrow.up").accessibilityLabel("Export") }
+                .help("Export sequence").disabled(store.duration <= 0)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -245,9 +247,11 @@ struct ContentView: View {
             }
             Divider()
             HStack {
-                Button("Import…", action: store.importMedia).disabled(store.isImporting)
+                Button(action: store.importMedia) { Label("Import media", systemImage: "plus.rectangle.on.folder") }
+                    .labelStyle(.iconOnly).help("Import into this bin").disabled(store.isImporting)
                 Spacer()
-                Button("Append", action: store.appendSelectedAsset).disabled(store.selectedAsset == nil || store.isImporting)
+                Button(action: store.appendSelectedAsset) { Label("Append to timeline", systemImage: "text.badge.plus") }
+                    .labelStyle(.iconOnly).help("Append selected media to timeline").disabled(store.selectedAsset == nil || store.isImporting)
             }.padding(10)
         }
         .alert("New sub-bin", isPresented: $creatingBin) {
@@ -327,10 +331,6 @@ struct ContentView: View {
                     Text(sequencePlayback.isPlaying ? "Playing" : "Paused").font(.caption)
                 }
                 Text(sequencePlayback.message).font(.caption).foregroundStyle(.secondary)
-                if sequencePlayback.available {
-                    Text("Original audio is retained. Device and display timing are still under qualification.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
             }.padding(10)
         }
     }
@@ -457,17 +457,17 @@ private struct ProjectInspector: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text(store.project.assets.first(where: { $0.id == clip.assetID })?.name ?? "Media").font(.subheadline.bold())
                             numericField("Timeline start (s)", text: $timelineStart)
-                            Button("Move clip") {
+                            Button("Move clip", systemImage: "arrow.right") {
                                 guard let value = Double(timelineStart), value.isFinite, value >= 0 else { store.errorMessage = "Enter a valid timeline start in seconds."; return }
                                 store.moveSelectedClip(to: value)
-                            }
+                            }.labelStyle(.iconOnly).help("Move clip to the entered timeline start")
                             Divider()
                             numericField("Source in (s)", text: $sourceStart)
                             numericField("Duration (s)", text: $clipDuration)
-                            Button("Apply trim") {
+                            Button("Apply trim", systemImage: "scissors") {
                                 guard let start = Double(sourceStart), let duration = Double(clipDuration), start.isFinite, duration.isFinite, start >= 0, duration > 0 else { store.errorMessage = "Enter a nonnegative source in and a positive duration in seconds."; return }
                                 store.trimSelectedClip(start: start, duration: duration)
-                            }
+                            }.labelStyle(.iconOnly).help("Apply source in and duration")
                             if clip.requiredTrackKind == .video {
                                 Picker("Scaling", selection: Binding(get: { clip.scalingMode }, set: store.setScalingMode)) {
                                     Text("Fit").tag(ScalingMode.fit)
@@ -475,7 +475,8 @@ private struct ProjectInspector: View {
                                     Text("Native size").tag(ScalingMode.none)
                                 }
                             } else {
-                                Button("Audio source channels…") { editingAudio = true }
+                                Button("Audio source channels…", systemImage: "waveform") { editingAudio = true }
+                                    .labelStyle(.iconOnly).help("Edit audio source channels and output routing")
                                 Text("\(clip.requiredAudioLayout?.channels.count ?? 0) selected channels")
                                     .font(.caption).foregroundStyle(.secondary)
                                 Divider()
@@ -483,7 +484,8 @@ private struct ProjectInspector: View {
                                 fadeCurvePicker("Fade in curve", selection: $fadeInCurve)
                                 numericField("Fade out (s)", text: $fadeOutDuration)
                                 fadeCurvePicker("Fade out curve", selection: $fadeOutCurve)
-                                Button("Apply fades") { applyFades(clip) }
+                                Button("Apply fades", systemImage: "checkmark") { applyFades(clip) }
+                                    .labelStyle(.iconOnly).help("Apply audio fades")
                                 Text("Fades apply to this audio component. Durations may overlap.")
                                     .font(.caption).foregroundStyle(.secondary)
                                 Text("Sequence rendering and the development monitor use fades. Source preview plays the original audio.")
@@ -537,7 +539,8 @@ private struct ProjectInspector: View {
                         numericField("Start timecode", text: $startTimecode)
                         Text("Use HH:MM:SS:FF, or HH:MM:SS;FF for drop frame. Existing audio output maps must remain compatible.")
                             .font(.caption).foregroundStyle(.secondary)
-                        Button("Apply settings") { applySequenceSettings() }
+                        Button("Apply settings", systemImage: "checkmark") { applySequenceSettings() }
+                            .labelStyle(.iconOnly).help("Apply sequence settings")
                     }.padding(5)
                 }
                 GroupBox("Editing") {
@@ -621,7 +624,7 @@ private struct ProjectInspector: View {
         }
         numericField("Crossfade duration (s)", text: $crossfadeDuration)
         fadeCurvePicker("Crossfade curve", selection: $crossfadeCurve)
-        Button("Apply crossfade") {
+        Button("Apply crossfade", systemImage: "checkmark") {
             guard let target = crossfadeTargetID, let seconds = Double(crossfadeDuration), let baseline = crossfadeDraftProject else {
                 store.errorMessage = "Select incoming audio and enter a positive crossfade duration in seconds."
                 return
@@ -631,18 +634,18 @@ private struct ProjectInspector: View {
                                              curve: crossfadeCurve, expectedProject: baseline)
                 refreshCrossfade()
             } catch { store.errorMessage = store.audioEditErrorMessage(error) }
-        }.disabled(crossfadeTargetID == nil)
+        }.labelStyle(.iconOnly).help("Apply linked audio crossfade").disabled(crossfadeTargetID == nil)
         ForEach(store.project.audioCrossfades.filter { $0.outgoingClipID == clip.id || $0.incomingClipID == clip.id }) { crossfade in
             HStack {
                 Text("\(crossfade.outgoingClipID == clip.id ? "To next" : "From previous") · \(String(format: "%.3f", crossfade.duration.seconds)) s")
                     .font(.caption)
                 Spacer()
-                Button("Remove") {
+                Button("Remove crossfade", systemImage: "xmark") {
                     do {
                         try store.removeAudioCrossfade(crossfade.id, expectedProject: store.project)
                         refreshCrossfade()
                     } catch { store.errorMessage = store.audioEditErrorMessage(error) }
-                }
+                }.labelStyle(.iconOnly).help("Remove linked crossfade")
             }
         }
         Text(targets.isEmpty ? "No compatible incoming audio. Adjacent cuts need available source handles; overlapping clips need a matching overlap duration."

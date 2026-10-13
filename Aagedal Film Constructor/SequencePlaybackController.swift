@@ -98,11 +98,18 @@ final class SequencePlaybackController: ObservableObject {
 
     func update(project: Project, seconds: Double, representation: PlaybackRepresentation = .original) {
         guard seconds.isFinite else { return }
-        // Media organization has no decoding/transport meaning. Keep it out of
-        // runtime identity so a bin rename or move does not interrupt playback.
+        // Organization, names and retention flags have no decoding meaning.
+        // Keep them out of runtime identity so these edits preserve playback.
         var playbackProject = project
         playbackProject.mediaBins = []
         playbackProject.assetBinAssignments = [:]
+        for index in playbackProject.families.indices {
+            playbackProject.families[index].baseName = "Track"
+        }
+        for index in playbackProject.tracks.indices {
+            playbackProject.tracks[index].customName = nil
+            playbackProject.tracks[index].retained = false
+        }
         let changed = playbackProject != pendingProject || representation != pendingRepresentation
         pendingProject = playbackProject
         pendingRepresentation = representation

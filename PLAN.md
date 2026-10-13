@@ -510,6 +510,8 @@ sequence previews and renders at the same positions with exact output timing.
 - [x] Suggest first saving edited untitled work after approximately five minutes;
       keep bounded, automatic recoverable snapshots for saved projects.
 - [x] Add persistent panel visibility controls in the toolbar and View menu.
+- [x] Add compact track/family naming, retained-empty-track controls and undoable
+      static audio gain with shared monitor/render planning and inherited siblings.
 - [ ] Add edited-sequence monitoring.
 - [x] Connect Source/Sequence monitor selection, edited-plan rebuilding, coalesced
       scrubs and K/L transport to the native runtime in an opt-in development
@@ -1580,3 +1582,27 @@ launch-performance claim has been validated yet.
   [sequence proxy evidence](docs/evidence/sequence-proxies-20261013/README.md).
   Default Xcode builds still lack the native runtime. Shipping packaging,
   hardware A/V timing, broader formats and signed sandbox acceptance remain open.
+
+
+### Compact track controls checkpoint (2026-10-13)
+
+- Timeline track headers now expose an icon settings popover for custom names,
+  separate family names, retained empty lanes and static audio gain. Blank custom
+  names restore automatic numbering; family changes preserve custom siblings.
+  Disabling retention on an empty lane follows the project cleanup preference.
+- Audio gain accepts −96 to +24 dB, converts to linear amplitude in the existing
+  track template, and offers explicit silence/restore-unity actions. Existing
+  siblings and family creation templates stay independent; collision-created
+  siblings inherit the originating track's settings. Changes are atomic app
+  history entries and use the persisted shared render/native playback plan.
+- Playback identity excludes track/family naming and retention flags. These edits keep
+  active playback running; gain edits pause and rebuild at the current playhead.
+  The toolbar, timeline edit actions, inspector apply actions and bin footer use icons with tooltips and
+  accessibility labels. Development timing qualifications remain in documentation.
+- Verification: 44 Python tests (eight optional skips), 93 XCTest cases (two
+  optional skips), 87 Swift Testing cases, workspace policy smokes, the expanded
+  host app-file smoke and an unsigned Debug app build pass. New checks cover
+  naming independence, gain propagation/inheritance, invalid gain rollback,
+  retention cleanup, saved settings, app undo/redo and playback identity.
+  Xcode caches and bookmark services require host access. Native interactive
+  acceptance and signed/runtime packaging remain open.

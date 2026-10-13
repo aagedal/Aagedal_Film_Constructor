@@ -498,6 +498,22 @@ final class EditorStore: ObservableObject {
             }
         } catch { report(error) }
     }
+    func renameTrack(_ id: UUID, name: String) {
+        do { try change { try $0.renameTrack(id: id, name: name) } } catch { report(error) }
+    }
+    func renameTrackFamily(_ id: UUID, name: String) {
+        do { try change { try $0.renameTrackFamily(id: id, name: name) } } catch { report(error) }
+    }
+    func setTrackRetention(_ id: UUID, retained: Bool) {
+        do { try change { try $0.setTrackRetention(id: id, retained: retained) } } catch { report(error) }
+    }
+    func setTrackGain(_ id: UUID, decibels: String) {
+        guard let value = Double(decibels), value.isFinite, (-96...24).contains(value) else {
+            errorMessage = "Enter an audio gain between −96 and +24 dB."
+            return
+        }
+        do { try change { try $0.setTrackGain(id: id, gain: pow(10, value / 20)) } } catch { report(error) }
+    }
     func deleteSelectedClip() {
         guard let id = selectedClipID else { return }
         edit(.delete(clipID: id)); reconcileSelection()

@@ -29,8 +29,10 @@ struct TimelineView: View {
                 Button(action: store.undo) { Image(systemName: "arrow.uturn.backward") }.help("Undo").disabled(!store.canUndo)
                 Button(action: store.redo) { Image(systemName: "arrow.uturn.forward") }.help("Redo").disabled(!store.canRedo)
                 Divider().frame(height: 18)
-                Button("Split at playhead", action: store.splitSelectedClip).disabled(store.selectedClip == nil)
-                Button("Delete clip", action: store.deleteSelectedClip).disabled(store.selectedClip == nil)
+                Button(action: store.splitSelectedClip) { Label("Split at playhead", systemImage: "scissors") }
+                    .labelStyle(.iconOnly).help("Split at playhead").disabled(store.selectedClip == nil)
+                Button(action: store.deleteSelectedClip) { Label("Delete clip", systemImage: "trash") }
+                    .labelStyle(.iconOnly).help("Delete selected clip").disabled(store.selectedClip == nil)
                 Toggle(isOn: $store.snappingEnabled) { Image(systemName: "magnet") }
                     .toggleStyle(.button).help("Snap clip edges to adjacent clips and the playhead")
                 Spacer()
@@ -76,12 +78,8 @@ struct TimelineView: View {
                         }
                         ForEach(store.project.tracks) { track in
                             HStack(spacing: 0) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Label(track.displayName(in: store.project), systemImage: track.kind == .video ? "film" : "speaker.wave.2")
-                                        .font(.caption.bold()).lineLimit(1)
-                                    Text(track.kind == .video ? "Video" : "\(track.audioLayout?.channels.count ?? 0) channels")
-                                        .font(.caption2).foregroundStyle(.secondary)
-                                }.padding(.horizontal, 10).frame(width: labelWidth, height: 64, alignment: .leading)
+                                TimelineTrackHeader(store: store, track: track)
+                                    .padding(.horizontal, 10).frame(width: labelWidth, height: 64, alignment: .leading)
                                     .background(Color(nsColor: .controlBackgroundColor))
                                 trackLane(track)
                             }
