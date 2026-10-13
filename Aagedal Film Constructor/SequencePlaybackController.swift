@@ -48,7 +48,7 @@ struct SequenceProxySelection {
 }
 
 /// Owns one edited-plan monitor. Edits pause immediately; rebuilding and scrubbing
-/// coalesce into one worker. A timer reads the native sample clock's position and
+/// coalesce into one worker. A timer reads the backend playback clock's position and
 /// never invents timeline progress from wall time.
 @MainActor
 final class SequencePlaybackController: ObservableObject {
@@ -70,6 +70,7 @@ final class SequencePlaybackController: ObservableObject {
     private var backend: (any SequencePlaybackBackend)?
     private var pendingProject: Project?
     private var activeProject: Project?
+    private var activeDuration: Double = 0
     private var desiredSeconds: Double = 0
     private var pendingSeek = false
     private var revision = UUID()
@@ -90,10 +91,12 @@ final class SequencePlaybackController: ObservableObject {
                 try NativeSequenceBackend(project: project, videoProxies: proxies)
             } : nil
             #else
-            self.factory = nil
+            self.factory = useNativeDefault ? { @MainActor project, proxies in
+                try AVFoundationSequenceBackend(project: project, videoProxies: proxies)
+            } : nil
             #endif
         }
-        if self.factory == nil { message = "Sequence playback unavailable: this build does not include the native playback runtime." }
+        if self.factory == nil { message = "Sequence playback unavailable: no playback backend is enabled." }
     }
 
     func update(project: Project, seconds: Double, representation: PlaybackRepresentation = .original) {
@@ -154,7 +157,7 @@ final class SequencePlaybackController: ObservableObject {
                 self.isPlaying = backend.isPlaying
                 self.message = self.playbackMessage
             } catch is CancellationError {} catch {
-                if token == self.revision { self.message = String(describing: error) }
+                if token == self.revision { self.message = error.localizedDescription }
             }
         }
     }
@@ -208,6 +211,10 @@ final class SequencePlaybackController: ObservableObject {
                               representation == self.pendingRepresentation else { continue }
                         let backend = try factory(project, selection.videoProxies)
                         self.playbackMessage = selection.message
+                        #if !canImport(NativePlaybackRuntime)
+                        self.playbackMessage = selection.message.replacingOccurrences(of: "Native sequence", with: "System sequence").replacingOccurrences(of: "development output", with: "AVFoundation preview")
+                        #endif
+                        self.activeDuration = try TimelineRenderPlan(project: project).duration.seconds
                         self.backend = backend; self.activeProject = project
                         self.activeRepresentation = representation
                         backend.display = { [weak self, weak backend] image, frame in
@@ -224,16 +231,19 @@ final class SequencePlaybackController: ObservableObject {
                         }
                         backend.failure = { [weak self, weak backend] error in
                             guard let self, let backend, self.backend === backend else { return }
-                            self.isPlaying = false; self.message = String(describing: error)
+                            self.isPlaying = false; self.message = error.localizedDescription
                         }
                     } catch {
                         self.releaseScopes()
                         if token != self.revision { continue }
-                        self.message = String(describing: error); return
+                        self.message = error.localizedDescription; return
                     }
                 }
                 guard self.enabled, let backend = self.backend, let project = self.activeProject else { return }
-                let seconds = self.desiredSeconds
+                let rate = project.settings.frameRate.value.seconds
+                let lastFrame = max(0, ceil(self.activeDuration * rate) - 1)
+                let seconds = min(self.desiredSeconds, lastFrame / rate)
+                self.desiredSeconds = seconds
                 do {
                     let frames = seconds * project.settings.frameRate.value.seconds
                     guard frames.isFinite, frames >= 0, frames < Double(Int64.max) else { return }
@@ -250,7 +260,7 @@ final class SequencePlaybackController: ObservableObject {
                     return
                 } catch {
                     if token != self.revision { continue }
-                    self.message = String(describing: error); self.isPlaying = false; return
+                    self.message = error.localizedDescription; self.isPlaying = false; return
                 }
             }
         }
