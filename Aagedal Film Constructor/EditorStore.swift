@@ -23,6 +23,7 @@ final class EditorStore: ObservableObject {
     @Published var proxyJobs: [ProxyGenerationJob] = []
     @Published var proxyQueueProgress: [UUID: SequenceExportProgress] = [:]
     @Published var showProxyQueue = false
+    @Published var selectedMediaBinID: UUID?
     @Published var selectedAssetIDs: Set<UUID> = []
     @Published var proxyCreationDraft: ProxyCreationDraft?
     @Published var playbackRepresentation: PlaybackRepresentation = .original
@@ -85,6 +86,7 @@ final class EditorStore: ObservableObject {
         errorMessage = nil
         isImporting = false
         undoHistory = []; redoHistory = []
+        selectedMediaBinID = nil
         selectedAssetIDs = []; selectedAssetID = nil; selectedClipID = nil; playheadSeconds = 0
         previewImage = nil
         statusMessage = "Import media to begin."
@@ -183,6 +185,7 @@ final class EditorStore: ObservableObject {
 
     private func beginImport(urls: [URL], placement: RationalTime? = nil, trackID: UUID? = nil) {
         let epoch = mediaEpoch
+        let importBinID = selectedMediaBinID
         isImporting = true
         errorMessage = nil
         importTask = Task {
@@ -205,6 +208,9 @@ final class EditorStore: ObservableObject {
                             let targetIndex = trackID.flatMap { id in project.tracks.firstIndex(where: { $0.id == id }) }
                             let target = targetIndex.map { project.tracks[$0] }
                             try project.addAsset(result.asset)
+                            if let importBinID, project.mediaBins.contains(where: { $0.id == importBinID }) {
+                                try project.moveAssets([result.asset.id], toMediaBin: importBinID)
+                            }
                             ids = try project.appendAsset(result.asset.id, at: start)
                             if let target, let targetIndex,
                                let component = project.tracks.flatMap(\.clips).first(where: {
@@ -228,7 +234,7 @@ final class EditorStore: ObservableObject {
                         selectAsset(result.asset.id)
                         selectedClipID = ids.first
                     } else {
-                        try registerImportedMedia(result)
+                        try registerImportedMedia(result, binID: importBinID)
                     }
                     imported += 1
                 } catch {
@@ -251,8 +257,13 @@ final class EditorStore: ObservableObject {
         }
     }
 
-    func registerImportedMedia(_ imported: ImportedMedia) throws {
-        try change(bookmarkUpdates: [imported.asset.id: imported.bookmark]) { try $0.addAsset(imported.asset) }
+    func registerImportedMedia(_ imported: ImportedMedia, binID: UUID? = nil) throws {
+        try change(bookmarkUpdates: [imported.asset.id: imported.bookmark]) { project in
+            try project.addAsset(imported.asset)
+            if let binID, project.mediaBins.contains(where: { $0.id == binID }) {
+                try project.moveAssets([imported.asset.id], toMediaBin: binID)
+            }
+        }
         selectAsset(imported.asset.id)
     }
 
@@ -275,7 +286,54 @@ final class EditorStore: ObservableObject {
         selectAsset(assetID)
     }
 
+    var visibleBinAssets: [MediaAsset] {
+        project.assets.filter { project.assetBinAssignments[$0.id] == selectedMediaBinID }
+    }
+
+    func selectMediaBin(_ id: UUID?) {
+        guard id == nil || project.mediaBins.contains(where: { $0.id == id }) else { return }
+        selectedMediaBinID = id
+        selectAssets([])
+    }
+
+    func createMediaBin(name: String) {
+        do {
+            var id: UUID?
+            try change { id = try $0.createMediaBin(name: name, parentID: selectedMediaBinID) }
+            selectMediaBin(id)
+        } catch { report(error) }
+    }
+
+    func renameSelectedMediaBin(name: String) {
+        guard let bin = project.mediaBins.first(where: { $0.id == selectedMediaBinID }) else { return }
+        do { try change { try $0.updateMediaBin(id: bin.id, name: name, parentID: bin.parentID) } }
+        catch { report(error) }
+    }
+
+    func moveMediaBin(_ id: UUID, to parentID: UUID?) {
+        guard let bin = project.mediaBins.first(where: { $0.id == id }) else { return }
+        do { try change { try $0.updateMediaBin(id: id, name: bin.name, parentID: parentID) } }
+        catch { report(error) }
+    }
+
+    func removeSelectedMediaBin() {
+        guard let bin = project.mediaBins.first(where: { $0.id == selectedMediaBinID }) else { return }
+        do {
+            try change { try $0.removeMediaBin(id: bin.id) }
+            selectMediaBin(bin.parentID)
+            statusMessage = "Removed bin. Its media and sub-bins moved to the parent."
+        } catch { report(error) }
+    }
+
+    func moveBinAssets(_ ids: Set<UUID>, to binID: UUID?) {
+        do {
+            try change { try $0.moveAssets(ids, toMediaBin: binID) }
+            selectAssets(selectedAssetIDs.intersection(Set(visibleBinAssets.map(\.id))))
+        } catch { report(error) }
+    }
+
     func selectAsset(_ id: UUID) {
+        selectedMediaBinID = project.assetBinAssignments[id]
         selectedAssetID = id
         selectedAssetIDs = [id]
         refreshSourcePreview()
@@ -392,6 +450,7 @@ final class EditorStore: ObservableObject {
         reconcileSelection()
     }
     private func reconcileSelection() {
+        if let id = selectedMediaBinID, !project.mediaBins.contains(where: { $0.id == id }) { selectedMediaBinID = nil }
         if selectedClip == nil { selectedClipID = nil }
         selectedAssetIDs.formIntersection(Set(project.assets.map(\.id)))
         if selectedAsset == nil {

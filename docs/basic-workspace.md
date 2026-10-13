@@ -220,3 +220,29 @@ The shortcut smoke checks defaults, conflicts, normalization and reserved bindin
 The preview smoke generates WAV/PNG fixtures and uses development FFmpeg, when
 available, for a two-color video; it verifies channel maps, source ranges, cache
 limits and cancellation. These checks do not qualify edited-sequence playback.
+
+## Organizing media with sub-bins
+
+Use the folder-plus menu in the Media header to create a sub-bin inside the
+current bin. Open child folders with their folder rows; use the header menu to
+jump to any bin or the root Media browser. The folder menu also offers rename,
+move to another parent, go to parent, and **Remove bin, keep contents**. Removing
+promotes its media and child folders to its parent; it never deletes source files
+or timeline clips. Moves that would create a parent cycle are refused.
+
+Select one or several media rows and right-click **Move to bin** to organize them
+in one undo step. Imports and Finder drops capture the current bin before
+asynchronous inspection; switching bins while importing does not redirect the
+files. If that destination is removed before inspection completes, media goes
+to the root. Selecting an imported asset reveals its containing bin.
+
+Bins and media assignments persist in `.afcproject` and automatic backups.
+Existing projects without these fields open with their media at the root.
+Organization preserves media identities, proxy references, security bookmarks,
+timeline timing and exports. Bin-only edits do not restart sequence playback.
+The folder tree is organizational metadata; it does not move files on disk.
+
+Run `scripts/app-file-smoke.sh` for nested navigation, batch undo/redo, captured
+imports, removed-destination fallback, bookmarks and save/reopen checks. macOS
+bookmark services must be accessible. Core `MediaBinTests` cover legacy decoding,
+malformed references/cycles, rollback and unchanged render plans.

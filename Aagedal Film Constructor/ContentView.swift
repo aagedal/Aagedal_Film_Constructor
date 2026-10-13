@@ -10,6 +10,9 @@ struct ContentView: View {
     @AppStorage("workspace.showTimeline") private var showTimeline = true
     @State private var isDropTargeted = false
     @State private var showSequenceMonitor = false
+    @State private var binName = ""
+    @State private var creatingBin = false
+    @State private var renamingBin = false
     @StateObject private var sequencePlayback = SequencePlaybackController()
 
     var body: some View {
@@ -138,23 +141,61 @@ struct ContentView: View {
     private var mediaBin: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Media").font(.headline)
+                Menu {
+                    Button("Media") { store.selectMediaBin(nil) }
+                    ForEach(store.project.mediaBins) { bin in
+                        Button(store.project.mediaBinPath(id: bin.id)) { store.selectMediaBin(bin.id) }
+                    }
+                } label: {
+                    Text(store.selectedMediaBinID.map { store.project.mediaBinPath(id: $0) } ?? "Media")
+                        .font(.headline).lineLimit(1)
+                }
                 Spacer()
-                Text("\(store.project.assets.count)").foregroundStyle(.secondary)
+                Text("\(store.visibleBinAssets.count)").foregroundStyle(.secondary)
+                Menu {
+                    Button("New sub-bin…") { binName = ""; creatingBin = true }
+                    if let bin = store.project.mediaBins.first(where: { $0.id == store.selectedMediaBinID }) {
+                        Button("Rename bin…") { binName = bin.name; renamingBin = true }
+                        Menu("Move bin to") {
+                            Button("Media") { store.moveMediaBin(bin.id, to: nil) }
+                            ForEach(store.project.mediaBins.filter { $0.id != bin.id }) { destination in
+                                Button(store.project.mediaBinPath(id: destination.id)) {
+                                    store.moveMediaBin(bin.id, to: destination.id)
+                                }
+                            }
+                        }
+                        Button("Remove bin, keep contents", action: store.removeSelectedMediaBin)
+                        Button("Go to parent") { store.selectMediaBin(bin.parentID) }
+                    }
+                } label: { Image(systemName: "folder.badge.plus") }
+                .help("Organize media bins")
             }.padding(12)
             Divider()
-            if store.project.assets.isEmpty {
+            let childBins = store.project.mediaBins.filter { $0.parentID == store.selectedMediaBinID }
+            if !childBins.isEmpty {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 6) {
+                        ForEach(childBins) { bin in
+                            Button { store.selectMediaBin(bin.id) } label: {
+                                Label(bin.name, systemImage: "folder").frame(maxWidth: .infinity, alignment: .leading)
+                            }.buttonStyle(.plain).padding(.horizontal, 12)
+                        }
+                    }.padding(.vertical, 8)
+                }.frame(maxHeight: 120)
+                Divider()
+            }
+            if store.visibleBinAssets.isEmpty {
                 ContentUnavailableView {
-                    Label("Import your media", systemImage: "folder.badge.plus")
+                    Label(store.selectedMediaBinID == nil ? "Import your media" : "Empty bin", systemImage: "folder.badge.plus")
                 } description: {
-                    Text("Import or drop video, audio, or still images here to start a sequence.")
+                    Text("Import or drop video, audio, or still images into this bin.")
                 } actions: {
                     Button("Import media…", action: store.importMedia).disabled(store.isImporting)
                 }
                 .frame(maxHeight: .infinity)
             } else {
                 List(selection: Binding(get: { store.selectedAssetIDs }, set: store.selectAssets)) {
-                    ForEach(store.project.assets) { asset in
+                    ForEach(store.visibleBinAssets) { asset in
                         HStack(alignment: .top, spacing: 9) {
                             Image(systemName: assetIcon(asset)).foregroundStyle(.secondary).frame(width: 20)
                             VStack(alignment: .leading, spacing: 3) {
@@ -165,6 +206,13 @@ struct ContentView: View {
                         }
                         .padding(.vertical, 4).tag(asset.id)
                         .contextMenu {
+                            Menu("Move to bin") {
+                                let ids = store.selectedAssetIDs.contains(asset.id) ? store.selectedAssetIDs : [asset.id]
+                                Button("Media") { store.moveBinAssets(ids, to: nil) }
+                                ForEach(store.project.mediaBins) { bin in
+                                    Button(store.project.mediaBinPath(id: bin.id)) { store.moveBinAssets(ids, to: bin.id) }
+                                }
+                            }
                             Button("Create proxies…") { store.beginProxyCreation(assetID: asset.id) }
                                 .disabled(!asset.streams.contains(where: { $0.kind == .video }) || store.proxyGenerationTask != nil || store.isRelinkingProxy)
                             if asset.proxy != nil {
@@ -192,6 +240,18 @@ struct ContentView: View {
                 Spacer()
                 Button("Append", action: store.appendSelectedAsset).disabled(store.selectedAsset == nil || store.isImporting)
             }.padding(10)
+        }
+        .alert("New sub-bin", isPresented: $creatingBin) {
+            TextField("Name", text: $binName)
+            Button("Create") { store.createMediaBin(name: binName) }
+                .disabled(binName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            Button("Cancel", role: .cancel) {}
+        }
+        .alert("Rename bin", isPresented: $renamingBin) {
+            TextField("Name", text: $binName)
+            Button("Rename") { store.renameSelectedMediaBin(name: binName) }
+                .disabled(binName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            Button("Cancel", role: .cancel) {}
         }
     }
 

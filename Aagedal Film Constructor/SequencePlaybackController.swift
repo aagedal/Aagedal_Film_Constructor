@@ -77,8 +77,13 @@ final class SequencePlaybackController: ObservableObject {
 
     func update(project: Project, seconds: Double) {
         guard seconds.isFinite else { return }
-        let changed = project != pendingProject
-        pendingProject = project
+        // Media organization has no decoding/transport meaning. Keep it out of
+        // runtime identity so a bin rename or move does not interrupt playback.
+        var playbackProject = project
+        playbackProject.mediaBins = []
+        playbackProject.assetBinAssignments = [:]
+        let changed = playbackProject != pendingProject
+        pendingProject = playbackProject
         desiredSeconds = max(0, seconds)
         guard enabled, available else { return }
         if changed {
