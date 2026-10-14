@@ -1,0 +1,188 @@
+{
+  "fixture" : "hevc-open-gop-aac-24-1.mov",
+  "frameRate" : "24\/1",
+  "observations" : [
+    {
+      "actualTimeSeconds" : 2.5,
+      "mode" : "source-generator",
+      "passed" : true,
+      "sourceFrame" : 60,
+      "stripes" : [
+        34,
+        34,
+        226,
+        226,
+        226,
+        226,
+        34,
+        34
+      ]
+    },
+    {
+      "actualTimeSeconds" : 2.5,
+      "mode" : "composition-generator",
+      "passed" : false,
+      "sourceFrame" : 60,
+      "stripes" : [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "actualTimeSeconds" : 2.5,
+      "mode" : "reader-exact",
+      "passed" : true,
+      "sourceFrame" : 60,
+      "stripes" : [
+        34,
+        34,
+        226,
+        226,
+        226,
+        226,
+        34,
+        34
+      ]
+    },
+    {
+      "actualTimeSeconds" : 2.5,
+      "mode" : "reader-24-frame-preroll",
+      "passed" : true,
+      "sourceFrame" : 60,
+      "stripes" : [
+        34,
+        34,
+        226,
+        226,
+        226,
+        226,
+        34,
+        34
+      ]
+    },
+    {
+      "actualTimeSeconds" : 2.5,
+      "mode" : "reader-from-zero",
+      "passed" : true,
+      "sourceFrame" : 60,
+      "stripes" : [
+        34,
+        34,
+        226,
+        226,
+        226,
+        226,
+        34,
+        34
+      ]
+    },
+    {
+      "actualTimeSeconds" : 2.5,
+      "mode" : "player-seek-output",
+      "passed" : true,
+      "sourceFrame" : 60,
+      "stripes" : [
+        34,
+        34,
+        226,
+        226,
+        226,
+        226,
+        34,
+        34
+      ]
+    },
+    {
+      "error" : "Error Domain=AVFoundationErrorDomain Code=-11821 \"Cannot Decode\" UserInfo={NSLocalizedFailureReason=The media data could not be decoded. It may be damaged., NSLocalizedDescription=Cannot Decode, NSUnderlyingError=0x7935806640 {Error Domain=NSOSStatusErrorDomain Code=-12911 \"(null)\"}}",
+      "mode" : "source-generator",
+      "passed" : false,
+      "sourceFrame" : 70
+    },
+    {
+      "actualTimeSeconds" : 2.9166666666666665,
+      "mode" : "composition-generator",
+      "passed" : false,
+      "sourceFrame" : 70,
+      "stripes" : [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "actualTimeSeconds" : 2.9166666666666665,
+      "mode" : "reader-exact",
+      "passed" : false,
+      "sourceFrame" : 70,
+      "stripes" : [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "actualTimeSeconds" : 2.9166666666666665,
+      "mode" : "reader-24-frame-preroll",
+      "passed" : true,
+      "sourceFrame" : 70,
+      "stripes" : [
+        34,
+        226,
+        226,
+        34,
+        34,
+        34,
+        226,
+        34
+      ]
+    },
+    {
+      "actualTimeSeconds" : 2.9166666666666665,
+      "mode" : "reader-from-zero",
+      "passed" : true,
+      "sourceFrame" : 70,
+      "stripes" : [
+        34,
+        226,
+        226,
+        34,
+        34,
+        34,
+        226,
+        34
+      ]
+    },
+    {
+      "actualTimeSeconds" : 2.9166666666666665,
+      "mode" : "player-seek-output",
+      "passed" : false,
+      "sourceFrame" : 70,
+      "stripes" : [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

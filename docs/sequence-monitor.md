@@ -37,8 +37,15 @@ explicit channel maps and boosted gain require the native FFmpeg runtime.
 The generated codec/cadence matrix qualifies ProRes/PCM, H.264/AAC and closed-GOP
 HEVC/AAC at 24, 23.976, 29.97 and 59.94 fps. Open-GOP HEVC trims can return black
 without a decoder error and remain unqualified. See [system preview evidence](evidence/system-sequence-20261014/README.md)
-for reproduction and limits. Audio waveform parity, measured A/V timing and signed
-sandbox media grants remain open.
+for reproduction and limits. The [open-GOP diagnosis](evidence/system-open-gop-20261014/README.md)
+confirms source/player random-access failures near GOP boundaries; a reader-only
+capture replacement is insufficient.
+
+[Decoded audio mix evidence](evidence/system-audio-20261014/README.md) qualifies
+generated PCM/AAC mono/stereo at matching 44.1/48 kHz, with explicit amplitude
+bounds for gain, fades and crossfades. Initial volume is established before delayed
+clips begin, avoiding a brief unity-gain onset. Nonlinear ramps remain approximate;
+AAC boundaries, resampling, measured A/V timing and signed sandbox media grants remain open.
 
 The normal app does not link development FFmpeg libraries. Bundled FFmpeg and
 FFprobe executables alone do not supply that library runtime. Native-enabled

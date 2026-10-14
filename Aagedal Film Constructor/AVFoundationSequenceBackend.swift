@@ -50,8 +50,9 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
     // Nonlinear audio envelopes are intentionally approximated by short ramps.
     private func rampTime(_ seconds: Double) -> CMTime { CMTime(seconds: seconds, preferredTimescale: 600_000) }
 
-    private func prepare() async throws {
-        guard player == nil, !closed else { return }
+    /// Shared construction path for live playback and offline decoded-mix qualification.
+    func makePlayerItem() async throws -> AVPlayerItem {
+        guard !closed else { throw CancellationError() }
         let composition = AVMutableComposition()
         let duration = try time(plan.duration)
         // Establish full duration, including leading/trailing gaps and audio-only edits.
@@ -155,6 +156,9 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     return Float(component.gain * (try AudioFadeEnvelope.gain(at: elapsed, duration: component.timelineRange.duration,
                         fadeIn: component.fadeIn, fadeOut: component.fadeOut)))
                 }
+                // Establish the initial gain before delayed media begins. Otherwise
+                // AVFoundation smooths from its default unity volume at the cut.
+                parameters.setVolume(try volume(0), at: .zero)
                 for (a, b) in zip(points, points.dropFirst()) {
                     parameters.setVolumeRamp(fromStartVolume: try volume(a), toEndVolume: try volume(b),
                         timeRange: CMTimeRange(start: rampTime(start + a), duration: rampTime(b - a)))
@@ -187,12 +191,21 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 return instruction
             }
             item.videoComposition = videoComposition
-            let output = AVPlayerItemVideoOutput(pixelBufferAttributes: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
-            item.add(output); self.output = output
-
         }
         try Task.checkCancellation()
         guard !closed else { throw CancellationError() }
+        return item
+    }
+
+    private func prepare() async throws {
+        guard player == nil, !closed else { return }
+        let item = try await makePlayerItem()
+        try Task.checkCancellation()
+        guard !closed else { throw CancellationError() }
+        if item.videoComposition != nil {
+            let output = AVPlayerItemVideoOutput(pixelBufferAttributes: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
+            item.add(output); self.output = output
+        }
         player = AVPlayer(playerItem: item)
         polling = Task { [weak self] in
             while !Task.isCancelled {
