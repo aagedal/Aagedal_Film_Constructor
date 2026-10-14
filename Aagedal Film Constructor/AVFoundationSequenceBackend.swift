@@ -9,6 +9,7 @@ import EditorCore
 final class AVFoundationSequenceBackend: SequencePlaybackBackend {
     var display: ((CGImage, Int64) -> Void)?
     var failure: ((any Error) -> Void)?
+    private(set) var previewQualificationNotice: String?
     var position: Double {
         let seconds = player?.currentTime().seconds ?? target.seconds
         return seconds.isFinite ? seconds : target.seconds
@@ -58,6 +59,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
         // Establish full duration, including leading/trailing gaps and audio-only edits.
         composition.insertEmptyTimeRange(CMTimeRange(start: .zero, duration: duration))
         hasVideo = false
+        previewQualificationNotice = nil
         var layers: [(TimelineRenderPlan.Component, AVMutableVideoCompositionLayerInstruction)] = []
         var mixes: [AVAudioMixInputParameters] = []
         var assets: [URL: AVURLAsset] = [:]
@@ -113,6 +115,20 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     CMAudioFormatDescriptionGetStreamBasicDescription(description)?.pointee.mFormatID == kAudioFormatMPEGLayer3
                 }) {
                     throw Self.unsupported("System preview cannot faithfully trim MP3 audio. Normalize \(url.lastPathComponent) to PCM or ALAC before editing.")
+                }
+                // Interior AAC fixtures agree, but source edges and even one-packet
+                // insets do not. No measured margin establishes a faithful general
+                // subset. Preserve useful playback while making that limit visible.
+                let aacFormats: Set<AudioFormatID> = [kAudioFormatMPEG4AAC,
+                    kAudioFormatMPEG4AAC_HE, kAudioFormatMPEG4AAC_HE_V2,
+                    kAudioFormatMPEG4AAC_LD, kAudioFormatMPEG4AAC_ELD,
+                    kAudioFormatMPEG4AAC_ELD_SBR, kAudioFormatMPEG4AAC_ELD_V2,
+                    kAudioFormatMPEG4AAC_Spatial]
+                if descriptions.contains(where: { description in
+                    guard let format = CMAudioFormatDescriptionGetStreamBasicDescription(description) else { return false }
+                    return aacFormats.contains(format.pointee.mFormatID)
+                }) {
+                    previewQualificationNotice = "AAC source-edge audio is approximate. Normalize to PCM or ALAC for faithful trims."
                 }
                 guard !descriptions.isEmpty, descriptions.allSatisfy({ description in
                     guard let format = CMAudioFormatDescriptionGetStreamBasicDescription(description) else { return false }

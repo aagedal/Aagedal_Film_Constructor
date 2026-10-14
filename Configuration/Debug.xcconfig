@@ -1,2 +1,5 @@
 // Machine-local helper selection applies only to Debug builds.
 #include? "LocalMediaHelpers.xcconfig"
+
+// Native libraries remain an explicitly attributed local Debug opt-in.
+#include? "LocalNativePlayback.xcconfig"

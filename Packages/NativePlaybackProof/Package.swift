@@ -1,11 +1,11 @@
 // swift-tools-version: 6.0
 import PackageDescription
 
-// Development experiment only. The app deliberately does not link this package:
-// pkg-config libraries are not an attributed, signed, redistributable bundle.
+// Development experiment. Xcode Debug can explicitly select this runtime:
+// pkg-config libraries are not a release-certified redistributable bundle.
 let package = Package(
     name: "NativePlaybackProof",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS("27.0")],
     products: [.library(name: "NativePlaybackRuntime", type: .dynamic, targets: ["NativePlaybackRuntime"])],
     dependencies: [.package(path: "../EditorCore")],
     targets: [

@@ -185,5 +185,100 @@ class NativeDependencyTests(unittest.TestCase):
         self.assertFalse(packager.system_dependency('/opt/homebrew/lib/library.dylib'))
 
 
+class XcodeEmbeddingTests(unittest.TestCase):
+    def test_output_ancestor_cannot_delete_selected_inputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            output = root / 'NativeRuntime'
+            for tree in [output / 'notices', root]:
+                with self.assertRaisesRegex(ValueError, 'overlap'):
+                    packager.validate_embedding_inputs([output], [tree], [])
+            for source in [output / 'provenance.txt', output / 'libraries/native.dylib']:
+                with self.assertRaisesRegex(ValueError, 'input file'):
+                    packager.validate_embedding_inputs([output], [], [source])
+            alias = root / 'alias'
+            output.mkdir()
+            alias.symlink_to(output, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, 'input file'):
+                packager.validate_embedding_inputs([output], [], [alias / 'provenance.txt'])
+            packager.validate_embedding_inputs([output], [root / 'notices'], [root / 'runtime.dylib'])
+
+    def embed_fixture(self, directory):
+        args, nodes, capture = DeploymentCompatibilityTests().package_fixture(Path(directory).resolve())
+        runtime = next(p for p in nodes if p.name == 'libNativePlaybackRuntime.dylib')
+        args.runtime_only = runtime
+        args.frameworks = Path(directory).resolve() / 'built.app/Contents/Frameworks'
+        args.resources = Path(directory).resolve() / 'built.app/Contents/Resources/NativeRuntime'
+        args.sign_identity = '-'
+        args.deployment_target = '27.0'
+        return args, {runtime: nodes[runtime]}, capture
+
+    def test_embedding_rebuild_and_input_preservation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args, nodes, capture = self.embed_fixture(directory)
+            original = args.runtime_only.read_bytes()
+            with patch.object(packager, 'discover', return_value=nodes), \
+                 patch.object(packager, 'capture', side_effect=capture), \
+                 patch.object(packager, 'inspect', return_value=dict(dependencies=[], identifier=None, rpaths=['@loader_path'])), \
+                 patch.object(packager.subprocess, 'run') as commands:
+                packager.embed_runtime(args)
+                packager.embed_runtime(args)
+            self.assertEqual(args.runtime_only.read_bytes(), original)
+            self.assertEqual([p.name for p in args.frameworks.iterdir()], ['libNativePlaybackRuntime.dylib'])
+            manifest = json.loads((args.resources / 'manifest.json').read_text())
+            self.assertEqual(manifest['embeddingMode'], 'xcode-development')
+            self.assertEqual(manifest['minimumOS'], '27.0')
+            self.assertFalse(manifest['releaseCertified'])
+            self.assertEqual(manifest['files']['libNativePlaybackRuntime.dylib'], packager.digest(args.frameworks / 'libNativePlaybackRuntime.dylib'))
+            self.assertTrue(any(call.args[0][:3] == ['/usr/bin/codesign', '--verify', '--strict'] for call in commands.call_args_list))
+
+    def test_incompatible_closure_refuses_before_output_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args, nodes, capture = self.embed_fixture(directory)
+            args.deployment_target = '26.0'
+            with patch.object(packager, 'discover', return_value=nodes), \
+                 patch.object(packager, 'capture', side_effect=capture), \
+                 patch.object(packager.tempfile, 'mkdtemp') as stage:
+                with self.assertRaisesRegex(ValueError, 'requires macOS 27.0'):
+                    packager.embed_runtime(args)
+                stage.assert_not_called()
+            self.assertFalse(args.frameworks.parent.exists())
+
+    def test_embedding_failure_preserves_previous_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args, nodes, capture = self.embed_fixture(directory)
+            with patch.object(packager, 'discover', return_value=nodes), \
+                 patch.object(packager, 'capture', side_effect=capture), \
+                 patch.object(packager, 'inspect', return_value=dict(dependencies=[], identifier=None, rpaths=[])), \
+                 patch.object(packager.subprocess, 'run'):
+                packager.embed_runtime(args)
+            previous = (args.resources / 'manifest.json').read_bytes()
+            with patch.object(packager, 'discover', return_value=nodes), \
+                 patch.object(packager, 'capture', side_effect=capture), \
+                 patch.object(packager.subprocess, 'run', side_effect=RuntimeError('signing failed')):
+                with self.assertRaisesRegex(RuntimeError, 'signing failed'):
+                    packager.embed_runtime(args)
+            self.assertEqual((args.resources / 'manifest.json').read_bytes(), previous)
+            self.assertEqual((args.frameworks / args.runtime_only.name).read_bytes(), args.runtime_only.read_bytes())
+
+    def test_unowned_or_linked_outputs_are_never_replaced(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            frameworks, resources = root / 'Frameworks', root / 'NativeRuntime'
+            frameworks.mkdir()
+            (frameworks / 'Unrelated.framework').mkdir()
+            with self.assertRaisesRegex(ValueError, 'not an owned'):
+                packager.validate_embedded_outputs(frameworks, resources)
+            resources.mkdir()
+            (resources / 'manifest.json').write_text(json.dumps(dict(schemaVersion=1,
+                embeddingMode='xcode-development', files={'native.dylib': 'hash'})))
+            with self.assertRaisesRegex(ValueError, 'unrelated'):
+                packager.validate_embedded_outputs(frameworks, resources)
+            (frameworks / 'Unrelated.framework').rmdir()
+            (frameworks / 'native.dylib').symlink_to('/tmp/unrelated')
+            with self.assertRaisesRegex(ValueError, 'links'):
+                packager.validate_embedded_outputs(frameworks, resources)
+
+
 if __name__ == '__main__':
     unittest.main()

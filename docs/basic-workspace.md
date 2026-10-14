@@ -2,7 +2,7 @@
 
 Open `Aagedal Film Constructor.xcodeproj` in Xcode 27 or compatible, choose the
 **Aagedal Film Constructor** scheme and **My Mac**, then Run. The app requires
-macOS 14+. Launch opens an empty untitled workspace. Drop files from Finder
+macOS 27+. Launch opens an empty untitled workspace. Drop files from Finder
 onto the media bin to import or the timeline to import and place clips; no project creation dialog is required. File → New creates
 another workspace, while File → Open opens an existing project.
 

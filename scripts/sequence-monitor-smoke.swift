@@ -8,6 +8,7 @@ import EditorCore
     var failure: ((any Error) -> Void)?
     var seeks: [Int64] = []
     var closed = false
+    var previewQualificationNotice: String?
     var playDelay: Duration = .zero
     func play() async throws {
         try await Task.sleep(for: playDelay)
@@ -92,12 +93,23 @@ import EditorCore
         try await settle(controller)
         try check(backends.count == 2 && backends[0].closed && backends[1].position == 4,
                   "Audio gain must replace and close previous runtime")
+        let notice = "AAC source-edge audio is approximate. Normalize to PCM or ALAC for faithful trims."
+        backends[1].previewQualificationNotice = notice
+        controller.update(project: edited, seconds: 4.5)
+        try await settle(controller)
+        try check(controller.message.hasSuffix(notice), "Successful seek must expose backend qualification notice")
+        let qualifiedMessage = controller.message
+        controller.play(); try await settle(controller)
+        try check(controller.message == qualifiedMessage && controller.isPlaying,
+                  "Play must preserve transport status and show the notice only once")
+        controller.pause()
         controller.deactivate()
         try await Task.sleep(for: .milliseconds(30))
         try check(backends[1].closed && !controller.isPlaying, "Deactivation must close runtime")
         controller.activate(project: edited, seconds: 2)
         try await settle(controller)
         try check(backends.count == 3 && backends[2].position == 2, "Reappearance must restore current position")
+        try check(!controller.message.contains(notice), "Replacement backend must clear obsolete qualification notice")
         controller.update(project: edited, seconds: 6)
         controller.deactivate()
         controller.activate(project: edited, seconds: 7)

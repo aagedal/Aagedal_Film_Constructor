@@ -66,7 +66,8 @@ component. See [basic testing instructions](docs/basic-workspace.md).
 
 This is the first usable assembly workspace. The viewer has one Source/Sequence icon toggle and a remappable Tab shortcut.
 Media-bin clicks select Source; timeline clicks and clip/ruler drags select Sequence. Normal Xcode builds use system AVFoundation timeline preview. A broader native
-FFmpeg monitor is available in an opt-in development workspace build.
+FFmpeg monitor is available through an explicit local Xcode Debug selection or
+the isolated development workspace harness.
 See [sequence monitoring](docs/sequence-monitor.md) for building and exercising
 the enabled app controls. Release runtime/helper packaging remains unfinished.
 The bin supports batch ProRes Proxy/H.264 creation, cancellable verified jobs,
@@ -109,7 +110,7 @@ Separate development proofs now qualify exact ProRes/PCM ranges and cuts-only
 joins, including fractional/drop-frame timecode, with packet and decoded parity.
 
 `Packages/EditorCore` is the independent Swift 6 timeline model and editing
-engine. The app targets macOS 14+; the inherited project format requires a
+engine. The app targets macOS 27+; the inherited project format requires a
 compatible Xcode (verified with Xcode 27).
 
 Run `scripts/verify.sh` to test the core and build the app without signing.
@@ -230,8 +231,9 @@ resampling failed decoded parity and is explicitly refused by system preview. Se
 Broader real-world media, signed sandbox and measured A/V timing remain open.
 The opt-in native controller now also passes from a self-contained ad-hoc
 development bundle with relocated dependencies and developer loader paths cleared.
-Its locally selected libraries require macOS 27; shipping integration and compatible
-attributed release dependencies remain open. See
+Its locally selected libraries fit the app’s macOS 27 baseline. Xcode Debug can
+compile and embed this closure with explicit local notices/provenance; attributed
+release dependencies and distribution qualification remain open. See
 [native packaging evidence](docs/evidence/native-runtime-packaging-20261014/README.md).
 
 Generated same-rate ALAC now passes source-head/tail/whole-source decoded mix
@@ -241,5 +243,7 @@ existing fidelity bounds and remain unqualified, while the earlier interior and
 packet-cut subset still passes. See [compressed-audio boundary evidence](docs/evidence/system-compressed-audio-20261014/README.md).
 Native development packaging now declares the actual dependency minimum OS and
 supports an explicit deployment-target compatibility ceiling. The current local
-runtime requires macOS 27 and is refused for a macOS 14 target; no release
-compatibility is claimed.
+runtime fits the macOS 27 baseline; no release certification is claimed. See
+[native Xcode setup](docs/sequence-monitor.md#native-playback-in-xcode-debug).
+AAC playback now displays its audio-boundary approximation status without disabling
+ordinary camera/phone media; see [AAC status evidence](docs/evidence/system-compressed-audio-20261014/AAC-preview-notice.md).

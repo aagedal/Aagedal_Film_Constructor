@@ -22,7 +22,9 @@ items remain planned capabilities.
 Prioritize normal-build timeline playback ahead of further assembly features.
 The existing MPV exact-seek and graph-rebuild failures remain the reason to keep
 MPV as a future source-viewer candidate. The native FFmpeg runtime remains the
-broader sequence-engine path; it still needs redistributable dependency packaging.
+broader sequence-engine path. The macOS 27 baseline now accommodates the local
+dependency closure; redistributable attribution and distribution qualification
+remain required. Explicit local Xcode Debug selection compiles and embeds it.
 
 - [x] Enable a system AVFoundation sequence backend in ordinary Xcode builds.
   It consumes the canonical timeline render plan and existing monitor transport,
@@ -41,8 +43,10 @@ broader sequence-engine path; it still needs redistributable dependency packagin
 - [ ] Qualify broader real-world streams (open-GOP HEVC random access currently
   fails), broader compressed-audio boundaries and faithful resampling, hardware
   synchronization and signed sandbox media grants.
-- [ ] Package the native FFmpeg runtime to extend preview to stills, explicit
-  channel mapping, gain above unity and broader formats.
+- [x] Compile and embed explicitly selected native playback libraries in ordinary
+  Xcode Debug builds; enforce the macOS 27 baseline and clean selection removal.
+- [ ] Complete redistributable native runtime attribution, signing and sandbox
+  qualification for stills, explicit channel mapping, gain above unity and broader formats.
 
 System preview currently accepts video and whole mono/stereo audio streams whose
 layout and actual sample rate match the sequence, with identity routing and gain
@@ -378,7 +382,7 @@ layers and audio. Do not promise a lossless multitrack timeline through EDL.
 
 ## Architecture
 
-Start with a macOS editor. The application now targets macOS 14 and later. The project file remains in
+Start with a macOS editor. The application now targets macOS 27 and later (baseline updated 2026-10-14). The project file remains in
 the Xcode 27 format inherited from the recovered starter; building the app
 requires a compatible Xcode, while the standalone core uses Swift 6.
 
@@ -1851,3 +1855,37 @@ launch-performance claim has been validated yet.
   pre-staging target refusal. Dependency notices/provenance remain unreviewed;
   macOS 14 libraries, release distribution and Xcode runtime integration stay open.
 - See [native packaging evidence](docs/evidence/native-runtime-packaging-20261014/README.md).
+
+
+### macOS 27 native Xcode integration and AAC status checkpoint (2026-10-14)
+
+- Updated the app and both Swift packages to the user-approved macOS 27 baseline.
+  The existing 17-library native closure now fits the deployment requirement.
+- Added explicit ignored local native Debug selection and Xcode build/embed phases.
+  SwiftPM builds the selected runtime with a macOS 27 arm64 target; module discovery
+  handles both flat and Modules-directory product layouts. The actual workspace
+  binary contains the native adapter, verified independently of linker flags.
+- Runtime-only packaging checks architecture, deployment versions and output/input
+  isolation, relocates every non-system dependency, signs nested libraries, and
+  retains hashes, notices, supplied provenance and exact build/source selection.
+  Failed preparation preserves previous outputs. Unrelated frameworks are refused.
+- Turning selection off and rebuilding the same derived directory removes native
+  symbols, link dependencies and owned embedded output. Release/archive native
+  selection stays refused pending dependency/distribution review.
+- Production controller qualification passes exact decoded seeks, proxy switching,
+  play/sample-clock/pause, edited-plan replay and deactivation against the actual
+  Xcode-embedded library closure, with developer loader paths cleared. Library
+  hashes match the corrected native workspace; no Homebrew/build loads occur.
+- System AAC playback remains available with visible source-edge approximation
+  status from actual codec descriptions. Seek/play retain the notice without
+  duplication; replacement with unaffected media clears it. The 184-case admission
+  proof passes, while 25 known AAC boundary/inset failures retain unchanged bounds.
+- Verification: 72 Python tests (eight optional skips), 100 core tests (two skips),
+  workspace smokes, default Debug/Release builds, selected native Debug and disabled
+  rebuilds, relocated controller smoke and decoded audio proof pass. Host Xcode and
+  media/audio services are needed under the restricted tool sandbox.
+- Native selection remains development-only. Complete notices/corresponding source,
+  release signing/notarization, signed sandbox grants, compressed native audio,
+  open-GOP system random access and measured A/V synchronization remain open.
+- See [native Xcode evidence](docs/evidence/native-xcode-20261014/README.md) and
+  [AAC status evidence](docs/evidence/system-compressed-audio-20261014/AAC-preview-notice.md).

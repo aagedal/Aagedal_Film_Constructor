@@ -1,0 +1,18 @@
+dyld[49856]: <BE98DDC1-5FE2-3F1A-A8DA-6D5630FBD3B1> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libNativePlaybackRuntime.dylib
+dyld[49856]: <4E683F3E-7341-3CF0-857F-ACF45B992396> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libavformat.63.1.102.dylib
+dyld[49856]: <D026C8EC-3826-39F6-89D6-BE2E41A42897> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libavcodec.63.1.102.dylib
+dyld[49856]: <16F362F8-F1B7-3A57-A923-AF5BDAEF4BB6> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libswscale.10.1.102.dylib
+dyld[49856]: <76235E65-4F5C-35F2-8055-787CD14D6501> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libswresample.7.1.102.dylib
+dyld[49856]: <B0F809E0-7EA4-32AB-829D-58886FBEE390> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libavutil.61.1.102.dylib
+dyld[49856]: <46957FB5-1F3C-3111-BB92-1BB40C6B3FEE> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libssl.4.dylib
+dyld[49856]: <C11B0873-E823-3733-8D85-9162927B8F91> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libcrypto.4.dylib
+dyld[49856]: <BD35516D-C4F8-3F4F-A30E-B80E3D560481> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libvpx.12.dylib
+dyld[49856]: <EE743822-2399-31A5-83DE-33580E7738B2> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/liblzma.5.dylib
+dyld[49856]: <E336E884-375F-383E-B9A1-5E9685FC5555> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libdav1d.7.dylib
+dyld[49856]: <6D9587EC-205A-3573-8A72-CEC524E533A2> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libmp3lame.0.dylib
+dyld[49856]: <1C7445F6-FB0E-33EA-8AA8-18597A9443AC> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libopus.0.dylib
+dyld[49856]: <627DF8E1-C186-3361-90D3-BBF625C57FED> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libSvtAv1Enc.4.2.0.dylib
+dyld[49856]: <B916484F-5239-335B-B9FE-4E71261DA16B> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libx264.165.dylib
+dyld[49856]: <8C13F415-2797-3FFD-A0F0-885BA87DB4D1> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libx265.217.dylib
+dyld[49856]: <21659F3B-CE86-33D5-867E-4DC095D7C6A9> /private/tmp/afc-native-xcode-selected-20261014.app/Contents/Frameworks/libmpg123.0.dylib
+Native app controller original/proxy frame parity/nonzero switching/exact seek/play/sample-clock/pause/edit/replay/deactivation smoke passed

@@ -1,0 +1,32 @@
+{
+  "appMinimumOS": "27.0",
+  "nativeBackendCompiled": true,
+  "libraryCount": 17,
+  "binaryMinimumOS": "27.0",
+  "deploymentTarget": "27.0",
+  "librarySHA256": {
+    "libNativePlaybackRuntime.dylib": "1f6e64bcd9c6071bd7dfa95b2bcd7227ddf5b4cd52f4242d7ce95f9bef22ad7b",
+    "libSvtAv1Enc.4.2.0.dylib": "ecc85f90397285cc26e0e1ec3810bd3aa186fed573d28b3c2b7229b50f93dc8a",
+    "libavcodec.63.1.102.dylib": "b2d071f0ed73943f9da25d2f9a1e9f29508d9981fdd6ba6235ea428e14f31a49",
+    "libavformat.63.1.102.dylib": "d81edb485f8a0f98f82fa908aa8b815276ccbd3608f42640a779f57e21d90a1a",
+    "libavutil.61.1.102.dylib": "7e8b2f57eaf97bb08c11c58e31e9aaf590574be7d236e41dad5366d4e2be53a4",
+    "libcrypto.4.dylib": "c8f7482b6947678edf7618520d4a6d766d7bf183770c626d9931d40f3bc38083",
+    "libdav1d.7.dylib": "a1e2381ff0b0018a86fb8de4d824c1b400a4adce49980b2f7c83e31f3629e1aa",
+    "liblzma.5.dylib": "d0c905d0d256619ae373790a5e8bb11d5226c1c0a65070da2fe4b41fee56f58a",
+    "libmp3lame.0.dylib": "68c2af57b493dc5d6490b5abd85704266f6886fbade783d4e665f8189bf099f4",
+    "libmpg123.0.dylib": "721d9591f5955ef172b1605876f434a2d0efa273eac1b03ca6c2c7f4b6be0bd2",
+    "libopus.0.dylib": "deaae25bc5763b7733cdd2deaacf223b573ad90b154cecce339efe0aa7f387ed",
+    "libssl.4.dylib": "ee9d60deded72021d3116e7eb76e6d0687e2cc19c129a3709efbf5e4a307c300",
+    "libswresample.7.1.102.dylib": "c142ff539b00f7b6d4a0ae03905884ae2a01e2760bd3f3d5e58745354fef4f58",
+    "libswscale.10.1.102.dylib": "f899cfb2148383124bb7b9d69e0837953c748945b5598f8e34c8ba2297a8594c",
+    "libvpx.12.dylib": "c27268196e8e184e39c1dd9bc711e4815b89a0dd6d2d134c58a88938dc2e32d0",
+    "libx264.165.dylib": "e816ecd1f2aa022b8b06fbca4a60025396463ebaa5ec5a811f6fe1bdcd3cc537",
+    "libx265.217.dylib": "31b59e27518db17a018638eec06e8c616953ca143b6663e8ca7d1f2f6aa1bcc2"
+  },
+  "developerLibraryLoads": [],
+  "controllerObservation": "Native app controller original/proxy frame parity/nonzero switching/exact seek/play/sample-clock/pause/edit/replay/deactivation smoke passed",
+  "nativeClosureSameAsControllerTest": true,
+  "releaseCertified": false,
+  "licenseReview": "unreviewed",
+  "provenanceReview": "unreviewed"
+}

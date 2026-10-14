@@ -117,6 +117,11 @@ import EditorCore
                             if CommandLine.arguments.contains("--expect-resampling-rejection") && rate != sourceRate {
                                 throw NSError(domain: "Cross-rate source unexpectedly accepted", code: 1)
                             }
+                            guard (backend.previewQualificationNotice != nil) == (format == "aac"),
+                                  format != "aac" || (backend.previewQualificationNotice!.contains("approximate") &&
+                                      backend.previewQualificationNotice!.contains("PCM or ALAC")) else {
+                                throw NSError(domain: "Audio codec qualification notice missing or unexpected", code: 1)
+                            }
                             let reader = try AVAssetReader(asset: item.asset)
                             let compositionTracks = try await item.asset.loadTracks(withMediaType: .audio)
                             let output = AVAssetReaderAudioMixOutput(audioTracks: compositionTracks, audioSettings: [
@@ -170,6 +175,7 @@ import EditorCore
                                 "clipSampleCount": length, "timelineStartSample": 6001,
                                 "aacPacketFrames": format == "aac" ? 1024 : 0,
                                 "nearestPacketBoundaryOutputSample": packet,
+                                "previewQualificationNotice": backend.previewQualificationNotice ?? "",
                                 "frames": command.audioSamples, "decodedFrames": covered.count,
                                 "compositionFrames": actualFrames, "extraDecodedFrames": extraFrames,
                                 "maximumExtraAmplitude": maximumExtraAmplitude,
