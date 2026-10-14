@@ -1733,3 +1733,20 @@ launch-performance claim has been validated yet.
   and returns nonzero. Broader GOP/media, waveform parity, signed sandbox and
   physical A/V timing acceptance remain open.
 - See [retained system preview evidence](docs/evidence/system-sequence-20261014/README.md).
+
+### Empty timeline and localized Finder drop targets checkpoint (2026-10-14)
+
+- Empty projects show the timeline ruler, playhead and display-only video/audio
+  lanes before the first insertion. These guides do not create project tracks;
+  the first Finder drop still starts at zero.
+- Media-bin and timeline Finder drops now highlight only their own panel, using
+  a subtle tint, outline and destination caption. Bin drops import into the
+  selected bin; timeline drops import and place clips. Monitor and inspector
+  drops are no longer treated as bin imports.
+- Sequence matching, frame-rate presets, relinking, save-reminder actions and
+  timecode submission use compact icons with tooltips and accessible names.
+- Verification: unsigned macOS Debug build, timeline visibility smoke, expanded
+  app-file smoke (including captured Finder placement, bin import destination,
+  bookmarks and undo/redo), and diff checks passed. Native UI automation was
+  unavailable (computer-use native pipe closed); visual layout and Finder hover
+  transitions still need an on-screen check.

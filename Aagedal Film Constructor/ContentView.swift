@@ -8,7 +8,7 @@ struct ContentView: View {
     @AppStorage("workspace.showMediaBin") private var showMediaBin = true
     @AppStorage("workspace.showInspector") private var showInspector = true
     @AppStorage("workspace.showTimeline") private var showTimeline = true
-    @State private var isDropTargeted = false
+    @State private var isMediaBinDropTargeted = false
     @State private var binName = ""
     @State private var creatingBin = false
     @State private var renamingBin = false
@@ -35,20 +35,6 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 960, minHeight: 600)
-        .dropDestination(for: URL.self) { urls, _ in
-            let files = urls.filter(\.isFileURL)
-            guard !files.isEmpty, !store.isImporting, store.audioAppendAsset == nil,
-                  store.renderExportDraft == nil, store.edlExportDraft == nil else { return false }
-            store.importMedia(urls: files)
-            return true
-        } isTargeted: { isDropTargeted = $0 }
-        .overlay {
-            if isDropTargeted {
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(Color.accentColor, lineWidth: 3)
-                    .allowsHitTesting(false)
-            }
-        }
         .toolbar {
             ToolbarItemGroup {
                 Button(action: store.importMedia) { Image(systemName: "plus.rectangle.on.folder").accessibilityLabel("Import media") }
@@ -176,7 +162,7 @@ struct ContentView: View {
                         Button("Go to parent") { store.selectMediaBin(bin.parentID) }
                     }
                 } label: { Image(systemName: "folder.badge.plus") }
-                .help("Organize media bins")
+                .accessibilityLabel("Organize media bins").help("Organize media bins")
             }.padding(12)
             Divider()
             let childBins = store.project.mediaBins.filter { $0.parentID == store.selectedMediaBinID }
@@ -254,6 +240,31 @@ struct ContentView: View {
                 Button(action: store.appendSelectedAsset) { Label("Append to timeline", systemImage: "text.badge.plus") }
                     .labelStyle(.iconOnly).help("Append selected media to timeline").disabled(store.selectedAsset == nil || store.isImporting)
             }.padding(10)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .dropDestination(for: URL.self) { urls, _ in
+            let files = urls.filter(\.isFileURL)
+            guard !files.isEmpty, !store.isImporting, store.audioAppendAsset == nil,
+                  store.renderExportDraft == nil, store.edlExportDraft == nil else { return false }
+            store.importMedia(urls: files)
+            return true
+        } isTargeted: { isMediaBinDropTargeted = $0 }
+        .overlay {
+            if isMediaBinDropTargeted {
+                ZStack(alignment: .top) {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.accentColor.opacity(0.08))
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                    Label("Import to media bin", systemImage: "plus.rectangle.on.folder")
+                        .font(.caption.weight(.medium))
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(.regularMaterial, in: Capsule())
+                        .padding(.top, 48)
+                }
+                .allowsHitTesting(false)
+            }
         }
         .alert("New sub-bin", isPresented: $creatingBin) {
             TextField("Name", text: $binName)
@@ -420,10 +431,11 @@ private struct ProjectSaveProtectionNotice: View {
                 HStack(spacing: 10) {
                     Label(reminder, systemImage: "externaldrive.badge.exclamationmark")
                     Spacer()
-                    Button("Save project…") {
+                    Button("Save project…", systemImage: "square.and.arrow.down") {
                         NSApp.sendAction(#selector(NSDocument.save(_:)), to: nil, from: nil)
-                    }
-                    Button("Remind me later", action: protection.dismissReminder)
+                    }.labelStyle(.iconOnly).help("Save project")
+                    Button("Remind me later", systemImage: "clock", action: protection.dismissReminder)
+                        .labelStyle(.iconOnly).help("Remind me later")
                 }
             }
             if let status = protection.backupStatusMessage {
@@ -435,7 +447,8 @@ private struct ProjectSaveProtectionNotice: View {
                     Label("Backup saved \(date.formatted(date: .omitted, time: .shortened))", systemImage: "clock.arrow.circlepath")
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("Show backups") { NSWorkspace.shared.open(folder) }
+                    Button("Show backups", systemImage: "folder") { NSWorkspace.shared.open(folder) }
+                        .labelStyle(.iconOnly)
                         .help("Open timestamped project snapshots in Finder")
                 }
             }
@@ -524,8 +537,13 @@ private struct ProjectInspector: View {
                         if store.project.tracks.allSatisfy({ $0.clips.isEmpty }), let asset = store.selectedAsset {
                             ForEach(asset.streams.filter { $0.kind == .video && $0.videoFormat != nil }, id: \.index) { stream in
                                 if let format = stream.videoFormat {
-                                    Button("Match \(stream.label ?? "video"): \(format.width) × \(format.height), \(format.frameRate.editableText) fps") {
-                                        store.matchSequenceToSelectedSource(streamIndex: stream.index)
+                                    HStack {
+                                        Text("\(format.width) × \(format.height) · \(format.frameRate.editableText) fps")
+                                            .font(.caption).foregroundStyle(.secondary)
+                                        Spacer()
+                                        Button("Match sequence to \(stream.label ?? "video")", systemImage: "arrow.down.left.and.arrow.up.right") {
+                                            store.matchSequenceToSelectedSource(streamIndex: stream.index)
+                                        }.labelStyle(.iconOnly).help("Match sequence to \(stream.label ?? "video"): \(format.width) × \(format.height), \(format.frameRate.editableText) fps")
                                     }
                                 }
                             }
@@ -536,11 +554,12 @@ private struct ProjectInspector: View {
                         }
                         numericField("Height", text: $height)
                         numericField("Frames / second", text: $frameRate)
-                        Menu("Frame rate presets") {
+                        Menu {
                             ForEach(["24", "25", "30", "50", "60", "24000/1001", "30000/1001", "60000/1001"], id: \.self) { rate in
                                 Button(rate) { frameRate = rate }
                             }
-                        }
+                        } label: { Label("Frame rate presets", systemImage: "list.bullet") }
+                        .labelStyle(.iconOnly).help("Frame rate presets")
                         Text("Enter an exact fraction, integer or decimal. Use 30000/1001 for 29.97 fps drop frame.")
                             .font(.caption).foregroundStyle(.secondary)
                         numericField("Audio sample rate (Hz)", text: $audioSampleRate)
@@ -579,7 +598,8 @@ private struct ProjectInspector: View {
                     GroupBox("Source file") {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(asset.originalURL?.path ?? "No file reference").font(.caption).textSelection(.enabled)
-                            Button("Relink media…", action: store.relinkSelectedAsset)
+                            Button("Relink media…", systemImage: "link", action: store.relinkSelectedAsset)
+                                .labelStyle(.iconOnly).help("Relink source media")
                         }.frame(maxWidth: .infinity, alignment: .leading).padding(5)
                     }
                 }
