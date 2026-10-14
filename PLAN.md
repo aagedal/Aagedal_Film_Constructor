@@ -33,14 +33,18 @@ broader sequence-engine path; it still needs redistributable dependency packagin
   at 24, 24000/1001, 30000/1001 and 60000/1001; preserve rational trim boundaries.
 - [x] Qualify generated same-rate mono/stereo PCM and AAC decoded audio mixes
   against FFmpeg within explicit amplitude bounds; fix initial delayed-clip gain.
+- [x] Exercise generated AAC cuts one sample before/at/after an interior packet
+  boundary at matching rates; reject cross-rate system audio after decoded
+  resampling parity failures. AAC priming/end padding remains unqualified.
 - [ ] Qualify broader real-world streams (open-GOP HEVC random access currently
-  fails), compressed-audio boundaries/resampling, hardware synchronization and
-  signed sandbox media grants.
+  fails), broader compressed-audio boundaries and faithful resampling, hardware
+  synchronization and signed sandbox media grants.
 - [ ] Package the native FFmpeg runtime to extend preview to stills, explicit
   channel mapping, gain above unity and broader formats.
 
 System preview currently accepts video and whole mono/stereo audio streams whose
-layout matches the sequence, with identity routing and gain up to unity. Audio
+layout and actual sample rate match the sequence, with identity routing and gain
+up to unity. Audio
 fades/crossfades use bounded piecewise volume ramps, so nonlinear fades are an
 approximation rather than sample-exact export parity. Still-image clips and
 unsupported selections fail visibly. Native-enabled development builds retain
@@ -1775,3 +1779,32 @@ launch-performance claim has been validated yet.
 - See [audio mix evidence](docs/evidence/system-audio-20261014/README.md) and
   [open-GOP diagnosis](docs/evidence/system-open-gop-20261014/README.md).
   Physical synchronization, signed sandbox grants and native runtime packaging remain open.
+
+
+### System audio boundary admission and native packaging checkpoint (2026-10-14)
+
+- Extended decoded audio evidence to 104 cases. All 52 matching-rate PCM/AAC
+  cases pass unchanged amplitude bounds, including 12 AAC starts one sample
+  before/at/after an interior 1,024-sample packet boundary. All 52 cross-rate
+  mixes fail the same fidelity requirements; retained phase diagnostics show
+  interior disagreement as well as cut-edge transients.
+- System preview checks actual audio format descriptions and refuses differing
+  or unknown source sample rates with an instruction to match the sequence rate
+  or normalize media. The final proof decodes all 52 same-rate cases and verifies
+  all 52 expected cross-rate refusals. Faithful resampling remains open.
+- Added explicit native development app packaging: recursive dylib discovery,
+  alias deduplication, collision/ambiguity rejection, thin-architecture checks,
+  local-rpath removal, load-command relocation, hashes/deployment metadata,
+  staged publication, ad-hoc signing and complete bundle signature verification.
+- The packaged production controller passes original/proxy frame parity,
+  nonzero switching, exact seeks, sample-clock play/pause, edit/replay and close
+  with developer loader paths cleared. Actual dyld observations confirm the
+  bundled runtime and no Homebrew/build dependencies. The local 17-library closure
+  needs macOS 27 and unreviewed source/notices, so shipping Xcode integration,
+  macOS 14 compatibility and release certification remain open.
+- Verification: Python suite, 100 core tests (two skipped), workspace smokes,
+  unsigned Debug app build, expanded host audio proof, relocated host controller
+  smoke and six packaging regressions pass. Read-only subagent review led to
+  staging-overlap and universal-binary refusal regressions.
+- See [audio boundary/resampling evidence](docs/evidence/system-audio-resampling-20261014/README.md)
+  and [native packaging evidence](docs/evidence/native-runtime-packaging-20261014/README.md).

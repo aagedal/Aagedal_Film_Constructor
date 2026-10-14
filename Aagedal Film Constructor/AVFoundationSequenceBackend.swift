@@ -101,6 +101,18 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             if case .video = component.selection { expectedType = .video } else { expectedType = .audio }
             guard source.mediaType == expectedType,
                   video || source.mediaType == .audio else { throw Self.unsupported("Selected stream type does not match the clip.") }
+            if !video {
+                let descriptions = try await source.load(.formatDescriptions)
+                // AVFoundation's composition resampler shifts sample phase and
+                // smooths cut boundaries differently from the canonical render.
+                // Admit only the same-rate subset qualified against that render.
+                guard !descriptions.isEmpty, descriptions.allSatisfy({ description in
+                    guard let format = CMAudioFormatDescriptionGetStreamBasicDescription(description) else { return false }
+                    return format.pointee.mSampleRate == Double(plan.settings.audioSampleRate)
+                }) else {
+                    throw Self.unsupported("System preview requires audio at the sequence sample rate (\(plan.settings.audioSampleRate) Hz). \(url.lastPathComponent) uses a different or unknown sample rate. Match the sequence rate or use normalized media.")
+                }
+            }
             guard let track = composition.addMutableTrack(withMediaType: source.mediaType, preferredTrackID: kCMPersistentTrackID_Invalid) else {
                 throw Self.unsupported("Could not create a sequence preview track.")
             }

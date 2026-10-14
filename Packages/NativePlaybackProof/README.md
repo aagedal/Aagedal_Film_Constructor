@@ -195,3 +195,17 @@ or device-change qualification. It permits validated
 the transport, then displays the replacement's first frame. Audio format changes
 require creating a new live monitor. Surround routing and hardware layout
 adaptation have not been qualified.
+
+## Relocated development app bundle
+
+The opt-in controller runner can now make a separate self-contained development
+app with explicit notices and provenance. Add `--package-runtime-notices` and
+`--package-runtime-provenance` to `scripts/sequence-monitor-native-smoke.py` (with
+`--build-workspace` for the editor). `scripts/package-native-runtime.py` discovers
+and relocates the complete dylib closure into `Contents/Frameworks`, removes local
+rpaths, records hashes/architectures/deployment versions and ad-hoc signs the
+bundle. A second controller smoke runs with developer loader paths cleared and
+checks actual dyld load observations. It never replaces shipping dependencies.
+See [packaging evidence](../../docs/evidence/native-runtime-packaging-20261014/README.md).
+The locally tested dependency closure requires macOS 27 and has unreviewed
+attribution/notices; a compatible attributed distribution remains required.

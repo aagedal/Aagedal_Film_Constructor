@@ -10,96 +10,131 @@ import EditorCore
         for format in formats {
             for channels in [1, 2] {
                 let layout: ChannelLayout = channels == 1 ? .mono : .stereo
-                for rate in [44100, 48000] {
-                    let url = root.appendingPathComponent("source-\(channels)-\(rate)." + (format == "pcm" ? "wav" : "m4a"))
-                    let source = AVURLAsset(url: url)
-                    let tracks = try await source.load(.tracks)
-                    let index = tracks.firstIndex { $0.mediaType == .audio }!
-                    if format == "aac" {
-                        try decodeSource(asset: source, track: tracks[index], to: root.appendingPathComponent("source-\(channels)-\(rate)-system.f32"))
-                    }
-                    let asset = MediaAsset(name: "Distinct channels", originalURL: url, duration: try RationalTime(2),
-                        streams: [MediaStream(index: index, kind: .audio, audioLayout: layout)])
-                    let selection = ClipSelection.audio(.init(channels: (0..<channels).map {
-                        .init(streamIndex: index, channelIndex: $0)
-                    }, layout: layout))
-                    let template = TrackTemplate(kind: .audio, audioLayout: layout, gain: 0.65)
-                    let family = TrackFamily(baseName: "Audio", template: template)
-                    for mode in ["constant", "linear", "equal-power", "overlapping-fades", "crossfade"] {
-                        func time(_ samples: Int64) throws -> RationalTime { try RationalTime(samples, Int64(rate)) }
-                        let length: Int64 = 35003
-                        var clip = TimelineClip(assetID: asset.id,
-                            sourceRange: try TimeRange(start: time(12001), duration: time(length)),
-                            timelineStart: try time(6001), selection: selection)
-                        if mode != "constant" && mode != "crossfade" {
-                            let curve: AudioFadeCurve = mode == "linear" ? .linear : .equalPower
-                            let edge: Int64 = mode == "overlapping-fades" ? 24007 : 12007
-                            clip.fadeIn = .init(duration: try time(edge), curve: curve)
-                            clip.fadeOut = .init(duration: try time(edge), curve: curve)
+                for sourceRate in [44100, 48000] {
+                    let rates = CommandLine.arguments.contains("--include-resampling") ? [sourceRate, sourceRate == 44100 ? 48000 : 44100] : [sourceRate]
+                    for rate in rates {
+                        let url = root.appendingPathComponent("source-\(channels)-\(sourceRate)." + (format == "pcm" ? "wav" : "m4a"))
+                        let source = AVURLAsset(url: url)
+                        let tracks = try await source.load(.tracks)
+                        let index = tracks.firstIndex { $0.mediaType == .audio }!
+                        if format == "aac" && rate == sourceRate {
+                            try decodeSource(asset: source, track: tracks[index], to: root.appendingPathComponent("source-\(channels)-\(sourceRate)-system.f32"))
                         }
-                        var project = Project(settings: try SequenceSettings(width: 80, height: 48,
-                            frameRate: FrameRate(24), audioSampleRate: rate, audioLayout: layout), assets: [asset],
-                            families: [family], tracks: [TimelineTrack(familyID: family.id, template: template, clips: [clip])])
-                        if mode == "crossfade" {
-                            let incoming = TimelineClip(assetID: asset.id,
-                                sourceRange: try TimeRange(start: time(16003), duration: time(22001)),
-                                timelineStart: try clip.timelineRange().end(), selection: selection)
-                            project.tracks[0].clips.append(incoming)
-                            project.audioCrossfades = [AudioCrossfade(outgoingClipID: clip.id,
-                                incomingClipID: incoming.id, duration: try time(12008), curve: .equalPower)]
+                        if rate != sourceRate {
+                            try decodeSource(asset: source, track: tracks[index],
+                                to: root.appendingPathComponent("\(format)-source-\(channels)-\(sourceRate)-to-\(rate)-system.f32"), sampleRate: rate)
                         }
-                        // A muted tail establishes a real trailing picture/audio gap.
-                        let silentTemplate = TrackTemplate(kind: .audio, audioLayout: layout, gain: 0)
-                        let end = try TimelineRenderPlan(project: project).duration
-                        let tail = TimelineClip(assetID: asset.id,
-                            sourceRange: try TimeRange(start: .zero, duration: time(2001)),
-                            timelineStart: try end.adding(time(3001)), selection: selection)
-                        project.tracks.append(TimelineTrack(familyID: family.id, template: silentTemplate, clips: [tail]))
-                        let name = "\(format)-\(mode)-\(channels)-\(rate)"
-                        let plan = try TimelineRenderPlan(project: project)
-                        let command = try FFmpegRenderCompiler.compile(plan, outputURL: root.appendingPathComponent(name + "-reference.mov"))
-                        let backend = try AVFoundationSequenceBackend(project: project, videoProxies: [:])
-                        let item = try await backend.makePlayerItem()
-                        let reader = try AVAssetReader(asset: item.asset)
-                        let compositionTracks = try await item.asset.loadTracks(withMediaType: .audio)
-                        let output = AVAssetReaderAudioMixOutput(audioTracks: compositionTracks, audioSettings: [
-                            AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: rate,
-                            AVNumberOfChannelsKey: channels, AVLinearPCMBitDepthKey: 32,
-                            AVLinearPCMIsFloatKey: true, AVLinearPCMIsNonInterleaved: false,
-                            AVLinearPCMIsBigEndianKey: false])
-                        output.audioMix = item.audioMix
-                        guard reader.canAdd(output) else { throw NSError(domain: "Cannot add mix output", code: 1) }
-                        reader.add(output)
-                        guard reader.startReading() else { throw reader.error! }
-                        // Preserve timestamps; empty edit ranges may have no buffers.
-                        var samples = [Float](repeating: 0, count: Int(command.audioSamples) * channels)
-                        var covered = Set<Int>()
-                        while let buffer = output.copyNextSampleBuffer() {
-                            guard let block = CMSampleBufferGetDataBuffer(buffer) else { throw NSError(domain: "Missing PCM block", code: 1) }
-                            let frame = CMTimeConvertScale(CMSampleBufferGetPresentationTimeStamp(buffer), timescale: Int32(rate), method: .roundHalfAwayFromZero).value
-                            let count = CMSampleBufferGetNumSamples(buffer)
-                            guard frame >= 0, frame + Int64(count) <= command.audioSamples else {
-                                throw NSError(domain: "Mix buffer outside exact timeline: \(frame), \(count), \(command.audioSamples)", code: 1)
+                        let asset = MediaAsset(name: "Distinct channels", originalURL: url, duration: try RationalTime(2),
+                            streams: [MediaStream(index: index, kind: .audio, audioLayout: layout)])
+                        let selection = ClipSelection.audio(.init(channels: (0..<channels).map {
+                            .init(streamIndex: index, channelIndex: $0)
+                        }, layout: layout))
+                        let template = TrackTemplate(kind: .audio, audioLayout: layout, gain: 0.65)
+                        let family = TrackFamily(baseName: "Audio", template: template)
+                        let modes = ["constant", "linear", "equal-power", "overlapping-fades", "crossfade"] +
+                            (format == "aac" && CommandLine.arguments.contains("--include-packet-cuts") ? ["packet-before", "packet-at", "packet-after"] : [])
+                        for mode in modes {
+                            func time(_ samples: Int64) throws -> RationalTime { try RationalTime(samples, Int64(rate)) }
+                            let length: Int64 = 35003
+                            // AAC-LC access units contain 1024 decoded frames. At cross rates,
+                            // test the nearest representable output sample and its neighbours.
+                            let packet = Int64((Double(12 * 1024 * rate) / Double(sourceRate)).rounded())
+                            let sourceStart: Int64 = mode == "packet-before" ? packet - 1 : mode == "packet-at" ? packet : mode == "packet-after" ? packet + 1 : 12001
+                            var clip = TimelineClip(assetID: asset.id,
+                                sourceRange: try TimeRange(start: time(sourceStart), duration: time(length)),
+                                timelineStart: try time(6001), selection: selection)
+                            if mode != "constant" && mode != "crossfade" && !mode.hasPrefix("packet-") {
+                                let curve: AudioFadeCurve = mode == "linear" ? .linear : .equalPower
+                                let edge: Int64 = mode == "overlapping-fades" ? 24007 : 12007
+                                clip.fadeIn = .init(duration: try time(edge), curve: curve)
+                                clip.fadeOut = .init(duration: try time(edge), curve: curve)
                             }
-                            guard CMBlockBufferGetDataLength(block) == count * channels * MemoryLayout<Float>.size else {
-                                throw NSError(domain: "Unexpected PCM packing", code: 1)
+                            var project = Project(settings: try SequenceSettings(width: 80, height: 48,
+                                frameRate: FrameRate(24), audioSampleRate: rate, audioLayout: layout), assets: [asset],
+                                families: [family], tracks: [TimelineTrack(familyID: family.id, template: template, clips: [clip])])
+                            if mode == "crossfade" {
+                                let incoming = TimelineClip(assetID: asset.id,
+                                    sourceRange: try TimeRange(start: time(16003), duration: time(22001)),
+                                    timelineStart: try clip.timelineRange().end(), selection: selection)
+                                project.tracks[0].clips.append(incoming)
+                                project.audioCrossfades = [AudioCrossfade(outgoingClipID: clip.id,
+                                    incomingClipID: incoming.id, duration: try time(12008), curve: .equalPower)]
                             }
-                            var values = [Float](repeating: 0, count: count * channels)
-                            let result = values.withUnsafeMutableBytes {
-                                CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: $0.count, destination: $0.baseAddress!)
+                            // A muted tail establishes a real trailing picture/audio gap.
+                            let silentTemplate = TrackTemplate(kind: .audio, audioLayout: layout, gain: 0)
+                            let end = try TimelineRenderPlan(project: project).duration
+                            let tail = TimelineClip(assetID: asset.id,
+                                sourceRange: try TimeRange(start: .zero, duration: time(2001)),
+                                timelineStart: try end.adding(time(3001)), selection: selection)
+                            project.tracks.append(TimelineTrack(familyID: family.id, template: silentTemplate, clips: [tail]))
+                            let suffix = rate == sourceRate ? "\(rate)" : "\(sourceRate)-to-\(rate)"
+                            let name = "\(format)-\(mode)-\(channels)-\(suffix)"
+                            let plan = try TimelineRenderPlan(project: project)
+                            let command = try FFmpegRenderCompiler.compile(plan, outputURL: root.appendingPathComponent(name + "-reference.mov"))
+                            let backend = try AVFoundationSequenceBackend(project: project, videoProxies: [:])
+                            let item: AVPlayerItem
+                            do {
+                                item = try await backend.makePlayerItem()
+                            } catch {
+                                guard CommandLine.arguments.contains("--expect-resampling-rejection"), rate != sourceRate,
+                                      error.localizedDescription.hasPrefix("System preview requires audio at the sequence sample rate") else { throw error }
+                                observations.append(["case": name, "channels": channels, "sampleRate": rate,
+                                    "sourceSampleRate": sourceRate, "frames": command.audioSamples,
+                                    "sourceStartOutputSample": sourceStart, "sourceStartTime": "\(sourceStart)/\(rate)",
+                                    "aacPacketFrames": format == "aac" ? 1024 : 0,
+                                    "nearestPacketBoundaryOutputSample": packet,
+                                    "rejected": true, "rejectionReason": error.localizedDescription])
+                                await backend.close()
+                                continue
                             }
-                            guard result == kCMBlockBufferNoErr else { throw NSError(domain: "PCM copy", code: Int(result)) }
-                            for offset in 0..<count {
-                                guard covered.insert(Int(frame) + offset).inserted else { throw NSError(domain: "Overlapping mix buffers", code: 1) }
+                            if CommandLine.arguments.contains("--expect-resampling-rejection") && rate != sourceRate {
+                                throw NSError(domain: "Cross-rate source unexpectedly accepted", code: 1)
                             }
-                            samples.replaceSubrange(Int(frame) * channels..<(Int(frame) + count) * channels, with: values)
+                            let reader = try AVAssetReader(asset: item.asset)
+                            let compositionTracks = try await item.asset.loadTracks(withMediaType: .audio)
+                            let output = AVAssetReaderAudioMixOutput(audioTracks: compositionTracks, audioSettings: [
+                                AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: rate,
+                                AVNumberOfChannelsKey: channels, AVLinearPCMBitDepthKey: 32,
+                                AVLinearPCMIsFloatKey: true, AVLinearPCMIsNonInterleaved: false,
+                                AVLinearPCMIsBigEndianKey: false])
+                            output.audioMix = item.audioMix
+                            guard reader.canAdd(output) else { throw NSError(domain: "Cannot add mix output", code: 1) }
+                            reader.add(output)
+                            guard reader.startReading() else { throw reader.error! }
+                            // Preserve timestamps; empty edit ranges may have no buffers.
+                            var samples = [Float](repeating: 0, count: Int(command.audioSamples) * channels)
+                            var covered = Set<Int>()
+                            while let buffer = output.copyNextSampleBuffer() {
+                                guard let block = CMSampleBufferGetDataBuffer(buffer) else { throw NSError(domain: "Missing PCM block", code: 1) }
+                                let frame = CMTimeConvertScale(CMSampleBufferGetPresentationTimeStamp(buffer), timescale: Int32(rate), method: .roundHalfAwayFromZero).value
+                                let count = CMSampleBufferGetNumSamples(buffer)
+                                guard frame >= 0, frame + Int64(count) <= command.audioSamples else {
+                                    throw NSError(domain: "Mix buffer outside exact timeline: \(frame), \(count), \(command.audioSamples)", code: 1)
+                                }
+                                guard CMBlockBufferGetDataLength(block) == count * channels * MemoryLayout<Float>.size else {
+                                    throw NSError(domain: "Unexpected PCM packing", code: 1)
+                                }
+                                var values = [Float](repeating: 0, count: count * channels)
+                                let result = values.withUnsafeMutableBytes {
+                                    CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: $0.count, destination: $0.baseAddress!)
+                                }
+                                guard result == kCMBlockBufferNoErr else { throw NSError(domain: "PCM copy", code: Int(result)) }
+                                for offset in 0..<count {
+                                    guard covered.insert(Int(frame) + offset).inserted else { throw NSError(domain: "Overlapping mix buffers", code: 1) }
+                                }
+                                samples.replaceSubrange(Int(frame) * channels..<(Int(frame) + count) * channels, with: values)
+                            }
+                            guard reader.status == .completed else { throw reader.error ?? NSError(domain: "Reader incomplete", code: 1) }
+                            try samples.withUnsafeBytes { try Data($0).write(to: root.appendingPathComponent(name + "-system.f32")) }
+                            observations.append(["case": name, "channels": channels, "sampleRate": rate,
+                                "sourceSampleRate": sourceRate, "sourceStartOutputSample": sourceStart,
+                                "sourceStartTime": "\(sourceStart)/\(rate)",
+                                "aacPacketFrames": format == "aac" ? 1024 : 0,
+                                "nearestPacketBoundaryOutputSample": packet,
+                                "frames": command.audioSamples, "decodedFrames": covered.count,
+                                "arguments": command.arguments])
+                            await backend.close()
                         }
-                        guard reader.status == .completed else { throw reader.error ?? NSError(domain: "Reader incomplete", code: 1) }
-                        try samples.withUnsafeBytes { try Data($0).write(to: root.appendingPathComponent(name + "-system.f32")) }
-                        observations.append(["case": name, "channels": channels, "sampleRate": rate,
-                            "frames": command.audioSamples, "decodedFrames": covered.count,
-                            "arguments": command.arguments])
-                        await backend.close()
                     }
                 }
             }
@@ -108,12 +143,14 @@ import EditorCore
             .write(to: root.appendingPathComponent("mixes.json"))
     }
     /// Isolate codec differences from composition/gain/envelope differences.
-    static func decodeSource(asset: AVAsset, track: AVAssetTrack, to url: URL) throws {
+    static func decodeSource(asset: AVAsset, track: AVAssetTrack, to url: URL, sampleRate: Int? = nil) throws {
         let reader = try AVAssetReader(asset: asset)
         reader.timeRange = CMTimeRange(start: .zero, duration: CMTime(value: 2, timescale: 1))
-        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+        var settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatLinearPCM, AVLinearPCMIsFloatKey: true,
-            AVLinearPCMBitDepthKey: 32, AVLinearPCMIsNonInterleaved: false])
+            AVLinearPCMBitDepthKey: 32, AVLinearPCMIsNonInterleaved: false]
+        if let sampleRate { settings[AVSampleRateKey] = sampleRate }
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: settings)
         guard reader.canAdd(output) else { throw NSError(domain: "Cannot add source output", code: 1) }
         reader.add(output)
         guard reader.startReading() else { throw reader.error! }

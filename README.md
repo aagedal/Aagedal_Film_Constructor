@@ -209,7 +209,8 @@ video/audio to the timeline, select **Sequence** in the viewer, then play, scrub
 or step frames. Trims, upper video precedence, gaps, fit/fill/no scaling, verified
 proxy picture with original audio, and static audio gain up to unity use the
 shared timeline plan. Whole mono/stereo audio streams must match the sequence
-layout and use identity routing. Fade and crossfade curves use approximate volume
+layout and sample rate and use identity routing. Mismatched or unknown source
+sample rates are refused with guidance to match sequence settings or normalize media. Fade and crossfade curves use approximate volume
 ramps. Unsupported formats, still clips, channel maps and boosted audio require
 the native FFmpeg runtime and report a visible preview error.
 
@@ -222,5 +223,13 @@ black and remains unqualified. See [system preview evidence](docs/evidence/syste
 Generated PCM/AAC mono/stereo decoded audio mixes now pass reference waveform
 checks at matching 44.1/48 kHz within explicit amplitude bounds. Delayed clips
 apply their initial gain/fade before media begins. See [audio mix evidence](docs/evidence/system-audio-20261014/README.md).
-Compressed-audio boundaries, resampling, broader real-world media, signed sandbox
-and measured A/V timing qualification remain open.
+Generated AAC cuts around an interior packet boundary now pass at matching rates;
+AAC priming/end padding and broader compressed codecs remain unqualified. Cross-rate
+resampling failed decoded parity and is explicitly refused by system preview. See
+[audio boundary and resampling evidence](docs/evidence/system-audio-resampling-20261014/README.md).
+Broader real-world media, signed sandbox and measured A/V timing remain open.
+The opt-in native controller now also passes from a self-contained ad-hoc
+development bundle with relocated dependencies and developer loader paths cleared.
+Its locally selected libraries require macOS 27; shipping integration and compatible
+attributed release dependencies remain open. See
+[native packaging evidence](docs/evidence/native-runtime-packaging-20261014/README.md).

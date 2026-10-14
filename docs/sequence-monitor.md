@@ -126,3 +126,14 @@ position; it does not advance the playhead using elapsed wall time.
 
 See [sequence proxy evidence](evidence/sequence-proxies-20261013/README.md) for
 runtime, controller and app-resolution verification and remaining limits.
+
+
+System audio admission now requires each selected source's actual sample rate to
+match the sequence sample rate. Unknown or differing formats fail visibly; choose
+matching sequence settings or normalized media. Generated same-rate AAC starts
+around an interior packet boundary pass, while cross-rate mixes fail decoded
+fidelity bounds. See [boundary/resampling evidence](evidence/system-audio-resampling-20261014/README.md).
+The opt-in native workspace runner can package a separate self-contained ad-hoc
+development app with explicit notices/provenance. See
+[native packaging evidence](evidence/native-runtime-packaging-20261014/README.md)
+for the runner flags, loader checks and remaining release/macOS compatibility gaps.

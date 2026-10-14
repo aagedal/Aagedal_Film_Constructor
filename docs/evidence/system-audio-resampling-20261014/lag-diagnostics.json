@@ -1,0 +1,142 @@
+[
+  {
+    "case": "pcm-constant-1-44100-to-48000",
+    "bestIntegerLag": -2,
+    "bestIntegerLagRMSError": 0.0012641407196457859,
+    "diagnosticInteriorRMSError": 0.005617308920605116,
+    "firstOrderFractionalLag": -1.6318811116920755
+  },
+  {
+    "case": "pcm-constant-1-48000-to-44100",
+    "bestIntegerLag": 0,
+    "bestIntegerLagRMSError": 0.0013346753937656694,
+    "diagnosticInteriorRMSError": 0.0013346753937656694,
+    "firstOrderFractionalLag": 0.3563562086147263
+  },
+  {
+    "case": "pcm-constant-2-44100-to-48000",
+    "bestIntegerLag": -2,
+    "bestIntegerLagRMSError": 0.002247993661815452,
+    "diagnosticInteriorRMSError": 0.009982475314210495,
+    "firstOrderFractionalLag": -1.6290360382651068
+  },
+  {
+    "case": "pcm-constant-2-48000-to-44100",
+    "bestIntegerLag": 0,
+    "bestIntegerLagRMSError": 0.0023726442166817547,
+    "diagnosticInteriorRMSError": 0.0023726442166817547,
+    "firstOrderFractionalLag": 0.35673887089003353
+  },
+  {
+    "case": "aac-constant-1-44100-to-48000",
+    "bestIntegerLag": -2,
+    "bestIntegerLagRMSError": 0.001263782156425724,
+    "diagnosticInteriorRMSError": 0.0056157140430123055,
+    "firstOrderFractionalLag": -1.6318810001659918
+  },
+  {
+    "case": "aac-packet-before-1-44100-to-48000",
+    "bestIntegerLag": -1,
+    "bestIntegerLagRMSError": 9.357323152568099e-05,
+    "diagnosticInteriorRMSError": 0.0035317027109097094,
+    "firstOrderFractionalLag": -1.0271837602076412
+  },
+  {
+    "case": "aac-packet-at-1-44100-to-48000",
+    "bestIntegerLag": -1,
+    "bestIntegerLagRMSError": 0.0002105207942746268,
+    "diagnosticInteriorRMSError": 0.0032277356873109918,
+    "firstOrderFractionalLag": -0.9387968694541823
+  },
+  {
+    "case": "aac-packet-after-1-44100-to-48000",
+    "bestIntegerLag": -1,
+    "bestIntegerLagRMSError": 0.0005146044854245161,
+    "diagnosticInteriorRMSError": 0.0029237577689187983,
+    "firstOrderFractionalLag": -0.8503978254056506
+  },
+  {
+    "case": "aac-constant-1-48000-to-44100",
+    "bestIntegerLag": 0,
+    "bestIntegerLagRMSError": 0.0013345235147694482,
+    "diagnosticInteriorRMSError": 0.0013345235147694482,
+    "firstOrderFractionalLag": 0.35635647254934727
+  },
+  {
+    "case": "aac-packet-before-1-48000-to-44100",
+    "bestIntegerLag": 0,
+    "bestIntegerLagRMSError": 0.0012183121892931417,
+    "diagnosticInteriorRMSError": 0.0012183121892931417,
+    "firstOrderFractionalLag": 0.325103049896704
+  },
+  {
+    "case": "aac-packet-at-1-48000-to-44100",
+    "bestIntegerLag": 0,
+    "bestIntegerLagRMSError": 0.000913736621153198,
+    "diagnosticInteriorRMSError": 0.000913736621153198,
+    "firstOrderFractionalLag": 0.24383097054748298
+  },
+  {
+    "case": "aac-packet-after-1-48000-to-44100",
+    "bestIntegerLag": 0,
+    "bestIntegerLagRMSError": 0.0006091564359505893,
+    "diagnosticInteriorRMSError": 0.0006091564359505893,
+    "firstOrderFractionalLag": 0.16255575717493687
+  },
+  {
+    "case": "aac-constant-2-44100-to-48000",
+    "bestIntegerLag": -2,
+    "bestIntegerLagRMSError": 0.0022549692055049302,
+    "diagnosticInteriorRMSError": 0.010013422664692606,
+    "firstOrderFractionalLag": -1.629030957719126
+  },
+  {
+    "case": "aac-packet-before-2-44100-to-48000",
+    "bestIntegerLag": -1,
+    "bestIntegerLagRMSError": 0.0001668502314771525,
+    "diagnosticInteriorRMSError": 0.006293703157372478,
+    "firstOrderFractionalLag": -1.0271447866646486
+  },
+  {
+    "case": "aac-packet-at-2-44100-to-48000",
+    "bestIntegerLag": -1,
+    "bestIntegerLagRMSError": 0.0003752794100098692,
+    "diagnosticInteriorRMSError": 0.005752078723837527,
+    "firstOrderFractionalLag": -0.9389308184874798
+  },
+  {
+    "case": "aac-packet-after-2-44100-to-48000",
+    "bestIntegerLag": -1,
+    "bestIntegerLagRMSError": 0.000917265685776236,
+    "diagnosticInteriorRMSError": 0.005210410060593989,
+    "firstOrderFractionalLag": -0.850658570441467
+  },
+  {
+    "case": "aac-constant-2-48000-to-44100",
+    "bestIntegerLag": 0,
+    "bestIntegerLagRMSError": 0.0023783316418667893,
+    "diagnosticInteriorRMSError": 0.0023783316418667893,
+    "firstOrderFractionalLag": 0.3567384255315508
+  },
+  {
+    "case": "aac-packet-before-2-48000-to-44100",
+    "bestIntegerLag": 0,
+    "bestIntegerLagRMSError": 0.002174402964921488,
+    "diagnosticInteriorRMSError": 0.002174402964921488,
+    "firstOrderFractionalLag": 0.3254620262183067
+  },
+  {
+    "case": "aac-packet-at-2-48000-to-44100",
+    "bestIntegerLag": 0,
+    "bestIntegerLagRMSError": 0.0016309095574370753,
+    "diagnosticInteriorRMSError": 0.0016309095574370753,
+    "firstOrderFractionalLag": 0.2441138419142124
+  },
+  {
+    "case": "aac-packet-after-2-48000-to-44100",
+    "bestIntegerLag": 0,
+    "bestIntegerLagRMSError": 0.00108734168466248,
+    "diagnosticInteriorRMSError": 0.00108734168466248,
+    "firstOrderFractionalLag": 0.16275073554727035
+  }
+]
