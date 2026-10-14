@@ -12,12 +12,14 @@ import subprocess
 import wave
 
 
-def validate_case_names(mixes, *, aac=False, extra_codecs=False, edges=False, packets=False, resampling=False):
+def validate_case_names(mixes, *, aac=False, extra_codecs=False, edges=False, packets=False, resampling=False, short_fades=False):
     """A missing, duplicated or unexpected matrix case must never yield a passing proof."""
     expected = set()
     formats = ['pcm'] + (['aac'] if aac else []) + (['alac', 'mp3'] if extra_codecs else [])
     for codec in formats:
         modes = ['constant', 'linear', 'equal-power', 'overlapping-fades', 'crossfade']
+        if short_fades:
+            modes += ['short-equal-power', 'short-overlap']
         if codec == 'aac' and packets:
             modes += ['packet-before', 'packet-at', 'packet-after']
         if edges:
@@ -39,6 +41,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('ffmpeg', type=Path)
     parser.add_argument('output', type=Path)
+    parser.add_argument('--include-short-fades', action='store_true', help='Also test sub-5-ms equal-power and overlapping fades')
     parser.add_argument('--include-aac', action='store_true', help='Also qualify compressed AAC fixture decoding')
     parser.add_argument('--include-lossless-and-mp3', action='store_true', help='Also qualify generated ALAC/M4A and gapless MP3 sources')
     parser.add_argument('--include-edge-cuts', action='store_true', help='Also test source head, final sample, and whole-source boundaries')
@@ -115,7 +118,7 @@ def main():
          repo / 'Aagedal Film Constructor/AVFoundationSequenceBackend.swift',
          repo / 'Aagedal Film Constructor/SequencePlaybackController.swift',
          repo / 'scripts/system-audio-mix-proof.swift', '-o', root / 'mix-proof'], 'mix-build.log')
-    run([root / 'mix-proof', root, *[flag for flag, enabled in [('--include-aac', args.include_aac), ('--include-lossless-and-mp3', args.include_lossless_and_mp3), ('--include-edge-cuts', args.include_edge_cuts), ('--expect-mp3-rejection', args.expect_mp3_rejection), ('--include-resampling', args.include_resampling), ('--include-packet-cuts', args.include_packet_cuts), ('--expect-resampling-rejection', args.expect_resampling_rejection)] if enabled]], 'mix-decode.log')
+    run([root / 'mix-proof', root, *[flag for flag, enabled in [('--include-short-fades', args.include_short_fades), ('--include-aac', args.include_aac), ('--include-lossless-and-mp3', args.include_lossless_and_mp3), ('--include-edge-cuts', args.include_edge_cuts), ('--expect-mp3-rejection', args.expect_mp3_rejection), ('--include-resampling', args.include_resampling), ('--include-packet-cuts', args.include_packet_cuts), ('--expect-resampling-rejection', args.expect_resampling_rejection)] if enabled]], 'mix-decode.log')
     def floats(path):
         result = array.array('f')
         result.frombytes(path.read_bytes())
@@ -158,7 +161,7 @@ def main():
     cases = []
     mixes = json.loads((root / 'mixes.json').read_text())
     validate_case_names(mixes, aac=args.include_aac, extra_codecs=args.include_lossless_and_mp3,
-                        edges=args.include_edge_cuts, packets=args.include_packet_cuts, resampling=args.include_resampling)
+                        edges=args.include_edge_cuts, packets=args.include_packet_cuts, resampling=args.include_resampling, short_fades=args.include_short_fades)
     for mix in mixes:
         name = mix['case']
         if mix.get('rejected'):
@@ -195,7 +198,8 @@ def main():
         # always includes every sample. This separates kernel edge behaviour
         # from an error persisting throughout the audible clip.
         start = mix['timelineStartSample']
-        interior = errors[(start + 64) * mix['channels']:(start + mix['clipSampleCount'] - 64) * mix['channels']]
+        excluded = min(64, (mix['clipSampleCount'] - 1) // 2)
+        interior = errors[(start + excluded) * mix['channels']:(start + mix['clipSampleCount'] - excluded) * mix['channels']]
         passed = mix['compositionFrames'] == mix['frames'] and mix['extraDecodedFrames'] == 0 and all(math.isfinite(value) for value in system) and all(math.isfinite(value) for value in reference) and maximum <= limit
         observation = dict(case=name, passed=passed, channels=mix['channels'], sampleRate=mix['sampleRate'],
                            sourceSampleRate=mix['sourceSampleRate'], sourceStartOutputSample=mix['sourceStartOutputSample'],
@@ -205,7 +209,7 @@ def main():
                            frames=mix['frames'], decodedFrames=mix['decodedFrames'],
                            compositionFrames=mix['compositionFrames'], extraDecodedFrames=mix['extraDecodedFrames'], maximumExtraAmplitude=mix['maximumExtraAmplitude'],
                            maximumErrorFrame=maximum_index // mix['channels'], maximumErrorChannel=maximum_index % mix['channels'],
-                           interiorMaximumError=max(interior), interiorExcludedFramesPerEdge=64,
+                           interiorMaximumError=max(interior), interiorExcludedFramesPerEdge=excluded,
                            maximumError=maximum, rmsError=rms, maximumErrorLimit=limit,
                            systemSHA256=hashlib.sha256((root / (name + '-system.f32')).read_bytes()).hexdigest(),
                            referenceSHA256=hashlib.sha256(raw.read_bytes()).hexdigest())

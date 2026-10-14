@@ -33,12 +33,13 @@ import EditorCore
                         let template = TrackTemplate(kind: .audio, audioLayout: layout, gain: 0.65)
                         let family = TrackFamily(baseName: "Audio", template: template)
                         let modes = ["constant", "linear", "equal-power", "overlapping-fades", "crossfade"] +
+                            (CommandLine.arguments.contains("--include-short-fades") ? ["short-equal-power", "short-overlap"] : []) +
                             (format == "aac" && CommandLine.arguments.contains("--include-packet-cuts") ? ["packet-before", "packet-at", "packet-after"] : []) +
                             (CommandLine.arguments.contains("--include-edge-cuts") ? ["edge-head", "edge-head-after", "edge-tail-before", "edge-tail", "edge-whole"] +
                                 (format == "aac" ? ["edge-head-inset-before", "edge-head-inset-at", "edge-head-inset-after", "edge-tail-inset-before", "edge-tail-inset-at", "edge-tail-inset-after"] : []) : [])
                         for mode in modes {
                             func time(_ samples: Int64) throws -> RationalTime { try RationalTime(samples, Int64(rate)) }
-                            let length: Int64 = mode == "edge-whole" ? Int64(rate * 2) : 35003
+                            let length: Int64 = mode == "edge-whole" ? Int64(rate * 2) : mode == "short-overlap" ? 97 : 35003
                             // AAC-LC access units contain 1024 decoded frames. At cross rates,
                             // test the nearest representable output sample and its neighbours.
                             let packet = Int64((Double(12 * 1024 * rate) / Double(sourceRate)).rounded())
@@ -64,7 +65,7 @@ import EditorCore
                                 timelineStart: try time(6001), selection: selection)
                             if mode != "constant" && mode != "crossfade" && !mode.hasPrefix("packet-") && !mode.hasPrefix("edge-") {
                                 let curve: AudioFadeCurve = mode == "linear" ? .linear : .equalPower
-                                let edge: Int64 = mode == "overlapping-fades" ? 24007 : 12007
+                                let edge: Int64 = mode == "short-overlap" ? 73 : mode == "short-equal-power" ? 47 : mode == "overlapping-fades" ? 24007 : 12007
                                 clip.fadeIn = .init(duration: try time(edge), curve: curve)
                                 clip.fadeOut = .init(duration: try time(edge), curve: curve)
                             }
@@ -117,10 +118,18 @@ import EditorCore
                             if CommandLine.arguments.contains("--expect-resampling-rejection") && rate != sourceRate {
                                 throw NSError(domain: "Cross-rate source unexpectedly accepted", code: 1)
                             }
-                            guard (backend.previewQualificationNotice != nil) == (format == "aac"),
-                                  format != "aac" || (backend.previewQualificationNotice!.contains("approximate") &&
-                                      backend.previewQualificationNotice!.contains("PCM or ALAC")) else {
-                                throw NSError(domain: "Audio codec qualification notice missing or unexpected", code: 1)
+                            let notice = backend.previewQualificationNotice ?? ""
+                            let curved = try plan.components.contains { component in
+                                if case .audio = component.selection {
+                                    return try AudioFadeRampPlan(duration: component.timelineRange.duration,
+                                        fadeIn: component.fadeIn, fadeOut: component.fadeOut, gain: component.gain).isNonlinear
+                                }
+                                return false
+                            }
+                            guard notice.contains("AAC source-edge") == (format == "aac"),
+                                  notice.contains("Curved or overlapping") == curved,
+                                  notice.contains("Very short audio fades") == mode.hasPrefix("short-") else {
+                                throw NSError(domain: "Audio preview qualification notice missing or unexpected", code: 1)
                             }
                             let reader = try AVAssetReader(asset: item.asset)
                             let compositionTracks = try await item.asset.loadTracks(withMediaType: .audio)

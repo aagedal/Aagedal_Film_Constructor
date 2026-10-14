@@ -1889,3 +1889,25 @@ launch-performance claim has been validated yet.
   open-GOP system random access and measured A/V synchronization remain open.
 - See [native Xcode evidence](docs/evidence/native-xcode-20261014/README.md) and
   [AAC status evidence](docs/evidence/system-compressed-audio-20261014/AAC-preview-notice.md).
+
+
+### System fade-ramp fidelity checkpoint (2026-10-15)
+
+- Replaced fixed 5 ms sampling with bounded curve-based ramp interpolation,
+  splitting at envelope edges and accounting for overlapping fade products.
+  Constant and separate linear regions now need only endpoint knots. A pure
+  core plan records the mathematical volume error independently of engine output.
+- Ramp timing uses a nanosecond timebase and shared rounded endpoints; invalid
+  or collapsed intervals fail visibly. Initial delayed-clip volume is retained.
+- The monitor composes nonlinear/overlapping fade and very-short-fade notices
+  with AAC status, without duplicates, and clears them on unaffected media.
+- All 40 existing generated PCM/AAC mix cases pass unchanged decoded budgets.
+  All 16 new sub-5-ms equal-power/overlap cases fail despite finer interpolation,
+  with maximum sample error 0.148034200. The optional negative matrix deliberately
+  exits nonzero and retains these limits; short-fade playback is visibly approximate.
+- Verification: 73 Python tests (eight optional skips), 103 core XCTest tests
+  (two optional skips), 87 Swift Testing tests, workspace smokes, host live system
+  playback/notice checks and unsigned Debug Xcode app build pass.
+- See [retained fade-ramp evidence](docs/evidence/system-fade-ramps-20261015/README.md).
+  Faithful short fades, wider codecs/resampling, hardware sync, signed media
+  grants and native distribution qualification remain open.

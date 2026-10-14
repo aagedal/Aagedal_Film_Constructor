@@ -31,7 +31,11 @@ Normal Xcode builds use the system AVFoundation backend for timeline preview.
 It consumes the shared render plan with trims, upper-video precedence, black gaps,
 fit/fill/no-scaling and verified proxy picture with original audio. Whole mono/stereo
 streams must match the sequence layout with identity channel routing and gain up
-to unity. Nonlinear fades/crossfades use approximate volume ramps. Still clips,
+to unity. Nonlinear fades/crossfades use curve-based approximate volume ramps,
+with a visible qualification notice. Fades of 5 ms or less also show a warning
+about substantial differences from export; finer ramps do not resolve the system
+renderer's measured short-fade errors. See [fade-ramp evidence](evidence/system-fade-ramps-20261015/README.md).
+Still clips,
 explicit channel maps and boosted gain require the native FFmpeg runtime.
 
 The generated codec/cadence matrix qualifies ProRes/PCM, H.264/AAC and closed-GOP

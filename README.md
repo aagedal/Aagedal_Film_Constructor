@@ -68,6 +68,9 @@ This is the first usable assembly workspace. The viewer has one Source/Sequence 
 Media-bin clicks select Source; timeline clicks and clip/ruler drags select Sequence. Normal Xcode builds use system AVFoundation timeline preview. A broader native
 FFmpeg monitor is available through an explicit local Xcode Debug selection or
 the isolated development workspace harness.
+System preview uses curve-based audio fade ramps and reports approximation
+status, including measured errors for very short fades. See
+[fade-ramp evidence](docs/evidence/system-fade-ramps-20261015/README.md).
 See [sequence monitoring](docs/sequence-monitor.md) for building and exercising
 the enabled app controls. Release runtime/helper packaging remains unfinished.
 The bin supports batch ProRes Proxy/H.264 creation, cancellable verified jobs,
