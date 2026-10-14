@@ -1,0 +1,457 @@
+{
+  "schemaVersion": 1,
+  "libraries": [
+    {
+      "inputPath": "/private/tmp/afc-native-self-contained-proof-20261014/Native Packaging Smoke.app/Contents/MacOS/smoke",
+      "inputSHA256": "9be862075bca23666ac45a9261de41f423bf6a725a0c1d565193ad6a2b9a586b",
+      "bundledPath": "Contents/MacOS/smoke",
+      "dependencies": [
+        "@rpath/libNativePlaybackRuntime.dylib",
+        "@rpath/libavformat.63.1.102.dylib",
+        "@rpath/libavcodec.63.1.102.dylib",
+        "@rpath/libswscale.10.1.102.dylib",
+        "@rpath/libswresample.7.1.102.dylib",
+        "@rpath/libavutil.61.1.102.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/System/Library/Frameworks/AVFoundation.framework/Versions/A/AVFoundation",
+        "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
+        "/System/Library/Frameworks/Combine.framework/Versions/A/Combine",
+        "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+        "/System/Library/Frameworks/CoreImage.framework/Versions/A/CoreImage",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/CryptoKit.framework/Versions/A/CryptoKit",
+        "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+        "/usr/lib/libobjc.A.dylib",
+        "/usr/lib/swift/libswiftAVFoundation.dylib",
+        "/usr/lib/swift/libswiftCore.dylib",
+        "/usr/lib/swift/libswiftCoreAudio.dylib",
+        "/usr/lib/swift/libswiftCoreFoundation.dylib",
+        "/usr/lib/swift/libswiftCoreImage.dylib",
+        "/usr/lib/swift/libswiftCoreMIDI.dylib",
+        "/usr/lib/swift/libswiftDispatch.dylib",
+        "/usr/lib/swift/libswiftIOKit.dylib",
+        "/usr/lib/swift/libswiftMetal.dylib",
+        "/usr/lib/swift/libswiftOSLog.dylib",
+        "/usr/lib/swift/libswiftObjectiveC.dylib",
+        "/usr/lib/swift/libswiftQuartzCore.dylib",
+        "/usr/lib/swift/libswiftSpatial.dylib",
+        "/usr/lib/swift/libswiftUniformTypeIdentifiers.dylib",
+        "/usr/lib/swift/libswiftXPC.dylib",
+        "/usr/lib/swift/libswift_Builtin_float.dylib",
+        "/usr/lib/swift/libswift_Concurrency.dylib",
+        "/usr/lib/swift/libswiftos.dylib",
+        "/usr/lib/swift/libswiftsimd.dylib"
+      ],
+      "originalRpaths": [],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "27.0"
+      ],
+      "buildVersionOutput": "/private/tmp/afc-native-self-contained-proof-20261014/Native Packaging Smoke.app/Contents/MacOS/smoke:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 27.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/lib/libavutil.61.1.102.dylib",
+      "inputSHA256": "0377aea088208e69d29c03caeb960ca395fdbcd646335dc0a87748bfe81f8525",
+      "bundledPath": "Contents/Frameworks/libavutil.61.1.102.dylib",
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libz.1.dylib",
+        "@rpath/libssl.4.dylib",
+        "@rpath/libcrypto.4.dylib",
+        "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/VideoToolbox",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices"
+      ],
+      "originalRpaths": [],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "27.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/lib/libavutil.61.1.102.dylib:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 27.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/openssl@4/4.0.3/lib/libcrypto.4.dylib",
+      "inputSHA256": "eb4e14b7f6ef10df40a60f7a078920c44e6b24be23f76eb1f657142becfeb4e7",
+      "bundledPath": "Contents/Frameworks/libcrypto.4.dylib",
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ],
+      "originalRpaths": [],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "27.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/openssl@4/4.0.3/lib/libcrypto.4.dylib:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 27.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/openssl@4/4.0.3/lib/libssl.4.dylib",
+      "inputSHA256": "d223211e5bc6bfa664a8e066024d026f95f5b571c7b17376312344710d142aa7",
+      "bundledPath": "Contents/Frameworks/libssl.4.dylib",
+      "dependencies": [
+        "@rpath/libcrypto.4.dylib",
+        "/usr/lib/libSystem.B.dylib"
+      ],
+      "originalRpaths": [],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "27.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/openssl@4/4.0.3/lib/libssl.4.dylib:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 27.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/lib/libswresample.7.1.102.dylib",
+      "inputSHA256": "8d35eb7639343a837ac4e97cfe1742a293b9bc514a790e5db822927628122d2f",
+      "bundledPath": "Contents/Frameworks/libswresample.7.1.102.dylib",
+      "dependencies": [
+        "@rpath/libavutil.61.1.102.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libz.1.dylib",
+        "@rpath/libssl.4.dylib",
+        "@rpath/libcrypto.4.dylib",
+        "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/VideoToolbox",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices"
+      ],
+      "originalRpaths": [],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "27.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/lib/libswresample.7.1.102.dylib:\nLoad command 9\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 27.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/lib/libswscale.10.1.102.dylib",
+      "inputSHA256": "518909dce64a42971a838278cf43ba2bd77bd172ba0eccb3c6ba273e25be7cda",
+      "bundledPath": "Contents/Frameworks/libswscale.10.1.102.dylib",
+      "dependencies": [
+        "@rpath/libavutil.61.1.102.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libz.1.dylib",
+        "@rpath/libssl.4.dylib",
+        "@rpath/libcrypto.4.dylib",
+        "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/VideoToolbox",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices"
+      ],
+      "originalRpaths": [],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "27.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/lib/libswscale.10.1.102.dylib:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 27.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/lib/libavcodec.63.1.102.dylib",
+      "inputSHA256": "887a9775777c2fdb45228fb7776c3f040e4cf56a0cce2b773ae1b978e26dce5a",
+      "bundledPath": "Contents/Frameworks/libavcodec.63.1.102.dylib",
+      "dependencies": [
+        "@rpath/libswresample.7.1.102.dylib",
+        "@rpath/libavutil.61.1.102.dylib",
+        "@rpath/libvpx.12.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "@rpath/liblzma.5.dylib",
+        "@rpath/libdav1d.7.dylib",
+        "/System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox",
+        "@rpath/libmp3lame.0.dylib",
+        "@rpath/libopus.0.dylib",
+        "@rpath/libSvtAv1Enc.4.2.0.dylib",
+        "@rpath/libx264.165.dylib",
+        "@rpath/libx265.217.dylib",
+        "/usr/lib/libz.1.dylib",
+        "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/VideoToolbox",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+        "@rpath/libssl.4.dylib",
+        "@rpath/libcrypto.4.dylib"
+      ],
+      "originalRpaths": [],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "27.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/lib/libavcodec.63.1.102.dylib:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 27.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/x265/4.3/lib/libx265.217.dylib",
+      "inputSHA256": "b3a50884e2d9cecf57fd29c4fba2c4e47b37cd7b4d7ff5d920919efca038d9ae",
+      "bundledPath": "Contents/Frameworks/libx265.217.dylib",
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libc++.1.dylib"
+      ],
+      "originalRpaths": [
+        "@loader_path/../lib"
+      ],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "26.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/x265/4.3/lib/libx265.217.dylib:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 26.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/x264/r3222/lib/libx264.165.dylib",
+      "inputSHA256": "dd765b37f50d44d3ce9593c2c1c2424b48bedac01c7999e93cef87e018bc65b4",
+      "bundledPath": "Contents/Frameworks/libx264.165.dylib",
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ],
+      "originalRpaths": [],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "26.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/x264/r3222/lib/libx264.165.dylib:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 26.0\n      sdk 26.0\n   ntools 1\n     tool LD\n  version 1221.4\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/svt-av1/4.2.0/lib/libSvtAv1Enc.4.2.0.dylib",
+      "inputSHA256": "bac7066bcd47c31971f61e57cdd0eccabb2ec2ef3ca5aa1e08bd5ca51cd54608",
+      "bundledPath": "Contents/Frameworks/libSvtAv1Enc.4.2.0.dylib",
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ],
+      "originalRpaths": [
+        "@loader_path/../lib"
+      ],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "26.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/svt-av1/4.2.0/lib/libSvtAv1Enc.4.2.0.dylib:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 26.0\n      sdk 26.4\n   ntools 1\n     tool LD\n  version 1266.8\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/opus/1.6.1/lib/libopus.0.dylib",
+      "inputSHA256": "98dcd3cc62c6cf913b789051536ab246c56cc163c74bd8b4968ac467ec74b68b",
+      "bundledPath": "Contents/Frameworks/libopus.0.dylib",
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ],
+      "originalRpaths": [],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "26.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/opus/1.6.1/lib/libopus.0.dylib:\nLoad command 9\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 26.0\n      sdk 26.2\n   ntools 1\n     tool LD\n  version 1230.1\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/lame/4.0/lib/libmp3lame.0.dylib",
+      "inputSHA256": "5150d16a2b09a8f6f3475dcc837fdf5435d4f97e817ca12306fec8da5614647c",
+      "bundledPath": "Contents/Frameworks/libmp3lame.0.dylib",
+      "dependencies": [
+        "@rpath/libmpg123.0.dylib",
+        "/usr/lib/libSystem.B.dylib"
+      ],
+      "originalRpaths": [],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "26.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/lame/4.0/lib/libmp3lame.0.dylib:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 26.0\n      sdk 26.4\n   ntools 1\n     tool LD\n  version 1266.8\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/mpg123/1.33.7/lib/libmpg123.0.dylib",
+      "inputSHA256": "435f7bc76659569772b1a90b049a28fe17bc0d605525f1061f830c119807718a",
+      "bundledPath": "Contents/Frameworks/libmpg123.0.dylib",
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ],
+      "originalRpaths": [],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "26.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/mpg123/1.33.7/lib/libmpg123.0.dylib:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 26.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/dav1d/1.5.4/lib/libdav1d.7.dylib",
+      "inputSHA256": "60c3a42a79582241ac77bbbba4c0137c2209204aecbc59e5d6392c2dc0a5b439",
+      "bundledPath": "Contents/Frameworks/libdav1d.7.dylib",
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ],
+      "originalRpaths": [],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "26.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/dav1d/1.5.4/lib/libdav1d.7.dylib:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 26.0\n      sdk 26.4\n   ntools 1\n     tool LD\n  version 1266.8\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/xz/5.8.4/lib/liblzma.5.dylib",
+      "inputSHA256": "1b2e12cc1b920264f3dd15eeba22e85b8afd589595d8945d1d12a52afa694b09",
+      "bundledPath": "Contents/Frameworks/liblzma.5.dylib",
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ],
+      "originalRpaths": [],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "27.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/xz/5.8.4/lib/liblzma.5.dylib:\nLoad command 9\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 27.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/libvpx/1.17.0/lib/libvpx.12.dylib",
+      "inputSHA256": "443cd530535e976a7fe96a027f3e65acebf41a7055005732422309c207089937",
+      "bundledPath": "Contents/Frameworks/libvpx.12.dylib",
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libc++.1.dylib"
+      ],
+      "originalRpaths": [],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "26.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/libvpx/1.17.0/lib/libvpx.12.dylib:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 26.0\n      sdk 26.5\n   ntools 1\n     tool LD\n  version 1267.0\n"
+    },
+    {
+      "inputPath": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/lib/libavformat.63.1.102.dylib",
+      "inputSHA256": "29cf1a49a39f4e8e99c7bfa6f7aef3df2e7d91c8282cd7e1ef1fb206aec75779",
+      "bundledPath": "Contents/Frameworks/libavformat.63.1.102.dylib",
+      "dependencies": [
+        "@rpath/libavcodec.63.1.102.dylib",
+        "@rpath/libswresample.7.1.102.dylib",
+        "@rpath/libavutil.61.1.102.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libbz2.1.0.dylib",
+        "/usr/lib/libz.1.dylib",
+        "@rpath/libssl.4.dylib",
+        "@rpath/libcrypto.4.dylib",
+        "@rpath/libvpx.12.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "@rpath/liblzma.5.dylib",
+        "@rpath/libdav1d.7.dylib",
+        "/System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox",
+        "@rpath/libmp3lame.0.dylib",
+        "@rpath/libopus.0.dylib",
+        "@rpath/libSvtAv1Enc.4.2.0.dylib",
+        "@rpath/libx264.165.dylib",
+        "@rpath/libx265.217.dylib",
+        "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/VideoToolbox",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices"
+      ],
+      "originalRpaths": [],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "27.0"
+      ],
+      "buildVersionOutput": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/lib/libavformat.63.1.102.dylib:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 27.0\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n"
+    },
+    {
+      "inputPath": "/private/tmp/afc-native-self-contained-proof-20261014/build/out/Products/Debug/libNativePlaybackRuntime.dylib",
+      "inputSHA256": "bc316a8e328bdd8ee28857b09aff8d4a78683f9a29cde14091645ae44491a4e8",
+      "bundledPath": "Contents/Frameworks/libNativePlaybackRuntime.dylib",
+      "dependencies": [
+        "@rpath/libavformat.63.1.102.dylib",
+        "@rpath/libavcodec.63.1.102.dylib",
+        "@rpath/libswscale.10.1.102.dylib",
+        "@rpath/libswresample.7.1.102.dylib",
+        "@rpath/libavutil.61.1.102.dylib",
+        "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+        "/usr/lib/libobjc.A.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/System/Library/Frameworks/AVFAudio.framework/Versions/A/AVFAudio",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+        "/System/Library/Frameworks/ImageIO.framework/Versions/A/ImageIO",
+        "/usr/lib/swift/libswiftCore.dylib",
+        "/usr/lib/swift/libswiftCoreAudio.dylib",
+        "/usr/lib/swift/libswiftCoreFoundation.dylib",
+        "/usr/lib/swift/libswiftCoreMIDI.dylib",
+        "/usr/lib/swift/libswiftDarwin.dylib",
+        "/usr/lib/swift/libswiftDispatch.dylib",
+        "/usr/lib/swift/libswiftIOKit.dylib",
+        "/usr/lib/swift/libswiftMetal.dylib",
+        "/usr/lib/swift/libswiftObjectiveC.dylib",
+        "/usr/lib/swift/libswiftUniformTypeIdentifiers.dylib",
+        "/usr/lib/swift/libswiftXPC.dylib",
+        "/usr/lib/swift/libswift_Concurrency.dylib",
+        "/usr/lib/swift/libswiftsimd.dylib"
+      ],
+      "originalRpaths": [
+        "/usr/lib/swift",
+        "@loader_path",
+        "/private/tmp/afc-native-self-contained-proof-20261014/build/out/Products/Debug/PackageFrameworks",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-6.2/macosx"
+      ],
+      "architectures": [
+        "arm64"
+      ],
+      "minimumOSVersions": [
+        "14.0"
+      ],
+      "buildVersionOutput": "/private/tmp/afc-native-self-contained-proof-20261014/build/out/Products/Debug/libNativePlaybackRuntime.dylib:\nLoad command 10\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 14.0\n      sdk 14.0\n   ntools 1\n     tool LD\n  version 27037.1\n"
+    }
+  ],
+  "minimumOS": "27.0",
+  "signing": "ad-hoc development",
+  "licenseReview": "unreviewed",
+  "provenanceReview": "unreviewed",
+  "releaseCertified": false,
+  "files": {
+    "Contents/Frameworks/libNativePlaybackRuntime.dylib": "ea681f4ac0e55ab3aa377a17c5eab0d4cb588d0580c68ed5ec156acb674a6d6e",
+    "Contents/Frameworks/libSvtAv1Enc.4.2.0.dylib": "ecc85f90397285cc26e0e1ec3810bd3aa186fed573d28b3c2b7229b50f93dc8a",
+    "Contents/Frameworks/libavcodec.63.1.102.dylib": "b2d071f0ed73943f9da25d2f9a1e9f29508d9981fdd6ba6235ea428e14f31a49",
+    "Contents/Frameworks/libavformat.63.1.102.dylib": "d81edb485f8a0f98f82fa908aa8b815276ccbd3608f42640a779f57e21d90a1a",
+    "Contents/Frameworks/libavutil.61.1.102.dylib": "7e8b2f57eaf97bb08c11c58e31e9aaf590574be7d236e41dad5366d4e2be53a4",
+    "Contents/Frameworks/libcrypto.4.dylib": "c8f7482b6947678edf7618520d4a6d766d7bf183770c626d9931d40f3bc38083",
+    "Contents/Frameworks/libdav1d.7.dylib": "a1e2381ff0b0018a86fb8de4d824c1b400a4adce49980b2f7c83e31f3629e1aa",
+    "Contents/Frameworks/liblzma.5.dylib": "d0c905d0d256619ae373790a5e8bb11d5226c1c0a65070da2fe4b41fee56f58a",
+    "Contents/Frameworks/libmp3lame.0.dylib": "68c2af57b493dc5d6490b5abd85704266f6886fbade783d4e665f8189bf099f4",
+    "Contents/Frameworks/libmpg123.0.dylib": "721d9591f5955ef172b1605876f434a2d0efa273eac1b03ca6c2c7f4b6be0bd2",
+    "Contents/Frameworks/libopus.0.dylib": "deaae25bc5763b7733cdd2deaacf223b573ad90b154cecce339efe0aa7f387ed",
+    "Contents/Frameworks/libssl.4.dylib": "ee9d60deded72021d3116e7eb76e6d0687e2cc19c129a3709efbf5e4a307c300",
+    "Contents/Frameworks/libswresample.7.1.102.dylib": "c142ff539b00f7b6d4a0ae03905884ae2a01e2760bd3f3d5e58745354fef4f58",
+    "Contents/Frameworks/libswscale.10.1.102.dylib": "f899cfb2148383124bb7b9d69e0837953c748945b5598f8e34c8ba2297a8594c",
+    "Contents/Frameworks/libvpx.12.dylib": "c27268196e8e184e39c1dd9bc711e4815b89a0dd6d2d134c58a88938dc2e32d0",
+    "Contents/Frameworks/libx264.165.dylib": "e816ecd1f2aa022b8b06fbca4a60025396463ebaa5ec5a811f6fe1bdcd3cc537",
+    "Contents/Frameworks/libx265.217.dylib": "31b59e27518db17a018638eec06e8c616953ca143b6663e8ca7d1f2f6aa1bcc2"
+  }
+}

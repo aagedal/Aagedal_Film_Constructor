@@ -1,0 +1,98 @@
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-d05173a2/Aagedal Film Constructor/AVFoundationSequenceBackend.swift:61:53: warning: 'AVMutableVideoCompositionLayerInstruction' was deprecated in macOS 26.0: Use AVVideoCompositionLayerInstruction.Configuration instead [#DeprecatedDeclaration]
+ 59 |         composition.insertEmptyTimeRange(CMTimeRange(start: .zero, duration: duration))
+ 60 |         hasVideo = false
+ 61 |         var layers: [(TimelineRenderPlan.Component, AVMutableVideoCompositionLayerInstruction)] = []
+    |                                                     `- warning: 'AVMutableVideoCompositionLayerInstruction' was deprecated in macOS 26.0: Use AVVideoCompositionLayerInstruction.Configuration instead [#DeprecatedDeclaration]
+ 62 |         var mixes: [AVAudioMixInputParameters] = []
+ 63 |         var assets: [URL: AVURLAsset] = [:]
+
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-d05173a2/Aagedal Film Constructor/AVFoundationSequenceBackend.swift:133:29: warning: 'AVMutableVideoCompositionLayerInstruction' was deprecated in macOS 26.0: Use AVVideoCompositionLayerInstruction.Configuration instead [#DeprecatedDeclaration]
+131 |                     .concatenating(CGAffineTransform(translationX: (canvas.width - bounds.width * factor) / 2,
+132 |                                                     y: (canvas.height - bounds.height * factor) / 2))
+133 |                 let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
+    |                             `- warning: 'AVMutableVideoCompositionLayerInstruction' was deprecated in macOS 26.0: Use AVVideoCompositionLayerInstruction.Configuration instead [#DeprecatedDeclaration]
+134 |                 layer.setTransform(transform, at: .zero)
+135 |                 layers.append((component, layer))
+
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-d05173a2/Aagedal Film Constructor/AVFoundationSequenceBackend.swift:172:36: warning: 'AVMutableVideoComposition' was deprecated in macOS 26.0: Use AVVideoComposition.Configuration instead [#DeprecatedDeclaration]
+170 |         let mix = AVMutableAudioMix(); mix.inputParameters = mixes; item.audioMix = mix
+171 |         if hasVideo {
+172 |             let videoComposition = AVMutableVideoComposition()
+    |                                    `- warning: 'AVMutableVideoComposition' was deprecated in macOS 26.0: Use AVVideoComposition.Configuration instead [#DeprecatedDeclaration]
+173 |             videoComposition.renderSize = CGSize(width: plan.settings.width, height: plan.settings.height)
+174 |             let rate = plan.settings.frameRate.value
+
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-d05173a2/Aagedal Film Constructor/AVFoundationSequenceBackend.swift:181:35: warning: 'AVMutableVideoCompositionInstruction' was deprecated in macOS 26.0: Use AVVideoCompositionInstruction.Configuration instead [#DeprecatedDeclaration]
+179 |             }).sorted { try $0.compared(to: $1) == .orderedAscending }
+180 |             videoComposition.instructions = try zip(boundaries, boundaries.dropFirst()).map { start, end in
+181 |                 let instruction = AVMutableVideoCompositionInstruction()
+    |                                   `- warning: 'AVMutableVideoCompositionInstruction' was deprecated in macOS 26.0: Use AVVideoCompositionInstruction.Configuration instead [#DeprecatedDeclaration]
+182 |                 instruction.timeRange = try CMTimeRange(start: time(start), duration: time(end.subtracting(start)))
+183 |                 instruction.backgroundColor = NSColor.black.cgColor
+
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-d05173a2/Aagedal Film Constructor/AVFoundationSequenceBackend.swift:206:26: warning: 'init(pixelBufferAttributes:)' was deprecated in macOS 27.0: Use init(pixelBufferAttributes: CVPixelBuffer.Attributes) instead [#DeprecatedDeclaration]
+204 |         guard !closed else { throw CancellationError() }
+205 |         if item.videoComposition != nil {
+206 |             let output = AVPlayerItemVideoOutput(pixelBufferAttributes: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
+    |                          `- warning: 'init(pixelBufferAttributes:)' was deprecated in macOS 27.0: Use init(pixelBufferAttributes: CVPixelBuffer.Attributes) instead [#DeprecatedDeclaration]
+207 |             item.add(output); self.output = output
+208 |         }
+
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-d05173a2/Aagedal Film Constructor/AVFoundationSequenceBackend.swift:218:46: warning: 'copyPixelBuffer(forItemTime:itemTimeForDisplay:)' was deprecated in macOS 27.0: Use pixelBufferAndDisplayTime(forItemTime:) instead [#DeprecatedDeclaration]
+216 |                 guard current.isNumeric else { continue }
+217 |                 var displayedTime = CMTime.invalid
+218 |                 if let buffer = self.output?.copyPixelBuffer(forItemTime: current, itemTimeForDisplay: &displayedTime),
+    |                                              `- warning: 'copyPixelBuffer(forItemTime:itemTimeForDisplay:)' was deprecated in macOS 27.0: Use pixelBufferAndDisplayTime(forItemTime:) instead [#DeprecatedDeclaration]
+219 |                    let image = self.context.createCGImage(CIImage(cvPixelBuffer: buffer), from: CGRect(x: 0, y: 0, width: CVPixelBufferGetWidth(buffer), height: CVPixelBufferGetHeight(buffer))) {
+220 |                     self.display?(image, self.frame(at: displayedTime.isNumeric ? displayedTime : current))
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-d05173a2/scripts/system-audio-mix-proof.swift:85:32: warning: 'add' was deprecated in macOS 27.0: Use the appropriate AVAssetReader.outputProvider(for:...) overload for your output and optional adaptor instead [#DeprecatedDeclaration]
+ 83 |                         output.audioMix = item.audioMix
+ 84 |                         guard reader.canAdd(output) else { throw NSError(domain: "Cannot add mix output", code: 1) }
+ 85 |                         reader.add(output)
+    |                                `- warning: 'add' was deprecated in macOS 27.0: Use the appropriate AVAssetReader.outputProvider(for:...) overload for your output and optional adaptor instead [#DeprecatedDeclaration]
+ 86 |                         guard reader.startReading() else { throw reader.error! }
+ 87 |                         // Preserve timestamps; empty edit ranges may have no buffers.
+
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-d05173a2/scripts/system-audio-mix-proof.swift:86:38: warning: 'startReading()' was deprecated in macOS 27.0: Use start() instead [#DeprecatedDeclaration]
+ 84 |                         guard reader.canAdd(output) else { throw NSError(domain: "Cannot add mix output", code: 1) }
+ 85 |                         reader.add(output)
+ 86 |                         guard reader.startReading() else { throw reader.error! }
+    |                                      `- warning: 'startReading()' was deprecated in macOS 27.0: Use start() instead [#DeprecatedDeclaration]
+ 87 |                         // Preserve timestamps; empty edit ranges may have no buffers.
+ 88 |                         var samples = [Float](repeating: 0, count: Int(command.audioSamples) * channels)
+
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-d05173a2/scripts/system-audio-mix-proof.swift:90:51: warning: 'copyNextSampleBuffer()' was deprecated in macOS 27.0: Use AVAssetReaderOutput.Provider.next() instead [#DeprecatedDeclaration]
+ 88 |                         var samples = [Float](repeating: 0, count: Int(command.audioSamples) * channels)
+ 89 |                         var covered = Set<Int>()
+ 90 |                         while let buffer = output.copyNextSampleBuffer() {
+    |                                                   `- warning: 'copyNextSampleBuffer()' was deprecated in macOS 27.0: Use AVAssetReaderOutput.Provider.next() instead [#DeprecatedDeclaration]
+ 91 |                             guard let block = CMSampleBufferGetDataBuffer(buffer) else { throw NSError(domain: "Missing PCM block", code: 1) }
+ 92 |                             let frame = CMTimeConvertScale(CMSampleBufferGetPresentationTimeStamp(buffer), timescale: Int32(rate), method: .roundHalfAwayFromZero).value
+
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-d05173a2/scripts/system-audio-mix-proof.swift:138:16: warning: 'add' was deprecated in macOS 27.0: Use the appropriate AVAssetReader.outputProvider(for:...) overload for your output and optional adaptor instead [#DeprecatedDeclaration]
+136 |         let output = AVAssetReaderTrackOutput(track: track, outputSettings: settings)
+137 |         guard reader.canAdd(output) else { throw NSError(domain: "Cannot add source output", code: 1) }
+138 |         reader.add(output)
+    |                `- warning: 'add' was deprecated in macOS 27.0: Use the appropriate AVAssetReader.outputProvider(for:...) overload for your output and optional adaptor instead [#DeprecatedDeclaration]
+139 |         guard reader.startReading() else { throw reader.error! }
+140 |         var data = Data()
+
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-d05173a2/scripts/system-audio-mix-proof.swift:139:22: warning: 'startReading()' was deprecated in macOS 27.0: Use start() instead [#DeprecatedDeclaration]
+137 |         guard reader.canAdd(output) else { throw NSError(domain: "Cannot add source output", code: 1) }
+138 |         reader.add(output)
+139 |         guard reader.startReading() else { throw reader.error! }
+    |                      `- warning: 'startReading()' was deprecated in macOS 27.0: Use start() instead [#DeprecatedDeclaration]
+140 |         var data = Data()
+141 |         while let buffer = output.copyNextSampleBuffer() {
+
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-d05173a2/scripts/system-audio-mix-proof.swift:141:35: warning: 'copyNextSampleBuffer()' was deprecated in macOS 27.0: Use AVAssetReaderOutput.Provider.next() instead [#DeprecatedDeclaration]
+139 |         guard reader.startReading() else { throw reader.error! }
+140 |         var data = Data()
+141 |         while let buffer = output.copyNextSampleBuffer() {
+    |                                   `- warning: 'copyNextSampleBuffer()' was deprecated in macOS 27.0: Use AVAssetReaderOutput.Provider.next() instead [#DeprecatedDeclaration]
+142 |             guard let block = CMSampleBufferGetDataBuffer(buffer) else { throw NSError(domain: "Missing source PCM", code: 1) }
+143 |             var bytes = [UInt8](repeating: 0, count: CMBlockBufferGetDataLength(block))
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
