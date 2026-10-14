@@ -47,7 +47,7 @@ bounds for gain, fades and crossfades. Initial volume is established before dela
 clips begin, avoiding a brief unity-gain onset. Nonlinear ramps remain approximate;
 AAC boundaries, resampling, measured A/V timing and signed sandbox media grants remain open.
 
-The normal app does not link development FFmpeg libraries. Bundled FFmpeg and
+Without an explicit local native selection, the app does not link development FFmpeg libraries. Bundled FFmpeg and
 FFprobe executables alone do not supply that library runtime. Native-enabled
 builds use the existing FFmpeg bridge instead of the system backend.
 
@@ -146,7 +146,47 @@ interior/packet cuts retain their earlier qualification. See
 [compressed-audio evidence](evidence/system-compressed-audio-20261014/README.md).
 
 Native development packaging declares the actual library minimum macOS version
-in the packaged app. Add `--package-runtime-deployment-target 14.0` alongside
-notices/provenance to refuse inputs requiring a newer OS before packaging. The
-currently selected local closure requires macOS 27 and fails that constraint;
-compatible release dependencies remain open.
+in the packaged app. Add `--package-runtime-deployment-target 27.0` alongside
+notices/provenance to enforce the app’s macOS 27 baseline. The currently selected
+local closure fits that baseline; attributed release dependencies remain open.
+
+
+## Native playback in Xcode Debug
+
+The app and both Swift packages now require macOS 27. Select existing local
+FFmpeg development libraries explicitly, with their dependency notices and build
+provenance:
+
+```sh
+python3 scripts/configure-native-playback.py \
+  --pkg-config /absolute/path/pkg-config \
+  --notices /absolute/dependency-notices \
+  --provenance /absolute/build-provenance.txt
+```
+
+This creates ignored `Configuration/LocalNativePlayback.xcconfig`. Build the
+ordinary app scheme in Debug for Apple Silicon. Xcode builds the Swift runtime
+before compiling the workspace, discovers the complete non-system dylib closure,
+checks thin arm64/deployment compatibility, relocates it into `Contents/Frameworks`,
+and signs nested libraries before signing the app. The closure contains the native
+runtime and its FFmpeg dependencies; the separately bundled FFmpeg/FFprobe helpers
+continue to support import, proxies and export.
+
+`Contents/Resources/NativeRuntime` retains dependency hashes, actual deployment
+versions, notices, supplied provenance and the exact build selection. No developer
+library paths are needed at runtime. Selection remains development-only: Release
+and archive native opt-in are refused while attribution and distribution review
+are incomplete. The native engine still supports its qualified CFR/SDR picture,
+PNG/JPEG stills and matching-rate PCM audio subset; packaging does not qualify
+compressed audio, VFR or broader color behavior.
+
+To return Debug builds to AVFoundation:
+
+```sh
+python3 scripts/configure-native-playback.py --disable
+```
+
+The next build removes owned native outputs. It refuses to replace unrelated
+frameworks or unrecognized resources. System AAC preview keeps working and now
+shows its source-edge approximation notice; normalize audio to PCM/ALAC when
+faithful boundaries are required. See [AAC qualification status](evidence/system-compressed-audio-20261014/AAC-preview-notice.md).

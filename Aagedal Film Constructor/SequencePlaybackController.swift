@@ -9,12 +9,17 @@ import NativePlaybackRuntime
 protocol SequencePlaybackBackend: AnyObject {
     var position: Double { get }
     var isPlaying: Bool { get }
+    var previewQualificationNotice: String? { get }
     var display: ((CGImage, Int64) -> Void)? { get set }
     var failure: ((any Error) -> Void)? { get set }
     func play() async throws
     func pause()
     func seek(toFrame: Int64) async throws
     func close() async
+}
+
+extension SequencePlaybackBackend {
+    var previewQualificationNotice: String? { nil }
 }
 
 #if canImport(NativePlaybackRuntime)
@@ -155,7 +160,7 @@ final class SequencePlaybackController: ObservableObject {
                 try await backend.play()
                 guard self.enabled, token == self.revision else { backend.pause(); return }
                 self.isPlaying = backend.isPlaying
-                self.message = self.playbackMessage
+                self.message = self.qualifiedPlaybackMessage
             } catch is CancellationError {} catch {
                 if token == self.revision { self.message = error.localizedDescription }
             }
@@ -252,7 +257,7 @@ final class SequencePlaybackController: ObservableObject {
                           seconds == self.desiredSeconds else { continue }
                     self.pendingSeek = false
                     self.isPlaying = backend.isPlaying
-                    self.message = self.playbackMessage
+                    self.message = self.qualifiedPlaybackMessage
                     self.startPolling()
                     return
                 } catch is CancellationError {
@@ -264,6 +269,11 @@ final class SequencePlaybackController: ObservableObject {
                 }
             }
         }
+    }
+
+    private var qualifiedPlaybackMessage: String {
+        guard let notice = backend?.previewQualificationNotice, !notice.isEmpty else { return playbackMessage }
+        return playbackMessage + " · " + notice
     }
 
     private func startPolling() {

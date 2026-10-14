@@ -201,6 +201,7 @@ def main():
                            sourceSampleRate=mix['sourceSampleRate'], sourceStartOutputSample=mix['sourceStartOutputSample'],
                            sourceStartTime=mix['sourceStartTime'], clipSampleCount=mix['clipSampleCount'], timelineStartSample=mix['timelineStartSample'], aacPacketFrames=mix['aacPacketFrames'],
                            nearestPacketBoundaryOutputSample=mix['nearestPacketBoundaryOutputSample'],
+                           previewQualificationNotice=mix['previewQualificationNotice'],
                            frames=mix['frames'], decodedFrames=mix['decodedFrames'],
                            compositionFrames=mix['compositionFrames'], extraDecodedFrames=mix['extraDecodedFrames'], maximumExtraAmplitude=mix['maximumExtraAmplitude'],
                            maximumErrorFrame=maximum_index // mix['channels'], maximumErrorChannel=maximum_index % mix['channels'],

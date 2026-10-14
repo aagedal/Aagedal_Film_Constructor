@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Relocate an explicit development app's native dylib closure into a new app bundle.
+"""Relocate an explicit development native dylib closure into an app bundle.
 
-This creates an ad-hoc-signed development artifact, never a release certification.
+Standalone packaging signs ad-hoc; Xcode embedding signs nested libraries with
+the supplied development identity before Xcode seals the app. Neither certifies a release.
 """
 import argparse
 import hashlib
@@ -159,6 +160,139 @@ def validate_output_location(output, input_trees):
             raise ValueError(f'Output staging directory must be outside input tree: {tree}')
 
 
+def validate_embedding_inputs(destinations, input_trees, input_files):
+    for destination in destinations:
+        resolved = destination.resolve()
+        for tree in input_trees:
+            tree = tree.resolve()
+            if resolved.is_relative_to(tree) or tree.is_relative_to(resolved):
+                raise ValueError('Embedding output must not overlap an input tree')
+        for source in input_files:
+            source = source.resolve()
+            if source.is_relative_to(resolved) or resolved.is_relative_to(source):
+                raise ValueError('Embedding output must not contain an input file')
+
+
+def embed_runtime(args):
+    """Embed a development closure before Xcode seals the containing app.
+
+    Build outputs are replaced only when empty or owned by our prior manifest.
+    This deliberately does not sign the outer app or change its deployment floor.
+    """
+    runtime = args.runtime_only
+    if not runtime.is_absolute() or not runtime.is_file() or runtime.is_symlink() or runtime.name != 'libNativePlaybackRuntime.dylib':
+        raise ValueError('Supply an absolute libNativePlaybackRuntime.dylib')
+    if not args.deployment_target:
+        raise ValueError('Xcode embedding requires an explicit deployment target')
+    version_key(args.deployment_target)
+    if not args.notices.is_dir() or not any(p.is_file() for p in args.notices.rglob('*')):
+        raise ValueError('Supply nonempty dependency notices')
+    if not args.provenance.is_file() or args.provenance.is_symlink():
+        raise ValueError('Supply explicit build provenance')
+    if any(p.is_symlink() for p in args.notices.rglob('*')):
+        raise ValueError('Notices must not contain symbolic links')
+    frameworks, resources = args.frameworks, args.resources
+    for destination in [frameworks, resources]:
+        if not destination.is_absolute() or destination.is_symlink():
+            raise ValueError('Embedding destinations must be absolute, non-symlink paths')
+        validate_output_location(destination, [args.notices, runtime.parent])
+    if frameworks.resolve().is_relative_to(resources.resolve()) or resources.resolve().is_relative_to(frameworks.resolve()):
+        raise ValueError('Embedding destinations must not overlap')
+    libraries = [p.resolve(strict=True) for p in args.library_dir]
+    if any(not p.is_dir() for p in libraries):
+        raise ValueError('Library search paths must be directories')
+    runtime = runtime.resolve(strict=True)
+    nodes = discover(runtime, libraries)
+    validate_embedding_inputs([frameworks, resources], [args.notices], [args.provenance, *nodes])
+    architecture = require_thin_architecture(capture('/usr/bin/lipo', '-archs', runtime).split())
+    names = [p.name for p in nodes]
+    if len(set(names)) != len(names):
+        raise ValueError('Different libraries have the same bundle filename')
+    for source, metadata in nodes.items():
+        metadata['architectures'] = capture('/usr/bin/lipo', '-archs', source).split()
+        require_thin_architecture(metadata['architectures'], architecture)
+        metadata['buildVersionOutput'] = capture('/usr/bin/otool', '-l', source)
+        metadata['minimumOSVersions'] = deployment_versions(metadata['buildVersionOutput'], source)
+    minimum = max((v for m in nodes.values() for v in m['minimumOSVersions']), key=version_key)
+    bundle_minimum_os({}, architecture, minimum, args.deployment_target)
+    # Never replace unrelated frameworks or resource directories during a rebuild.
+    validate_embedded_outputs(frameworks, resources)
+    frameworks.parent.mkdir(parents=True, exist_ok=True)
+    resources.parent.mkdir(parents=True, exist_ok=True)
+    temporary = Path(tempfile.mkdtemp(prefix='.native-runtime-', dir=frameworks.parent))
+    try:
+        staged = temporary / 'Frameworks'
+        staged.mkdir()
+        staged_resources = temporary / 'NativeRuntime'
+        staged_resources.mkdir()
+        observations = []
+        for source, metadata in nodes.items():
+            target = staged / source.name
+            shutil.copyfile(source, target)
+            target.chmod(0o755)
+            command = ['/usr/bin/install_name_tool', '-id', '@rpath/' + target.name]
+            for old, dependency in metadata['resolved'].items():
+                command += ['-change', old, '@rpath/' + dependency.name]
+            for rpath in metadata['rpaths']:
+                if rpath != '@loader_path':
+                    command += ['-delete_rpath', rpath]
+            if '@loader_path' not in metadata['rpaths']:
+                command += ['-add_rpath', '@loader_path']
+            subprocess.run([*command, str(target)], check=True, capture_output=True)
+            relocated = inspect(target)
+            allowed = {'@rpath/' + name for name in names}
+            if any(not system_dependency(d) and d not in allowed for d in relocated['dependencies']):
+                raise ValueError(f'External dependency survived relocation: {target}')
+            identity = args.sign_identity or '-'
+            signing = ['/usr/bin/codesign', '--force', '--sign', identity]
+            if identity != '-':
+                signing += ['--options', 'runtime']
+            subprocess.run([*signing, str(target)], check=True, capture_output=True)
+            subprocess.run(['/usr/bin/codesign', '--verify', '--strict', str(target)], check=True, capture_output=True)
+            observations.append(dict(inputPath=str(source), inputSHA256=digest(source),
+                bundledPath='Contents/Frameworks/' + source.name, dependencies=relocated['dependencies'],
+                originalRpaths=metadata['rpaths'], architectures=metadata['architectures'],
+                minimumOSVersions=metadata['minimumOSVersions'], buildVersionOutput=metadata['buildVersionOutput']))
+        shutil.copytree(args.notices, staged_resources / 'notices')
+        shutil.copyfile(args.provenance, staged_resources / 'provenance.txt')
+        manifest = dict(schemaVersion=1, embeddingMode='xcode-development', libraries=observations,
+            minimumOS=minimum, binaryMinimumOS=minimum, deploymentTarget=args.deployment_target,
+            signing='ad-hoc development' if not args.sign_identity or args.sign_identity == '-' else 'Xcode development identity',
+            licenseReview='unreviewed', provenanceReview='unreviewed', releaseCertified=False,
+            files={p.name: digest(p) for p in sorted(staged.iterdir())})
+        (staged_resources / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+        # Fully prepare and verify both trees before touching previously built outputs.
+        if frameworks.exists():
+            shutil.rmtree(frameworks)
+        if resources.exists():
+            shutil.rmtree(resources)
+        staged.rename(frameworks)
+        staged_resources.rename(resources)
+    finally:
+        shutil.rmtree(temporary)
+    print(f'Embedded {len(nodes)} development libraries; macOS floor {minimum}; releaseCertified=false')
+
+
+def validate_embedded_outputs(frameworks, resources):
+    for directory in [frameworks, resources]:
+        if directory.exists() and (not directory.is_dir() or directory.is_symlink() or any(p.is_symlink() for p in directory.rglob('*'))):
+            raise ValueError('Existing native outputs contain links or are not directories')
+    if resources.exists():
+        manifest = json.loads((resources / 'manifest.json').read_text())
+        if manifest.get('schemaVersion') != 1 or manifest.get('embeddingMode') != 'xcode-development':
+            raise ValueError('Existing native resources are not owned development outputs')
+        files = manifest.get('files')
+        if not isinstance(files, dict) or not files or any(Path(name).name != name or name in ('.', '..') for name in files):
+            raise ValueError('Invalid prior native output manifest')
+        actual = {p.name for p in frameworks.iterdir()} if frameworks.exists() else set()
+        if actual and actual != set(files):
+            raise ValueError('Existing Frameworks directory contains unrelated or incomplete files')
+        if frameworks.exists() and any(not p.is_file() for p in frameworks.iterdir()):
+            raise ValueError('Existing Frameworks directory contains unrelated entries')
+    elif frameworks.exists() and any(frameworks.iterdir()):
+        raise ValueError('Existing Frameworks directory is not an owned native output')
+
+
 def package(args):
     if not args.app.is_absolute() or not args.app.is_dir() or args.app.is_symlink():
         raise ValueError('Supply an absolute existing development app bundle')
@@ -257,12 +391,27 @@ def package(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    for option in ['app', 'output', 'notices', 'provenance']:
+    selection = parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument('--app', type=Path)
+    selection.add_argument('--runtime-only', type=Path, help='Embed a development library closure into Xcode output before outer signing')
+    parser.add_argument('--output', type=Path)
+    parser.add_argument('--frameworks', type=Path)
+    parser.add_argument('--resources', type=Path)
+    parser.add_argument('--sign-identity', default='-')
+    for option in ['notices', 'provenance']:
         parser.add_argument('--' + option, required=True, type=Path)
     parser.add_argument('--library-dir', action='append', required=True, type=Path)
     parser.add_argument('--deployment-target', help='Maximum permitted minimum macOS version; reject incompatible inputs before staging')
     try:
-        package(parser.parse_args())
+        arguments = parser.parse_args()
+        if arguments.runtime_only:
+            if not arguments.frameworks or not arguments.resources or arguments.output:
+                parser.error('--runtime-only requires --frameworks/--resources and does not accept --output')
+            embed_runtime(arguments)
+        else:
+            if not arguments.output or arguments.frameworks or arguments.resources:
+                parser.error('--app requires --output and does not accept --frameworks/--resources')
+            package(arguments)
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         detail = error.stderr.decode(errors='replace') if isinstance(error, subprocess.CalledProcessError) and isinstance(error.stderr, bytes) else ''
         parser.exit(1, f'Native runtime packaging failed: {error}\n{detail}')
