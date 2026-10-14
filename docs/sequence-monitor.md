@@ -144,3 +144,9 @@ normalize sources to PCM or ALAC before sequence preview. Existing AAC preview
 remains available, but source-edge/whole-source fidelity fails the current bounds;
 interior/packet cuts retain their earlier qualification. See
 [compressed-audio evidence](evidence/system-compressed-audio-20261014/README.md).
+
+Native development packaging declares the actual library minimum macOS version
+in the packaged app. Add `--package-runtime-deployment-target 14.0` alongside
+notices/provenance to refuse inputs requiring a newer OS before packaging. The
+currently selected local closure requires macOS 27 and fails that constraint;
+compatible release dependencies remain open.

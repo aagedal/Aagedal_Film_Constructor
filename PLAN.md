@@ -1833,3 +1833,21 @@ launch-performance claim has been validated yet.
   required for decoded audio evidence. Read-only subagent review rejected a
   proposed AAC margin based on retained decoder diagnostics.
 - See [compressed-audio boundary evidence](docs/evidence/system-compressed-audio-20261014/README.md).
+
+### Native runtime deployment compatibility checkpoint (2026-10-14)
+
+- Native packaging parses both modern and legacy macOS deployment load commands;
+  missing, malformed and other-platform metadata is refused. The packaged plist
+  preserves stricter app requirements and declares at least the closure's real
+  minimum OS, with semantic version comparison.
+- Added an explicit deployment-target ceiling, also forwarded by the native
+  workspace runner. Incompatible inputs fail before staging/output creation.
+  The existing local runtime requires macOS 27; a 14.0 target is correctly refused.
+- Re-packaged the actual controller with consistent macOS 27 plist/manifest
+  metadata and verified its complete bundle signature. The controller still
+  passes original/proxy frame parity, exact seeks, sample-clock playback, edit/
+  replay and deactivation with developer loader paths cleared.
+- Eleven packaging regressions pass, including full staged publication and
+  pre-staging target refusal. Dependency notices/provenance remain unreviewed;
+  macOS 14 libraries, release distribution and Xcode runtime integration stay open.
+- See [native packaging evidence](docs/evidence/native-runtime-packaging-20261014/README.md).

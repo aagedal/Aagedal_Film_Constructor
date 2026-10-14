@@ -44,3 +44,40 @@ Unsigned system app builds remain AVFoundation-backed. Release dependency
 selection, complete notices/corresponding source, macOS 14 libraries, signed
 sandbox grants, distribution signing/notarization and measured A/V synchronization
 remain open.
+
+## Deployment compatibility enforcement follow-up
+
+The packager now reads macOS deployment metadata from both modern
+`LC_BUILD_VERSION` and legacy `LC_VERSION_MIN_MACOSX` load commands. Missing,
+malformed or non-macOS deployment metadata is refused. Version comparison treats
+`14`, `14.0` and `14.0.0` consistently. A stricter existing app or per-architecture
+minimum is preserved; the packaged `LSMinimumSystemVersion` can never advertise
+an OS below the actual dependency closure floor.
+
+Use `--deployment-target 14.0` with `package-native-runtime.py` to require inputs
+compatible with the intended macOS 14 baseline. This is a ceiling on the bundle's
+minimum required OS, not a deployment-version rewrite of the libraries. It refuses
+incompatible inputs before creating staging/output directories. The native runner
+forwards the same constraint through `--package-runtime-deployment-target 14.0`,
+which requires its explicit notices/provenance packaging options. Omitting the
+constraint still records and declares the true minimum OS.
+
+`deployment-summary.json` retains the re-packaged controller's input hashes,
+relocated dependency lists, architectures, deployment versions, library hashes
+and constraint. All three reported floors (`Info.plist`, manifest `minimumOS` and
+`binaryMinimumOS`) are 27.0. It contains the native runtime plus 16 transitive
+libraries; strict bundle signature verification passes. The same input with a
+14.0 target fails with `Bundle requires macOS 27.0, exceeding deployment target
+14.0`, leaving no output directory.
+
+`deployment-packaged-smoke.log` retains the successful actual controller run from
+`/private/tmp/afc-native-deployment-20261014/Packaged Native Smoke.app`. Developer
+loader overrides are cleared; dyld observations contain the relocated runtime and
+no Homebrew, `/usr/local` or build-directory library loads. Eleven packaging
+regressions now cover modern/legacy metadata, malformed/missing/other-platform
+refusal, semantic version ordering, stricter app minima, full staged publication
+and pre-staging target refusal, alongside the earlier dependency checks.
+
+Notices/provenance remain unreviewed, and `releaseCertified` remains false.
+Accurate minimum-OS declaration and refusal do not supply macOS 14-compatible
+libraries, release attribution or shipping Xcode integration.

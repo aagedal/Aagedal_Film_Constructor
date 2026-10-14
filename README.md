@@ -239,3 +239,7 @@ checks alongside PCM. MP3 fails trim/mix parity and is explicitly refused by
 system sequence preview; normalize it to PCM or ALAC. AAC source-edge cases fail
 existing fidelity bounds and remain unqualified, while the earlier interior and
 packet-cut subset still passes. See [compressed-audio boundary evidence](docs/evidence/system-compressed-audio-20261014/README.md).
+Native development packaging now declares the actual dependency minimum OS and
+supports an explicit deployment-target compatibility ceiling. The current local
+runtime requires macOS 27 and is refused for a macOS 14 target; no release
+compatibility is claimed.
