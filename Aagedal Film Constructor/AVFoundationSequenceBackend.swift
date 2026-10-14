@@ -49,7 +49,15 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
         return CMTime(value: exact.numerator, timescale: timescale)
     }
     // Nonlinear audio envelopes are intentionally approximated by short ramps.
-    private func rampTime(_ seconds: Double) -> CMTime { CMTime(seconds: seconds, preferredTimescale: 600_000) }
+    private func rampTime(_ seconds: Double) -> CMTime { CMTime(seconds: seconds, preferredTimescale: 1_000_000_000) }
+
+    private func addQualificationNotice(_ notice: String) {
+        guard let existing = previewQualificationNotice else {
+            previewQualificationNotice = notice
+            return
+        }
+        if !existing.contains(notice) { previewQualificationNotice = existing + " " + notice }
+    }
 
     /// Shared construction path for live playback and offline decoded-mix qualification.
     func makePlayerItem() async throws -> AVPlayerItem {
@@ -128,7 +136,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     guard let format = CMAudioFormatDescriptionGetStreamBasicDescription(description) else { return false }
                     return aacFormats.contains(format.pointee.mFormatID)
                 }) {
-                    previewQualificationNotice = "AAC source-edge audio is approximate. Normalize to PCM or ALAC for faithful trims."
+                    addQualificationNotice("AAC source-edge audio is approximate. Normalize to PCM or ALAC for faithful trims.")
                 }
                 guard !descriptions.isEmpty, descriptions.allSatisfy({ description in
                     guard let format = CMAudioFormatDescriptionGetStreamBasicDescription(description) else { return false }
@@ -173,31 +181,27 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 guard component.gain <= 1 else { throw Self.unsupported("System preview supports audio gain up to unity. Boosted tracks require the native runtime.") }
                 let parameters = AVMutableAudioMixInputParameters(track: track)
                 let start = component.timelineRange.start.seconds
-                let length = component.timelineRange.duration.seconds
-                let fadeIn = component.fadeIn.duration.seconds, fadeOut = component.fadeOut.duration.seconds
-                // Piecewise ramps target 5 ms intervals, capped at 4096 per edge.
-                // Limit only fades; a long constant-gain clip needs no per-frame ramps.
-                var knots: Set<Double> = [0, length]
-                for (edge, incoming) in [(fadeIn, true), (fadeOut, false)] where edge > 0 {
-                    let count = min(4096, max(1, Int(ceil(min(edge / 0.005, 4096)))))
-                    for i in 0...count {
-                        let offset = edge * Double(i) / Double(count)
-                        knots.insert(incoming ? offset : length - edge + offset)
+                let ramps = try AudioFadeRampPlan(duration: component.timelineRange.duration,
+                    fadeIn: component.fadeIn, fadeOut: component.fadeOut, gain: component.gain)
+                if component.gain > 0 && [component.fadeIn, component.fadeOut].contains(where: {
+                    $0.duration.numerator > 0 && $0.duration.seconds <= 0.005
+                }) {
+                    addQualificationNotice("Very short audio fades can differ substantially from export in system preview.")
+                }
+                if ramps.isNonlinear {
+                    addQualificationNotice("Curved or overlapping audio fades are approximate in system preview.")
+                }
+                // Establish initial gain before delayed media begins; otherwise the
+                // system can smooth from its default unity volume at the cut.
+                parameters.setVolume(Float(ramps.points[0].volume), at: .zero)
+                for (a, b) in zip(ramps.points, ramps.points.dropFirst()) {
+                    let rampStart = rampTime(start + a.seconds)
+                    let rampEnd = rampTime(start + b.seconds)
+                    guard rampStart.isNumeric, rampEnd.isNumeric, CMTimeCompare(rampEnd, rampStart) > 0 else {
+                        throw Self.unsupported("Audio fade timing exceeds system preview precision. Use the native runtime.")
                     }
-                }
-                let points = knots.filter { $0 >= 0 && $0 <= length }.sorted()
-                func volume(_ offset: Double) throws -> Float {
-                    let elapsed = offset >= length ? component.timelineRange.duration
-                        : try RationalTime(Int64((offset * 600_000).rounded()), 600_000)
-                    return Float(component.gain * (try AudioFadeEnvelope.gain(at: elapsed, duration: component.timelineRange.duration,
-                        fadeIn: component.fadeIn, fadeOut: component.fadeOut)))
-                }
-                // Establish the initial gain before delayed media begins. Otherwise
-                // AVFoundation smooths from its default unity volume at the cut.
-                parameters.setVolume(try volume(0), at: .zero)
-                for (a, b) in zip(points, points.dropFirst()) {
-                    parameters.setVolumeRamp(fromStartVolume: try volume(a), toEndVolume: try volume(b),
-                        timeRange: CMTimeRange(start: rampTime(start + a), duration: rampTime(b - a)))
+                    parameters.setVolumeRamp(fromStartVolume: Float(a.volume), toEndVolume: Float(b.volume),
+                        timeRange: CMTimeRange(start: rampStart, duration: CMTimeSubtract(rampEnd, rampStart)))
                 }
                 mixes.append(parameters)
             }

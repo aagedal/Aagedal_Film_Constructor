@@ -23,8 +23,16 @@ class AudioMatrixIntegrityTests(unittest.TestCase):
             with self.subTest(cases=len(cases)), self.assertRaisesRegex(RuntimeError, 'audio matrix'):
                 proof.validate_case_names(cases)
 
+    def test_short_fade_matrix_requires_all_new_cases(self):
+        short = [dict(case=f'pcm-{mode}-{channels}-{rate}')
+                 for mode in ['short-equal-power', 'short-overlap']
+                 for channels in [1, 2] for rate in [44100, 48000]]
+        proof.validate_case_names(self.cases + short, short_fades=True)
+        with self.assertRaisesRegex(RuntimeError, 'audio matrix'):
+            proof.validate_case_names(self.cases + short[:-1], short_fades=True)
+
     def test_optional_matrix_cannot_pass_with_only_baseline(self):
-        for flag in ['aac', 'extra_codecs', 'edges', 'packets', 'resampling']:
+        for flag in ['aac', 'extra_codecs', 'edges', 'packets', 'resampling', 'short_fades']:
             options = {flag: True}
             if flag == 'packets':
                 options['aac'] = True

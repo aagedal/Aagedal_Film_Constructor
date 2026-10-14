@@ -53,6 +53,8 @@ import EditorCore
             if color == "blue" { try require(p[2] > 180 && p[0] < 40, "Wrong trimmed/layered blue frame: \(p)") }
             if color == "black" { try require(p[0] < 10 && p[1] < 10 && p[2] < 10, "Video gap must be black: \(p)") }
         }
+        try require(backend.previewQualificationNotice == "Curved or overlapping audio fades are approximate in system preview.",
+            "PCM nonlinear fades must retain one qualification notice across repeated seeks")
         try await backend.seek(toFrame: 0)
         try await backend.play()
         try await Task.sleep(for: .milliseconds(350))
@@ -86,7 +88,14 @@ import EditorCore
         shortBackend.display = { _, frame in shortFrame = frame }
         try await shortBackend.seek(toFrame: Int64.max)
         try require(shortFrame == 8, "Exact fractional end clamp must not invent a tenth frame")
+        try require(shortBackend.previewQualificationNotice == nil, "Unaffected PCM media must clear the fade notice")
         await shortBackend.close()
+        short.tracks[0].clips[0].fadeIn = .init(duration: try RationalTime(47, 48_000), curve: .equalPower)
+        let tinyFadeBackend = try AVFoundationSequenceBackend(project: short, videoProxies: [:])
+        _ = try await tinyFadeBackend.makePlayerItem()
+        try require(tinyFadeBackend.previewQualificationNotice?.contains("Very short audio fades") == true,
+            "Sub-5-ms fades must disclose the measured system rendering limitation")
+        await tinyFadeBackend.close()
         var unsupported = project
         unsupported.tracks[2].template.routing.outputChannels = [1, 0]
         let rejected = try AVFoundationSequenceBackend(project: unsupported, videoProxies: [:])
