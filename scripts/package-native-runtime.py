@@ -97,6 +97,61 @@ def require_thin_architecture(architectures, required=None):
     return architectures[0]
 
 
+def version_key(value):
+    if not isinstance(value, str) or not re.fullmatch(r'\d+(?:\.\d+){0,2}', value):
+        raise ValueError(f'Invalid macOS deployment version: {value!r}')
+    components = tuple(map(int, value.split('.')))
+    return components + (0,) * (3 - len(components))
+
+
+def deployment_versions(output, path):
+    """Read modern and legacy deployment commands from otool -l, failing closed."""
+    versions = []
+    for block in re.split(r'^\s*Load command \d+\s*$', output, flags=re.MULTILINE):
+        command = re.search(r'^\s*cmd (LC_\w+)\s*$', block, re.MULTILINE)
+        if command is None:
+            continue
+        kind = command.group(1)
+        if kind == 'LC_BUILD_VERSION':
+            platform = re.search(r'^\s*platform (\S+)\s*$', block, re.MULTILINE)
+            if platform is None or platform.group(1).upper() not in ('1', 'MACOS', 'MACOSX'):
+                raise ValueError(f'Non-macOS or missing deployment platform in {path}')
+            version = re.search(r'^\s*minos (\S+)\s*$', block, re.MULTILINE)
+        elif kind == 'LC_VERSION_MIN_MACOSX':
+            version = re.search(r'^\s*version (\S+)\s*$', block, re.MULTILINE)
+        elif kind.startswith('LC_VERSION_MIN_'):
+            raise ValueError(f'Non-macOS deployment command {kind} in {path}')
+        else:
+            continue
+        if version is None:
+            raise ValueError(f'Missing deployment version in {path}')
+        value = version.group(1)
+        version_key(value)
+        versions.append(value)
+    if not versions:
+        raise ValueError(f'Missing macOS deployment metadata in {path}')
+    return versions
+
+
+def bundle_minimum_os(info, architecture, binary_minimum, deployment_target=None):
+    """Preserve stricter app requirements, and never advertise below the closure floor."""
+    candidates = [binary_minimum]
+    if 'LSMinimumSystemVersion' in info:
+        candidates.append(info['LSMinimumSystemVersion'])
+    by_architecture = info.get('LSMinimumSystemVersionByArchitecture', {})
+    if not isinstance(by_architecture, dict):
+        raise ValueError('Invalid LSMinimumSystemVersionByArchitecture')
+    if architecture in by_architecture:
+        candidates.append(by_architecture[architecture])
+    minimum = max(candidates, key=version_key)
+    if deployment_target is not None and version_key(minimum) > version_key(deployment_target):
+        raise ValueError(f'Bundle requires macOS {minimum}, exceeding deployment target {deployment_target}')
+    info['LSMinimumSystemVersion'] = minimum
+    if architecture in by_architecture:
+        by_architecture[architecture] = minimum
+    return minimum
+
+
 def validate_output_location(output, input_trees):
     parent = output.parent.resolve()
     for tree in input_trees:
@@ -132,16 +187,19 @@ def package(args):
     for path, metadata in nodes.items():
         metadata['architectures'] = capture('/usr/bin/lipo', '-archs', path).split()
         require_thin_architecture(metadata['architectures'], architecture)
-        metadata['buildVersionOutput'] = capture('/usr/bin/vtool', '-show-build', path)
-        metadata['minimumOSVersions'] = re.findall(r'^\s*minos\s+(\d+\.\d+(?:\.\d+)?)', metadata['buildVersionOutput'], re.MULTILINE)
+        metadata['buildVersionOutput'] = capture('/usr/bin/otool', '-l', path)
+        metadata['minimumOSVersions'] = deployment_versions(metadata['buildVersionOutput'], path)
     if not any(p.name == 'libNativePlaybackRuntime.dylib' for p in nodes):
         raise ValueError('App does not link NativePlaybackRuntime')
+    binary_minimum = max((v for metadata in nodes.values() for v in metadata['minimumOSVersions']), key=version_key)
+    minimum_os = bundle_minimum_os(info, architecture, binary_minimum, getattr(args, 'deployment_target', None))
     validate_output_location(args.output, [args.app, args.notices])
     args.output.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix='.native-runtime-', dir=args.output.parent))
     try:
         staged = temporary / args.output.name
         shutil.copytree(args.app, staged)
+        (staged / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
         frameworks = staged / 'Contents/Frameworks'
         if frameworks.exists():
             raise ValueError('Use a fresh development app without an existing Frameworks directory')
@@ -179,9 +237,9 @@ def package(args):
         resources.mkdir(parents=True, exist_ok=False)
         shutil.copytree(args.notices, resources / 'notices')
         shutil.copyfile(args.provenance, resources / 'provenance.txt')
-        minimum_versions = [v for metadata in nodes.values() for v in metadata['minimumOSVersions']]
-        minimum_os = max(minimum_versions, key=lambda v: tuple(map(int, v.split('.')))) if minimum_versions else None
-        manifest = dict(schemaVersion=1, libraries=observations, minimumOS=minimum_os, signing='ad-hoc development',
+        manifest = dict(schemaVersion=1, libraries=observations, minimumOS=minimum_os,
+            binaryMinimumOS=binary_minimum, deploymentTarget=getattr(args, 'deployment_target', None),
+            buildVersionTool='otool -l', signing='ad-hoc development',
             licenseReview='unreviewed', provenanceReview='unreviewed', releaseCertified=False,
             files={str(p.relative_to(staged)): digest(p) for p in sorted(frameworks.iterdir())})
         (resources / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
@@ -202,6 +260,7 @@ if __name__ == '__main__':
     for option in ['app', 'output', 'notices', 'provenance']:
         parser.add_argument('--' + option, required=True, type=Path)
     parser.add_argument('--library-dir', action='append', required=True, type=Path)
+    parser.add_argument('--deployment-target', help='Maximum permitted minimum macOS version; reject incompatible inputs before staging')
     try:
         package(parser.parse_args())
     except (ValueError, OSError, subprocess.CalledProcessError) as error:

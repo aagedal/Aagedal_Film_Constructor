@@ -6,14 +6,15 @@ import EditorCore
     @MainActor static func main() async throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1])
         var observations: [[String: Any]] = []
-        let formats = CommandLine.arguments.contains("--include-aac") ? ["pcm", "aac"] : ["pcm"]
+        let formats = ["pcm"] + (CommandLine.arguments.contains("--include-aac") ? ["aac"] : []) +
+            (CommandLine.arguments.contains("--include-lossless-and-mp3") ? ["alac", "mp3"] : [])
         for format in formats {
             for channels in [1, 2] {
                 let layout: ChannelLayout = channels == 1 ? .mono : .stereo
                 for sourceRate in [44100, 48000] {
                     let rates = CommandLine.arguments.contains("--include-resampling") ? [sourceRate, sourceRate == 44100 ? 48000 : 44100] : [sourceRate]
                     for rate in rates {
-                        let url = root.appendingPathComponent("source-\(channels)-\(sourceRate)." + (format == "pcm" ? "wav" : "m4a"))
+                        let url = root.appendingPathComponent("source-\(channels)-\(sourceRate)." + (format == "pcm" ? "wav" : format == "alac" ? "alac.m4a" : format == "mp3" ? "mp3" : "m4a"))
                         let source = AVURLAsset(url: url)
                         let tracks = try await source.load(.tracks)
                         let index = tracks.firstIndex { $0.mediaType == .audio }!
@@ -32,18 +33,36 @@ import EditorCore
                         let template = TrackTemplate(kind: .audio, audioLayout: layout, gain: 0.65)
                         let family = TrackFamily(baseName: "Audio", template: template)
                         let modes = ["constant", "linear", "equal-power", "overlapping-fades", "crossfade"] +
-                            (format == "aac" && CommandLine.arguments.contains("--include-packet-cuts") ? ["packet-before", "packet-at", "packet-after"] : [])
+                            (format == "aac" && CommandLine.arguments.contains("--include-packet-cuts") ? ["packet-before", "packet-at", "packet-after"] : []) +
+                            (CommandLine.arguments.contains("--include-edge-cuts") ? ["edge-head", "edge-head-after", "edge-tail-before", "edge-tail", "edge-whole"] +
+                                (format == "aac" ? ["edge-head-inset-before", "edge-head-inset-at", "edge-head-inset-after", "edge-tail-inset-before", "edge-tail-inset-at", "edge-tail-inset-after"] : []) : [])
                         for mode in modes {
                             func time(_ samples: Int64) throws -> RationalTime { try RationalTime(samples, Int64(rate)) }
-                            let length: Int64 = 35003
+                            let length: Int64 = mode == "edge-whole" ? Int64(rate * 2) : 35003
                             // AAC-LC access units contain 1024 decoded frames. At cross rates,
                             // test the nearest representable output sample and its neighbours.
                             let packet = Int64((Double(12 * 1024 * rate) / Double(sourceRate)).rounded())
-                            let sourceStart: Int64 = mode == "packet-before" ? packet - 1 : mode == "packet-at" ? packet : mode == "packet-after" ? packet + 1 : 12001
+                            let sourceStart: Int64
+                            switch mode {
+                            case "packet-before": sourceStart = packet - 1
+                            case "packet-at": sourceStart = packet
+                            case "packet-after": sourceStart = packet + 1
+                            case "edge-head", "edge-whole": sourceStart = 0
+                            case "edge-head-after": sourceStart = 1
+                            case "edge-head-inset-before": sourceStart = 1023
+                            case "edge-head-inset-at": sourceStart = 1024
+                            case "edge-head-inset-after": sourceStart = 1025
+                            case "edge-tail-inset-before": sourceStart = Int64(rate * 2) - length - 1023
+                            case "edge-tail-inset-at": sourceStart = Int64(rate * 2) - length - 1024
+                            case "edge-tail-inset-after": sourceStart = Int64(rate * 2) - length - 1025
+                            case "edge-tail-before": sourceStart = Int64(rate * 2) - length - 1
+                            case "edge-tail": sourceStart = Int64(rate * 2) - length
+                            default: sourceStart = 12001
+                            }
                             var clip = TimelineClip(assetID: asset.id,
                                 sourceRange: try TimeRange(start: time(sourceStart), duration: time(length)),
                                 timelineStart: try time(6001), selection: selection)
-                            if mode != "constant" && mode != "crossfade" && !mode.hasPrefix("packet-") {
+                            if mode != "constant" && mode != "crossfade" && !mode.hasPrefix("packet-") && !mode.hasPrefix("edge-") {
                                 let curve: AudioFadeCurve = mode == "linear" ? .linear : .equalPower
                                 let edge: Int64 = mode == "overlapping-fades" ? 24007 : 12007
                                 clip.fadeIn = .init(duration: try time(edge), curve: curve)
@@ -69,6 +88,7 @@ import EditorCore
                             project.tracks.append(TimelineTrack(familyID: family.id, template: silentTemplate, clips: [tail]))
                             let suffix = rate == sourceRate ? "\(rate)" : "\(sourceRate)-to-\(rate)"
                             let name = "\(format)-\(mode)-\(channels)-\(suffix)"
+                            try Data(name.utf8).write(to: root.appendingPathComponent("current-case.txt"))
                             let plan = try TimelineRenderPlan(project: project)
                             let command = try FFmpegRenderCompiler.compile(plan, outputURL: root.appendingPathComponent(name + "-reference.mov"))
                             let backend = try AVFoundationSequenceBackend(project: project, videoProxies: [:])
@@ -76,16 +96,23 @@ import EditorCore
                             do {
                                 item = try await backend.makePlayerItem()
                             } catch {
-                                guard CommandLine.arguments.contains("--expect-resampling-rejection"), rate != sourceRate,
-                                      error.localizedDescription.hasPrefix("System preview requires audio at the sequence sample rate") else { throw error }
+                                let rejectedRate = CommandLine.arguments.contains("--expect-resampling-rejection") && rate != sourceRate &&
+                                    error.localizedDescription.hasPrefix("System preview requires audio at the sequence sample rate")
+                                let rejectedMP3 = CommandLine.arguments.contains("--expect-mp3-rejection") && format == "mp3" &&
+                                    error.localizedDescription.hasPrefix("System preview cannot faithfully trim MP3 audio")
+                                guard rejectedRate || rejectedMP3 else { throw error }
                                 observations.append(["case": name, "channels": channels, "sampleRate": rate,
                                     "sourceSampleRate": sourceRate, "frames": command.audioSamples,
                                     "sourceStartOutputSample": sourceStart, "sourceStartTime": "\(sourceStart)/\(rate)",
+                                    "clipSampleCount": length, "timelineStartSample": 6001,
                                     "aacPacketFrames": format == "aac" ? 1024 : 0,
                                     "nearestPacketBoundaryOutputSample": packet,
                                     "rejected": true, "rejectionReason": error.localizedDescription])
                                 await backend.close()
                                 continue
+                            }
+                            if CommandLine.arguments.contains("--expect-mp3-rejection") && format == "mp3" {
+                                throw NSError(domain: "MP3 source unexpectedly accepted", code: 1)
                             }
                             if CommandLine.arguments.contains("--expect-resampling-rejection") && rate != sourceRate {
                                 throw NSError(domain: "Cross-rate source unexpectedly accepted", code: 1)
@@ -104,11 +131,15 @@ import EditorCore
                             // Preserve timestamps; empty edit ranges may have no buffers.
                             var samples = [Float](repeating: 0, count: Int(command.audioSamples) * channels)
                             var covered = Set<Int>()
+                            var extraFrames = 0
+                            var maximumExtraAmplitude: Float = 0
+                            let actualDuration = try await item.asset.load(.duration)
+                            let actualFrames = CMTimeConvertScale(actualDuration, timescale: Int32(rate), method: .roundHalfAwayFromZero).value
                             while let buffer = output.copyNextSampleBuffer() {
                                 guard let block = CMSampleBufferGetDataBuffer(buffer) else { throw NSError(domain: "Missing PCM block", code: 1) }
                                 let frame = CMTimeConvertScale(CMSampleBufferGetPresentationTimeStamp(buffer), timescale: Int32(rate), method: .roundHalfAwayFromZero).value
                                 let count = CMSampleBufferGetNumSamples(buffer)
-                                guard frame >= 0, frame + Int64(count) <= command.audioSamples else {
+                                guard frame >= 0 else {
                                     throw NSError(domain: "Mix buffer outside exact timeline: \(frame), \(count), \(command.audioSamples)", code: 1)
                                 }
                                 guard CMBlockBufferGetDataLength(block) == count * channels * MemoryLayout<Float>.size else {
@@ -119,19 +150,29 @@ import EditorCore
                                     CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: $0.count, destination: $0.baseAddress!)
                                 }
                                 guard result == kCMBlockBufferNoErr else { throw NSError(domain: "PCM copy", code: Int(result)) }
-                                for offset in 0..<count {
+                                let accepted = min(count, max(0, Int(command.audioSamples - frame)))
+                                extraFrames += count - accepted
+                                for value in values.dropFirst(accepted * channels) {
+                                    maximumExtraAmplitude = max(maximumExtraAmplitude, abs(value))
+                                }
+                                for offset in 0..<accepted {
                                     guard covered.insert(Int(frame) + offset).inserted else { throw NSError(domain: "Overlapping mix buffers", code: 1) }
                                 }
-                                samples.replaceSubrange(Int(frame) * channels..<(Int(frame) + count) * channels, with: values)
+                                if accepted > 0 {
+                                    samples.replaceSubrange(Int(frame) * channels..<(Int(frame) + accepted) * channels, with: values.prefix(accepted * channels))
+                                }
                             }
                             guard reader.status == .completed else { throw reader.error ?? NSError(domain: "Reader incomplete", code: 1) }
                             try samples.withUnsafeBytes { try Data($0).write(to: root.appendingPathComponent(name + "-system.f32")) }
                             observations.append(["case": name, "channels": channels, "sampleRate": rate,
                                 "sourceSampleRate": sourceRate, "sourceStartOutputSample": sourceStart,
                                 "sourceStartTime": "\(sourceStart)/\(rate)",
+                                "clipSampleCount": length, "timelineStartSample": 6001,
                                 "aacPacketFrames": format == "aac" ? 1024 : 0,
                                 "nearestPacketBoundaryOutputSample": packet,
                                 "frames": command.audioSamples, "decodedFrames": covered.count,
+                                "compositionFrames": actualFrames, "extraDecodedFrames": extraFrames,
+                                "maximumExtraAmplitude": maximumExtraAmplitude,
                                 "arguments": command.arguments])
                             await backend.close()
                         }

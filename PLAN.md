@@ -36,6 +36,8 @@ broader sequence-engine path; it still needs redistributable dependency packagin
 - [x] Exercise generated AAC cuts one sample before/at/after an interior packet
   boundary at matching rates; reject cross-rate system audio after decoded
   resampling parity failures. AAC priming/end padding remains unqualified.
+- [x] Qualify generated same-rate ALAC source boundaries; diagnose AAC source-edge
+  failures and refuse MP3 after decoded trim/mix parity failures.
 - [ ] Qualify broader real-world streams (open-GOP HEVC random access currently
   fails), broader compressed-audio boundaries and faithful resampling, hardware
   synchronization and signed sandbox media grants.
@@ -1808,3 +1810,44 @@ launch-performance claim has been validated yet.
   staging-overlap and universal-binary refusal regressions.
 - See [audio boundary/resampling evidence](docs/evidence/system-audio-resampling-20261014/README.md)
   and [native packaging evidence](docs/evidence/native-runtime-packaging-20261014/README.md).
+
+
+### Compressed-audio source-boundary checkpoint (2026-10-14)
+
+- Extended the generated decoded system mix matrix to ALAC and gapless MP3,
+  source sample zero/one, final-sample boundaries and whole-source clips. PCM
+  and ALAC pass all 40 cases each with unchanged float/sample budgets.
+- AAC interior/packet cuts remain qualified; 16 of 20 new source-edge cases fail.
+  Further 1,023/1,024/1,025-sample inset checks also fail in nine cases, so a
+  one-packet margin is not a valid acceptance rule. Source-edge AAC remains open.
+- MP3 fails 32/40 decoded cases, with amplitude errors reaching 0.218371749.
+  System preview now refuses actual MP3 format descriptions with PCM/ALAC
+  normalization guidance. Silent reader padding is retained separately from
+  exact composition duration; no audible duration extension is claimed.
+- Final source-edge checks pass 80 PCM/ALAC decoded cases and 40 MP3 refusals.
+  Combined checks pass 72 decoded PCM/ALAC/AAC interior mixes, 72 cross-rate
+  refusals and 40 MP3 refusals. Matrix completeness/uniqueness now has explicit
+  validation and three regression tests.
+- Verification: 61 Python tests (eight optional skips), 100 core tests (two skips),
+  workspace smokes and unsigned Debug app build pass. Host media services are
+  required for decoded audio evidence. Read-only subagent review rejected a
+  proposed AAC margin based on retained decoder diagnostics.
+- See [compressed-audio boundary evidence](docs/evidence/system-compressed-audio-20261014/README.md).
+
+### Native runtime deployment compatibility checkpoint (2026-10-14)
+
+- Native packaging parses both modern and legacy macOS deployment load commands;
+  missing, malformed and other-platform metadata is refused. The packaged plist
+  preserves stricter app requirements and declares at least the closure's real
+  minimum OS, with semantic version comparison.
+- Added an explicit deployment-target ceiling, also forwarded by the native
+  workspace runner. Incompatible inputs fail before staging/output creation.
+  The existing local runtime requires macOS 27; a 14.0 target is correctly refused.
+- Re-packaged the actual controller with consistent macOS 27 plist/manifest
+  metadata and verified its complete bundle signature. The controller still
+  passes original/proxy frame parity, exact seeks, sample-clock playback, edit/
+  replay and deactivation with developer loader paths cleared.
+- Eleven packaging regressions pass, including full staged publication and
+  pre-staging target refusal. Dependency notices/provenance remain unreviewed;
+  macOS 14 libraries, release distribution and Xcode runtime integration stay open.
+- See [native packaging evidence](docs/evidence/native-runtime-packaging-20261014/README.md).

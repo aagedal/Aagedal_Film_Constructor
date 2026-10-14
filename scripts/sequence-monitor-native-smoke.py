@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Opt-in app-controller qualification with explicitly selected development FFmpeg libraries.
-Does not package libraries or establish acoustic/display timing acceptance.
+Optional packaging creates an ad-hoc development bundle; acoustic/display timing remains unqualified.
 """
 import argparse
 import os
@@ -16,7 +16,10 @@ parser.add_argument('--output', type=Path, required=True)
 parser.add_argument('--build-workspace', action='store_true', help='Also compile an isolated unsigned development app with enabled native sequence UI')
 parser.add_argument('--package-runtime-notices', type=Path, help='Opt in to self-contained ad-hoc development packaging with explicit notices')
 parser.add_argument('--package-runtime-provenance', type=Path, help='Explicit provenance required with --package-runtime-notices')
+parser.add_argument('--package-runtime-deployment-target', help='Maximum minimum macOS version allowed in packaged runtime (requires packaging notices/provenance)')
 args = parser.parse_args()
+if args.package_runtime_deployment_target and not args.package_runtime_notices:
+    parser.error('--package-runtime-deployment-target requires packaging notices/provenance')
 if bool(args.package_runtime_notices) != bool(args.package_runtime_provenance):
     parser.error('Supply both packaging notices and provenance')
 for tool in [args.pkg_config, args.ffmpeg]:
@@ -99,7 +102,8 @@ if args.package_runtime_notices:
     def package_app(source, destination):
         subprocess.run(['python3', str(repo / 'scripts/package-native-runtime.py'),
             '--app', str(source), '--output', str(destination), '--library-dir', str(binary),
-            '--notices', str(args.package_runtime_notices), '--provenance', str(args.package_runtime_provenance)], check=True)
+            '--notices', str(args.package_runtime_notices), '--provenance', str(args.package_runtime_provenance),
+            *(['--deployment-target', args.package_runtime_deployment_target] if args.package_runtime_deployment_target else [])], check=True)
 
     # Exercise the production controller again from a bundle with every native
     # dependency relocated. Loader environment overrides are forbidden here.
