@@ -219,5 +219,8 @@ FFmpeg, while the system preview itself has no external playback dependency.
 Native-enabled development builds continue to use the native backend. Generated ProRes/PCM, H.264/AAC and closed-GOP HEVC/AAC fixtures now pass decoded
 seek checks at 24, 23.976, 29.97 and 59.94 fps. Open-GOP HEVC trim preview can return
 black and remains unqualified. See [system preview evidence](docs/evidence/system-sequence-20261014/README.md).
-Audio waveform parity, broader real-world media, signed sandbox and measured A/V
-timing qualification remain open.
+Generated PCM/AAC mono/stereo decoded audio mixes now pass reference waveform
+checks at matching 44.1/48 kHz within explicit amplitude bounds. Delayed clips
+apply their initial gain/fade before media begins. See [audio mix evidence](docs/evidence/system-audio-20261014/README.md).
+Compressed-audio boundaries, resampling, broader real-world media, signed sandbox
+and measured A/V timing qualification remain open.

@@ -31,8 +31,11 @@ broader sequence-engine path; it still needs redistributable dependency packagin
   black picture gaps, live play/pause, cleanup and unsupported routing rejection.
 - [x] Qualify generated ProRes/PCM, H.264/AAC and closed-GOP HEVC/AAC decoded seeks
   at 24, 24000/1001, 30000/1001 and 60000/1001; preserve rational trim boundaries.
-- [ ] Qualify broader real-world streams (open-GOP HEVC trim currently fails),
-  audio waveform parity, hardware synchronization and signed sandbox media grants.
+- [x] Qualify generated same-rate mono/stereo PCM and AAC decoded audio mixes
+  against FFmpeg within explicit amplitude bounds; fix initial delayed-clip gain.
+- [ ] Qualify broader real-world streams (open-GOP HEVC random access currently
+  fails), compressed-audio boundaries/resampling, hardware synchronization and
+  signed sandbox media grants.
 - [ ] Package the native FFmpeg runtime to extend preview to stills, explicit
   channel mapping, gain above unity and broader formats.
 
@@ -1750,3 +1753,25 @@ launch-performance claim has been validated yet.
   bookmarks and undo/redo), and diff checks passed. Native UI automation was
   unavailable (computer-use native pipe closed); visual layout and Finder hover
   transitions still need an on-screen check.
+
+
+### System audio waveform and open-GOP diagnosis checkpoint (2026-10-14)
+
+- Shared the production composition/audio-mix construction path with an offline
+  decoded proof. Explicit initial volume fixes delayed clips briefly starting at
+  unity before their gain or fade is applied.
+- Retained 40 generated PCM/AAC mono/stereo cases at matching 44.1/48 kHz, totaling
+  3,024,372 channel samples. Irregular sample-aligned cuts, gain, linear/equal-power
+  fades, overlapping fade edges, source-handle crossfades and silence gaps pass
+  explicit amplitude bounds. Nonlinear fades remain approximate. Separate AAC
+  source decoding exposes codec differences; encoded boundaries remain unqualified.
+- Open-GOP diagnosis distinguishes composition image-generator failures from
+  source/player random-access failures near GOP boundaries at all four prior
+  matrix rates. Sequential/24-frame preroll recovers selected synthetic frames,
+  but no safe arbitrary-GOP bound or production seek fix was established.
+- Verification: repository suite (47 Python tests, eight skipped; 100 core tests,
+  two skipped), unsigned Debug build, existing decoded sequence/live transport smoke,
+  new waveform proof and read-only subagent review passed.
+- See [audio mix evidence](docs/evidence/system-audio-20261014/README.md) and
+  [open-GOP diagnosis](docs/evidence/system-open-gop-20261014/README.md).
+  Physical synchronization, signed sandbox grants and native runtime packaging remain open.
