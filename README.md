@@ -42,6 +42,9 @@ reminder and automatic timestamped
 backups of saved projects are available. The latest 20 backups are recoverable
 through **Show backups**; source media is referenced, not copied. See
 [saving and recovery](docs/basic-workspace.md).
+The empty timeline displays a ruler, playhead, and placeholder video/audio lanes
+before any tracks exist. Finder drops highlight the media bin and timeline
+independently: the bin imports, while the timeline imports and places clips.
 Finder drops onto the timeline import and place files directly at the drop time;
 multiple files are placed consecutively. Compatible target tracks and automatic
 collision siblings are supported, with one undo step per imported file.

@@ -37,18 +37,18 @@ struct TimelineView: View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 Text("Timeline").font(.headline)
-                Button(action: store.undo) { Image(systemName: "arrow.uturn.backward") }.help("Undo").disabled(!store.canUndo)
-                Button(action: store.redo) { Image(systemName: "arrow.uturn.forward") }.help("Redo").disabled(!store.canRedo)
+                Button(action: store.undo) { Image(systemName: "arrow.uturn.backward") }.help("Undo").accessibilityLabel("Undo").disabled(!store.canUndo)
+                Button(action: store.redo) { Image(systemName: "arrow.uturn.forward") }.help("Redo").accessibilityLabel("Redo").disabled(!store.canRedo)
                 Divider().frame(height: 18)
                 Button(action: store.splitSelectedClip) { Label("Split at playhead", systemImage: "scissors") }
                     .labelStyle(.iconOnly).help("Split at playhead").disabled(store.selectedClip == nil)
                 Button(action: store.deleteSelectedClip) { Label("Delete clip", systemImage: "trash") }
                     .labelStyle(.iconOnly).help("Delete selected clip").disabled(store.selectedClip == nil)
                 Toggle(isOn: $store.snappingEnabled) { Image(systemName: "magnet") }
-                    .toggleStyle(.button).help("Snap clip edges to adjacent clips and the playhead")
+                    .toggleStyle(.button).help("Snap clip edges to adjacent clips and the playhead").accessibilityLabel("Snapping")
                 Spacer()
-                Button { store.stepPlayhead(frames: -1) } label: { Image(systemName: "backward.frame") }.help("Previous frame")
-                Button { store.stepPlayhead(frames: 1) } label: { Image(systemName: "forward.frame") }.help("Next frame")
+                Button { store.stepPlayhead(frames: -1) } label: { Image(systemName: "backward.frame") }.help("Previous frame").accessibilityLabel("Previous frame")
+                Button { store.stepPlayhead(frames: 1) } label: { Image(systemName: "forward.frame") }.help("Next frame").accessibilityLabel("Next frame")
                 Button(store.playheadTimecode) {
                     timecodeEntry = store.playheadTimecode
                     showingTimecodeEntry = true
@@ -61,7 +61,8 @@ struct TimelineView: View {
                         TextField("HH:MM:SS:FF", text: $timecodeEntry)
                             .textFieldStyle(.roundedBorder)
                             .onSubmit(goToTimecode)
-                        Button("Go", action: goToTimecode).keyboardShortcut(.defaultAction)
+                        Button(action: goToTimecode) { Label("Go to timecode", systemImage: "arrow.right") }
+                            .labelStyle(.iconOnly).help("Go to timecode").keyboardShortcut(.defaultAction)
                     }.padding().frame(width: 220)
                 }
                 Text("\(store.playheadSeconds, specifier: "%.3f") s").font(.system(.caption, design: .monospaced))
@@ -72,23 +73,20 @@ struct TimelineView: View {
                     .labelStyle(.iconOnly).help("Zoom timeline to fit; repeat to restore zoom").disabled(store.duration <= 0)
             }.padding(10)
             Divider()
-            if store.project.tracks.isEmpty {
-                ContentUnavailableView {
-                    Label("Build your sequence", systemImage: "rectangle.stack")
-                } description: {
-                    Text("Drag files from Finder here to start your sequence, or select imported media and click Append.")
-                }
-                .frame(maxHeight: .infinity)
-                .frame(maxWidth: .infinity)
-                .contentShape(Rectangle())
-            } else {
-                ScrollViewReader { scroller in
+            ScrollViewReader { scroller in
                 ScrollView([.horizontal, .vertical]) {
                     LazyVStack(alignment: .leading, spacing: 1) {
                         HStack(spacing: 0) {
                             Text("Tracks").font(.caption.bold()).foregroundStyle(.secondary)
                                 .frame(width: labelWidth, height: 30, alignment: .leading)
                             ruler
+                        }
+                        if store.project.tracks.isEmpty {
+                            emptyTrackLane("V1", systemImage: "film", tint: .indigo)
+                            emptyTrackLane("A1", systemImage: "waveform", tint: .teal)
+                            Text("Drop media here to start your sequence")
+                                .font(.caption).foregroundStyle(.secondary)
+                                .padding(.leading, labelWidth + 12).padding(.top, 12)
                         }
                         ForEach(store.project.tracks) { track in
                             HStack(spacing: 0) {
@@ -111,7 +109,6 @@ struct TimelineView: View {
                     toggleZoomToFit()
                     scroller.scrollTo("timelineStart", anchor: .topLeading)
                 }
-                }
             }
         }
         .coordinateSpace(name: "timelineDrop")
@@ -133,7 +130,13 @@ struct TimelineView: View {
         .overlay {
             if isDropTargeted {
                 RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(Color.accentColor, lineWidth: 3)
+                    .fill(Color.accentColor.opacity(0.07))
+                    .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor, lineWidth: 2) }
+                    .overlay(alignment: .bottomTrailing) {
+                        Label("Add to timeline", systemImage: "rectangle.stack.badge.plus")
+                            .font(.caption.weight(.medium)).padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(.regularMaterial, in: Capsule()).padding(12)
+                    }
                     .allowsHitTesting(false)
             }
         }
@@ -149,6 +152,30 @@ struct TimelineView: View {
     private func goToTimecode() {
         showingTimecodeEntry = false
         store.seek(toTimecode: timecodeEntry)
+    }
+
+    // These lanes identify the empty canvas without creating tracks in the project.
+    private func emptyTrackLane(_ name: String, systemImage: String, tint: Color) -> some View {
+        HStack(spacing: 0) {
+            Label(name, systemImage: systemImage)
+                .font(.caption).foregroundStyle(.secondary)
+                .padding(.horizontal, 10).frame(width: labelWidth, height: 64, alignment: .leading)
+                .background(Color(nsColor: .controlBackgroundColor))
+            ZStack(alignment: .topLeading) {
+                Color(nsColor: .textBackgroundColor)
+                tint.opacity(0.035)
+                ForEach(0...Int(visibleDuration / tickInterval), id: \.self) { index in
+                    Rectangle().fill(Color.secondary.opacity(0.08)).frame(width: 1, height: 64)
+                        .offset(x: Double(index) * tickInterval * pixelsPerSecond)
+                }
+                RoundedRectangle(cornerRadius: 5)
+                    .strokeBorder(tint.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .padding(.horizontal, 8).padding(.vertical, 6)
+                playhead(height: 64)
+            }.frame(width: canvasWidth, height: 64)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(name == "V1" ? "Empty video lane" : "Empty audio lane")
     }
 
     private var ruler: some View {

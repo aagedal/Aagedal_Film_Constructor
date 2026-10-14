@@ -3,22 +3,25 @@
 Open `Aagedal Film Constructor.xcodeproj` in Xcode 27 or compatible, choose the
 **Aagedal Film Constructor** scheme and **My Mac**, then Run. The app requires
 macOS 14+. Launch opens an empty untitled workspace. Drop files from Finder
-straight onto it; no project creation dialog is required. File → New creates
+onto the media bin to import or the timeline to import and place clips; no project creation dialog is required. File → New creates
 another workspace, while File → Open opens an existing project.
 
 Drop Finder files onto the empty timeline to start at zero. On an existing
 timeline, drop onto a lane at the desired time; the starting position snaps to
 the nearest sequence frame. Multiple files are placed consecutively in drop
 order. A compatible target lane is used, and overlaps create sibling tracks.
-Dropping onto the timeline toolbar places at the playhead. Drops elsewhere in
-the workspace import into the media bin without placing clips.
+Dropping onto the timeline toolbar places at the playhead. Drops onto the media bin import without placing clips. Each destination has
+its own tinted outline and short drop hint; moving between them highlights only
+the current destination. The monitor and inspector are not drop destinations.
+An empty timeline still shows a time ruler, playhead, and placeholder video/audio
+lanes. These guides do not create tracks or change the project.
 
 Each successful timeline import and placement is one undoable action, including
 its media bookmark. Unsupported files are reported and skipped; an audio layout
 requiring explicit mapping is refused without adding it. Import that file into
 the bin and choose **Append with audio selection…** to configure it.
 
-1. Import a short MOV/MP4, WAV/M4A, or PNG/JPEG using **Import**, ⌘I, or dropping files from Finder onto the workspace.
+1. Import a short MOV/MP4, WAV/M4A, or PNG/JPEG using **Import**, ⌘I, or dropping files from Finder onto the media bin.
    Import inspects media asynchronously. Select each file in the bin to preview
    the original source; video/audio use the monitor's playback controls. **J**
    plays backwards with silent frame seeking, **K** pauses, and **L** plays
