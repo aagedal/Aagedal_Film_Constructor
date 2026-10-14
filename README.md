@@ -233,3 +233,9 @@ development bundle with relocated dependencies and developer loader paths cleare
 Its locally selected libraries require macOS 27; shipping integration and compatible
 attributed release dependencies remain open. See
 [native packaging evidence](docs/evidence/native-runtime-packaging-20261014/README.md).
+
+Generated same-rate ALAC now passes source-head/tail/whole-source decoded mix
+checks alongside PCM. MP3 fails trim/mix parity and is explicitly refused by
+system sequence preview; normalize it to PCM or ALAC. AAC source-edge cases fail
+existing fidelity bounds and remain unqualified, while the earlier interior and
+packet-cut subset still passes. See [compressed-audio boundary evidence](docs/evidence/system-compressed-audio-20261014/README.md).

@@ -106,6 +106,14 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 // AVFoundation's composition resampler shifts sample phase and
                 // smooths cut boundaries differently from the canonical render.
                 // Admit only the same-rate subset qualified against that render.
+                // Generated gapless MP3 fixtures disagree with the canonical
+                // renderer even at matching rates and interior cuts. Do not
+                // present those decoded samples as an edited sequence preview.
+                if descriptions.contains(where: { description in
+                    CMAudioFormatDescriptionGetStreamBasicDescription(description)?.pointee.mFormatID == kAudioFormatMPEGLayer3
+                }) {
+                    throw Self.unsupported("System preview cannot faithfully trim MP3 audio. Normalize \(url.lastPathComponent) to PCM or ALAC before editing.")
+                }
                 guard !descriptions.isEmpty, descriptions.allSatisfy({ description in
                     guard let format = CMAudioFormatDescriptionGetStreamBasicDescription(description) else { return false }
                     return format.pointee.mSampleRate == Double(plan.settings.audioSampleRate)

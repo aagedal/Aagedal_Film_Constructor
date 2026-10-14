@@ -12,15 +12,43 @@ import subprocess
 import wave
 
 
+def validate_case_names(mixes, *, aac=False, extra_codecs=False, edges=False, packets=False, resampling=False):
+    """A missing, duplicated or unexpected matrix case must never yield a passing proof."""
+    expected = set()
+    formats = ['pcm'] + (['aac'] if aac else []) + (['alac', 'mp3'] if extra_codecs else [])
+    for codec in formats:
+        modes = ['constant', 'linear', 'equal-power', 'overlapping-fades', 'crossfade']
+        if codec == 'aac' and packets:
+            modes += ['packet-before', 'packet-at', 'packet-after']
+        if edges:
+            modes += ['edge-head', 'edge-head-after', 'edge-tail-before', 'edge-tail', 'edge-whole']
+            if codec == 'aac':
+                modes += [f'edge-{side}-inset-{point}' for side in ['head', 'tail'] for point in ['before', 'at', 'after']]
+        for channels in [1, 2]:
+            for source_rate in [44100, 48000]:
+                rates = [source_rate, 48000 if source_rate == 44100 else 44100] if resampling else [source_rate]
+                for rate in rates:
+                    suffix = str(rate) if rate == source_rate else f'{source_rate}-to-{rate}'
+                    expected.update(f'{codec}-{mode}-{channels}-{suffix}' for mode in modes)
+    names = [mix['case'] for mix in mixes]
+    if len(names) != len(set(names)) or set(names) != expected:
+        raise RuntimeError(f'Incomplete or duplicated audio matrix: missing={sorted(expected - set(names))}, unexpected={sorted(set(names) - expected)}')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('ffmpeg', type=Path)
     parser.add_argument('output', type=Path)
     parser.add_argument('--include-aac', action='store_true', help='Also qualify compressed AAC fixture decoding')
+    parser.add_argument('--include-lossless-and-mp3', action='store_true', help='Also qualify generated ALAC/M4A and gapless MP3 sources')
+    parser.add_argument('--include-edge-cuts', action='store_true', help='Also test source head, final sample, and whole-source boundaries')
+    parser.add_argument('--expect-mp3-rejection', action='store_true', help='Assert system preview refuses every MP3 case (requires --include-lossless-and-mp3)')
     parser.add_argument('--include-resampling', action='store_true', help='Also test 44.1-to-48 and 48-to-44.1 kHz sources')
     parser.add_argument('--include-packet-cuts', action='store_true', help='Also test AAC cuts around a 1024-frame packet boundary (requires --include-aac)')
     parser.add_argument('--expect-resampling-rejection', action='store_true', help='Assert the system backend rejects each cross-rate case (requires --include-resampling)')
     args = parser.parse_args()
+    if args.expect_mp3_rejection and not args.include_lossless_and_mp3:
+        parser.error('--expect-mp3-rejection requires --include-lossless-and-mp3')
     if args.expect_resampling_rejection and not args.include_resampling:
         parser.error('--expect-resampling-rejection requires --include-resampling')
     if args.include_packet_cuts and not args.include_aac:
@@ -71,6 +99,13 @@ def main():
                 packet_evidence.append(dict(channels=channels, sampleRate=rate,
                     timeBase=f'1/{rate}', testedPacketPTS=12288, testedPacketDuration=1024,
                     packetTableSHA256=hashlib.sha256((root / (stem + '-packets.txt')).read_bytes()).hexdigest()))
+    if args.include_lossless_and_mp3:
+        for channels in [1, 2]:
+            for rate in [44100, 48000]:
+                stem = f'source-{channels}-{rate}'
+                for codec, extension, options in [('alac', 'alac.m4a', ['-c:a', 'alac']), ('mp3', 'mp3', ['-c:a', 'libmp3lame', '-b:a', '192k'])]:
+                    run([args.ffmpeg, '-v', 'error', '-nostdin', '-n', '-i', root / (stem + '.wav'),
+                         *options, root / (stem + '.' + extension)], stem + '-' + codec + '.log')
     common = ['swiftc', '-swift-version', '6', '-default-isolation', 'MainActor',
               '-module-cache-path', root / 'module-cache']
     run([*common, '-emit-library', '-emit-module', '-module-name', 'EditorCore',
@@ -80,7 +115,7 @@ def main():
          repo / 'Aagedal Film Constructor/AVFoundationSequenceBackend.swift',
          repo / 'Aagedal Film Constructor/SequencePlaybackController.swift',
          repo / 'scripts/system-audio-mix-proof.swift', '-o', root / 'mix-proof'], 'mix-build.log')
-    run([root / 'mix-proof', root, *[flag for flag, enabled in [('--include-aac', args.include_aac), ('--include-resampling', args.include_resampling), ('--include-packet-cuts', args.include_packet_cuts), ('--expect-resampling-rejection', args.expect_resampling_rejection)] if enabled]], 'mix-decode.log')
+    run([root / 'mix-proof', root, *[flag for flag, enabled in [('--include-aac', args.include_aac), ('--include-lossless-and-mp3', args.include_lossless_and_mp3), ('--include-edge-cuts', args.include_edge_cuts), ('--expect-mp3-rejection', args.expect_mp3_rejection), ('--include-resampling', args.include_resampling), ('--include-packet-cuts', args.include_packet_cuts), ('--expect-resampling-rejection', args.expect_resampling_rejection)] if enabled]], 'mix-decode.log')
     def floats(path):
         result = array.array('f')
         result.frombytes(path.read_bytes())
@@ -121,12 +156,17 @@ def main():
                         interiorMaximumError=max(interior),
                         interiorRMSError=math.sqrt(sum(e * e for e in interior) / len(interior))))
     cases = []
-    for mix in json.loads((root / 'mixes.json').read_text()):
+    mixes = json.loads((root / 'mixes.json').read_text())
+    validate_case_names(mixes, aac=args.include_aac, extra_codecs=args.include_lossless_and_mp3,
+                        edges=args.include_edge_cuts, packets=args.include_packet_cuts, resampling=args.include_resampling)
+    for mix in mixes:
         name = mix['case']
         if mix.get('rejected'):
-            if not args.expect_resampling_rejection or mix['sourceSampleRate'] == mix['sampleRate'] or not mix['rejectionReason'].startswith('System preview requires audio at the sequence sample rate'):
+            rejected_rate = args.expect_resampling_rejection and mix['sourceSampleRate'] != mix['sampleRate'] and mix['rejectionReason'].startswith('System preview requires audio at the sequence sample rate')
+            rejected_mp3 = args.expect_mp3_rejection and name.startswith('mp3-') and mix['rejectionReason'].startswith('System preview cannot faithfully trim MP3 audio')
+            if not (rejected_rate or rejected_mp3):
                 raise RuntimeError(f'{name}: unexpected rejection')
-            cases.append(dict(mix, passed=True, qualification='explicit-cross-rate-rejection'))
+            cases.append(dict(mix, passed=True, qualification='explicit-mp3-rejection' if rejected_mp3 else 'explicit-cross-rate-rejection'))
             print(f'{name}: PASS explicitly rejected', flush=True)
             continue
         run([args.ffmpeg, *mix['arguments']], name + '-render.log')
@@ -144,24 +184,25 @@ def main():
         # PCM constant gain uses a tight float-rounding bound. AAC constant mix
         # permits one 16-bit PCM code value across the two decoder implementations.
         # Piecewise nonlinear ramps intentionally approximate the exact envelope.
-        constant = '-constant-' in name or '-packet-' in name
+        constant = '-constant-' in name or '-packet-' in name or '-edge-' in name
         resampling = mix['sourceSampleRate'] != mix['sampleRate']
         # Cross-rate constant cases retain a one-s16-code budget: different
         # resampling kernels are not assumed equivalent. Errors outside that
         # engineering bound remain failures, including at discontinuous cuts.
-        limit = (1 / 32768 if name.startswith('aac-') or resampling else 0.000002) if constant else 0.0001
+        limit = (1 / 32768 if name.startswith(('aac-', 'mp3-')) or resampling else 0.000002) if constant else 0.0001
         maximum_index = errors.index(maximum)
         # Excluding 64 output frames per edit is diagnostic only; pass/fail
         # always includes every sample. This separates kernel edge behaviour
         # from an error persisting throughout the audible clip.
-        start = 6001
-        interior = errors[(start + 64) * mix['channels']:(start + 35003 - 64) * mix['channels']]
-        passed = all(math.isfinite(value) for value in system) and all(math.isfinite(value) for value in reference) and maximum <= limit
+        start = mix['timelineStartSample']
+        interior = errors[(start + 64) * mix['channels']:(start + mix['clipSampleCount'] - 64) * mix['channels']]
+        passed = mix['compositionFrames'] == mix['frames'] and mix['extraDecodedFrames'] == 0 and all(math.isfinite(value) for value in system) and all(math.isfinite(value) for value in reference) and maximum <= limit
         observation = dict(case=name, passed=passed, channels=mix['channels'], sampleRate=mix['sampleRate'],
                            sourceSampleRate=mix['sourceSampleRate'], sourceStartOutputSample=mix['sourceStartOutputSample'],
-                           sourceStartTime=mix['sourceStartTime'], aacPacketFrames=mix['aacPacketFrames'],
+                           sourceStartTime=mix['sourceStartTime'], clipSampleCount=mix['clipSampleCount'], timelineStartSample=mix['timelineStartSample'], aacPacketFrames=mix['aacPacketFrames'],
                            nearestPacketBoundaryOutputSample=mix['nearestPacketBoundaryOutputSample'],
                            frames=mix['frames'], decodedFrames=mix['decodedFrames'],
+                           compositionFrames=mix['compositionFrames'], extraDecodedFrames=mix['extraDecodedFrames'], maximumExtraAmplitude=mix['maximumExtraAmplitude'],
                            maximumErrorFrame=maximum_index // mix['channels'], maximumErrorChannel=maximum_index % mix['channels'],
                            interiorMaximumError=max(interior), interiorExcludedFramesPerEdge=64,
                            maximumError=maximum, rmsError=rms, maximumErrorLimit=limit,
