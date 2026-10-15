@@ -255,3 +255,10 @@ runtime fits the macOS 27 baseline; no release certification is claimed. See
 [native Xcode setup](docs/sequence-monitor.md#native-playback-in-xcode-debug).
 AAC playback now displays its audio-boundary approximation status without disabling
 ordinary camera/phone media; see [AAC status evidence](docs/evidence/system-compressed-audio-20261014/AAC-preview-notice.md).
+
+An isolated development [MPVKit source proof](docs/evidence/mpv-source-20261016/README.md)
+now verifies grayscale decoded seeks, loaded stream identities and repeated
+transport/teardown against the cached CoreAudio-fixed runtime. Its color matrix
+fails the unchanged pixel bounds; CoreAudio, native display and coexistence with
+the timeline runtime remain unqualified. Source playback in ordinary builds
+continues to use AVFoundation.
