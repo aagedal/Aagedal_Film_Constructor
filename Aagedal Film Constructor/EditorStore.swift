@@ -381,11 +381,22 @@ final class EditorStore: ObservableObject {
     func pauseSource() {
         sourceTransportTask?.cancel()
         sourceTransportTask = nil
+        if sourcePlayback != nil {
+            // Once installed, transport commands own this player. A delayed
+            // restoration must not replay or report failure over a newer command.
+            sourcePreviewTask?.cancel()
+            sourcePreviewTask = nil
+            pendingSourceTransport = nil
+        } else if let pending = pendingSourceTransport {
+            // Preparation has no installed backend yet; retain its requested
+            // source coordinate so it can finish paused.
+            pendingSourceTransport = (pending.time, false)
+        }
         sourcePlayback?.pause()
-        if let pending = pendingSourceTransport { pendingSourceTransport = (pending.time, false) }
     }
 
     func playSourceForwards() {
+        let restoreTime = pendingSourceTransport?.time
         pauseSource()
         guard let asset = selectedAsset else { return }
         guard let player = sourcePlayback else {
@@ -395,30 +406,75 @@ final class EditorStore: ObservableObject {
             }
             return
         }
+        let epoch = mediaEpoch
         sourceTransportTask = Task {
-            if player.currentTime.seconds >= asset.duration.seconds - 0.001 {
-                await player.seek(to: .zero)
+            do {
+                let position = restoreTime ?? player.currentTime
+                if position.seconds >= asset.duration.seconds - 0.001 {
+                    try await player.seek(to: .zero)
+                } else if restoreTime != nil {
+                    try await player.seek(to: position)
+                }
+                guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset?.id == asset.id, sourcePlayback === player else { return }
+                player.play()
+            } catch {
+                guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset?.id == asset.id, sourcePlayback === player else { return }
+                reportSourceSeekFailure(error)
             }
-            guard !Task.isCancelled else { return }
-            player.play()
         }
     }
 
     func playSourceBackwards() {
+        let restoreTime = pendingSourceTransport?.time
         pauseSource()
         guard let player = sourcePlayback, let asset = selectedAsset else { return }
         // Seek-based reverse works even when the source codec has no native reverse
         // support. Keep audio paused, and allow only one outstanding seek at a time.
-        let current = player.currentTime.seconds
+        let current = (restoreTime ?? player.currentTime).seconds
         let start = current.isFinite && current > 0 ? current : asset.duration.seconds
+        let epoch = mediaEpoch
         sourceTransportTask = Task {
             let began = ProcessInfo.processInfo.systemUptime
             while !Task.isCancelled {
                 let position = max(0, start - (ProcessInfo.processInfo.systemUptime - began))
-                await player.seek(to: CMTime(seconds: position, preferredTimescale: 60000))
-                guard !Task.isCancelled, position > 0 else { return }
+                do {
+                    try await player.seek(to: CMTime(seconds: position, preferredTimescale: 60000))
+                } catch {
+                    guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset?.id == asset.id, sourcePlayback === player else { return }
+                    reportSourceSeekFailure(error)
+                    return
+                }
+                guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset?.id == asset.id, sourcePlayback === player, position > 0 else { return }
                 do { try await Task.sleep(for: .milliseconds(33)) } catch { return }
             }
+        }
+    }
+
+    func reportSourceSeekFailure(_ error: Error) {
+        pauseSource()
+        pendingSourceTransport = nil
+        statusMessage = "Source seek failed: \(error.localizedDescription)"
+    }
+
+    /// Restore an installed backend only until an explicit transport command
+    /// takes ownership. Pending preparation without a backend remains separate.
+    func restoreSourceTransport(backend: any SourcePlaybackBackend, time: CMTime, playing: Bool) {
+        guard let asset = selectedAsset else { return }
+        let epoch = mediaEpoch
+        let representation = playbackRepresentation
+        sourcePreviewTask = Task {
+            do {
+                try await backend.seek(to: pendingSourceTransport?.time ?? time)
+            } catch {
+                guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset,
+                      representation == playbackRepresentation, sourcePlayback === backend else { return }
+                reportSourceSeekFailure(error)
+                return
+            }
+            guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset,
+                  representation == playbackRepresentation, sourcePlayback === backend else { return }
+            if pendingSourceTransport?.playing ?? playing { backend.play() }
+            pendingSourceTransport = nil
         }
     }
 

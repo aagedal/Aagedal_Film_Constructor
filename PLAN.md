@@ -2002,3 +2002,45 @@ See [composition evidence](docs/evidence/system-composition-20261015/README.md),
   Proxy composition preparation and import still use AVFoundation. MPV loading,
   broader-container metadata, track identity, native-runtime coexistence and
   distribution qualification remain open; no new formats are admitted here.
+
+
+### MPVKit source-runtime and seek-failure checkpoint (2026-10-16)
+
+- Added an offline isolated source proof against the clean cached CoreAudio-fixed
+  MPVKit revision `400202b687841fb394cbf0ef59ad8c6fcfc1275b`. It selects the
+  native macOS slices from explicit artifact roots, links the static closure,
+  and retains archive/executable/source hashes and exact build/run commands.
+- The grayscale timing matrix passes 24 load/play/pause/destroy cycles, 120 exact
+  forward/backward/repeated seek coordinates and 100 decoded frame comparisons.
+  Fixtures cover ProRes/PCM MOV, audio-first Matroska, H.264 B-frames/AAC and
+  open-GOP HEVC/AAC. Video-only/audio-only selections and 12 missing/wrong-kind
+  identity rejections pass. Loaded `ff-index`/kind resolves actual MPV track IDs.
+- This cached runtime's attempted PNG capture fails. Encoder-free raw screenshots
+  supply bounded packed RGB frames instead. Maximum grayscale mean RGB error is
+  1.8199132 and peak 3 under mean/peak limits of 3/32.
+- The unchanged colored diagnostic fails all 100 pixel comparisons (maximum mean
+  5.2922454, peak 255); its reports and nonzero result are retained. Grayscale
+  timing does not qualify color agreement, decoded audio, CoreAudio, GPU display,
+  asynchronous callbacks, proxy composition, signed sandbox access or app linking.
+- The static MPV FFmpeg 8.1.2 closure still needs symbol isolation/coexistence
+  proof with the native timeline runtime's dynamic FFmpeg 9.0.2 before integration.
+  Ordinary app source playback remains AVFoundation. Broader import metadata
+  and distribution qualification remain open.
+- Source backends now report failed seeks. The app pauses and clears pending
+  play intent on a current failure, reports useful status and ignores obsolete
+  failures; a failed restart cannot play from the previous source coordinate.
+  Deterministic failure/cleanup checks extend the existing source transport smoke.
+
+See [MPV source evidence](docs/evidence/mpv-source-20261016/README.md).
+
+The seek-failure follow-up also gives explicit transport commands ownership of an
+installed source backend: delayed restoration is cancelled, pending AVFoundation
+seeks are interrupted on pause, and requested restoration coordinates are retained
+when starting forward/reverse. This prevents a superseded same-player restore
+from restarting playback or reporting failure over the new command.
+
+Verification: 79 Python tests (eight optional skips), EditorCore XCTest/Swift
+Testing suites, final host app-file and proxy-workspace smokes, and the unsigned
+Debug Xcode app build pass. The full color diagnostic intentionally exits nonzero
+with the failures above. Source/proxy smokes and Xcode require host bookmark/media
+services and package caches outside the restricted tool sandbox.
