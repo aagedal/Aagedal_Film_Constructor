@@ -381,7 +381,7 @@ struct ContentView: View {
                     Button(action: store.playSourceBackwards) { Image(systemName: "backward.fill") }
                         .accessibilityLabel("Play source backwards")
                         .help("Play source backwards (silent)")
-                        .disabled(store.sourcePlayer == nil)
+                        .disabled(store.sourcePlayback == nil)
                     Button(action: store.pauseSource) { Image(systemName: "pause.fill") }
                         .accessibilityLabel("Pause source")
                         .help("Pause source")

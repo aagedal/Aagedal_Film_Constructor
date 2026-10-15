@@ -47,7 +47,20 @@ final class EditorStore: ObservableObject {
     @Published var errorMessage: String?
     @Published var isImporting = false
     @Published var snappingEnabled = true
-    @Published var sourcePlayer: AVPlayer?
+    @Published var sourcePlayback: (any SourcePlaybackBackend)? {
+        didSet {
+            if oldValue !== sourcePlayback {
+                sourceTransportTask?.cancel()
+                sourceTransportTask = nil
+                oldValue?.close()
+            }
+        }
+    }
+    // AVFoundation's player is exposed only for its native presentation surface.
+    var sourcePlayer: AVPlayer? {
+        guard let surface = sourcePlayback?.surface else { return nil }
+        switch surface { case .avFoundation(let player): return player }
+    }
     @Published var previewImage: NSImage?
     @Published var statusMessage = "Import media to begin."
     @Published private(set) var mediaPreviewRevision = UUID()
@@ -82,7 +95,7 @@ final class EditorStore: ObservableObject {
         }
         return cachedClips?[selectedClipID]
     }
-    var canControlSourceTransport: Bool { sourcePlayer != nil || pendingSourceTransport != nil }
+    var canControlSourceTransport: Bool { sourcePlayback != nil || pendingSourceTransport != nil }
 
     func load(_ document: ProjectDocument) {
         close()
@@ -152,7 +165,7 @@ final class EditorStore: ObservableObject {
         proxyCreationDraft = nil
         isImporting = false
         pauseSource()
-        sourcePlayer = nil
+        sourcePlayback = nil
         previewImage = nil
         for url in scopedURLs { url.stopAccessingSecurityScopedResource() }
         scopedURLs.removeAll()
@@ -360,21 +373,22 @@ final class EditorStore: ObservableObject {
         } else {
             selectedAssetID = nil
             sourcePreviewTask?.cancel()
-            pauseSource(); sourcePlayer = nil; previewImage = nil
+            pendingSourceTransport = nil
+            pauseSource(); sourcePlayback = nil; previewImage = nil
         }
     }
 
     func pauseSource() {
         sourceTransportTask?.cancel()
         sourceTransportTask = nil
-        sourcePlayer?.pause()
+        sourcePlayback?.pause()
         if let pending = pendingSourceTransport { pendingSourceTransport = (pending.time, false) }
     }
 
     func playSourceForwards() {
         pauseSource()
         guard let asset = selectedAsset else { return }
-        guard let player = sourcePlayer else {
+        guard let player = sourcePlayback else {
             if let pending = pendingSourceTransport {
                 let time = pending.time.seconds >= asset.duration.seconds - 0.001 ? CMTime.zero : pending.time
                 pendingSourceTransport = (time, true)
@@ -382,8 +396,8 @@ final class EditorStore: ObservableObject {
             return
         }
         sourceTransportTask = Task {
-            if player.currentTime().seconds >= asset.duration.seconds - 0.001 {
-                await player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+            if player.currentTime.seconds >= asset.duration.seconds - 0.001 {
+                await player.seek(to: .zero)
             }
             guard !Task.isCancelled else { return }
             player.play()
@@ -392,17 +406,16 @@ final class EditorStore: ObservableObject {
 
     func playSourceBackwards() {
         pauseSource()
-        guard let player = sourcePlayer, let asset = selectedAsset else { return }
+        guard let player = sourcePlayback, let asset = selectedAsset else { return }
         // Seek-based reverse works even when the source codec has no native reverse
         // support. Keep audio paused, and allow only one outstanding seek at a time.
-        let current = player.currentTime().seconds
+        let current = player.currentTime.seconds
         let start = current.isFinite && current > 0 ? current : asset.duration.seconds
         sourceTransportTask = Task {
             let began = ProcessInfo.processInfo.systemUptime
             while !Task.isCancelled {
                 let position = max(0, start - (ProcessInfo.processInfo.systemUptime - began))
-                await player.seek(to: CMTime(seconds: position, preferredTimescale: 60000),
-                                  toleranceBefore: .zero, toleranceAfter: .zero)
+                await player.seek(to: CMTime(seconds: position, preferredTimescale: 60000))
                 guard !Task.isCancelled, position > 0 else { return }
                 do { try await Task.sleep(for: .milliseconds(33)) } catch { return }
             }
@@ -423,7 +436,7 @@ final class EditorStore: ObservableObject {
     /// frames; other media uses an explicit microsecond clock rather than guessed cadence.
     func markSource(inPoint: Bool) {
         guard let asset = selectedAsset, let range = selectedSourceRange else { return }
-        let seconds = pendingSourceTransport?.time.seconds ?? sourcePlayer?.currentTime().seconds ?? 0
+        let seconds = pendingSourceTransport?.time.seconds ?? sourcePlayback?.currentTime.seconds ?? 0
         guard seconds.isFinite else { return }
         do {
             let clamped = max(0, min(asset.duration.seconds, seconds))
@@ -513,7 +526,7 @@ final class EditorStore: ObservableObject {
             sourcePreviewTask?.cancel()
             sourcePreviewTask = nil
             pendingSourceTransport = nil
-            pauseSource(); sourcePlayer = nil; previewImage = nil
+            pauseSource(); sourcePlayback = nil; previewImage = nil
         }
         else { selectedAssetIDs = selectedAssetIDs.intersection(Set(project.assets.map(\.id))); refreshSourcePreview() }
         playheadSeconds = min(playheadSeconds, duration)

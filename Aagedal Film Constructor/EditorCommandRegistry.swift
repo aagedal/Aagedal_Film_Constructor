@@ -96,11 +96,11 @@ final class EditorCommandRegistry: ObservableObject {
         case .redo: return store.canRedo
         case .importMedia: return !store.isImporting
         case .appendSource: return store.selectedAsset != nil && !store.isImporting
-        case .markSourceIn, .markSourceOut: return store.sourcePlayer != nil || store.pendingSourceTransport != nil
+        case .markSourceIn, .markSourceOut: return store.sourcePlayback != nil || store.pendingSourceTransport != nil
         case .clearSourceMarks: return store.selectedAssetID.map { store.sourceRanges[$0] != nil } ?? false
         case .splitClip, .deleteClip: return store.selectedClip != nil
         case .previousFrame, .nextFrame: return true
-        case .playReverse: return store.sequencePlayback == nil && store.sourcePlayer != nil
+        case .playReverse: return store.sequencePlayback == nil && store.sourcePlayback != nil
         case .pausePlayback:
             if let sequence = store.sequencePlayback { return sequence.available }
             return store.canControlSourceTransport

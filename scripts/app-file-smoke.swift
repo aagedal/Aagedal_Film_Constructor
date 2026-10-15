@@ -20,6 +20,7 @@ struct AppFileSmoke {
         try check(abs(audio.asset.duration.seconds - 2) < 0.001, "WAV duration")
         try check(audio.asset.streams.count == 1 && audio.asset.streams[0].audioLayout == .stereo, "WAV stereo layout")
         try check(audio.bookmark != nil, "WAV bookmark")
+        try await exerciseSourceBackend(audio: audio)
         try await exerciseSourcePlayback(audio: audio)
         try await exerciseSequenceCommands(audio: audio)
         let still = try await MediaImporter.inspect(url: imageURL)
@@ -656,6 +657,43 @@ struct AppFileSmoke {
         try await Task.sleep(for: .milliseconds(200))
         try check(!backend.isPlaying && !controller.isPlaying, "K rejects delayed sequence play")
         controller.deactivate()
+    }
+
+    @MainActor
+    static func exerciseSourceBackend(audio: ImportedMedia) async throws {
+        let store = EditorStore()
+        defer { store.close() }
+        try store.registerImportedMedia(audio)
+        let backend = CommandSourceBackend()
+        backend.currentTime = CMTime(seconds: 2, preferredTimescale: 48000)
+        store.sourcePlayback = backend
+        store.playSourceForwards()
+        for _ in 0..<100 where backend.pendingSeek == nil { await Task.yield() }
+        try check(backend.pendingSeek != nil, "Backend receives restart seek")
+        store.pauseSource()
+        backend.finishSeek()
+        for _ in 0..<20 { await Task.yield() }
+        try check(backend.playCount == 0, "Pause rejects delayed source play after seek")
+
+        backend.currentTime = CMTime(seconds: 1, preferredTimescale: 48000)
+        store.markSource(inPoint: true)
+        try check(store.selectedSourceRange?.start.seconds == 1, "Marks read backend source coordinates")
+        store.playSourceBackwards()
+        for _ in 0..<100 where backend.pendingSeek == nil { await Task.yield() }
+        try check(backend.pendingSeek != nil && !backend.isPlaying, "Reverse uses a silent backend seek")
+        let replacement = CommandSourceBackend()
+        store.sourcePlayback = replacement
+        try check(backend.closeCount == 1, "Replacement closes previous source backend")
+        backend.finishSeek()
+        for _ in 0..<20 { await Task.yield() }
+        try check(backend.seekCount == 2 && backend.playCount == 0, "Replacement rejects obsolete reverse continuation")
+        store.pendingSourceTransport = (.zero, true)
+        store.selectAssets([])
+        try check(store.pendingSourceTransport == nil && !store.canControlSourceTransport,
+                  "Clearing source selection clears pending transport")
+        try check(replacement.closeCount == 1, "Clearing selection closes source backend")
+        store.close()
+        try check(replacement.closeCount == 1, "Repeated cleanup does not close a released backend again")
     }
 
     @MainActor
@@ -1308,4 +1346,23 @@ struct AppFileSmoke {
     func pause() { isPlaying = false }
     func seek(toFrame frame: Int64) async throws { position = Double(frame) / 24 }
     func close() async { isPlaying = false }
+}
+
+@MainActor private final class CommandSourceBackend: SourcePlaybackBackend {
+    var currentTime: CMTime = .zero
+    var isPlaying = false
+    var surface: SourcePlaybackSurface { .avFoundation(AVPlayer()) }
+    var pendingSeek: CheckedContinuation<Void, Never>?
+    var seekCount = 0
+    var playCount = 0
+    var closeCount = 0
+    func seek(to time: CMTime) async {
+        currentTime = time
+        seekCount += 1
+        await withCheckedContinuation { pendingSeek = $0 }
+    }
+    func finishSeek() { let continuation = pendingSeek; pendingSeek = nil; continuation?.resume() }
+    func play() { playCount += 1; isPlaying = true }
+    func pause() { isPlaying = false }
+    func close() { closeCount += 1; isPlaying = false }
 }
