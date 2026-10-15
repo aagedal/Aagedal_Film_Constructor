@@ -47,6 +47,11 @@ remain required. Explicit local Xcode Debug selection compiles and embeds it.
   Xcode Debug builds; enforce the macOS 27 baseline and clean selection removal.
 - [x] Enable bounded single-frame PNG/JPEG still preview in ordinary builds,
   preserving exact holds, scaling, orientation and transparent picture layers.
+- [x] Reuse nonoverlapping system picture tracks in separate still/movie pools
+  and schedule visible layers from exact boundary events instead of per-cut
+  full-timeline scans; preserve transparent layers and decoded cut/seek behavior.
+- [x] Qualify native 16/24-bit mono/stereo ALAC at 44.1/48 kHz with exact source
+  samples and packet-edge seeks, plus 48 kHz native offline sequence parity.
 - [ ] Complete redistributable native runtime attribution, signing and sandbox
   qualification for explicit channel mapping, gain above unity and broader formats.
 
@@ -696,6 +701,10 @@ does not require implementing every proposed interchange adapter.
 - [x] Cull offscreen timeline clip views using viewport geometry while preserving
       scroll extents, selected clips and active gestures; measure a 3,000-clip
       offline Release project below two seconds in five local warm-cache runs.
+- [x] Replace per-cut full-picture scans with exact event/heap scheduling and
+      reuse nonoverlapping system picture tracks in separate still/movie pools.
+      Synthetic scheduling and decoded reuse checks pass; full preparation and
+      large-project live playback profiling remain open.
 
 ### After version one
 
@@ -1937,3 +1946,35 @@ launch-performance claim has been validated yet.
 - Wide-gamut/HDR and ICC-aware preview/export color agreement, animated images,
   larger rasters, measured hardware sync and signed sandbox encoder access remain
   unqualified. See [retained still-preview evidence](docs/evidence/system-stills-20261015/README.md).
+
+
+### System composition scheduling and native ALAC checkpoint (2026-10-15)
+
+- System sequence preview now reuses picture tracks by interval concurrency,
+  with separate still/movie pools to retain measured compositor color behavior.
+  Exact boundary-event scheduling preserves upper-video precedence, transparent
+  still stacks and gaps; hidden cuts with unchanged picture share instructions.
+- Independent boundary-oracle tests cover randomized fractional edits, 1,000
+  adjacent stills and 2,000 hidden layers. Host playback passes 128 adjacent cuts
+  through one video track and 81 still seeks, including staggered alpha/video
+  boundaries, orientation changes and holds followed by motion video.
+- Optimized pure scheduling takes a median 10.24 ms for 5,000 pictures in a
+  10,000-clip mixed project and 26.59 ms for 10,000 adjacent pictures. This excludes
+  media I/O, composition insertion and UI; full project playback remains open.
+- Native audio now admits zero-origin contiguous 16/24-bit mono/stereo ALAC at
+  matching 44.1/48 kHz, with existing delay/padding/layout/shape guards. Eight
+  independently patterned variants pass 313 ASan/UBSan checks including 68
+  rejections. Native 48 kHz sequence/actor/offline audio output passes both depths,
+  including backward/repeated seeks and decoder reset. Lossy native audio and
+  resampling remain unsupported.
+- Verification passes: 73 Python tests (eight optional skips), 106 core XCTest
+  tests (two optional skips), 87 core Swift Testing tests, 46 native runtime tests,
+  workspace smokes and the unsigned Debug Xcode app build. Broad color/hardware
+  sync, release runtime attribution/signing and signed sandbox access remain open.
+- The MPVKit reassessment records Converter's newer CoreAudio-fixed fork revision
+  for future source fallback. Importer/transport integration and coexistence with
+  the native FFmpeg runtime are still required; it is not added to this build.
+
+See [composition evidence](docs/evidence/system-composition-20261015/README.md),
+[ALAC evidence](docs/evidence/native-alac-20261015/qualification.md) and the
+[MPVKit reassessment](docs/media-engine-audit.md#mpvkit-source-viewer-reassessment-2026-10-15).
