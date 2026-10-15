@@ -2044,3 +2044,40 @@ Testing suites, final host app-file and proxy-workspace smokes, and the unsigned
 Debug Xcode app build pass. The full color diagnostic intentionally exits nonzero
 with the failures above. Source/proxy smokes and Xcode require host bookmark/media
 services and package caches outside the restricted tool sandbox.
+
+### Private MPV dependency coexistence and rapid source commands (2026-10-16)
+
+- Added an offline private-library proof for the pinned cached MPVKit closure
+  alongside a freshly built `NativePlaybackRuntime`. The private MPV dylib
+  exports exactly two proof functions; MPV/FFmpeg APIs remain hidden. Actual
+  function addresses for five FFmpeg libraries stay inside the private 8.1.2
+  image or the selected dynamic 9.0.2 libraries in both load orders.
+- Native decoder output matches a standalone-process baseline byte-for-byte
+  for 120 repeated picture/audio requests in each concurrent run. Further
+  requests also match retained first-pass bytes, and PCM samples match external
+  FFmpeg exactly. Timestamped native completions occur during MPV execution:
+  747 for MPV-first and 752 for native-first in the retained run. All eight MPV
+  lifecycle cycles and 40 decoded grayscale seek captures pass the unchanged
+  coordinate and 3/32 RGB bounds.
+- The proof builds/loads the real native Swift dylib but invokes its C decoder
+  exports; Swift playback coordination, callbacks, GPU/CoreAudio, app integration,
+  proxy composition, signing and sandbox grants remain open. A future app bridge
+  must preserve the private export boundary. Ordinary source playback stays
+  AVFoundation. See [coexistence evidence](docs/evidence/mpv-coexistence-20261016/README.md).
+- Source proof reports now retain runtime versions, source color metadata,
+  per-seek input/output color parameters, channel errors and exact peak pixels.
+  Fresh grayscale captures pass 100/100; colored captures still fail 100/100
+  at the original bounds. Chroma-boundary conversion disagreement is localized,
+  not corrected or qualified. Representative scaler logs and both reports are
+  retained in [source evidence](docs/evidence/mpv-source-20261016/README.md).
+- Rapid forward/reverse source commands preserve an unfinished seek's requested
+  coordinate across supersession. Cancelled forward/restoration tasks now check
+  ownership before issuing a seek. Deterministic tests exercise pending seeks,
+  a synchronous restore→L→L→J→L burst and L→K before task execution; only the final
+  command can seek/play, and obsolete failures cannot change its state.
+
+Verification: 88 Python tests (eight optional skips), EditorCore XCTest/Swift
+Testing suites, host app-file and proxy-workspace smokes, unsigned Debug Xcode
+build and diff checks pass. The colored matrix intentionally retains its nonzero
+result. App/proxy smoke services and Xcode package caches require host access
+outside the restricted tool sandbox.

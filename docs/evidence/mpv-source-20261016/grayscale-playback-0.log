@@ -1,0 +1,723 @@
+[cplayer/v] mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
+[cplayer/v]  built on Sep 26 2026 20:38:17
+[cplayer/v] libplacebo version: v7.360.1 (v7.360.1)
+[cplayer/v] FFmpeg version: n8.1.2
+[cplayer/v] FFmpeg library versions:
+[cplayer/v]    libavcodec      62.28.102
+[cplayer/v]    libavdevice     62.3.102
+[cplayer/v]    libavfilter     11.14.102
+[cplayer/v]    libavformat     62.12.102
+[cplayer/v]    libavutil       60.26.102
+[cplayer/v]    libswresample   6.3.102
+[cplayer/v]    libswscale      9.5.102
+[cplayer/v] Configuration: -Dlibmpv=true -Dgl=enabled -Dplain-gl=enabled -Diconv=enabled -Duchardet=enabled -Dvulkan=enabled -Dmoltenvk=enabled -Djavascript=disabled -Dzimg=disabled -Djpeg=disabled -Dvapoursynth=disabled -Drubberband=disabled -Dgpl=true -Dlibbluray=enabled -Dcplayer=false '-Dswift-flags=-sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos12.0' -Dcocoa=enabled -Dcoreaudio=enabled -Davfoundation=enabled -Dgl-cocoa=enabled -Dvideotoolbox-gl=enabled -Dvideotoolbox-pl=enabled -Dlua=disabled --cross-file=/private/tmp/amc-mpv-coreaudio-cleanup-20260926-b/dist/libmpv/macos/scratch/arm64/crossFile.meson
+[cplayer/v] List of enabled features: avfoundation bsd-fstatfs build-date cocoa coreaudio cplugins darwin ffmpeg gl gl-cocoa glob glob-posix gpl iconv lcms2 libass libavdevice libbluray libdl libplacebo mac-thread-name macos-10-15-4-features macos-11-3-features macos-11-features macos-12-features macos-cocoa-cb macos-media-player macos-touchbar moltenvk posix posix-shm swift uchardet vector videotoolbox-gl videotoolbox-pl vulkan zlib
+[clipboard/v] Initialized mac clipboard backend.
+[bdmv/bluray/v] Opening /private/tmp/afc-mpv-source-grayscale-diagnostics-20261016/source.mov
+[file/v] Opening /private/tmp/afc-mpv-source-grayscale-diagnostics-20261016/source.mov
+[demux/v] Trying demuxers for level=request.
+[lavf/v] Found 'mov,mp4,m4a,3gp,3g2,mj2' at score=100 size=2048.
+[file/v] stream level seek from 131072 to 1564851
+[demux/v] Detected file format: mov,mp4,m4a,3gp,3g2,mj2 (libavformat)
+[cplayer/v] Opening done: /private/tmp/afc-mpv-source-grayscale-diagnostics-20261016/source.mov
+[lavf/v] select track 0
+[lavf/v] select track 1
+[cplayer/info] ● Video  --vid=1  (prores 320x180 24 fps) [default]
+[cplayer/info] ● Audio  --aid=1  (pcm_s16le 1ch 48000 Hz) [default]
+[cplayer/info] ○ Audio  --aid=2  (pcm_s16le 1ch 48000 Hz)
+[vd/v] Container reported FPS: 24.000000
+[vd/v] Codec list:
+[vd/v]     prores - Apple ProRes (iCodec Pro)
+[vd/v] Opening decoder prores
+[vd/v] No hardware decoding requested.
+[vd/v] Using software decoding.
+[vd/v] Detected 18 logical cores.
+[vd/v] Requesting 16 threads for decoding.
+[vd/v] Selected decoder: prores - Apple ProRes (iCodec Pro)
+[vf/v] User filter list:
+[vf/v]   (empty)
+[ad/v] Codec list:
+[ad/v]     pcm_s16le - PCM signed 16-bit little-endian
+[ad/v] Opening decoder pcm_s16le
+[ad/v] Requesting 1 threads for decoding.
+[ad/v] Selected decoder: pcm_s16le - PCM signed 16-bit little-endian
+[af/v] User filter list:
+[af/v]   (empty)
+[cplayer/v] Starting playback...
+[file/v] stream level seek from 1568226 to 36
+[af/v] [in] 48000Hz mono 1ch s16
+[af/v] [userspeed] 48000Hz mono 1ch s16
+[af/v] [userspeed] (disabled)
+[af/v] [convert] 48000Hz mono 1ch s16
+[vd/v] DR failed - disabling.
+[vd/v] Using software decoding.
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[vf/v] [in] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [userdeint] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [userdeint] (disabled)
+[vf/v] [autovflip] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [autovflip] (disabled)
+[vf/v] [autorotate] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [autorotate] (disabled)
+[vf/v] [convert] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [convert] (disabled)
+[vf/v] [out] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[cplayer/info] Track switched:
+[cplayer/info]  ● Video  --vid=1  (prores [HQ] 320x180 24 fps) [default]
+[cplayer/info]  ● Audio  --aid=1  (pcm_s16le 1ch 48000 Hz) [default]
+[cplayer/info]  ○ Audio  --aid=2  (pcm_s16le 1ch 48000 Hz)
+[cplayer/v] Set property: vid="1" -> 1
+[lavf/v] deselect track 1
+[lavf/v] select track 2
+[lavf/v] refresh track 2 (audio)
+[lavf/v] refresh seek to -1.000000
+[ad/v] Codec list:
+[ad/v]     pcm_s16le - PCM signed 16-bit little-endian
+[ad/v] Opening decoder pcm_s16le
+[lavf/v] execute seek (to -1.000000 flags 32)
+[ad/v] Requesting 1 threads for decoding.
+[ad/v] Selected decoder: pcm_s16le - PCM signed 16-bit little-endian
+[lavf/v] seek done
+[af/v] User filter list:
+[af/v]   (empty)
+[cplayer/info] Track switched:
+[cplayer/info]  ● Video  --vid=1  (prores [HQ] 320x180 24 fps) [default]
+[cplayer/info]  ○ Audio  --aid=1  (pcm_s16le 1ch 48000 Hz) [default]
+[cplayer/info]  ● Audio  --aid=2  (pcm_s16le 1ch 48000 Hz)
+[cplayer/v] Set property: aid="2" -> 1
+[file/v] stream level seek from 917540 to 36
+[af/v] [in] 48000Hz mono 1ch s16
+[af/v] [userspeed] 48000Hz mono 1ch s16
+[af/v] [userspeed] (disabled)
+[af/v] [convert] 48000Hz mono 1ch s16
+[ao/v] Trying audio driver 'null'
+[ao/null/v] requested format: 48000 Hz, mono channels, s16
+[ao/null/v] Channel layouts:
+[ao/null/v]  - anything
+[ao/null/v] result: mono
+[ao/null/v] device buffer: 9472 samples.
+[ao/null/v] using soft-buffer of 9600 samples.
+[cplayer/info] AO: [null] 48000Hz mono 1ch s16
+[cplayer/v] AO: Description: Null audio output
+[af/v] [convert] (disabled)
+[af/v] [out] 48000Hz mono 1ch s16
+[cplayer/info] VO: [null] 320x180 yuv422p10
+[cplayer/v] VO: Description: Null video output
+[vo/null/v] reconfig to 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] delaying audio start 0.000000 vs. 0.000000, diff=0.000000
+[cplayer/v] playback restart complete @ 0.000000, audio=ready, video=playing (paused)
+[lavf/v] queuing seek to 0.000000
+[lavf/v] execute seek (to 0.000000 flags 32)
+[lavf/v] seek done
+[cplayer/v] hr-seek, skipping to 0.000000
+[file/v] stream level seek from 917540 to 36
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] delaying audio start 0.000000 vs. 0.000000, diff=0.000000
+[cplayer/v] playback restart complete @ 0.000000, audio=ready, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 1.500000
+[lavf/v] execute seek (to 1.500000 flags 32)
+[cplayer/v] hr-seek, skipping to 1.500000
+[lavf/v] seek done
+[file/v] stream level seek from 917540 to 776126
+[lavf/v] EOF reached.
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] delaying audio start 1.500000 vs. 1.500000, diff=0.000000
+[cplayer/v] playback restart complete @ 1.500000, audio=ready, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 0.250000
+[cplayer/v] hr-seek, skipping to 0.250000
+[lavf/v] execute seek (to 0.250000 flags 32)
+[lavf/v] seek done
+[file/v] stream level seek from 1568226 to 125522
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] starting audio playback
+[cplayer/v] playback restart complete @ 0.250000, audio=playing, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 2.000000
+[lavf/v] execute seek (to 2.000000 flags 32)
+[lavf/v] seek done
+[cplayer/v] hr-seek, skipping to 2.000000
+[lavf/v] EOF reached.
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] starting audio playback
+[cplayer/v] playback restart complete @ 2.000000, audio=playing, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 0.500000
+[lavf/v] execute seek (to 0.500000 flags 32)
+[lavf/v] seek done
+[cplayer/v] hr-seek, skipping to 0.500000
+[file/v] stream level seek from 1567314 to 256781
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] starting audio playback
+[cplayer/v] playback restart complete @ 0.500000, audio=playing, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[cplayer/v] Set property: pause=false -> 1
+[ao/null/v] starting AO
+[cplayer/v] Set property: pause=true -> 1
+[cplayer/v] mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
+[cplayer/v]  built on Sep 26 2026 20:38:17
+[cplayer/v] libplacebo version: v7.360.1 (v7.360.1)
+[cplayer/v] FFmpeg version: n8.1.2
+[cplayer/v] FFmpeg library versions:
+[cplayer/v]    libavcodec      62.28.102
+[cplayer/v]    libavdevice     62.3.102
+[cplayer/v]    libavfilter     11.14.102
+[cplayer/v]    libavformat     62.12.102
+[cplayer/v]    libavutil       60.26.102
+[cplayer/v]    libswresample   6.3.102
+[cplayer/v]    libswscale      9.5.102
+[cplayer/v] Configuration: -Dlibmpv=true -Dgl=enabled -Dplain-gl=enabled -Diconv=enabled -Duchardet=enabled -Dvulkan=enabled -Dmoltenvk=enabled -Djavascript=disabled -Dzimg=disabled -Djpeg=disabled -Dvapoursynth=disabled -Drubberband=disabled -Dgpl=true -Dlibbluray=enabled -Dcplayer=false '-Dswift-flags=-sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos12.0' -Dcocoa=enabled -Dcoreaudio=enabled -Davfoundation=enabled -Dgl-cocoa=enabled -Dvideotoolbox-gl=enabled -Dvideotoolbox-pl=enabled -Dlua=disabled --cross-file=/private/tmp/amc-mpv-coreaudio-cleanup-20260926-b/dist/libmpv/macos/scratch/arm64/crossFile.meson
+[cplayer/v] List of enabled features: avfoundation bsd-fstatfs build-date cocoa coreaudio cplugins darwin ffmpeg gl gl-cocoa glob glob-posix gpl iconv lcms2 libass libavdevice libbluray libdl libplacebo mac-thread-name macos-10-15-4-features macos-11-3-features macos-11-features macos-12-features macos-cocoa-cb macos-media-player macos-touchbar moltenvk posix posix-shm swift uchardet vector videotoolbox-gl videotoolbox-pl vulkan zlib
+[clipboard/v] Initialized mac clipboard backend.
+[bdmv/bluray/v] Opening /private/tmp/afc-mpv-source-grayscale-diagnostics-20261016/source.mov
+[file/v] Opening /private/tmp/afc-mpv-source-grayscale-diagnostics-20261016/source.mov
+[demux/v] Trying demuxers for level=request.
+[lavf/v] Found 'mov,mp4,m4a,3gp,3g2,mj2' at score=100 size=2048.
+[file/v] stream level seek from 131072 to 1564851
+[demux/v] Detected file format: mov,mp4,m4a,3gp,3g2,mj2 (libavformat)
+[cplayer/v] Opening done: /private/tmp/afc-mpv-source-grayscale-diagnostics-20261016/source.mov
+[lavf/v] select track 0
+[lavf/v] select track 1
+[cplayer/info] ● Video  --vid=1  (prores 320x180 24 fps) [default]
+[cplayer/info] ● Audio  --aid=1  (pcm_s16le 1ch 48000 Hz) [default]
+[cplayer/info] ○ Audio  --aid=2  (pcm_s16le 1ch 48000 Hz)
+[vd/v] Container reported FPS: 24.000000
+[vd/v] Codec list:
+[vd/v]     prores - Apple ProRes (iCodec Pro)
+[vd/v] Opening decoder prores
+[vd/v] No hardware decoding requested.
+[vd/v] Using software decoding.
+[vd/v] Detected 18 logical cores.
+[vd/v] Requesting 16 threads for decoding.
+[vd/v] Selected decoder: prores - Apple ProRes (iCodec Pro)
+[vf/v] User filter list:
+[vf/v]   (empty)
+[ad/v] Codec list:
+[ad/v]     pcm_s16le - PCM signed 16-bit little-endian
+[ad/v] Opening decoder pcm_s16le
+[ad/v] Requesting 1 threads for decoding.
+[ad/v] Selected decoder: pcm_s16le - PCM signed 16-bit little-endian
+[af/v] User filter list:
+[af/v]   (empty)
+[cplayer/v] Starting playback...
+[file/v] stream level seek from 1568226 to 36
+[af/v] [in] 48000Hz mono 1ch s16
+[af/v] [userspeed] 48000Hz mono 1ch s16
+[af/v] [userspeed] (disabled)
+[af/v] [convert] 48000Hz mono 1ch s16
+[vd/v] DR failed - disabling.
+[vd/v] Using software decoding.
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[vf/v] [in] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [userdeint] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [userdeint] (disabled)
+[vf/v] [autovflip] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [autovflip] (disabled)
+[vf/v] [autorotate] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [autorotate] (disabled)
+[vf/v] [convert] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [convert] (disabled)
+[vf/v] [out] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[cplayer/info] Track switched:
+[cplayer/info]  ● Video  --vid=1  (prores [HQ] 320x180 24 fps) [default]
+[cplayer/info]  ● Audio  --aid=1  (pcm_s16le 1ch 48000 Hz) [default]
+[cplayer/info]  ○ Audio  --aid=2  (pcm_s16le 1ch 48000 Hz)
+[cplayer/v] Set property: vid="1" -> 1
+[lavf/v] deselect track 1
+[lavf/v] select track 2
+[lavf/v] refresh track 2 (audio)
+[lavf/v] refresh seek to -1.000000
+[lavf/v] execute seek (to -1.000000 flags 32)
+[lavf/v] seek done
+[ad/v] Codec list:
+[ad/v]     pcm_s16le - PCM signed 16-bit little-endian
+[ad/v] Opening decoder pcm_s16le
+[ad/v] Requesting 1 threads for decoding.
+[ad/v] Selected decoder: pcm_s16le - PCM signed 16-bit little-endian
+[af/v] User filter list:
+[af/v]   (empty)
+[cplayer/info] Track switched:
+[cplayer/info]  ● Video  --vid=1  (prores [HQ] 320x180 24 fps) [default]
+[cplayer/info]  ○ Audio  --aid=1  (pcm_s16le 1ch 48000 Hz) [default]
+[cplayer/info]  ● Audio  --aid=2  (pcm_s16le 1ch 48000 Hz)
+[cplayer/v] Set property: aid="2" -> 1
+[file/v] stream level seek from 917540 to 36
+[af/v] [in] 48000Hz mono 1ch s16
+[af/v] [userspeed] 48000Hz mono 1ch s16
+[af/v] [userspeed] (disabled)
+[af/v] [convert] 48000Hz mono 1ch s16
+[ao/v] Trying audio driver 'null'
+[ao/null/v] requested format: 48000 Hz, mono channels, s16
+[ao/null/v] Channel layouts:
+[ao/null/v]  - anything
+[ao/null/v] result: mono
+[ao/null/v] device buffer: 9472 samples.
+[ao/null/v] using soft-buffer of 9600 samples.
+[cplayer/info] AO: [null] 48000Hz mono 1ch s16
+[cplayer/v] AO: Description: Null audio output
+[af/v] [convert] (disabled)
+[af/v] [out] 48000Hz mono 1ch s16
+[cplayer/info] VO: [null] 320x180 yuv422p10
+[cplayer/v] VO: Description: Null video output
+[vo/null/v] reconfig to 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] delaying audio start 0.000000 vs. 0.000000, diff=0.000000
+[cplayer/v] playback restart complete @ 0.000000, audio=ready, video=playing (paused)
+[lavf/v] queuing seek to 0.000000
+[cplayer/v] hr-seek, skipping to 0.000000
+[lavf/v] execute seek (to 0.000000 flags 32)
+[lavf/v] seek done
+[file/v] stream level seek from 917540 to 36
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] delaying audio start 0.000000 vs. 0.000000, diff=0.000000
+[cplayer/v] playback restart complete @ 0.000000, audio=ready, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 1.500000
+[lavf/v] execute seek (to 1.500000 flags 32)
+[lavf/v] seek done
+[cplayer/v] hr-seek, skipping to 1.500000
+[file/v] stream level seek from 917540 to 776126
+[lavf/v] EOF reached.
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] delaying audio start 1.500000 vs. 1.500000, diff=0.000000
+[cplayer/v] playback restart complete @ 1.500000, audio=ready, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 0.250000
+[lavf/v] execute seek (to 0.250000 flags 32)
+[lavf/v] seek done
+[cplayer/v] hr-seek, skipping to 0.250000
+[file/v] stream level seek from 1568226 to 125522
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] starting audio playback
+[cplayer/v] playback restart complete @ 0.250000, audio=playing, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 2.000000
+[lavf/v] execute seek (to 2.000000 flags 32)
+[lavf/v] seek done
+[cplayer/v] hr-seek, skipping to 2.000000
+[lavf/v] EOF reached.
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] starting audio playback
+[cplayer/v] playback restart complete @ 2.000000, audio=playing, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 0.500000
+[cplayer/v] hr-seek, skipping to 0.500000
+[lavf/v] execute seek (to 0.500000 flags 32)
+[lavf/v] seek done
+[file/v] stream level seek from 1567314 to 256781
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] starting audio playback
+[cplayer/v] playback restart complete @ 0.500000, audio=playing, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[cplayer/v] Set property: pause=false -> 1
+[ao/null/v] starting AO
+[cplayer/v] Set property: pause=true -> 1
+[cplayer/v] mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
+[cplayer/v]  built on Sep 26 2026 20:38:17
+[cplayer/v] libplacebo version: v7.360.1 (v7.360.1)
+[cplayer/v] FFmpeg version: n8.1.2
+[cplayer/v] FFmpeg library versions:
+[cplayer/v]    libavcodec      62.28.102
+[cplayer/v]    libavdevice     62.3.102
+[cplayer/v]    libavfilter     11.14.102
+[cplayer/v]    libavformat     62.12.102
+[cplayer/v]    libavutil       60.26.102
+[cplayer/v]    libswresample   6.3.102
+[cplayer/v]    libswscale      9.5.102
+[cplayer/v] Configuration: -Dlibmpv=true -Dgl=enabled -Dplain-gl=enabled -Diconv=enabled -Duchardet=enabled -Dvulkan=enabled -Dmoltenvk=enabled -Djavascript=disabled -Dzimg=disabled -Djpeg=disabled -Dvapoursynth=disabled -Drubberband=disabled -Dgpl=true -Dlibbluray=enabled -Dcplayer=false '-Dswift-flags=-sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos12.0' -Dcocoa=enabled -Dcoreaudio=enabled -Davfoundation=enabled -Dgl-cocoa=enabled -Dvideotoolbox-gl=enabled -Dvideotoolbox-pl=enabled -Dlua=disabled --cross-file=/private/tmp/amc-mpv-coreaudio-cleanup-20260926-b/dist/libmpv/macos/scratch/arm64/crossFile.meson
+[cplayer/v] List of enabled features: avfoundation bsd-fstatfs build-date cocoa coreaudio cplugins darwin ffmpeg gl gl-cocoa glob glob-posix gpl iconv lcms2 libass libavdevice libbluray libdl libplacebo mac-thread-name macos-10-15-4-features macos-11-3-features macos-11-features macos-12-features macos-cocoa-cb macos-media-player macos-touchbar moltenvk posix posix-shm swift uchardet vector videotoolbox-gl videotoolbox-pl vulkan zlib
+[clipboard/v] Initialized mac clipboard backend.
+[bdmv/bluray/v] Opening /private/tmp/afc-mpv-source-grayscale-diagnostics-20261016/source.mov
+[file/v] Opening /private/tmp/afc-mpv-source-grayscale-diagnostics-20261016/source.mov
+[demux/v] Trying demuxers for level=request.
+[lavf/v] Found 'mov,mp4,m4a,3gp,3g2,mj2' at score=100 size=2048.
+[file/v] stream level seek from 131072 to 1564851
+[demux/v] Detected file format: mov,mp4,m4a,3gp,3g2,mj2 (libavformat)
+[cplayer/v] Opening done: /private/tmp/afc-mpv-source-grayscale-diagnostics-20261016/source.mov
+[lavf/v] select track 0
+[lavf/v] select track 1
+[cplayer/info] ● Video  --vid=1  (prores 320x180 24 fps) [default]
+[cplayer/info] ● Audio  --aid=1  (pcm_s16le 1ch 48000 Hz) [default]
+[cplayer/info] ○ Audio  --aid=2  (pcm_s16le 1ch 48000 Hz)
+[vd/v] Container reported FPS: 24.000000
+[vd/v] Codec list:
+[vd/v]     prores - Apple ProRes (iCodec Pro)
+[vd/v] Opening decoder prores
+[vd/v] No hardware decoding requested.
+[vd/v] Using software decoding.
+[vd/v] Detected 18 logical cores.
+[vd/v] Requesting 16 threads for decoding.
+[vd/v] Selected decoder: prores - Apple ProRes (iCodec Pro)
+[vf/v] User filter list:
+[vf/v]   (empty)
+[ad/v] Codec list:
+[ad/v]     pcm_s16le - PCM signed 16-bit little-endian
+[ad/v] Opening decoder pcm_s16le
+[ad/v] Requesting 1 threads for decoding.
+[ad/v] Selected decoder: pcm_s16le - PCM signed 16-bit little-endian
+[af/v] User filter list:
+[af/v]   (empty)
+[cplayer/v] Starting playback...
+[file/v] stream level seek from 1568226 to 36
+[af/v] [in] 48000Hz mono 1ch s16
+[af/v] [userspeed] 48000Hz mono 1ch s16
+[af/v] [userspeed] (disabled)
+[af/v] [convert] 48000Hz mono 1ch s16
+[vd/v] DR failed - disabling.
+[vd/v] Using software decoding.
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[vf/v] [in] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [userdeint] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [userdeint] (disabled)
+[vf/v] [autovflip] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [autovflip] (disabled)
+[vf/v] [autorotate] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [autorotate] (disabled)
+[vf/v] [convert] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [convert] (disabled)
+[vf/v] [out] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[ao/v] Trying audio driver 'null'
+[ao/null/v] requested format: 48000 Hz, mono channels, s16
+[ao/null/v] Channel layouts:
+[ao/null/v]  - anything
+[ao/null/v] result: mono
+[ao/null/v] device buffer: 9472 samples.
+[ao/null/v] using soft-buffer of 9600 samples.
+[cplayer/info] AO: [null] 48000Hz mono 1ch s16
+[cplayer/v] AO: Description: Null audio output
+[af/v] [convert] (disabled)
+[af/v] [out] 48000Hz mono 1ch s16
+[cplayer/info] VO: [null] 320x180 yuv422p10
+[cplayer/v] VO: Description: Null video output
+[vo/null/v] reconfig to 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[cplayer/v] first video frame after restart shown
+[cplayer/info] Track switched:
+[cplayer/info]  ● Video  --vid=1  (prores [HQ] 320x180 24 fps) [default]
+[cplayer/info]  ● Audio  --aid=1  (pcm_s16le 1ch 48000 Hz) [default]
+[cplayer/info]  ○ Audio  --aid=2  (pcm_s16le 1ch 48000 Hz)
+[cplayer/v] Set property: vid="1" -> 1
+[ao/v] dropping frame due to pin disconnect
+[lavf/v] deselect track 1
+[lavf/v] select track 2
+[lavf/v] refresh track 2 (audio)
+[lavf/v] refresh seek to -1.000000
+[lavf/v] execute seek (to -1.000000 flags 32)
+[lavf/v] seek done
+[ad/v] Codec list:
+[ad/v]     pcm_s16le - PCM signed 16-bit little-endian
+[ad/v] Opening decoder pcm_s16le
+[ad/v] Requesting 1 threads for decoding.
+[ad/v] Selected decoder: pcm_s16le - PCM signed 16-bit little-endian
+[af/v] User filter list:
+[af/v]   (empty)
+[cplayer/info] Track switched:
+[cplayer/info]  ● Video  --vid=1  (prores [HQ] 320x180 24 fps) [default]
+[cplayer/info]  ○ Audio  --aid=1  (pcm_s16le 1ch 48000 Hz) [default]
+[cplayer/info]  ● Audio  --aid=2  (pcm_s16le 1ch 48000 Hz)
+[cplayer/v] Set property: aid="2" -> 1
+[file/v] stream level seek from 917540 to 36
+[af/v] [in] 48000Hz mono 1ch s16
+[af/v] [userspeed] 48000Hz mono 1ch s16
+[af/v] [userspeed] (disabled)
+[af/v] [convert] 48000Hz mono 1ch s16
+[af/v] [convert] (disabled)
+[af/v] [out] 48000Hz mono 1ch s16
+[cplayer/v] audio ready
+[cplayer/v] delaying audio start 0.000000 vs. 0.000000, diff=0.000000
+[cplayer/v] playback restart complete @ 0.000000, audio=ready, video=playing (paused)
+[lavf/v] queuing seek to 0.000000
+[cplayer/v] hr-seek, skipping to 0.000000
+[lavf/v] execute seek (to 0.000000 flags 32)
+[lavf/v] seek done
+[file/v] stream level seek from 917540 to 36
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] delaying audio start 0.000000 vs. 0.000000, diff=0.000000
+[cplayer/v] playback restart complete @ 0.000000, audio=ready, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 1.500000
+[lavf/v] execute seek (to 1.500000 flags 32)
+[lavf/v] seek done
+[cplayer/v] hr-seek, skipping to 1.500000
+[file/v] stream level seek from 917540 to 776126
+[lavf/v] EOF reached.
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] delaying audio start 1.500000 vs. 1.500000, diff=0.000000
+[cplayer/v] playback restart complete @ 1.500000, audio=ready, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 0.250000
+[lavf/v] execute seek (to 0.250000 flags 32)
+[lavf/v] seek done
+[cplayer/v] hr-seek, skipping to 0.250000
+[file/v] stream level seek from 1568226 to 125522
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] starting audio playback
+[cplayer/v] playback restart complete @ 0.250000, audio=playing, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 2.000000
+[lavf/v] execute seek (to 2.000000 flags 32)
+[lavf/v] seek done
+[cplayer/v] hr-seek, skipping to 2.000000
+[lavf/v] EOF reached.
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] starting audio playback
+[cplayer/v] playback restart complete @ 2.000000, audio=playing, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 0.500000
+[lavf/v] execute seek (to 0.500000 flags 32)
+[lavf/v] seek done
+[cplayer/v] hr-seek, skipping to 0.500000
+[file/v] stream level seek from 1567314 to 256781
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] starting audio playback
+[cplayer/v] playback restart complete @ 0.500000, audio=playing, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[cplayer/v] Set property: pause=false -> 1
+[ao/null/v] starting AO
+[cplayer/v] Set property: pause=true -> 1
+[cplayer/v] mpv v0.41.0 Copyright © 2000-2025 mpv/MPlayer/mplayer2 projects
+[cplayer/v]  built on Sep 26 2026 20:38:17
+[cplayer/v] libplacebo version: v7.360.1 (v7.360.1)
+[cplayer/v] FFmpeg version: n8.1.2
+[cplayer/v] FFmpeg library versions:
+[cplayer/v]    libavcodec      62.28.102
+[cplayer/v]    libavdevice     62.3.102
+[cplayer/v]    libavfilter     11.14.102
+[cplayer/v]    libavformat     62.12.102
+[cplayer/v]    libavutil       60.26.102
+[cplayer/v]    libswresample   6.3.102
+[cplayer/v]    libswscale      9.5.102
+[cplayer/v] Configuration: -Dlibmpv=true -Dgl=enabled -Dplain-gl=enabled -Diconv=enabled -Duchardet=enabled -Dvulkan=enabled -Dmoltenvk=enabled -Djavascript=disabled -Dzimg=disabled -Djpeg=disabled -Dvapoursynth=disabled -Drubberband=disabled -Dgpl=true -Dlibbluray=enabled -Dcplayer=false '-Dswift-flags=-sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos12.0' -Dcocoa=enabled -Dcoreaudio=enabled -Davfoundation=enabled -Dgl-cocoa=enabled -Dvideotoolbox-gl=enabled -Dvideotoolbox-pl=enabled -Dlua=disabled --cross-file=/private/tmp/amc-mpv-coreaudio-cleanup-20260926-b/dist/libmpv/macos/scratch/arm64/crossFile.meson
+[cplayer/v] List of enabled features: avfoundation bsd-fstatfs build-date cocoa coreaudio cplugins darwin ffmpeg gl gl-cocoa glob glob-posix gpl iconv lcms2 libass libavdevice libbluray libdl libplacebo mac-thread-name macos-10-15-4-features macos-11-3-features macos-11-features macos-12-features macos-cocoa-cb macos-media-player macos-touchbar moltenvk posix posix-shm swift uchardet vector videotoolbox-gl videotoolbox-pl vulkan zlib
+[clipboard/v] Initialized mac clipboard backend.
+[bdmv/bluray/v] Opening /private/tmp/afc-mpv-source-grayscale-diagnostics-20261016/source.mov
+[file/v] Opening /private/tmp/afc-mpv-source-grayscale-diagnostics-20261016/source.mov
+[demux/v] Trying demuxers for level=request.
+[lavf/v] Found 'mov,mp4,m4a,3gp,3g2,mj2' at score=100 size=2048.
+[file/v] stream level seek from 131072 to 1564851
+[demux/v] Detected file format: mov,mp4,m4a,3gp,3g2,mj2 (libavformat)
+[cplayer/v] Opening done: /private/tmp/afc-mpv-source-grayscale-diagnostics-20261016/source.mov
+[lavf/v] select track 0
+[lavf/v] select track 1
+[cplayer/info] ● Video  --vid=1  (prores 320x180 24 fps) [default]
+[cplayer/info] ● Audio  --aid=1  (pcm_s16le 1ch 48000 Hz) [default]
+[cplayer/info] ○ Audio  --aid=2  (pcm_s16le 1ch 48000 Hz)
+[vd/v] Container reported FPS: 24.000000
+[vd/v] Codec list:
+[vd/v]     prores - Apple ProRes (iCodec Pro)
+[vd/v] Opening decoder prores
+[vd/v] No hardware decoding requested.
+[vd/v] Using software decoding.
+[vd/v] Detected 18 logical cores.
+[vd/v] Requesting 16 threads for decoding.
+[vd/v] Selected decoder: prores - Apple ProRes (iCodec Pro)
+[vf/v] User filter list:
+[vf/v]   (empty)
+[ad/v] Codec list:
+[ad/v]     pcm_s16le - PCM signed 16-bit little-endian
+[ad/v] Opening decoder pcm_s16le
+[ad/v] Requesting 1 threads for decoding.
+[ad/v] Selected decoder: pcm_s16le - PCM signed 16-bit little-endian
+[af/v] User filter list:
+[af/v]   (empty)
+[cplayer/v] Starting playback...
+[file/v] stream level seek from 1568226 to 36
+[af/v] [in] 48000Hz mono 1ch s16
+[af/v] [userspeed] 48000Hz mono 1ch s16
+[af/v] [userspeed] (disabled)
+[af/v] [convert] 48000Hz mono 1ch s16
+[vd/v] DR failed - disabling.
+[vd/v] Using software decoding.
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[vf/v] [in] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [userdeint] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [userdeint] (disabled)
+[vf/v] [autovflip] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [autovflip] (disabled)
+[vf/v] [autorotate] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [autorotate] (disabled)
+[vf/v] [convert] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[vf/v] [convert] (disabled)
+[vf/v] [out] 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[cplayer/info] Track switched:
+[cplayer/info]  ● Video  --vid=1  (prores [HQ] 320x180 24 fps) [default]
+[cplayer/info]  ● Audio  --aid=1  (pcm_s16le 1ch 48000 Hz) [default]
+[cplayer/info]  ○ Audio  --aid=2  (pcm_s16le 1ch 48000 Hz)
+[cplayer/v] Set property: vid="1" -> 1
+[lavf/v] deselect track 1
+[lavf/v] select track 2
+[lavf/v] refresh track 2 (audio)
+[lavf/v] refresh seek to -1.000000
+[lavf/v] execute seek (to -1.000000 flags 32)
+[lavf/v] seek done
+[ad/v] Codec list:
+[ad/v]     pcm_s16le - PCM signed 16-bit little-endian
+[ad/v] Opening decoder pcm_s16le
+[ad/v] Requesting 1 threads for decoding.
+[ad/v] Selected decoder: pcm_s16le - PCM signed 16-bit little-endian
+[af/v] User filter list:
+[af/v]   (empty)
+[cplayer/info] Track switched:
+[cplayer/info]  ● Video  --vid=1  (prores [HQ] 320x180 24 fps) [default]
+[cplayer/info]  ○ Audio  --aid=1  (pcm_s16le 1ch 48000 Hz) [default]
+[cplayer/info]  ● Audio  --aid=2  (pcm_s16le 1ch 48000 Hz)
+[cplayer/v] Set property: aid="2" -> 1
+[file/v] stream level seek from 917540 to 36
+[af/v] [in] 48000Hz mono 1ch s16
+[af/v] [userspeed] 48000Hz mono 1ch s16
+[af/v] [userspeed] (disabled)
+[af/v] [convert] 48000Hz mono 1ch s16
+[ao/v] Trying audio driver 'null'
+[ao/null/v] requested format: 48000 Hz, mono channels, s16
+[ao/null/v] Channel layouts:
+[ao/null/v]  - anything
+[ao/null/v] result: mono
+[ao/null/v] device buffer: 9472 samples.
+[ao/null/v] using soft-buffer of 9600 samples.
+[cplayer/info] AO: [null] 48000Hz mono 1ch s16
+[cplayer/v] AO: Description: Null audio output
+[af/v] [convert] (disabled)
+[af/v] [out] 48000Hz mono 1ch s16
+[cplayer/info] VO: [null] 320x180 yuv422p10
+[cplayer/v] VO: Description: Null video output
+[vo/null/v] reconfig to 320x180 yuv422p10 bt.601/bt.709/bt.1886/limited/display CL=mpeg2/4/h264 crop=320x180+0+0 A=none
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] delaying audio start 0.000000 vs. 0.000000, diff=0.000000
+[cplayer/v] playback restart complete @ 0.000000, audio=ready, video=playing (paused)
+[lavf/v] queuing seek to 0.000000
+[cplayer/v] hr-seek, skipping to 0.000000
+[lavf/v] execute seek (to 0.000000 flags 32)
+[lavf/v] seek done
+[file/v] stream level seek from 917540 to 36
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] delaying audio start 0.000000 vs. 0.000000, diff=0.000000
+[cplayer/v] playback restart complete @ 0.000000, audio=ready, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 1.500000
+[lavf/v] execute seek (to 1.500000 flags 32)
+[lavf/v] seek done
+[cplayer/v] hr-seek, skipping to 1.500000
+[file/v] stream level seek from 917540 to 776126
+[lavf/v] EOF reached.
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] delaying audio start 1.500000 vs. 1.500000, diff=0.000000
+[cplayer/v] playback restart complete @ 1.500000, audio=ready, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 0.250000
+[cplayer/v] hr-seek, skipping to 0.250000
+[lavf/v] execute seek (to 0.250000 flags 32)
+[lavf/v] seek done
+[file/v] stream level seek from 1568226 to 125522
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] starting audio playback
+[cplayer/v] playback restart complete @ 0.250000, audio=playing, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 2.000000
+[lavf/v] execute seek (to 2.000000 flags 32)
+[lavf/v] seek done
+[cplayer/v] hr-seek, skipping to 2.000000
+[lavf/v] EOF reached.
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] starting audio playback
+[cplayer/v] playback restart complete @ 2.000000, audio=playing, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[lavf/v] queuing seek to 0.500000
+[lavf/v] execute seek (to 0.500000 flags 32)
+[lavf/v] seek done
+[cplayer/v] hr-seek, skipping to 0.500000
+[file/v] stream level seek from 1567314 to 256781
+[vd/v] Decoder format: 320x180 [0:1] yuv422p10 auto/auto/auto/limited/auto CL=unknown crop=320x180+0+0 A=none
+[vd/v] Using container aspect ratio.
+[cplayer/v] first video frame after restart shown
+[cplayer/v] audio ready
+[cplayer/v] starting audio playback
+[cplayer/v] playback restart complete @ 0.500000, audio=playing, video=playing (paused)
+[screenshot/v] Falling back to software screenshot.
+[ffmpeg/v] swscaler: Lanczos scaler, from yuv422p10le to bgra using C
+[cplayer/v] Set property: pause=false -> 1
+[ao/null/v] starting AO
+[cplayer/v] Set property: pause=true -> 1

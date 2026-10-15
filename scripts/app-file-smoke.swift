@@ -798,6 +798,62 @@ struct AppFileSmoke {
         try check(races.pendingSourceTransport == nil && races.sourcePreviewTask == nil &&
                   races.statusMessage == "Source paused" && shared.playCount == 1 && !shared.isPlaying,
                   "Pause owns an installed backend and suppresses late restoration failure/play intent")
+
+        shared.currentTime = CMTime(seconds: 0.1, preferredTimescale: 48000)
+        races.pendingSourceTransport = (reverseTime, true)
+        races.playSourceForwards()
+        for _ in 0..<100 where shared.pendingSeek == nil { await Task.yield() }
+        try check(shared.pendingSeek != nil, "Rapid-command fixture reaches preserved-coordinate seek")
+        let firstForward = shared.takePendingSeek()!
+        races.playSourceForwards()
+        for _ in 0..<100 where shared.pendingSeek == nil { await Task.yield() }
+        try check(shared.pendingSeek != nil && shared.requestedTimes.last == reverseTime && shared.playCount == 1,
+                  "Repeated forward retains the unfinished seek coordinate instead of playing from stale time")
+        firstForward.resume(throwing: SourcePlaybackError.seekFailed)
+        let secondForward = shared.takePendingSeek()!
+        races.playSourceBackwards()
+        for _ in 0..<100 where shared.pendingSeek == nil { await Task.yield() }
+        try check(shared.pendingSeek != nil && (shared.requestedTimes.last?.seconds ?? 0) > 1.2,
+                  "Reverse superseding forward inherits its unfinished seek coordinate")
+        secondForward.resume(throwing: SourcePlaybackError.seekFailed)
+        let rapidReverse = shared.takePendingSeek()!
+        let reverseSeekTime = shared.requestedTimes.last!
+        races.playSourceForwards()
+        for _ in 0..<100 where shared.pendingSeek == nil { await Task.yield() }
+        try check(shared.pendingSeek != nil && shared.requestedTimes.last == reverseSeekTime && shared.playCount == 1,
+                  "Forward superseding reverse waits for its unfinished seek coordinate")
+        rapidReverse.resume(throwing: SourcePlaybackError.seekFailed)
+        shared.finishSeek()
+        for _ in 0..<20 { await Task.yield() }
+        try check(shared.playCount == 2 && shared.currentTime == reverseSeekTime && shared.isPlaying,
+                  "Only the last rapid transport command plays at the requested coordinate")
+        races.pauseSource()
+
+        let priorSeeks = shared.seekCount
+        races.pendingSourceTransport = (restoreTime, true)
+        races.restoreSourceTransport(backend: shared, time: restoreTime, playing: true)
+        // No suspension here: every superseded task is cancelled before its
+        // first execution, including restoration and reverse transport.
+        races.playSourceForwards()
+        races.playSourceForwards()
+        races.playSourceBackwards()
+        races.playSourceForwards()
+        for _ in 0..<100 where shared.pendingSeek == nil { await Task.yield() }
+        for _ in 0..<20 { await Task.yield() }
+        try check(shared.seekCount == priorSeeks + 1 && shared.pendingSeek != nil &&
+                  shared.requestedTimes.last == restoreTime && shared.playCount == 2,
+                  "Commands cancelled before execution never issue obsolete backend seeks")
+        shared.finishSeek()
+        for _ in 0..<20 { await Task.yield() }
+        try check(shared.playCount == 3 && shared.currentTime == restoreTime,
+                  "Synchronous command burst starts only the final requested playback")
+        races.pauseSource()
+        races.pendingSourceTransport = (reverseTime, true)
+        races.playSourceForwards()
+        races.pauseSource()
+        for _ in 0..<20 { await Task.yield() }
+        try check(shared.seekCount == priorSeeks + 1 && shared.pendingSeek == nil && !shared.isPlaying,
+                  "Pause before task execution prevents even the cancelled seek from starting")
     }
 
     @MainActor

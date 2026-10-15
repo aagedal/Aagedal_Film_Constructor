@@ -52,6 +52,7 @@ final class EditorStore: ObservableObject {
             if oldValue !== sourcePlayback {
                 sourceTransportTask?.cancel()
                 sourceTransportTask = nil
+                sourceTransportSeekTime = nil
                 oldValue?.close()
             }
         }
@@ -69,6 +70,9 @@ final class EditorStore: ObservableObject {
     @Published private var redoHistory: [Snapshot] = []
     private var scopedURLs: Set<URL> = []
     private var sourceTransportTask: Task<Void, Never>?
+    // A superseding command must inherit the requested coordinate while a seek
+    // is pending, since the backend can still report its previous position.
+    private var sourceTransportSeekTime: CMTime?
     private var importTask: Task<Void, Never>?
     var mediaEpoch = UUID()
     weak var sequencePlayback: SequencePlaybackController?
@@ -381,6 +385,7 @@ final class EditorStore: ObservableObject {
     func pauseSource() {
         sourceTransportTask?.cancel()
         sourceTransportTask = nil
+        sourceTransportSeekTime = nil
         if sourcePlayback != nil {
             // Once installed, transport commands own this player. A delayed
             // restoration must not replay or report failure over a newer command.
@@ -396,7 +401,7 @@ final class EditorStore: ObservableObject {
     }
 
     func playSourceForwards() {
-        let restoreTime = pendingSourceTransport?.time
+        let restoreTime = pendingSourceTransport?.time ?? sourceTransportSeekTime
         pauseSource()
         guard let asset = selectedAsset else { return }
         guard let player = sourcePlayback else {
@@ -407,15 +412,15 @@ final class EditorStore: ObservableObject {
             return
         }
         let epoch = mediaEpoch
+        let position = restoreTime ?? player.currentTime
+        let seekTime: CMTime? = position.seconds >= asset.duration.seconds - 0.001 ? .zero : restoreTime
+        sourceTransportSeekTime = seekTime
         sourceTransportTask = Task {
+            guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset?.id == asset.id, sourcePlayback === player else { return }
             do {
-                let position = restoreTime ?? player.currentTime
-                if position.seconds >= asset.duration.seconds - 0.001 {
-                    try await player.seek(to: .zero)
-                } else if restoreTime != nil {
-                    try await player.seek(to: position)
-                }
+                if let seekTime { try await player.seek(to: seekTime) }
                 guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset?.id == asset.id, sourcePlayback === player else { return }
+                sourceTransportSeekTime = nil
                 player.play()
             } catch {
                 guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset?.id == asset.id, sourcePlayback === player else { return }
@@ -425,26 +430,31 @@ final class EditorStore: ObservableObject {
     }
 
     func playSourceBackwards() {
-        let restoreTime = pendingSourceTransport?.time
+        let restoreTime = pendingSourceTransport?.time ?? sourceTransportSeekTime
         pauseSource()
         guard let player = sourcePlayback, let asset = selectedAsset else { return }
         // Seek-based reverse works even when the source codec has no native reverse
         // support. Keep audio paused, and allow only one outstanding seek at a time.
         let current = (restoreTime ?? player.currentTime).seconds
         let start = current.isFinite && current > 0 ? current : asset.duration.seconds
+        sourceTransportSeekTime = CMTime(seconds: start, preferredTimescale: 60000)
         let epoch = mediaEpoch
         sourceTransportTask = Task {
             let began = ProcessInfo.processInfo.systemUptime
             while !Task.isCancelled {
                 let position = max(0, start - (ProcessInfo.processInfo.systemUptime - began))
                 do {
-                    try await player.seek(to: CMTime(seconds: position, preferredTimescale: 60000))
+                    let seekTime = CMTime(seconds: position, preferredTimescale: 60000)
+                    sourceTransportSeekTime = seekTime
+                    try await player.seek(to: seekTime)
                 } catch {
                     guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset?.id == asset.id, sourcePlayback === player else { return }
                     reportSourceSeekFailure(error)
                     return
                 }
-                guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset?.id == asset.id, sourcePlayback === player, position > 0 else { return }
+                guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset?.id == asset.id, sourcePlayback === player else { return }
+                sourceTransportSeekTime = nil
+                guard position > 0 else { return }
                 do { try await Task.sleep(for: .milliseconds(33)) } catch { return }
             }
         }
@@ -463,6 +473,8 @@ final class EditorStore: ObservableObject {
         let epoch = mediaEpoch
         let representation = playbackRepresentation
         sourcePreviewTask = Task {
+            guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset,
+                  representation == playbackRepresentation, sourcePlayback === backend else { return }
             do {
                 try await backend.seek(to: pendingSourceTransport?.time ?? time)
             } catch {

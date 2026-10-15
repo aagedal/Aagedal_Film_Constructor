@@ -14,7 +14,22 @@ class SourceProofTests(unittest.TestCase):
         self.assertFalse(proof.compare_rgb(bytes([0, 10, 20]), bytes([255, 255, 255]))['passed'])
         self.assertTrue(proof.compare_rgb(bytes([0, 10, 20]), bytes([1, 11, 21]))['passed'])
         # A localized large corruption must not hide inside the mean budget.
-        self.assertFalse(proof.compare_rgb(bytes(1000), bytes([100]) + bytes(999))['passed'])
+        self.assertFalse(proof.compare_rgb(bytes(999), bytes([100]) + bytes(998))['passed'])
+
+    def test_color_diagnostics_locate_peak_without_changing_verdict(self):
+        actual = bytes([10, 20, 30, 40, 50, 60, 70, 80, 255, 100, 110, 120])
+        expected = bytes([10, 20, 30, 40, 50, 60, 70, 80, 0, 100, 110, 120])
+        comparison = proof.compare_rgb(actual, expected, width=2)
+        self.assertFalse(comparison['passed'])
+        self.assertEqual(comparison['componentsOverMaximumTolerance'], 1)
+        self.assertEqual(comparison['channelMeanErrors'], {'red': 0, 'green': 0, 'blue': 63.75})
+        self.assertEqual(comparison['peakError'], {'pixelIndex': 2, 'channel': 'blue',
+            'actualRGB': [70, 80, 255], 'referenceRGB': [70, 80, 0], 'x': 0, 'y': 1})
+
+    def test_partial_pixels_and_rows_are_rejected(self):
+        for actual, width in ((b'ab', None), (bytes(9), 2), (bytes(6), 0)):
+            with self.assertRaises(ValueError):
+                proof.compare_rgb(actual, actual, width=width)
 
     def test_empty_or_incomplete_capture_is_rejected(self):
         for actual, expected in ((b'', b''), (b'abc', b'ab')):
