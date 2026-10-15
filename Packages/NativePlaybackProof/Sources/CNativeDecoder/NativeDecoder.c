@@ -376,8 +376,8 @@ static AFCDecoder *open_decoder(const char *path, int stream_index, int still,
             goto invalid;
         }
     } else {
-        if (!pcm_codec(parameters->codec_id)) {
-            fail(error, error_size, "Compressed/non-qualified audio is unsupported; this proof requires integer/float PCM");
+        if (!pcm_codec(parameters->codec_id) && parameters->codec_id != AV_CODEC_ID_ALAC) {
+            fail(error, error_size, "Non-qualified audio is unsupported; this proof requires integer/float PCM or qualified ALAC");
             goto invalid;
         }
         decoder->channels = parameters->ch_layout.nb_channels;
@@ -386,6 +386,19 @@ static AFCDecoder *open_decoder(const char *path, int stream_index, int still,
             decoder->sample_rate <= 0 || decoder->sample_rate > 384000 ||
             !av_channel_layout_check(&parameters->ch_layout)) {
             fail(error, error_size, "Source audio rate/channel layout exceeds development limits or is invalid");
+            goto invalid;
+        }
+        /* Lossless ALAC admission is deliberately limited to the generated,
+         * sample-exact fixture matrix. All sources must still pass the complete
+         * zero-origin/contiguous timestamp and stable decoded shape scan. */
+        if (parameters->codec_id == AV_CODEC_ID_ALAC &&
+            ((decoder->channels != 1 && decoder->channels != 2) ||
+             (decoder->sample_rate != 44100 && decoder->sample_rate != 48000) ||
+             (parameters->bits_per_raw_sample != 16 && parameters->bits_per_raw_sample != 24) ||
+             parameters->ch_layout.order != AV_CHANNEL_ORDER_NATIVE ||
+             (decoder->channels == 1 && parameters->ch_layout.u.mask != AV_CH_LAYOUT_MONO) ||
+             (decoder->channels == 2 && parameters->ch_layout.u.mask != AV_CH_LAYOUT_STEREO))) {
+            fail(error, error_size, "ALAC qualification requires 16/24-bit mono/stereo audio at 44100/48000 Hz");
             goto invalid;
         }
         if (parameters->initial_padding || parameters->trailing_padding) {
@@ -656,16 +669,16 @@ static int convert_audio(AFCDecoder *decoder, char *error, size_t size) {
         int result = swr_alloc_set_opts2(&decoder->swr,
             &decoder->audio_layout, AV_SAMPLE_FMT_FLT, decoder->sample_rate,
             &decoder->audio_layout, frame->format, decoder->sample_rate, 0, NULL);
-        if (result < 0) return ff_fail(error, size, "Configure PCM float conversion", result);
+        if (result < 0) return ff_fail(error, size, "Configure audio float conversion", result);
         result = swr_init(decoder->swr);
-        if (result < 0) return ff_fail(error, size, "Initialize PCM float conversion", result);
+        if (result < 0) return ff_fail(error, size, "Initialize audio float conversion", result);
     }
     uint8_t *output[1] = {(uint8_t *)decoder->audio_buffer};
     int result = swr_convert(decoder->swr, output, frame->nb_samples,
         (const uint8_t **)frame->extended_data, frame->nb_samples);
-    if (result < 0) return ff_fail(error, size, "Convert source PCM to float", result);
+    if (result < 0) return ff_fail(error, size, "Convert source audio to float", result);
     if (result != frame->nb_samples || swr_get_delay(decoder->swr, decoder->sample_rate) != 0)
-        return fail(error, size, "PCM conversion introduced unsupported delay/resampling");
+        return fail(error, size, "Audio conversion introduced unsupported delay/resampling");
     decoder->audio_buffer_valid = 1;
     return 0;
 }
@@ -676,7 +689,7 @@ int afc_decoder_audio(AFCDecoder *decoder, int64_t start_sample,
                       char *error, size_t error_size) {
     clear_error(error, error_size);
     if (!decoder || decoder->kind != AVMEDIA_TYPE_AUDIO)
-        return fail(error, error_size, "Audio extraction requires a PCM audio stream decoder");
+        return fail(error, error_size, "Audio extraction requires a qualified audio stream decoder");
     if (sample_rate != decoder->sample_rate)
         return fail(error, error_size, "Audio resampling is unsupported; requested rate must equal source rate");
     if (start_sample < 0 || sample_count < 0 || start_sample > INT64_MAX - sample_count)

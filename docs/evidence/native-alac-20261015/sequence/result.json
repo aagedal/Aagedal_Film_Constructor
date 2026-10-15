@@ -1,0 +1,229 @@
+{
+  "passed": true,
+  "variants": [
+    {
+      "bits": 16,
+      "sourceSHA256": "f9d987452a0afde5f12ad23a7fb5013ad51fd2c64aa8f7e37ea79bfb25cd4f62",
+      "libraryVersion": "9.0.2",
+      "audio": {
+        "mixed.f32": {
+          "samplesPerChannel": 288288,
+          "maxErrorInS16Units": 0.5
+        },
+        "scheduled.f32": {
+          "samplesPerChannel": 288288,
+          "maxErrorInS16Units": 0.5
+        },
+        "asynchronous.f32": {
+          "samplesPerChannel": 288288,
+          "maxErrorInS16Units": 0.5
+        }
+      },
+      "video": {
+        "native.rgb": {
+          "frames": 180,
+          "maxMeanRGBError": 2.0
+        },
+        "asynchronous.rgb": {
+          "frames": 180,
+          "maxMeanRGBError": 2.0
+        }
+      },
+      "audioSeekRanges": [
+        [
+          0,
+          2048,
+          false
+        ],
+        [
+          48047,
+          2048,
+          false
+        ],
+        [
+          48048,
+          2048,
+          false
+        ],
+        [
+          240239,
+          2048,
+          false
+        ],
+        [
+          115315,
+          2048,
+          false
+        ],
+        [
+          48048,
+          2048,
+          false
+        ],
+        [
+          287264,
+          1024,
+          false
+        ],
+        [
+          144144,
+          2048,
+          false
+        ],
+        [
+          120120,
+          2048,
+          false
+        ],
+        [
+          168168,
+          2048,
+          false
+        ],
+        [
+          192192,
+          2048,
+          false
+        ],
+        [
+          144144,
+          2048,
+          false
+        ],
+        [
+          48047,
+          2048,
+          true
+        ]
+      ],
+      "videoSeekFrames": [
+        0,
+        2,
+        3,
+        60,
+        119,
+        120,
+        179,
+        60,
+        15,
+        15
+      ],
+      "asynchronousCacheBytes": 122880
+    },
+    {
+      "bits": 24,
+      "sourceSHA256": "584e95058a8a67243e27addc8e31804d3676c0688ef4ff9f2965207e27e6353c",
+      "libraryVersion": "9.0.2",
+      "audio": {
+        "mixed.f32": {
+          "samplesPerChannel": 288288,
+          "maxErrorInS16Units": 0.5
+        },
+        "scheduled.f32": {
+          "samplesPerChannel": 288288,
+          "maxErrorInS16Units": 0.5
+        },
+        "asynchronous.f32": {
+          "samplesPerChannel": 288288,
+          "maxErrorInS16Units": 0.5
+        }
+      },
+      "video": {
+        "native.rgb": {
+          "frames": 180,
+          "maxMeanRGBError": 2.0
+        },
+        "asynchronous.rgb": {
+          "frames": 180,
+          "maxMeanRGBError": 2.0
+        }
+      },
+      "audioSeekRanges": [
+        [
+          0,
+          2048,
+          false
+        ],
+        [
+          48047,
+          2048,
+          false
+        ],
+        [
+          48048,
+          2048,
+          false
+        ],
+        [
+          240239,
+          2048,
+          false
+        ],
+        [
+          115315,
+          2048,
+          false
+        ],
+        [
+          48048,
+          2048,
+          false
+        ],
+        [
+          287264,
+          1024,
+          false
+        ],
+        [
+          144144,
+          2048,
+          false
+        ],
+        [
+          120120,
+          2048,
+          false
+        ],
+        [
+          168168,
+          2048,
+          false
+        ],
+        [
+          192192,
+          2048,
+          false
+        ],
+        [
+          144144,
+          2048,
+          false
+        ],
+        [
+          48047,
+          2048,
+          true
+        ]
+      ],
+      "videoSeekFrames": [
+        0,
+        2,
+        3,
+        60,
+        119,
+        120,
+        179,
+        60,
+        15,
+        15
+      ],
+      "asynchronousCacheBytes": 122880
+    }
+  ],
+  "limitations": [
+    "Development local FFmpeg dylibs; no bundled/signed shipping dependency qualification",
+    "Sequence runtime proof covers two mono ALAC source streams, 48 kHz, 16/24-bit only",
+    "Offline native audio engine and image captures; no live display/CoreAudio synchronization or latency",
+    "No lossy audio, resampling, offsets, gaps, codec delay/padding or general malformed-file qualification"
+  ]
+}

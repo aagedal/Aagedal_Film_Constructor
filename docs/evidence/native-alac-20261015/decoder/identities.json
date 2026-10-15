@@ -1,0 +1,41 @@
+{
+  "ffmpeg": {
+    "path": "/opt/homebrew/bin/ffmpeg",
+    "sha256": "7f6028378534aa10a2dfa07d807ddcc0d18c869bf5c2f64c89efcc18ee88c4ee",
+    "version": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers\nbuilt with Apple clang version 21.0.0 (clang-2100.3.34.2)\nconfiguration: --prefix=/opt/homebrew/Cellar/ffmpeg/9.0.2_1 --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gpl --enable-libsvtav1 --enable-libopus --enable-libx264 --enable-libmp3lame --enable-libdav1d --enable-libvmaf --enable-libvpx --enable-libx265 --enable-openssl --enable-videotoolbox --enable-audiotoolbox --enable-neon\nlibavutil      61.  1.102 / 61.  1.102\nlibavcodec     63.  1.102 / 63.  1.102\nlibavformat    63.  1.102 / 63.  1.102\nlibavdevice    63.  1.102 / 63.  1.102\nlibavfilter    12.  1.102 / 12.  1.102\nlibswscale     10.  1.102 / 10.  1.102\nlibswresample   7.  1.102 /  7.  1.102\n\nExiting with exit code 0"
+  },
+  "pkgConfig": {
+    "path": "/opt/homebrew/bin/pkg-config",
+    "sha256": "8bd30a189b9cfe3c3ce64ce30649d054ec26341127615d5536040c9e36bbd3a1",
+    "version": "3.0.8"
+  },
+  "clang": {
+    "path": "/usr/bin/clang",
+    "sha256": "34129c71a01a74f7f3b2443521519b2e5447553fa187f5fcafaaf8c42cc192e2",
+    "version": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+  },
+  "libavformat": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/lib/libavformat.63.1.102.dylib",
+    "sha256": "29cf1a49a39f4e8e99c7bfa6f7aef3df2e7d91c8282cd7e1ef1fb206aec75779"
+  },
+  "libavcodec": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/lib/libavcodec.63.1.102.dylib",
+    "sha256": "887a9775777c2fdb45228fb7776c3f040e4cf56a0cce2b773ae1b978e26dce5a"
+  },
+  "libavutil": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/lib/libavutil.61.1.102.dylib",
+    "sha256": "0377aea088208e69d29c03caeb960ca395fdbcd646335dc0a87748bfe81f8525"
+  },
+  "libswscale": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/lib/libswscale.10.1.102.dylib",
+    "sha256": "518909dce64a42971a838278cf43ba2bd77bd172ba0eccb3c6ba273e25be7cda"
+  },
+  "libswresample": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/lib/libswresample.7.1.102.dylib",
+    "sha256": "8d35eb7639343a837ac4e97cfe1742a293b9bc514a790e5db822927628122d2f"
+  },
+  "checkExecutable": {
+    "path": "/private/tmp/afc-alac-decoder-20261015-v2/native-decoder-check",
+    "sha256": "238dc99f4f9f8ff520ac56e735c8889b61989594354b240c911c2aaed2c88fe5"
+  }
+}

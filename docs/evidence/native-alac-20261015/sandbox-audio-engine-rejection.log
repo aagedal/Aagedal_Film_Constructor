@@ -1,0 +1,19 @@
+*** Terminating app due to uncaught exception 'com.apple.coreaudio.avfaudio', reason: 'required condition is false: comp != nullptr'
+*** First throw call stack:
+(
+	0   CoreFoundation                      0x0000000181eaa8c0 __exceptionPreprocess + 176
+	1   libobjc.A.dylib                     0x000000018190860c objc_exception_throw + 88
+	2   CoreFoundation                      0x0000000181eaa7b0 +[NSException exceptionWithName:reason:userInfo:] + 0
+	3   AVFAudio                            0x000000021ceb6e18 _ZN17AUInterfaceBaseV3C2ERK25AudioComponentDescriptionP23ComponentInstanceRecord + 1692
+	4   AVFAudio                            0x000000021cf7be7c _ZN15AVAudioNodeImplC2EP23ComponentInstanceRecordRK25AudioComponentDescription13ENodeInternal + 116
+	5   AVFAudio                            0x000000021cf859c8 -[AVAudioPlayerNode init] + 96
+	6   NativeSequenceProof                 0x0000000102bc59f8 $sSo17AVAudioPlayerNodeCABycfcTO + 16
+	7   NativeSequenceProof                 0x0000000102bb2aa8 $sSo17AVAudioPlayerNodeCABycfC + 32
+	8   NativeSequenceProof                 0x0000000102bc7fb4 $s21NativePlaybackRuntime06renderA5Audio7monitor5start5count9presented7consumeyAA0A7MonitorC_s5Int64VAKyAKKXEySaySfGKXEtKF + 1028
+	9   NativeSequenceProof                 0x0000000102a8c31c $s19NativeSequenceProof07executeC010projectURL6output011replacementF0y10Foundation0F0V_A2HSgtYaKFTY12_ + 5220
+	10  NativeSequenceProof                 0x0000000102a71ef9 async_MainTQ0_ + 1
+	11  NativeSequenceProof                 0x0000000102a7231d $sIetH_yts5Error_pIegHrzo_TRTQ0_ + 1
+	12  NativeSequenceProof                 0x0000000102a72439 $sIetH_yts5Error_pIegHrzo_TRTATQ0_ + 1
+	13  libswift_Concurrency.dylib          0x00000002ae676d41 _ZL23completeTaskWithClosurePN5swift12AsyncContextEPNS_10SwiftErrorE + 1
+)
+libc++abi: terminating due to uncaught exception of type NSException

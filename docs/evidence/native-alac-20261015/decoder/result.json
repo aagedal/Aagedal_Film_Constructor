@@ -1,0 +1,1484 @@
+{
+  "passed": true,
+  "sanitizers": [
+    "address",
+    "undefined"
+  ],
+  "limitations": [
+    "Development local dylibs; no bundled/signed shipping dependency qualification",
+    "Direct decoded frames/samples, not live display/CoreAudio synchronization or latency",
+    "A finite fixture/rejection matrix does not qualify arbitrary media or malformed files",
+    "ALAC admission is limited to 16/24-bit mono/stereo at 44100/48000 Hz, zero-origin contiguous samples, and no delay/padding"
+  ],
+  "libraryVersions": [
+    "63.1.102",
+    "63.1.102",
+    "61.1.102",
+    "10.1.102",
+    "7.1.102"
+  ],
+  "sourceBarcodeFrames": 300,
+  "sourceBarcodeMaximumMeanRGBError": 0.0,
+  "qualifiedAlacMatrix": [
+    {
+      "rate": 44100,
+      "channels": 1,
+      "bits": 16,
+      "samplesPerChannel": 20037,
+      "packetStarts": [
+        0,
+        4096,
+        8192,
+        12288,
+        16384
+      ],
+      "wholeFileLosslessIdentity": true,
+      "sourceSHA256": "3be8739cf1e253a27d028227fa3f8908e454504061e53d08d7943c7cc8d21424",
+      "alacSHA256": "3d4a1e1513140adee90bd6b8679343812934bcbc9e6588b31439624778ef5a6f",
+      "floatSHA256": "38f882bb53b656ffd474812d1c0b35b29208ba3a72ba0435fbc71472acf8358d"
+    },
+    {
+      "rate": 44100,
+      "channels": 1,
+      "bits": 24,
+      "samplesPerChannel": 20037,
+      "packetStarts": [
+        0,
+        4096,
+        8192,
+        12288,
+        16384
+      ],
+      "wholeFileLosslessIdentity": true,
+      "sourceSHA256": "6d790517b02873e424b466d6f16690821bbbf4333c3d2f59ab0250b76575e660",
+      "alacSHA256": "dcf193e49540fbff7a05bd70a889d49f82981ac62f0a5048a0a2e827cfa3fa29",
+      "floatSHA256": "8df8cc962889166e48a490fa38f9b3789eb761b9a6291ffe99f9366a557f4eb4"
+    },
+    {
+      "rate": 44100,
+      "channels": 2,
+      "bits": 16,
+      "samplesPerChannel": 20037,
+      "packetStarts": [
+        0,
+        4096,
+        8192,
+        12288,
+        16384
+      ],
+      "wholeFileLosslessIdentity": true,
+      "sourceSHA256": "95382a2745ce197e1f02fbcac02b0a4b76c3941867617ff0ef098c8236387e45",
+      "alacSHA256": "48ef6a0b50d03ca944601368fdaa10d2fcac98b9d0f0d4006ce258d6aea9febf",
+      "floatSHA256": "5d9d2c715e583d695c2844c99eee56540c01d32b57e17d04351d244fb1aadd0f"
+    },
+    {
+      "rate": 44100,
+      "channels": 2,
+      "bits": 24,
+      "samplesPerChannel": 20037,
+      "packetStarts": [
+        0,
+        4096,
+        8192,
+        12288,
+        16384
+      ],
+      "wholeFileLosslessIdentity": true,
+      "sourceSHA256": "74db26e3a63266280839208cabfbdc2d87c8b6f054ea768573badaeef2a0e839",
+      "alacSHA256": "c56e85898d218874b2b6ab4e7bb5b5a7e5ad0e1bcc23c1165329754fef635e49",
+      "floatSHA256": "af93c4f7bde8223715926ee9cb96b0c42a20cb5e5f5d7b66361ddc54b93ee90d"
+    },
+    {
+      "rate": 48000,
+      "channels": 1,
+      "bits": 16,
+      "samplesPerChannel": 20037,
+      "packetStarts": [
+        0,
+        4096,
+        8192,
+        12288,
+        16384
+      ],
+      "wholeFileLosslessIdentity": true,
+      "sourceSHA256": "d225f40ddeb7e8259dd1cf7e72d9086cd3ef3074432b00501a2454bbab8793ad",
+      "alacSHA256": "30814dda5e473a610f73ccda369b20e07b6a7d28275cce613ca3a805309c3b82",
+      "floatSHA256": "38f882bb53b656ffd474812d1c0b35b29208ba3a72ba0435fbc71472acf8358d"
+    },
+    {
+      "rate": 48000,
+      "channels": 1,
+      "bits": 24,
+      "samplesPerChannel": 20037,
+      "packetStarts": [
+        0,
+        4096,
+        8192,
+        12288,
+        16384
+      ],
+      "wholeFileLosslessIdentity": true,
+      "sourceSHA256": "f86d9e8d8013db9c0f8c7196da4d6f36b5534354fd658eb429dcd4db09d198f4",
+      "alacSHA256": "85e10b99ca7d95a36fa3e196e751422ce8c9ffd564ac69e263a99447114a00dc",
+      "floatSHA256": "8df8cc962889166e48a490fa38f9b3789eb761b9a6291ffe99f9366a557f4eb4"
+    },
+    {
+      "rate": 48000,
+      "channels": 2,
+      "bits": 16,
+      "samplesPerChannel": 20037,
+      "packetStarts": [
+        0,
+        4096,
+        8192,
+        12288,
+        16384
+      ],
+      "wholeFileLosslessIdentity": true,
+      "sourceSHA256": "0f0c0368f71982c692a8358b0d5dc47d7821248037baa00a230b3a917c34a5d9",
+      "alacSHA256": "645b65feba2fccebf7b5421ef872ffb32d34989386b479c7d242e8d3fc730299",
+      "floatSHA256": "5d9d2c715e583d695c2844c99eee56540c01d32b57e17d04351d244fb1aadd0f"
+    },
+    {
+      "rate": 48000,
+      "channels": 2,
+      "bits": 24,
+      "samplesPerChannel": 20037,
+      "packetStarts": [
+        0,
+        4096,
+        8192,
+        12288,
+        16384
+      ],
+      "wholeFileLosslessIdentity": true,
+      "sourceSHA256": "137259f3750f2a34f278377e23229944535977cd0260137c8f82e39db3af3a7f",
+      "alacSHA256": "375ad5ce5004daa0ffa3c421f5d55d21e3ec8bbe1966ae5f4ef1d2eae7dcc580",
+      "floatSHA256": "af93c4f7bde8223715926ee9cb96b0c42a20cb5e5f5d7b66361ddc54b93ee90d"
+    }
+  ],
+  "checks": [
+    {
+      "name": "open exact video container stream",
+      "passed": true
+    },
+    {
+      "name": "native video raster",
+      "passed": true
+    },
+    {
+      "name": "exact RGB request 0 at source frame 0",
+      "passed": true
+    },
+    {
+      "name": "exact RGB request 1 at source frame 1",
+      "passed": true
+    },
+    {
+      "name": "exact RGB request 2 at source frame 60",
+      "passed": true
+    },
+    {
+      "name": "exact RGB request 3 at source frame 119",
+      "passed": true
+    },
+    {
+      "name": "exact RGB request 4 at source frame 299",
+      "passed": true
+    },
+    {
+      "name": "exact RGB request 5 at source frame 120",
+      "passed": true
+    },
+    {
+      "name": "exact RGB request 6 at source frame 15",
+      "passed": true
+    },
+    {
+      "name": "exact RGB request 7 at source frame 15",
+      "passed": true
+    },
+    {
+      "name": "exact RGB request 8 at source frame 2",
+      "passed": true
+    },
+    {
+      "name": "exact RGB request 9 at source frame 299",
+      "passed": true
+    },
+    {
+      "name": "exact RGB request 10 at source frame 0",
+      "passed": true
+    },
+    {
+      "name": "reject video after EOF",
+      "passed": true,
+      "rejection": "Requested source video frame is beyond EOF"
+    },
+    {
+      "name": "reject changed qualified video rate",
+      "passed": true,
+      "rejection": "Requested rate differs from the qualified source CFR rate"
+    },
+    {
+      "name": "reject short RGB buffer",
+      "passed": true,
+      "rejection": "RGB24 output buffer is too small"
+    },
+    {
+      "name": "reject negative source frame",
+      "passed": true,
+      "rejection": "Video source frame/rational rate is invalid"
+    },
+    {
+      "name": "reject video timestamp overflow",
+      "passed": true,
+      "rejection": "Requested source time is not exactly representable in the stream time base"
+    },
+    {
+      "name": "reject audio operation on video stream",
+      "passed": true,
+      "rejection": "Audio extraction requires a qualified audio stream decoder"
+    },
+    {
+      "name": "video remains usable after rejected requests",
+      "passed": true
+    },
+    {
+      "name": "open fresh video for off-grid control",
+      "passed": true
+    },
+    {
+      "name": "reject source time between exact stream ticks",
+      "passed": true,
+      "rejection": "Requested source time is not exactly representable in the stream time base"
+    },
+    {
+      "name": "correct rate succeeds after off-grid rejection",
+      "passed": true
+    },
+    {
+      "name": "open second exact PCM container stream",
+      "passed": true
+    },
+    {
+      "name": "source channel count and rate",
+      "passed": true
+    },
+    {
+      "name": "exact PCM request 0 at source sample 0",
+      "passed": true
+    },
+    {
+      "name": "exact PCM request 1 at source sample 1",
+      "passed": true
+    },
+    {
+      "name": "exact PCM request 2 at source sample 1023",
+      "passed": true
+    },
+    {
+      "name": "exact PCM request 3 at source sample 1024",
+      "passed": true
+    },
+    {
+      "name": "exact PCM request 4 at source sample 100000",
+      "passed": true
+    },
+    {
+      "name": "exact PCM request 5 at source sample 480479",
+      "passed": true
+    },
+    {
+      "name": "exact PCM request 6 at source sample 480000",
+      "passed": true
+    },
+    {
+      "name": "exact PCM request 7 at source sample 1025",
+      "passed": true
+    },
+    {
+      "name": "exact PCM request 8 at source sample 5",
+      "passed": true
+    },
+    {
+      "name": "exact PCM request 9 at source sample 5",
+      "passed": true
+    },
+    {
+      "name": "exact PCM request 10 at source sample 480479",
+      "passed": true
+    },
+    {
+      "name": "exact PCM request 11 at source sample 0",
+      "passed": true
+    },
+    {
+      "name": "reject actual PCM rate mismatch",
+      "passed": true,
+      "rejection": "Audio resampling is unsupported; requested rate must equal source rate"
+    },
+    {
+      "name": "reject audio after EOF",
+      "passed": true,
+      "rejection": "Requested source audio samples extend beyond EOF"
+    },
+    {
+      "name": "empty audio range at EOF",
+      "passed": true
+    },
+    {
+      "name": "reject short float buffer",
+      "passed": true,
+      "rejection": "Interleaved float output buffer is too small"
+    },
+    {
+      "name": "reject source sample range overflow",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "reject negative source sample",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "reject video operation on audio stream",
+      "passed": true,
+      "rejection": "Video extraction requires a video stream decoder"
+    },
+    {
+      "name": "open VFR control before full timestamp qualification",
+      "passed": true
+    },
+    {
+      "name": "reject timestamp gap anywhere in VFR video",
+      "passed": true,
+      "rejection": "Source timestamps are not contiguous on the exact frame/sample grid"
+    },
+    {
+      "name": "reject unsupported source offset.mov",
+      "passed": true,
+      "rejection": "Nonzero source stream start times are unsupported"
+    },
+    {
+      "name": "reject unsupported source sar.mov",
+      "passed": true,
+      "rejection": "Non-square source pixels are unsupported"
+    },
+    {
+      "name": "reject unsupported source rotation.mov",
+      "passed": true,
+      "rejection": "Rotated/transformed source video is unsupported"
+    },
+    {
+      "name": "reject unsupported source aac.m4a",
+      "passed": true,
+      "rejection": "Non-qualified audio is unsupported; this proof requires integer/float PCM or qualified ALAC"
+    },
+    {
+      "name": "reject unsupported source raw.h264",
+      "passed": true,
+      "rejection": "Decoded source frame is missing a presentation timestamp"
+    },
+    {
+      "name": "open PCM with timestamp gap before qualification",
+      "passed": true
+    },
+    {
+      "name": "reject PCM timestamp gap",
+      "passed": true,
+      "rejection": "Source timestamps are not contiguous on the exact frame/sample grid"
+    },
+    {
+      "name": "open timestamped PCM WAV",
+      "passed": true
+    },
+    {
+      "name": "PCM WAV EOF boundary",
+      "passed": true
+    },
+    {
+      "name": "PCM WAV arbitrary backward request",
+      "passed": true
+    },
+    {
+      "name": "preserve all four source PCM channels",
+      "passed": true
+    },
+    {
+      "name": "four-channel interleaving request 0 at sample 0",
+      "passed": true
+    },
+    {
+      "name": "four-channel interleaving request 1 at sample 511",
+      "passed": true
+    },
+    {
+      "name": "four-channel interleaving request 2 at sample 13",
+      "passed": true
+    },
+    {
+      "name": "four-channel interleaving request 3 at sample 13",
+      "passed": true
+    },
+    {
+      "name": "four-channel interleaving request 4 at sample 300",
+      "passed": true
+    },
+    {
+      "name": "four-channel interleaving request 5 at sample 1",
+      "passed": true
+    },
+    {
+      "name": "allocate whole-range ALAC test output",
+      "passed": true
+    },
+    {
+      "name": "open alac-44100-1-16.m4a with exact rate and channels",
+      "passed": true
+    },
+    {
+      "name": "head ALAC 44100 Hz 1 channel 16 bit [0,1)",
+      "passed": true
+    },
+    {
+      "name": "whole range ALAC 44100 Hz 1 channel 16 bit [0,20037)",
+      "passed": true
+    },
+    {
+      "name": "tail ALAC 44100 Hz 1 channel 16 bit [20036,20037)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 16 bit [16385,16402)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 16 bit [16384,16401)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 16 bit [16383,16400)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 16 bit [12289,12306)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 16 bit [12288,12305)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 16 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 16 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 16 bit [8192,8209)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 16 bit [8191,8208)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 16 bit [4097,4114)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 16 bit [4096,4113)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 16 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "span three packets ALAC 44100 Hz 1 channel 16 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "repeat three packets ALAC 44100 Hz 1 channel 16 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "partial EOF packet ALAC 44100 Hz 1 channel 16 bit [16383,20037)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC resampling",
+      "passed": true,
+      "rejection": "Audio resampling is unsupported; requested rate must equal source rate"
+    },
+    {
+      "name": "recover after rate rejection ALAC 44100 Hz 1 channel 16 bit [1,18)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC beyond EOF",
+      "passed": true,
+      "rejection": "Requested source audio samples extend beyond EOF"
+    },
+    {
+      "name": "recover after EOF rejection ALAC 44100 Hz 1 channel 16 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC short output",
+      "passed": true,
+      "rejection": "Interleaved float output buffer is too small"
+    },
+    {
+      "name": "recover after buffer rejection ALAC 44100 Hz 1 channel 16 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC negative range",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after negative rejection ALAC 44100 Hz 1 channel 16 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC range overflow",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after overflow rejection ALAC 44100 Hz 1 channel 16 bit [0,17)",
+      "passed": true
+    },
+    {
+      "name": "ALAC empty range at exact EOF",
+      "passed": true
+    },
+    {
+      "name": "open alac-44100-1-24.m4a with exact rate and channels",
+      "passed": true
+    },
+    {
+      "name": "head ALAC 44100 Hz 1 channel 24 bit [0,1)",
+      "passed": true
+    },
+    {
+      "name": "whole range ALAC 44100 Hz 1 channel 24 bit [0,20037)",
+      "passed": true
+    },
+    {
+      "name": "tail ALAC 44100 Hz 1 channel 24 bit [20036,20037)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 24 bit [16385,16402)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 24 bit [16384,16401)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 24 bit [16383,16400)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 24 bit [12289,12306)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 24 bit [12288,12305)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 24 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 24 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 24 bit [8192,8209)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 24 bit [8191,8208)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 24 bit [4097,4114)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 24 bit [4096,4113)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 1 channel 24 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "span three packets ALAC 44100 Hz 1 channel 24 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "repeat three packets ALAC 44100 Hz 1 channel 24 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "partial EOF packet ALAC 44100 Hz 1 channel 24 bit [16383,20037)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC resampling",
+      "passed": true,
+      "rejection": "Audio resampling is unsupported; requested rate must equal source rate"
+    },
+    {
+      "name": "recover after rate rejection ALAC 44100 Hz 1 channel 24 bit [1,18)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC beyond EOF",
+      "passed": true,
+      "rejection": "Requested source audio samples extend beyond EOF"
+    },
+    {
+      "name": "recover after EOF rejection ALAC 44100 Hz 1 channel 24 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC short output",
+      "passed": true,
+      "rejection": "Interleaved float output buffer is too small"
+    },
+    {
+      "name": "recover after buffer rejection ALAC 44100 Hz 1 channel 24 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC negative range",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after negative rejection ALAC 44100 Hz 1 channel 24 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC range overflow",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after overflow rejection ALAC 44100 Hz 1 channel 24 bit [0,17)",
+      "passed": true
+    },
+    {
+      "name": "ALAC empty range at exact EOF",
+      "passed": true
+    },
+    {
+      "name": "open alac-44100-2-16.m4a with exact rate and channels",
+      "passed": true
+    },
+    {
+      "name": "head ALAC 44100 Hz 2 channel 16 bit [0,1)",
+      "passed": true
+    },
+    {
+      "name": "whole range ALAC 44100 Hz 2 channel 16 bit [0,20037)",
+      "passed": true
+    },
+    {
+      "name": "tail ALAC 44100 Hz 2 channel 16 bit [20036,20037)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 16 bit [16385,16402)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 16 bit [16384,16401)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 16 bit [16383,16400)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 16 bit [12289,12306)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 16 bit [12288,12305)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 16 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 16 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 16 bit [8192,8209)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 16 bit [8191,8208)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 16 bit [4097,4114)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 16 bit [4096,4113)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 16 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "span three packets ALAC 44100 Hz 2 channel 16 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "repeat three packets ALAC 44100 Hz 2 channel 16 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "partial EOF packet ALAC 44100 Hz 2 channel 16 bit [16383,20037)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC resampling",
+      "passed": true,
+      "rejection": "Audio resampling is unsupported; requested rate must equal source rate"
+    },
+    {
+      "name": "recover after rate rejection ALAC 44100 Hz 2 channel 16 bit [1,18)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC beyond EOF",
+      "passed": true,
+      "rejection": "Requested source audio samples extend beyond EOF"
+    },
+    {
+      "name": "recover after EOF rejection ALAC 44100 Hz 2 channel 16 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC short output",
+      "passed": true,
+      "rejection": "Interleaved float output buffer is too small"
+    },
+    {
+      "name": "recover after buffer rejection ALAC 44100 Hz 2 channel 16 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC negative range",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after negative rejection ALAC 44100 Hz 2 channel 16 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC range overflow",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after overflow rejection ALAC 44100 Hz 2 channel 16 bit [0,17)",
+      "passed": true
+    },
+    {
+      "name": "ALAC empty range at exact EOF",
+      "passed": true
+    },
+    {
+      "name": "open alac-44100-2-24.m4a with exact rate and channels",
+      "passed": true
+    },
+    {
+      "name": "head ALAC 44100 Hz 2 channel 24 bit [0,1)",
+      "passed": true
+    },
+    {
+      "name": "whole range ALAC 44100 Hz 2 channel 24 bit [0,20037)",
+      "passed": true
+    },
+    {
+      "name": "tail ALAC 44100 Hz 2 channel 24 bit [20036,20037)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 24 bit [16385,16402)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 24 bit [16384,16401)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 24 bit [16383,16400)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 24 bit [12289,12306)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 24 bit [12288,12305)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 24 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 24 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 24 bit [8192,8209)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 24 bit [8191,8208)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 24 bit [4097,4114)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 24 bit [4096,4113)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 44100 Hz 2 channel 24 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "span three packets ALAC 44100 Hz 2 channel 24 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "repeat three packets ALAC 44100 Hz 2 channel 24 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "partial EOF packet ALAC 44100 Hz 2 channel 24 bit [16383,20037)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC resampling",
+      "passed": true,
+      "rejection": "Audio resampling is unsupported; requested rate must equal source rate"
+    },
+    {
+      "name": "recover after rate rejection ALAC 44100 Hz 2 channel 24 bit [1,18)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC beyond EOF",
+      "passed": true,
+      "rejection": "Requested source audio samples extend beyond EOF"
+    },
+    {
+      "name": "recover after EOF rejection ALAC 44100 Hz 2 channel 24 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC short output",
+      "passed": true,
+      "rejection": "Interleaved float output buffer is too small"
+    },
+    {
+      "name": "recover after buffer rejection ALAC 44100 Hz 2 channel 24 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC negative range",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after negative rejection ALAC 44100 Hz 2 channel 24 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC range overflow",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after overflow rejection ALAC 44100 Hz 2 channel 24 bit [0,17)",
+      "passed": true
+    },
+    {
+      "name": "ALAC empty range at exact EOF",
+      "passed": true
+    },
+    {
+      "name": "open alac-48000-1-16.m4a with exact rate and channels",
+      "passed": true
+    },
+    {
+      "name": "head ALAC 48000 Hz 1 channel 16 bit [0,1)",
+      "passed": true
+    },
+    {
+      "name": "whole range ALAC 48000 Hz 1 channel 16 bit [0,20037)",
+      "passed": true
+    },
+    {
+      "name": "tail ALAC 48000 Hz 1 channel 16 bit [20036,20037)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 16 bit [16385,16402)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 16 bit [16384,16401)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 16 bit [16383,16400)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 16 bit [12289,12306)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 16 bit [12288,12305)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 16 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 16 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 16 bit [8192,8209)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 16 bit [8191,8208)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 16 bit [4097,4114)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 16 bit [4096,4113)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 16 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "span three packets ALAC 48000 Hz 1 channel 16 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "repeat three packets ALAC 48000 Hz 1 channel 16 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "partial EOF packet ALAC 48000 Hz 1 channel 16 bit [16383,20037)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC resampling",
+      "passed": true,
+      "rejection": "Audio resampling is unsupported; requested rate must equal source rate"
+    },
+    {
+      "name": "recover after rate rejection ALAC 48000 Hz 1 channel 16 bit [1,18)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC beyond EOF",
+      "passed": true,
+      "rejection": "Requested source audio samples extend beyond EOF"
+    },
+    {
+      "name": "recover after EOF rejection ALAC 48000 Hz 1 channel 16 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC short output",
+      "passed": true,
+      "rejection": "Interleaved float output buffer is too small"
+    },
+    {
+      "name": "recover after buffer rejection ALAC 48000 Hz 1 channel 16 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC negative range",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after negative rejection ALAC 48000 Hz 1 channel 16 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC range overflow",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after overflow rejection ALAC 48000 Hz 1 channel 16 bit [0,17)",
+      "passed": true
+    },
+    {
+      "name": "ALAC empty range at exact EOF",
+      "passed": true
+    },
+    {
+      "name": "open alac-48000-1-24.m4a with exact rate and channels",
+      "passed": true
+    },
+    {
+      "name": "head ALAC 48000 Hz 1 channel 24 bit [0,1)",
+      "passed": true
+    },
+    {
+      "name": "whole range ALAC 48000 Hz 1 channel 24 bit [0,20037)",
+      "passed": true
+    },
+    {
+      "name": "tail ALAC 48000 Hz 1 channel 24 bit [20036,20037)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 24 bit [16385,16402)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 24 bit [16384,16401)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 24 bit [16383,16400)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 24 bit [12289,12306)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 24 bit [12288,12305)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 24 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 24 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 24 bit [8192,8209)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 24 bit [8191,8208)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 24 bit [4097,4114)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 24 bit [4096,4113)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 1 channel 24 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "span three packets ALAC 48000 Hz 1 channel 24 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "repeat three packets ALAC 48000 Hz 1 channel 24 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "partial EOF packet ALAC 48000 Hz 1 channel 24 bit [16383,20037)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC resampling",
+      "passed": true,
+      "rejection": "Audio resampling is unsupported; requested rate must equal source rate"
+    },
+    {
+      "name": "recover after rate rejection ALAC 48000 Hz 1 channel 24 bit [1,18)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC beyond EOF",
+      "passed": true,
+      "rejection": "Requested source audio samples extend beyond EOF"
+    },
+    {
+      "name": "recover after EOF rejection ALAC 48000 Hz 1 channel 24 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC short output",
+      "passed": true,
+      "rejection": "Interleaved float output buffer is too small"
+    },
+    {
+      "name": "recover after buffer rejection ALAC 48000 Hz 1 channel 24 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC negative range",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after negative rejection ALAC 48000 Hz 1 channel 24 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC range overflow",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after overflow rejection ALAC 48000 Hz 1 channel 24 bit [0,17)",
+      "passed": true
+    },
+    {
+      "name": "ALAC empty range at exact EOF",
+      "passed": true
+    },
+    {
+      "name": "open alac-48000-2-16.m4a with exact rate and channels",
+      "passed": true
+    },
+    {
+      "name": "head ALAC 48000 Hz 2 channel 16 bit [0,1)",
+      "passed": true
+    },
+    {
+      "name": "whole range ALAC 48000 Hz 2 channel 16 bit [0,20037)",
+      "passed": true
+    },
+    {
+      "name": "tail ALAC 48000 Hz 2 channel 16 bit [20036,20037)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 16 bit [16385,16402)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 16 bit [16384,16401)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 16 bit [16383,16400)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 16 bit [12289,12306)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 16 bit [12288,12305)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 16 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 16 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 16 bit [8192,8209)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 16 bit [8191,8208)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 16 bit [4097,4114)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 16 bit [4096,4113)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 16 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "span three packets ALAC 48000 Hz 2 channel 16 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "repeat three packets ALAC 48000 Hz 2 channel 16 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "partial EOF packet ALAC 48000 Hz 2 channel 16 bit [16383,20037)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC resampling",
+      "passed": true,
+      "rejection": "Audio resampling is unsupported; requested rate must equal source rate"
+    },
+    {
+      "name": "recover after rate rejection ALAC 48000 Hz 2 channel 16 bit [1,18)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC beyond EOF",
+      "passed": true,
+      "rejection": "Requested source audio samples extend beyond EOF"
+    },
+    {
+      "name": "recover after EOF rejection ALAC 48000 Hz 2 channel 16 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC short output",
+      "passed": true,
+      "rejection": "Interleaved float output buffer is too small"
+    },
+    {
+      "name": "recover after buffer rejection ALAC 48000 Hz 2 channel 16 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC negative range",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after negative rejection ALAC 48000 Hz 2 channel 16 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC range overflow",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after overflow rejection ALAC 48000 Hz 2 channel 16 bit [0,17)",
+      "passed": true
+    },
+    {
+      "name": "ALAC empty range at exact EOF",
+      "passed": true
+    },
+    {
+      "name": "open alac-48000-2-24.m4a with exact rate and channels",
+      "passed": true
+    },
+    {
+      "name": "head ALAC 48000 Hz 2 channel 24 bit [0,1)",
+      "passed": true
+    },
+    {
+      "name": "whole range ALAC 48000 Hz 2 channel 24 bit [0,20037)",
+      "passed": true
+    },
+    {
+      "name": "tail ALAC 48000 Hz 2 channel 24 bit [20036,20037)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 24 bit [16385,16402)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 24 bit [16384,16401)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 24 bit [16383,16400)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 24 bit [12289,12306)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 24 bit [12288,12305)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 24 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 24 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 24 bit [8192,8209)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 24 bit [8191,8208)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 24 bit [4097,4114)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 24 bit [4096,4113)",
+      "passed": true
+    },
+    {
+      "name": "reverse packet boundary ALAC 48000 Hz 2 channel 24 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "span three packets ALAC 48000 Hz 2 channel 24 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "repeat three packets ALAC 48000 Hz 2 channel 24 bit [8191,16385)",
+      "passed": true
+    },
+    {
+      "name": "partial EOF packet ALAC 48000 Hz 2 channel 24 bit [16383,20037)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC resampling",
+      "passed": true,
+      "rejection": "Audio resampling is unsupported; requested rate must equal source rate"
+    },
+    {
+      "name": "recover after rate rejection ALAC 48000 Hz 2 channel 24 bit [1,18)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC beyond EOF",
+      "passed": true,
+      "rejection": "Requested source audio samples extend beyond EOF"
+    },
+    {
+      "name": "recover after EOF rejection ALAC 48000 Hz 2 channel 24 bit [4095,4112)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC short output",
+      "passed": true,
+      "rejection": "Interleaved float output buffer is too small"
+    },
+    {
+      "name": "recover after buffer rejection ALAC 48000 Hz 2 channel 24 bit [8193,8210)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC negative range",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after negative rejection ALAC 48000 Hz 2 channel 24 bit [12287,12304)",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC range overflow",
+      "passed": true,
+      "rejection": "Audio source sample range is invalid"
+    },
+    {
+      "name": "recover after overflow rejection ALAC 48000 Hz 2 channel 24 bit [0,17)",
+      "passed": true
+    },
+    {
+      "name": "ALAC empty range at exact EOF",
+      "passed": true
+    },
+    {
+      "name": "reject unsupported audio alac-offset.m4a",
+      "passed": true,
+      "rejection": "Nonzero source stream start times are unsupported"
+    },
+    {
+      "name": "reject unsupported audio alac-rate.m4a",
+      "passed": true,
+      "rejection": "ALAC qualification requires 16/24-bit mono/stereo audio at 44100/48000 Hz"
+    },
+    {
+      "name": "reject unsupported audio alac-channels.m4a",
+      "passed": true,
+      "rejection": "ALAC qualification requires 16/24-bit mono/stereo audio at 44100/48000 Hz"
+    },
+    {
+      "name": "reject unsupported audio mp3.mp3",
+      "passed": true,
+      "rejection": "Non-qualified audio is unsupported; this proof requires integer/float PCM or qualified ALAC"
+    },
+    {
+      "name": "open ALAC gap control before full qualification",
+      "passed": true
+    },
+    {
+      "name": "reject ALAC timestamp gap anywhere in source",
+      "passed": true,
+      "rejection": "Source timestamps are not contiguous on the exact frame/sample grid"
+    },
+    {
+      "name": "repeat ALAC gap rejection without poisoning state",
+      "passed": true,
+      "rejection": "Source timestamps are not contiguous on the exact frame/sample grid"
+    },
+    {
+      "name": "reject nonlocal source path",
+      "passed": true,
+      "rejection": "Source must be an existing absolute local regular-file path"
+    },
+    {
+      "name": "reject absent container stream",
+      "passed": true,
+      "rejection": "Container stream index 99 is absent"
+    }
+  ],
+  "checkCount": 313,
+  "linkedFFmpegVersion": "9.0.2"
+}
