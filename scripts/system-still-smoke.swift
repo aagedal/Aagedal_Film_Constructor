@@ -138,6 +138,81 @@ import UniformTypeIdentifiers
             "EXIF 6 rotates clockwise, with red above green: \(a), \(b)")
         await oriented.close()
         decoded += 1
+        // Still holds share a lane, with a separate lane for motion video.
+        // Stretching a single frame must leave later holds/trims in place.
+        var holds = try project(url: png, mode: .fit)
+        let orientedAsset = MediaAsset(name: "Oriented", originalURL: jpeg, duration: try RationalTime(5))
+        holds.assets.append(orientedAsset)
+        holds.tracks[0].clips = []
+        var nextFrame: Int64 = 0
+        var holdChecks: [(Int64, Bool)] = []
+        for index in 0..<16 {
+            let rotated = index % 2 == 1
+            let frames: Int64 = rotated ? 6 : 3
+            holds.tracks[0].clips.append(TimelineClip(assetID: rotated ? orientedAsset.id : holds.assets[0].id,
+                sourceRange: try TimeRange(start: RationalTime(3), duration: holds.settings.frameRate.time(forFrames: frames)),
+                timelineStart: try holds.settings.frameRate.time(forFrames: nextFrame), selection: .still))
+            holdChecks.append((nextFrame, rotated)); holdChecks.append((nextFrame + frames - 1, rotated))
+            nextFrame += frames
+        }
+        var ending = base
+        ending.id = UUID()
+        ending.sourceRange = try TimeRange(start: RationalTime(1), duration: holds.settings.frameRate.time(forFrames: 3))
+        ending.timelineStart = try holds.settings.frameRate.time(forFrames: nextFrame)
+        holds.tracks[0].clips.append(ending)
+        let holdsBackend = try AVFoundationSequenceBackend(project: holds, videoProxies: [:])
+        let holdsItem = try await holdsBackend.makePlayerItem()
+        let holdsTracks = try await holdsItem.asset.loadTracks(withMediaType: .video)
+        try require(holdsTracks.count == 2, "Adjacent still holds reuse one composition track, separate from motion video")
+        var holdImage: CGImage?
+        var holdFrame: Int64?
+        holdsBackend.display = { holdImage = $0; holdFrame = $1 }
+        for (frame, rotated) in holdChecks.reversed() {
+            try await holdsBackend.seek(toFrame: frame)
+            try require(holdFrame == frame && holdImage != nil, "Reused still track preserves exact cut frames")
+            let top = pixel(holdImage!, 40, 10), bottom = pixel(holdImage!, 40, 38)
+            if rotated {
+                try require(top[0] > 220 && top[1] < 20 && bottom[1] > 220 && bottom[0] < 20,
+                    "Reused track applies each JPEG orientation")
+            } else {
+                let topBar = pixel(holdImage!, 40, 1), bottomBar = pixel(holdImage!, 40, 46)
+                try require(topBar.allSatisfy { $0 < 8 } && bottomBar.allSatisfy { $0 < 8 }, "Reused track applies PNG fit padding: \(topBar), \(bottomBar)")
+            }
+            decoded += 1
+        }
+        try await holdsBackend.seek(toFrame: nextFrame)
+        let endPixel = pixel(holdImage!, 40, 24)
+        try require(endPixel[2] > 230 && endPixel[0] < 20, "Still scaling preserves the following movie's timeline and source trim")
+        decoded += 1
+        await holdsBackend.close()
+        // Reusing a movie lane for a prepared still changes AVFoundation's color
+        // output. Separate pools must retain alpha and color across these cuts.
+        var staggered = try project(url: transparent, mode: .fit, lower: true)
+        staggered.tracks[0].clips[0].sourceRange.duration = try RationalTime(1)
+        staggered.tracks[1].clips[0].sourceRange.duration = try RationalTime(1, 2)
+        var lateLower = base
+        lateLower.id = UUID()
+        lateLower.timelineStart = try RationalTime(1)
+        lateLower.sourceRange = try TimeRange(start: RationalTime(1), duration: RationalTime(1))
+        staggered.tracks[1].clips.append(lateLower)
+        let staggeredBackend = try AVFoundationSequenceBackend(project: staggered, videoProxies: [:])
+        var staggeredImage: CGImage?
+        staggeredBackend.display = { image, _ in staggeredImage = image }
+        for frame: Int64 in [30, 18, 30, 12] {
+            try await staggeredBackend.seek(toFrame: frame)
+            let bar = pixel(staggeredImage!, 40, 1), center = pixel(staggeredImage!, 60, 24)
+            if frame >= 24 {
+                try require(bar[2] > 230 && bar[0] < 20 && bar[1] < 20, "Reused mixed-format lane preserves lower blue padding: \(bar)")
+                try require(center[0] < 20 && abs(center[1] - 128) < 18 && abs(center[2] - 127) < 18,
+                    "Reused mixed-format lane preserves alpha over blue: \(center)")
+            } else {
+                try require(bar.allSatisfy { $0 < 8 }, "Reused mixed-format lane preserves empty padding")
+                try require(center[0] < 20 && abs(center[1] - 128) < 18 && center[2] < 20,
+                    "Reused mixed-format lane preserves alpha over black: \(center)")
+            }
+            decoded += 1
+        }
+        await staggeredBackend.close()
         for (width, height) in [(81, 53), (41, 21)] {
             let url = try fixture("odd-\(width).png", width: width, height: height)
             let backend = try AVFoundationSequenceBackend(project: project(url: url, mode: .none), videoProxies: [:])

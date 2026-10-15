@@ -1,0 +1,51 @@
+[aist#0:1/pcm_s16le @ 0x7a36c0c300] Guessed Channel Layout: mono
+[aist#0:2/pcm_s16le @ 0x7a36c0c480] Guessed Channel Layout: mono
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/private/tmp/afc-alac-barcode-20261015/a.mov':
+  Metadata:
+    major_brand     : qt  
+    minor_version   : 512
+    compatible_brands: qt  
+    encoder         : Lavf63.1.102
+  Duration: 00:00:10.01, start: 0.000000, bitrate: 1774 kb/s
+  Stream #0:0[0x1]: Video: qtrle (rle  / 0x20656C72), rgb24(progressive), 160x90, 231 kb/s, SAR 1:1 DAR 16:9, 29.97 fps, 29.97 tbr, 30k tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      vendor_id       : FFMP
+      encoder         : Lavc63.1.102 qtrle
+  Stream #0:1[0x2]: Audio: pcm_s16le (sowt / 0x74776F73), 48000 Hz, mono, s16, 768 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+      vendor_id       : [0][0][0][0]
+  Stream #0:2[0x3]: Audio: pcm_s16le (sowt / 0x74776F73), 48000 Hz, mono, s16, 768 kb/s
+    Metadata:
+      handler_name    : SoundHandler
+      vendor_id       : [0][0][0][0]
+Stream mapping:
+  Stream #0:0 -> #0:0 (copy)
+  Stream #0:1 -> #0:1 (pcm_s16le (native) -> alac (native))
+  Stream #0:2 -> #0:2 (pcm_s16le (native) -> alac (native))
+[alac @ 0x7a36c42680] encoding as 24 bits-per-sample
+[alac @ 0x7a36c41c00] encoding as 24 bits-per-sample
+Output #0, mov, to '/private/tmp/afc-alac-sequence-20261015-v2/alac-24/source.mov':
+  Metadata:
+    major_brand     : qt  
+    minor_version   : 512
+    compatible_brands: qt  
+    encoder         : Lavf63.1.102
+  Stream #0:0: Video: qtrle (rle  / 0x20656C72), rgb24(progressive), 160x90 [SAR 1:1 DAR 16:9], q=2-31, 231 kb/s, 29.97 fps, 29.97 tbr, 30k tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      vendor_id       : FFMP
+      encoder         : Lavc63.1.102 qtrle
+  Stream #0:1: Audio: alac (alac / 0x63616C61), 48000 Hz, mono, s32p (24 bit), 128 kb/s (default)
+    Metadata:
+      encoder         : Lavc63.1.102 alac
+      handler_name    : SoundHandler
+      vendor_id       : [0][0][0][0]
+  Stream #0:2: Audio: alac (alac / 0x63616C61), 48000 Hz, mono, s32p (24 bit), 128 kb/s
+    Metadata:
+      encoder         : Lavc63.1.102 alac
+      handler_name    : SoundHandler
+      vendor_id       : [0][0][0][0]
+[out#0/mov @ 0x7a37020480] video:283KiB audio:1339KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 0.408306%
+frame=  300 fps=0.0 q=-1.0 Lsize=    1629KiB time=00:00:10.01 bitrate=1333.1kbits/s speed= 915x elapsed=0:00:00.01    

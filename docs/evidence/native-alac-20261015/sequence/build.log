@@ -1,0 +1,70 @@
+Building for debugging...
+[Planning deferred tasks]
+[40 / 78]
+[42 / 79] CNativeDecoder
+[51 / 92]
+[55 / 92] EditorCore
+[65 / 145]
+[70 / 145]
+[74 / 145]
+[76 / 145]
+[80 / 145]
+[83 / 145]
+[88 / 145]
+[89 / 145]
+[90 / 145]
+[91 / 145]
+[110 / 145] EditorCore
+[111 / 145] EditorCore
+[117 / 146] EditorCore
+[119 / 146] NativePlaybackRuntime
+[132 / 174]
+[136 / 174]
+[139 / 174]
+[140 / 174]
+[147 / 174] NativePlaybackRuntime
+[161 / 176] NativePlaybackRuntime
+[161 / 176] NativeSequenceProof-product
+[173 / 194] NativeSequenceProof-product
+[178 / 194]
+[178 / 194] NativePlaybackRuntime
+[181 / 194] NativePlaybackRuntime-product
+[185 / 194]
+[188 / 194] NativeSequenceProof-product
+[190 / 194] NativeLiveProof-product
+[192 / 194] NativeLiveProof-product
+Build complete! (10,88 sec)
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-0e1a74f9/Packages/NativePlaybackProof/Sources/NativePlaybackRuntime/NativeOutput.swift:36:12: warning: 'connect(_:to:format:)' was deprecated in macOS 27.0 [#DeprecatedDeclaration]
+ 34 |     let player = AVAudioPlayerNode()
+ 35 |     engine.attach(player)
+ 36 |     engine.connect(player, to: engine.mainMixerNode, format: format)
+    |            `- warning: 'connect(_:to:format:)' was deprecated in macOS 27.0 [#DeprecatedDeclaration]
+ 37 |     let block: Int64 = 1024
+ 38 |     try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: UInt32(block))
+
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-0e1a74f9/Packages/NativePlaybackProof/Sources/NativePlaybackRuntime/NativeOutput.swift:67:12: warning: 'play()' was deprecated in macOS 27.0 [#DeprecatedDeclaration]
+ 65 |     try fillQueue(renderedThrough: 0)
+ 66 |     try engine.start()
+ 67 |     player.play()
+    |            `- warning: 'play()' was deprecated in macOS 27.0 [#DeprecatedDeclaration]
+ 68 |     var position: Int64 = 0
+ 69 |     var retries = 0
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-0e1a74f9/Packages/NativePlaybackProof/Sources/NativePlaybackRuntime/LivePlayback.swift:162:16: warning: 'connect(_:to:format:)' was deprecated in macOS 27.0 [#DeprecatedDeclaration]
+160 |         self.format = format
+161 |         engine.attach(player)
+162 |         engine.connect(player, to: engine.mainMixerNode, format: format)
+    |                `- warning: 'connect(_:to:format:)' was deprecated in macOS 27.0 [#DeprecatedDeclaration]
+163 |     }
+164 |     func validateRoute(format: AVAudioFormat) throws {
+
+/Users/truls.aagedal/.t3/worktrees/Aagedal Film Constructor/t3-0e1a74f9/Packages/NativePlaybackProof/Sources/NativePlaybackRuntime/LivePlayback.swift:172:16: warning: 'play()' was deprecated in macOS 27.0 [#DeprecatedDeclaration]
+170 |         do { try validateRoute(format: format) }
+171 |         catch { engine.stop(); throw error }
+172 |         player.play()
+    |                `- warning: 'play()' was deprecated in macOS 27.0 [#DeprecatedDeclaration]
+173 |     }
+174 |     func stop() { player.stop(); engine.stop() }
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>

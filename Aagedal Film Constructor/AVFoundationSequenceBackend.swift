@@ -73,7 +73,24 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
         composition.insertEmptyTimeRange(CMTimeRange(start: .zero, duration: duration))
         hasVideo = false
         previewQualificationNotice = nil
-        var layers: [(TimelineRenderPlan.Component, AVMutableVideoCompositionLayerInstruction)] = []
+        let picturePlan = try VideoCompositionPlan(plan)
+        var pictureTracks: [Int: AVMutableCompositionTrack] = [:]
+        // Preserve editorial priority when creating tracks. AVFoundation can
+        // derive its working color format from the first composition track.
+        // Insertion within each reused lane still follows chronological order.
+        for placement in picturePlan.placements.sorted(by: { $0.componentIndex < $1.componentIndex }) {
+            guard pictureTracks[placement.trackIndex] == nil else { continue }
+            guard let track = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+                throw Self.unsupported("Could not create a sequence preview track.")
+            }
+            pictureTracks[placement.trackIndex] = track
+        }
+        let pictureLanes = Dictionary(uniqueKeysWithValues: picturePlan.placements.map { ($0.componentIndex, $0.trackIndex) })
+        let componentIndices = picturePlan.placements.map(\.componentIndex) + plan.components.indices.filter {
+            if case .audio = plan.components[$0].selection { return true }
+            return false
+        }
+        var layers: [Int: AVMutableVideoCompositionLayerInstruction] = [:]
         var mixes: [AVAudioMixInputParameters] = []
         var assets: [URL: AVURLAsset] = [:]
         defer {
@@ -81,8 +98,9 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             if closed { try? FileManager.default.removeItem(at: stillDirectory) }
         }
         var sourceTracks: [URL: [AVAssetTrack]] = [:]
-        for component in plan.components {
+        for componentIndex in componentIndices {
             try Task.checkCancellation()
+            let component = plan.components[componentIndex]
             guard let original = component.originalURL else { throw Self.unsupported("Relink missing originals before sequence preview.") }
             var url = original
             var streamIndex: Int
@@ -176,7 +194,9 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     throw Self.unsupported("System preview requires audio at the sequence sample rate (\(plan.settings.audioSampleRate) Hz). \(url.lastPathComponent) uses a different or unknown sample rate. Match the sequence rate or use normalized media.")
                 }
             }
-            guard let track = composition.addMutableTrack(withMediaType: source.mediaType, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+            let destination = pictureLanes[componentIndex].flatMap { pictureTracks[$0] }
+                ?? composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+            guard let track = destination else {
                 throw Self.unsupported("Could not create a sequence preview track.")
             }
             let range: CMTimeRange
@@ -229,7 +249,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     .concatenating(CGAffineTransform(translationX: offsetX, y: offsetY))
                 let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
                 layer.setTransform(transform, at: .zero)
-                layers.append((component, layer))
+                layers[componentIndex] = layer
             } else {
                 guard component.gain <= 1 else { throw Self.unsupported("System preview supports audio gain up to unity. Boosted tracks require the native runtime.") }
                 let parameters = AVMutableAudioMixInputParameters(track: track)
@@ -267,28 +287,14 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             let rate = plan.settings.frameRate.value
             guard let timescale = Int32(exactly: rate.numerator) else { throw Self.unsupported("Sequence frame rate exceeds the system preview timebase.") }
             videoComposition.frameDuration = CMTime(value: rate.denominator, timescale: timescale)
-            let boundaries = try Set([.zero, plan.duration] + layers.flatMap {
-                [$0.0.timelineRange.start, try $0.0.timelineRange.end()]
-            }).sorted { try $0.compared(to: $1) == .orderedAscending }
-            videoComposition.instructions = try zip(boundaries, boundaries.dropFirst()).map { start, end in
+            videoComposition.instructions = try picturePlan.instructions.map { segment in
                 let instruction = AVMutableVideoCompositionInstruction()
-                instruction.timeRange = try CMTimeRange(start: time(start), duration: time(end.subtracting(start)))
+                instruction.timeRange = try CMTimeRange(start: time(segment.timeRange.start), duration: time(segment.timeRange.duration))
                 instruction.backgroundColor = NSColor.black.cgColor
-                let visibleLayers = try layers.filter {
-                    try $0.0.timelineRange.start.compared(to: start) != .orderedDescending &&
-                        $0.0.timelineRange.end().compared(to: start) == .orderedDescending
-                }.sorted {
-                    if $0.0.layerOrder != $1.0.layerOrder { return $0.0.layerOrder < $1.0.layerOrder }
-                    return $0.0.clipID.uuidString < $1.0.clipID.uuidString
+                instruction.layerInstructions = try segment.componentIndices.map {
+                    guard let layer = layers[$0] else { throw Self.unsupported("Missing sequence preview layer.") }
+                    return layer
                 }
-                // Still alpha and fit padding reveal lower picture. A video layer
-                // is opaque (including its black fit bars), so stop beneath it.
-                var selected: [AVMutableVideoCompositionLayerInstruction] = []
-                for (component, layer) in visibleLayers {
-                    selected.append(layer)
-                    if case .video = component.selection { break }
-                }
-                instruction.layerInstructions = selected
                 return instruction
             }
             item.videoComposition = videoComposition

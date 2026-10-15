@@ -7,10 +7,17 @@ No Homebrew library is selected, installed or bundled for the shipping app.
 The `CNativeDecoder` bridge owns a serial libavformat/libavcodec context for each
 exact container stream. It qualifies all presentation timestamps on first use,
 seeks backward with decoder flushing, decodes forward to exact source frames or
-PCM sample ranges, and converts to RGB24 or interleaved float without resampling.
-VFR, nonzero offsets, inferred timestamps, unsupported geometry, and compressed
-audio fail explicitly. Full-stream qualification is intentionally expensive;
+qualified audio sample ranges, and converts to RGB24 or interleaved float without resampling.
+Audio supports PCM plus 16/24-bit ALAC with canonical mono/stereo layouts at
+44.1/48 kHz. VFR, nonzero offsets, inferred timestamps, unsupported geometry,
+lossy audio, and other ALAC formats fail explicitly. Full-stream qualification is intentionally expensive;
 it is evidence gathering, not the final startup strategy.
+
+The [ALAC evidence](../../docs/evidence/native-alac-20261015/qualification.md)
+retains 313 ASan/UBSan checks with independent exact sample patterns, packet-edge
+and reverse/repeated seeks, plus native sequence/offline audio-engine parity.
+Reproduce the optional runtime proof with `scripts/native-alac-sequence-proof.py`
+and explicit local tools. Live synchronization and resampling remain unqualified.
 
 `NativeSequenceProof` consumes EditorCore's stateless `NativePlaybackPlan`.
 The monitor composites still-image layers over the first visible opaque video

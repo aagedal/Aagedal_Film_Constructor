@@ -68,6 +68,11 @@ This is the first usable assembly workspace. The viewer has one Source/Sequence 
 Media-bin clicks select Source; timeline clicks and clip/ruler drags select Sequence. Normal Xcode builds use system AVFoundation timeline preview. A broader native
 FFmpeg monitor is available through an explicit local Xcode Debug selection or
 the isolated development workspace harness.
+System picture scheduling reuses tracks across nonoverlapping cuts and avoids
+whole-timeline scans at each cut, preserving separate still/movie color handling.
+The optional native monitor now admits a qualified 16/24-bit mono/stereo ALAC
+subset at matching 44.1/48 kHz alongside PCM. See
+[native ALAC evidence](docs/evidence/native-alac-20261015/qualification.md).
 System preview uses curve-based audio fade ramps and reports approximation
 status, including measured errors for very short fades. See
 [fade-ramp evidence](docs/evidence/system-fade-ramps-20261015/README.md).

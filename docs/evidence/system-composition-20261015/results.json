@@ -1,0 +1,32 @@
+{
+  "passed": true,
+  "scope": "Generated host AVFoundation decoded seeks, compositor structure and live transport; synthetic optimized core scheduling",
+  "stillDecodedSeeks": 81,
+  "adjacentVideoCuts": 128,
+  "adjacentVideoCompositionTracks": 1,
+  "adjacentStillHolds": 16,
+  "stillPoolCompositionTracks": 1,
+  "followingMovieCompositionTracks": 1,
+  "retainedRegressions": [
+    "preserve editorial track creation order",
+    "never reuse a motion-video track for a prepared still: blue padding changed to [26,34,255] in the negative fixture",
+    "exact holds, mixed still orientation, alpha over movie and gaps, movie after stretched stills"
+  ],
+  "passingMessages": [
+    "System sequence smoke passed: decoded trims, overlap precedence, reverse/fractional seeks, black gaps, live transport, end scrub/exact fractional end clamp, cleanup and routing rejection.",
+    "System still smoke passed: 81 decoded seeks, fit/fill/none, synthetic source trims, stacked alpha/lower layers, exact cuts, EXIF orientation, live playback, malformed/oversized/animated unsupported input and cancellation."
+  ],
+  "sourceSHA256": {
+    "Packages/EditorCore/Sources/EditorCore/VideoCompositionPlan.swift": "e9e05968afa18fec620293d04770ae7a01c8762aadd6db79e9abe89e70f2624c",
+    "Packages/EditorCore/Tests/EditorCoreTests/VideoCompositionPlanTests.swift": "544ac0d261270c525611a98f00220c2dd45a6b91a16c987192ddac87249ca382",
+    "Packages/EditorCore/Sources/ProjectProfile/main.swift": "8a19ead941c83463af31dfea55b7b8a82f9f59ba334c9c4635acf88f283d7712",
+    "Aagedal Film Constructor/AVFoundationSequenceBackend.swift": "0195901a5466007f61c805ae5f6e7dfb1a7ee102c6ecd70c20cf992b754dcd22",
+    "scripts/system-sequence-smoke.swift": "631b22b75a304a9e3ff73b62076744adf85bd2e60e3a88fa322e43a31f8d398c",
+    "scripts/system-still-smoke.swift": "15345c9310b5a6c2f215a75ada0e1f1d3110dba2ecef1a83c3fadd01e84e7423"
+  },
+  "limitations": [
+    "No media-I/O or complete app startup timing in synthetic schedule profiles",
+    "Audio composition track count remains per component",
+    "Wide-gamut/HDR/ICC agreement and signed sandbox access remain unqualified"
+  ]
+}

@@ -81,6 +81,62 @@ not bundled app dependencies, and their versions were not used for this proof.
   validation is relaxed for its native playback stack. Its file-access and
   entitlement choices cannot be assumed appropriate for this editor.
 
+## MPVKit source-viewer reassessment (2026-10-15)
+
+The supplied `aagedal/MPVKit` fork remains a practical source-viewer fallback
+candidate. Continue the dedicated native scheduler for exact sequence playback;
+the retained canonical MPV graph seek/rebuild failures below still apply. This
+assessment inspected local checkouts and cached packages. Live retrieval of the
+fork failed, so the GitHub links identify candidates rather than independently
+verified current remote contents. No MPVKit dependency or playback code was added.
+
+Prefer Converter's pinned
+[`400202b687841fb394cbf0ef59ad8c6fcfc1275b`](https://github.com/aagedal/MPVKit/commit/400202b687841fb394cbf0ef59ad8c6fcfc1275b)
+over Player's and the sibling MPVKit checkout's older `230c3174…`. Converter's
+`Aagedal Media Converter.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`
+selects that revision. Its cached `Package.swift` selects the
+[`aagedal-1.0.0-n8.1.2-coreaudio.2` release](https://github.com/aagedal/MPVKit/releases/tag/aagedal-1.0.0-n8.1.2-coreaudio.2)
+for `Libmpv-GPL`, with archive SHA-256
+`7a362047b0bbe39e9f7001e5b9146cd0651c2eadae38ebcd52f16207b42a4f00`.
+The inspected cache is
+`/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/checkouts/MPVKit/Package.swift`.
+The package declares macOS 12 minimum, compatible with this app's macOS 27 baseline.
+
+Converter's `docs/4.5-mpv-coreaudio-failure-cleanup-validation-2026-09-26.md`
+records two CoreAudio cleanup patches: listener cleanup and clearing an already
+disposed AudioUnit after initialization/property failure. The `.1` candidate
+made stale-handle cleanup calls under injected failures; `.2` passed four-cycle
+playback, callback and both failure-mode probes with no remaining listeners.
+The report also records 15 passing signed observation tests and local signed
+Release validation. These are adjacent-app reports, not rerun editor acceptance
+or Developer ID/notarization qualification.
+
+Implementation should first isolate source transport from `EditorStore`'s
+`AVPlayer` storage and `EditorProxy`'s AVFoundation compositions. Preserve source
+In/Out coordinates, J/K/L, pending seeks, cancellation and proxy picture with
+original audio, including explicit silence when originals are missing.
+`MediaImporter.swift` still obtains duration/tracks through AVFoundation;
+adding MPV playback alone will not admit unsupported containers. A broader
+import path needs qualified metadata, such as the bundled FFprobe, and explicit
+mapping from container stream indices to loaded MPV track identities.
+
+For narrow extraction, inspect Converter's
+`Aagedal Media Converter/Logic/MPV/MPVPlayer.swift` (callback-lifetime box and
+serialized teardown), `Aagedal Media Converter/Logic/MPV/MPVMetalLayer.swift`
+(deferred drawable resize), and
+`Aagedal Media Converter/UI/TrimPlayerViews/MPVVideoView.swift` (Metal/MoltenVK
+attachment). Preserve their copyright/SPDX headers. These paths are relative to the adjacent
+`Aagedal-Media-Converter` checkout identified above.
+
+This package uses `MPVKit-GPL` and MPV 0.41/FFmpeg 8.1.2. The sibling libmpv
+framework inspected with `file` contains universal static archives, unlike the
+current dynamically linked native runtime. Before linking both, qualify FFmpeg
+symbol/version coexistence with the native 9.0.2 stack, actual codec coverage,
+bundle size, scoped file access, lifecycle, signing and complete dependency
+notices/corresponding source. The static archive observation does not authenticate
+the newer release's bytes. This work does not close native runtime distribution
+or sequence preview/export parity requirements.
+
 ## Safe reuse and packaging work
 
 Converter source headers identify `GPL-3.0-or-later`. Its package attribution

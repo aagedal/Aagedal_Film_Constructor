@@ -28,6 +28,12 @@ qualified picture metadata use originals until their media is reimported.
 ## Default build and development runtime
 
 Normal Xcode builds use the system AVFoundation backend for timeline preview.
+Picture preparation reuses composition tracks across nonoverlapping clips, with
+separate pools for motion video and prepared stills. Exact boundary events select
+visible layers without rescanning the whole timeline at every cut; hidden cuts
+with unchanged visible layers share one instruction. Audio components retain
+independent tracks and envelope parameters. See
+[composition scheduling evidence](evidence/system-composition-20261015/README.md).
 It consumes the shared render plan with trims, upper-video precedence, black gaps,
 fit/fill/no-scaling and verified proxy picture with original audio. Whole mono/stereo
 streams must match the sequence layout with identity channel routing and gain up
@@ -135,8 +141,10 @@ native decoder shutdown or security-scope release; the injected lifecycle checks
 verify the controller calls and awaits backend closure.
 
 Native sequence qualification remains the runtime's existing bounded SDR,
-square-pixel CFR video and matching-rate PCM subset, with supported still/fade
-behavior documented in the native proof. Broader compressed
+square-pixel CFR video, matching-rate PCM and scoped 16/24-bit mono/stereo ALAC
+at 44.1/48 kHz, with supported still/fade behavior documented in the native proof.
+See [ALAC qualification](evidence/native-alac-20261015/qualification.md).
+Broader compressed
 audio/resampling/VFR/color support, shipping runtime packaging, measured acoustic
 A/V timing, display presentation latency, device-switch acceptance and startup
 latency remain open. Polling only publishes the native player's accepted sample
@@ -195,8 +203,8 @@ versions, notices, supplied provenance and the exact build selection. No develop
 library paths are needed at runtime. Selection remains development-only: Release
 and archive native opt-in are refused while attribution and distribution review
 are incomplete. The native engine still supports its qualified CFR/SDR picture,
-PNG/JPEG stills and matching-rate PCM audio subset; packaging does not qualify
-compressed audio, VFR or broader color behavior.
+PNG/JPEG stills and matching-rate PCM plus the qualified ALAC subset; packaging
+does not qualify additional compressed audio, VFR or broader color behavior.
 
 To return Debug builds to AVFoundation:
 

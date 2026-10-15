@@ -124,6 +124,19 @@ do {
     try measure("timeline_render_plan") {
         guard try TimelineRenderPlan(project: project).components.count == options.clips else { throw ProfileError.roundTrip }
     }
+    // Schedule only: canonical project validation and media preparation are
+    // separate costs. This exercises dense adjacent cuts and overlapping lanes.
+    let renderPlan = try TimelineRenderPlan(project: project)
+    let pictureCount = renderPlan.components.filter {
+        if case .audio = $0.selection { return false }; return true
+    }.count
+    try measure("video_composition_schedule") {
+        let schedule = try VideoCompositionPlan(renderPlan)
+        guard schedule.placements.count == pictureCount,
+              schedule.trackCount <= project.tracks.filter({ $0.kind == .video }).count,
+              schedule.instructions.first?.timeRange.start == .zero,
+              try schedule.instructions.last?.timeRange.end() == renderPlan.duration else { throw ProfileError.roundTrip }
+    }
     // Moving the final video clip into free space avoids crossfade dissolution.
     let track = project.tracks[0]
     let clip = track.clips[0]

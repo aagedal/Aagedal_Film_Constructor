@@ -65,6 +65,37 @@ import EditorCore
         try require(abs(backend.position - paused) < 0.001, "Pause must hold position")
         await backend.close()
         try require(!backend.isPlaying, "Close must stop output")
+        // Editorial tracks do not need a composition track for every cut.
+        // Alternate source trims across 128 adjacent one-frame clips and seek
+        // both ways through the reused track, including exact cut boundaries.
+        var cuts = project
+        let frameDuration = try cuts.settings.frameRate.time(forFrames: 1)
+        cuts.tracks = [project.tracks[1]]
+        cuts.tracks[0].clips = try (0..<128).reversed().map { index in
+            TimelineClip(assetID: asset.id,
+                sourceRange: try TimeRange(start: RationalTime(Int64(index % 2)), duration: frameDuration),
+                timelineStart: try cuts.settings.frameRate.time(forFrames: Int64(index)), selection: .video(streamIndex: vi))
+        }
+        let cutsBackend = try AVFoundationSequenceBackend(project: cuts, videoProxies: [:])
+        let cutsItem = try await cutsBackend.makePlayerItem()
+        let cutsTracks = try await cutsItem.asset.loadTracks(withMediaType: .video)
+        try require(cutsTracks.count == 1, "128 adjacent cuts must reuse one composition track")
+        var cutsImage: CGImage?
+        var cutsFrame: Int64?
+        cutsBackend.display = { cutsImage = $0; cutsFrame = $1 }
+        for frame: Int64 in [0, 1, 2, 63, 64, 127, 126, 1, 0, 127] {
+            try await cutsBackend.seek(toFrame: frame)
+            try require(cutsFrame == frame && cutsImage != nil, "Reused-track seek must preserve frame identity")
+            let p = pixel(cutsImage!)
+            try require(frame % 2 == 0 ? p[0] > 180 && p[2] < 40 : p[2] > 180 && p[0] < 40,
+                "Reused-track cut selects the correct source trim at frame \(frame): \(p)")
+        }
+        try await cutsBackend.seek(toFrame: 60)
+        try await cutsBackend.play()
+        try await Task.sleep(for: .milliseconds(350))
+        cutsBackend.pause()
+        try require(cutsBackend.position > 2.5 && !cutsBackend.isPlaying, "Live playback crosses reused-track cuts")
+        await cutsBackend.close()
         var fractional = project
         fractional.settings = try SequenceSettings(width: 80, height: 48, frameRate: FrameRate(30000, 1001))
         let fractionalBackend = try AVFoundationSequenceBackend(project: fractional, videoProxies: [:])

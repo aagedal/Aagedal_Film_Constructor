@@ -2,7 +2,8 @@
 """Reproduce direct C decoder correctness/rejection checks under ASan and UBSan.
 
 Requires explicit FFmpeg/pkg-config executables, an existing barcode render-plan
-fixture, a local C compiler and FFmpeg development libraries. No installation,
+fixture, a local C compiler and FFmpeg development libraries. The generated ALAC
+matrix covers only 16/24-bit mono/stereo at 44.1/48 kHz. No installation,
 network access, helper copying or app distribution is performed.
 """
 import argparse
@@ -59,7 +60,8 @@ def main():
     result = {'passed': False, 'sanitizers': ['address', 'undefined'], 'limitations': [
         'Development local dylibs; no bundled/signed shipping dependency qualification',
         'Direct decoded frames/samples, not live display/CoreAudio synchronization or latency',
-        'A finite fixture/rejection matrix does not qualify arbitrary media or malformed files'
+        'A finite fixture/rejection matrix does not qualify arbitrary media or malformed files',
+        'ALAC admission is limited to 16/24-bit mono/stereo at 44100/48000 Hz, zero-origin contiguous samples, and no delay/padding'
     ]}
     env = os.environ.copy()
     env['ASAN_OPTIONS'] = 'halt_on_error=1'
@@ -136,6 +138,9 @@ def main():
             'sar.mov': ['-f', 'lavfi', '-i', 'testsrc=size=32x24:rate=25:duration=0.4',
                 '-vf', 'setsar=2', '-c:v', 'qtrle'],
             'aac.m4a': ['-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=0.4', '-c:a', 'aac'],
+            'mp3.mp3': ['-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=0.4', '-c:a', 'libmp3lame', '-write_xing', '0'],
+            'alac-rate.m4a': ['-f', 'lavfi', '-i', 'anullsrc=r=32000:cl=mono', '-t', '0.4', '-c:a', 'alac'],
+            'alac-channels.m4a': ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=quad', '-t', '0.4', '-c:a', 'alac'],
             'pcm.wav': ['-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=0.4', '-c:a', 'pcm_s16le'],
             'audio-gap.nut': ['-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=0.1',
                 '-af', 'aselect=not(eq(n\\,1))', '-c:a', 'pcm_s16le', '-f', 'nut'],
@@ -152,6 +157,48 @@ def main():
             output.writeframes(b''.join(struct.pack('<4h', *[
                 ((sample * (channel + 1) * 257 + channel * 7919) % 65536) - 32768
                 for channel in range(4)]) for sample in range(512)))
+
+        # Every decoded ALAC sample is checked against independent mathematical
+        # source data, including distinct stereo channels and the partial EOF packet.
+        matrix = []
+        for rate in (44100, 48000):
+            for channels in (1, 2):
+                for bits in (16, 24):
+                    stem = f'alac-{rate}-{channels}-{bits}'
+                    wav_path = root / (stem + '.wav')
+                    alac_path = root / (stem + '.m4a')
+                    values = [
+                        ((sample * (channel + 1) * (257 if bits == 16 else 65537) +
+                          channel * (7919 if bits == 16 else 1789123)) % (1 << bits)) - (1 << (bits - 1))
+                        for sample in range(20037) for channel in range(channels)
+                    ]
+                    with wave.open(str(wav_path), 'wb') as output:
+                        output.setparams((channels, bits // 8, rate, 20037, 'NONE', 'not compressed'))
+                        output.writeframes(b''.join(value.to_bytes(bits // 8, 'little', signed=True) for value in values))
+                    ff(['-i', wav_path, '-c:a', 'alac', alac_path], stem + '-encode.log')
+                    reference = root / (stem + '.f32')
+                    ff(['-i', alac_path, '-f', 'f32le', reference], stem + '-reference.log')
+                    expected = b''.join(struct.pack('<f', value / float(1 << (bits - 1))) for value in values)
+                    assert reference.read_bytes() == expected, (stem, 'ALAC whole-file lossless sample identity')
+                    packet_log = stem + '-packets.log'
+                    packet_text = run([args.ffmpeg, '-hide_banner', '-nostdin', '-i', alac_path,
+                        '-map', '0:a:0', '-c:a', 'copy', '-f', 'framecrc', '-'], packet_log, capture=True)
+                    packets = [[int(field.strip()) for field in line.split(',')[:4]]
+                        for line in packet_text.splitlines() if line and not line.startswith('#')]
+                    assert f'#tb 0: 1/{rate}' in packet_text
+                    assert [(packet[1], packet[2], packet[3]) for packet in packets] == [
+                        (sample, sample, min(4096, 20037 - sample)) for sample in range(0, 20037, 4096)
+                    ], (stem, 'ALAC fixture packet boundaries changed', packets)
+                    matrix.append({'rate': rate, 'channels': channels, 'bits': bits,
+                        'samplesPerChannel': 20037, 'packetStarts': [packet[2] for packet in packets],
+                        'wholeFileLosslessIdentity': True, 'sourceSHA256': digest(wav_path),
+                        'alacSHA256': digest(alac_path), 'floatSHA256': digest(reference)})
+        result['qualifiedAlacMatrix'] = matrix
+        ff(['-i', root / 'alac-48000-1-16.m4a', '-c:a', 'copy', '-output_ts_offset', '1',
+            root / 'alac-offset.m4a'], 'alac-offset.log')
+        ff(['-i', root / 'alac-48000-1-16.wav',
+            '-af', 'asetnsamples=n=4096:p=0,aselect=not(eq(n\\,2))', '-c:a', 'alac',
+            root / 'alac-gap.m4a'], 'alac-gap.log')
 
         executable = root / 'native-decoder-check'
         run([args.clang, '-std=c11', '-Wall', '-Wextra', '-Werror', '-g',
@@ -170,7 +217,7 @@ def main():
         result.update(check_result)
         write_json(root / 'artifact-identities.json', {
             str(path.relative_to(root)): digest(path)
-            for path in sorted(root.iterdir()) if path.suffix in ('.mov', '.m4a', '.nut', '.h264', '.wav', '.rgb', '.f32')})
+            for path in sorted(root.iterdir()) if path.suffix in ('.mov', '.m4a', '.mp3', '.nut', '.h264', '.wav', '.rgb', '.f32')})
     except Exception as error:
         result['passed'] = False
         result['failure'] = f'{type(error).__name__}: {error}'
