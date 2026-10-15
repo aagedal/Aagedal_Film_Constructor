@@ -259,6 +259,8 @@ ordinary camera/phone media; see [AAC status evidence](docs/evidence/system-comp
 An isolated development [MPVKit source proof](docs/evidence/mpv-source-20261016/README.md)
 now verifies grayscale decoded seeks, loaded stream identities and repeated
 transport/teardown against the cached CoreAudio-fixed runtime. Its color matrix
-fails the unchanged pixel bounds; CoreAudio, native display and coexistence with
-the timeline runtime remain unqualified. Source playback in ordinary builds
+fails the unchanged pixel bounds, with diagnostics locating chroma-boundary
+conversion disagreements. A separate [private-library coexistence proof](docs/evidence/mpv-coexistence-20261016/README.md)
+passes both load orders with concurrent native decoding. CoreAudio, native
+display, Swift playback coordination and application integration remain open. Source playback in ordinary builds
 continues to use AVFoundation.

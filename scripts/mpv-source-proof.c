@@ -57,6 +57,17 @@ static void json_node(FILE *f, const mpv_node *n) {
     default: fputs("null", f);
     }
 }
+/* Retain the runtime's interpretation of color/chroma metadata. Missing
+ * optional diagnostics stay null; they never change the pixel verdict. */
+static void json_property(FILE *f, mpv_handle *m, const char *name) {
+    mpv_node value = {0};
+    if (mpv_get_property(m, name, MPV_FORMAT_NODE, &value) >= 0) {
+        json_node(f, &value);
+        mpv_free_node_contents(&value);
+    } else {
+        fputs("null", f);
+    }
+}
 static const mpv_node *field(const mpv_node *n, const char *key) {
     if (n->format != MPV_FORMAT_NODE_MAP) return NULL;
     for (int i = 0; i < n->u.list->num; i++)
@@ -188,7 +199,9 @@ int main(int argc, char **argv) {
         if (cycle) fputc(',', report);
         fprintf(report, "{\"index\":%d", cycle);
         if (!m) { failure = "mpv_create"; passed = 0; goto finish_cycle; }
-        mpv_request_log_messages(m, "warn");
+        /* Includes linked FFmpeg versions and the actual software screenshot
+         * scaler, which are necessary to diagnose conversion differences. */
+        mpv_request_log_messages(m, "v");
 #define OPTION(key, value) if (!check(mpv_set_option_string(m, key, value), key)) { passed = 0; goto finish_cycle; }
         OPTION("config", "no"); OPTION("load-scripts", "no");
         OPTION("autoload-files", "no"); OPTION("audio-file-auto", "no"); OPTION("sub-auto", "no");
@@ -197,6 +210,8 @@ int main(int argc, char **argv) {
         OPTION("keep-open", "yes"); OPTION("idle", "yes"); OPTION("terminal", "no");
         OPTION("input-default-bindings", "no"); OPTION("sid", "no");
         if (!check(mpv_initialize(m), "mpv_initialize")) { passed = 0; goto finish_cycle; }
+        fputs(",\"mpvVersion\":", report); json_property(report, m, "mpv-version");
+        fputs(",\"ffmpegVersion\":", report); json_property(report, m, "ffmpeg-version");
         const char *load[] = {"loadfile", argv[1], "replace", NULL};
         if (!command(m, load) || !wait_event(m, MPV_EVENT_FILE_LOADED) || !resolve(m, video, audio, &vid, &aid, argv[4], cycle)) { passed = 0; goto finish_cycle; }
         double duration = 0;
@@ -225,6 +240,8 @@ int main(int argc, char **argv) {
             if (op) fputc(',', report);
             fprintf(report, "{\"targetSeconds\":%.9f,\"timePosition\":%.9f,\"file\":", targets[op], time);
             if (vid >= 0) json_string(report, filename); else fputs("null", report);
+            fputs(",\"videoParameters\":", report); json_property(report, m, "video-params");
+            fputs(",\"videoOutputParameters\":", report); json_property(report, m, "video-out-params");
             fputc('}', report);
         }
         fputc(']', report); capture_count = 0;

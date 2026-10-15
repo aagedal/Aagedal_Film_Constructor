@@ -638,7 +638,16 @@ source timing subset, not general preview/export fidelity. It does not reverse
 the earlier canonical timeline-graph failures or enable MPV in ordinary builds.
 CoreAudio, native drawable/callback lifetimes, proxy picture/original audio,
 qualified broader metadata import and signed sandbox access remain open.
-Before app linking, isolate the static 8.1.2 symbols and prove coexistence with
-the native sequence runtime's dynamic 9.0.2 closure in the same process.
+The static 8.1.2 closure now passes a separate
+[private-library coexistence proof](evidence/mpv-coexistence-20261016/README.md)
+with a freshly built native sequence runtime's dynamic 9.0.2 libraries. Both load
+orders preserve dependency addresses and native decoded bytes while MPV seeks
+and creates/destroys players. The proof exercises native C decoder exports;
+Swift playback coordination and app linking remain open. Integration must retain
+the private export boundary rather than exposing the static FFmpeg APIs globally.
+
+Source diagnostics now retain per-seek input/output color parameters, per-channel
+errors and peak pixel coordinates. The unchanged colored failure is concentrated
+at chroma boundaries; the reference conversion and 3/32 limits remain unchanged.
 
 See [commands, hashes, scope and retained positive/negative reports](evidence/mpv-source-20261016/README.md).

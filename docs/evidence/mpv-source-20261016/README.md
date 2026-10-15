@@ -34,9 +34,21 @@ shape/stride/payload validation and explicit packed RGB24 output. The proof uses
 null video/audio sinks: CoreAudio, decoded audio fidelity, GPU presentation,
 physical A/V synchronization, asynchronous callback lifetime, proxy picture with
 original audio, signed media grants and application integration remain untested.
-The static FFmpeg 8.1.2 closure also needs explicit symbol isolation/coexistence
-qualification with the native timeline runtime's FFmpeg 9.0.2 before app linking.
+The static FFmpeg 8.1.2 closure now has a separate
+[private-library coexistence proof](../mpv-coexistence-20261016/README.md) with the
+native timeline runtime's FFmpeg 9.0.2. Application linking remains open.
 No broader import formats or default backend changes are claimed.
+
+The retained reports now include per-channel mean errors, the exact peak pixel,
+component counts above the unchanged maximum bound, source color metadata and
+MPV's input/output color parameters at every seek. Representative playback logs
+retain FFmpeg/MPV versions and the actual software scaler. On the first ProRes
+capture, the peak lies at x=159, y=0: blue is 255 in MPV and 0 in the reference;
+5,012 components exceed 32. MPV reports limited-range BT.601 with left chroma
+for the untagged ProRes source and uses Lanczos screenshot conversion. These
+observations locate a chroma-boundary conversion disagreement; they do not
+establish a valid correction or qualify color. No edges are masked, positions
+aligned or color transforms fitted to make comparisons pass.
 
 ## Reproduce
 

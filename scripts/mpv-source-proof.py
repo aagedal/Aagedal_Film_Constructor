@@ -60,14 +60,28 @@ def framework_slice(artifact, architecture):
     return candidate, binary
 
 
-def compare_rgb(actual, expected, mean_limit=3.0, max_limit=32):
+def compare_rgb(actual, expected, mean_limit=3.0, max_limit=32, width=None):
     if not actual or len(actual) != len(expected):
         raise ValueError('Captured/reference RGB byte counts differ or are empty')
+    if len(actual) % 3 or (width is not None and (width <= 0 or len(actual) % (width * 3))):
+        raise ValueError('Captured/reference bytes do not describe complete RGB rows')
     errors = [abs(a - b) for a, b in zip(actual, expected)]
     mean = sum(errors) / len(errors)
     maximum = max(errors)
-    return {'meanRGBError': mean, 'maximumRGBError': maximum,
-            'passed': mean <= mean_limit and maximum <= max_limit}
+    peak = errors.index(maximum)
+    pixel = peak // 3
+    start = pixel * 3
+    result = {'meanRGBError': mean, 'maximumRGBError': maximum,
+              'componentsOverMaximumTolerance': sum(error > max_limit for error in errors),
+              'channelMeanErrors': {channel: sum(errors[index::3]) / (len(errors) // 3)
+                                    for index, channel in enumerate(('red', 'green', 'blue'))},
+              'peakError': {'pixelIndex': pixel, 'channel': ('red', 'green', 'blue')[peak % 3],
+                            'actualRGB': list(actual[start:start + 3]),
+                            'referenceRGB': list(expected[start:start + 3])},
+              'passed': mean <= mean_limit and maximum <= max_limit}
+    if width is not None:
+        result['peakError'].update({'x': pixel % width, 'y': pixel // width})
+    return result
 
 
 def pinned_checkout(checkout):
@@ -93,7 +107,11 @@ def run_proof(args):
               'decodedAudioTested': False, 'applicationIntegrated': False,
               'fixtureColor': 'color' if args.color_fixtures else 'grayscale',
               'commands': [], 'fixtures': [], 'pixelMeanTolerance': 3.0,
-              'pixelMaximumTolerance': 32}
+              'pixelMaximumTolerance': 32,
+              'pixelComparisonPolicy': 'All RGB components; no edge masking, spatial alignment or fitted color transform',
+              'referenceConversion': 'Independent FFmpeg default YUV-to-rgb24 conversion',
+              'captureConversion': 'MPV screenshot-raw video bgr0, repacked to RGB24',
+              'coloredFixturePixelsPassed': False}
 
     def run(command, name, timeout=60, expect_failure=False):
         command = [str(value) for value in command]
@@ -165,7 +183,11 @@ def run_proof(args):
             (output / 'probe.json').write_bytes(probe)
             report = json.loads((output / 'report.json').read_text())
             item = {'path': str(path), 'sha256': digest(path), 'videoStreamIndex': video_index,
-                    'audioStreamIndex': audio_index, 'report': report, 'comparisons': []}
+                    'audioStreamIndex': audio_index, 'report': report, 'comparisons': [],
+                    'sourceVideoColorMetadata': [{key: stream[key] for key in
+                        ('index', 'pix_fmt', 'color_range', 'color_space', 'color_transfer',
+                         'color_primaries', 'chroma_location') if key in stream}
+                        for stream in streams if stream['codec_type'] == 'video']}
             result['fixtures'].append(item)
             if report.get('passed') is not True or [c['index'] for c in report['cycles']] != list(range(4)):
                 raise ValueError('Source runner did not complete four lifecycle cycles')
@@ -190,7 +212,7 @@ def run_proof(args):
                     run([args.ffmpeg, '-v', 'error', '-nostdin', '-n', '-i', path, '-map', f'0:{video_index}',
                          '-vf', f'select=eq(n\\,{frame})', '-frames:v', '1', '-pix_fmt', 'rgb24',
                          '-f', 'rawvideo', reference], 'reference-' + tag)
-                    comparison = compare_rgb(rgb.read_bytes(), reference.read_bytes())
+                    comparison = compare_rgb(rgb.read_bytes(), reference.read_bytes(), width=320)
                     comparison.update({'cycle': cycle['index'], 'targetSeconds': target, 'capture': capture['file']})
                     item['comparisons'].append(comparison)
             rejected = root / f'rejected-{index}'
@@ -205,6 +227,7 @@ def run_proof(args):
             if rejection.get('passed') is not False or rejection.get('failure') != 'missing or ambiguous container stream identity':
                 raise ValueError('Wrong-kind stream was not explicitly rejected by identity resolution')
         result['passed'] = all(c['passed'] for fixture in result['fixtures'] for c in fixture['comparisons'])
+        result['coloredFixturePixelsPassed'] = result['passed'] and args.color_fixtures
         if not result['passed']:
             result['error'] = 'Decoded source seeks exceeded unchanged RGB bounds'
     except Exception as error:

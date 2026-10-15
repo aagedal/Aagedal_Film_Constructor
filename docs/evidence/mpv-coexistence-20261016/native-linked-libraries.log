@@ -1,0 +1,9 @@
+/private/tmp/afc-mpv-coexistence-20261016-qualified/libAFCNativeProof.dylib:
+	/private/tmp/afc-mpv-coexistence-20261016-qualified/libAFCNativeProof.dylib (compatibility version 0.0.0, current version 0.0.0)
+	@rpath/libNativePlaybackRuntime.dylib (compatibility version 1.0.0, current version 1.0.0)
+	/opt/homebrew/opt/ffmpeg/lib/libavformat.63.dylib (compatibility version 63.0.0, current version 63.1.102)
+	/opt/homebrew/opt/ffmpeg/lib/libavcodec.63.dylib (compatibility version 63.0.0, current version 63.1.102)
+	/opt/homebrew/opt/ffmpeg/lib/libswresample.7.dylib (compatibility version 7.0.0, current version 7.1.102)
+	/opt/homebrew/opt/ffmpeg/lib/libswscale.10.dylib (compatibility version 10.0.0, current version 10.1.102)
+	/opt/homebrew/opt/ffmpeg/lib/libavutil.61.dylib (compatibility version 61.0.0, current version 61.1.102)
+	/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1359.0.0)
