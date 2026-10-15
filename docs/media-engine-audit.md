@@ -621,3 +621,24 @@ This qualifies linked audio transition arithmetic and development offline parity
 Live sequence scheduling, hardware A/V sync, shipping helpers, video transitions
 and the broader format/geometry matrix remain open. The shipping source monitor
 continues to play originals.
+
+## Isolated MPVKit source runtime (2026-10-16)
+
+The CoreAudio-fixed cached candidate now links into a standalone source proof,
+without linking the application. `scripts/mpv-source-proof.py` selects explicit
+cached macOS artifacts and records their actual hashes separately from declared
+upstream zip checksums. The grayscale matrix passes decoded source seeks,
+container-index-to-MPV-ID selection, disabled picture/audio, play/pause and repeated
+teardown across ProRes/PCM, reordered Matroska, H.264/AAC and open-GOP HEVC/AAC.
+It uses encoder-free raw screenshots and null output sinks.
+
+Color remains a measured failure: all 100 colored captures exceed unchanged
+RGB bounds, while all 100 grayscale captures pass. This establishes a finite
+source timing subset, not general preview/export fidelity. It does not reverse
+the earlier canonical timeline-graph failures or enable MPV in ordinary builds.
+CoreAudio, native drawable/callback lifetimes, proxy picture/original audio,
+qualified broader metadata import and signed sandbox access remain open.
+Before app linking, isolate the static 8.1.2 symbols and prove coexistence with
+the native sequence runtime's dynamic 9.0.2 closure in the same process.
+
+See [commands, hashes, scope and retained positive/negative reports](evidence/mpv-source-20261016/README.md).

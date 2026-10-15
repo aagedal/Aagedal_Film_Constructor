@@ -1,0 +1,4575 @@
+{
+  "passed": true,
+  "nativeDisplayTested": false,
+  "coreAudioTested": false,
+  "decodedAudioTested": false,
+  "applicationIntegrated": false,
+  "fixtureColor": "grayscale",
+  "commands": [
+    {
+      "name": "compile",
+      "argv": [
+        "/usr/bin/clang",
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "-arch",
+        "arm64",
+        "-mmacosx-version-min=27.0",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx",
+        "-I",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libmpv-GPL/Libmpv.xcframework/macos-arm64_x86_64/Libmpv.framework/Headers",
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof.c",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libmpv-GPL/Libmpv.xcframework/macos-arm64_x86_64/Libmpv.framework/Libmpv",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavcodec-GPL/Libavcodec.xcframework/macos-arm64_x86_64/Libavcodec.framework/Libavcodec",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavdevice-GPL/Libavdevice.xcframework/macos-arm64_x86_64/Libavdevice.framework/Libavdevice",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavfilter-GPL/Libavfilter.xcframework/macos-arm64_x86_64/Libavfilter.framework/Libavfilter",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavformat-GPL/Libavformat.xcframework/macos-arm64_x86_64/Libavformat.framework/Libavformat",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavutil-GPL/Libavutil.xcframework/macos-arm64_x86_64/Libavutil.framework/Libavutil",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libswresample-GPL/Libswresample.xcframework/macos-arm64_x86_64/Libswresample.framework/Libswresample",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libswscale-GPL/Libswscale.xcframework/macos-arm64_x86_64/Libswscale.framework/Libswscale",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libssl/Libssl.xcframework/macos-arm64_x86_64/Libssl.framework/Libssl",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libcrypto/Libcrypto.xcframework/macos-arm64_x86_64/Libcrypto.framework/Libcrypto",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libass/Libass.xcframework/macos-arm64_x86_64/Libass.framework/Libass",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libfreetype/Libfreetype.xcframework/macos-arm64_x86_64/Libfreetype.framework/Libfreetype",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libfribidi/Libfribidi.xcframework/macos-arm64_x86_64/Libfribidi.framework/Libfribidi",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libharfbuzz/Libharfbuzz.xcframework/macos-arm64_x86_64/Libharfbuzz.framework/Libharfbuzz",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/MoltenVK/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libshaderc_combined/Libshaderc_combined.xcframework/macos-arm64_x86_64/Libshaderc_combined.framework/Libshaderc_combined",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/lcms2/lcms2.xcframework/macos-arm64_x86_64/lcms2.framework/lcms2",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libplacebo/Libplacebo.xcframework/macos-arm64_x86_64/Libplacebo.framework/Libplacebo",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libdovi/Libdovi.xcframework/macos-arm64_x86_64/Libdovi.framework/Libdovi",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libunibreak/Libunibreak.xcframework/macos-arm64_x86_64/Libunibreak.framework/Libunibreak",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libsmbclient/Libsmbclient.xcframework/macos-arm64_x86_64/Libsmbclient.framework/Libsmbclient",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/gmp/gmp.xcframework/macos-arm64_x86_64/gmp.framework/gmp",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/nettle/nettle.xcframework/macos-arm64_x86_64/nettle.framework/nettle",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/hogweed/hogweed.xcframework/macos-arm64_x86_64/hogweed.framework/hogweed",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/gnutls/gnutls.xcframework/macos-arm64_x86_64/gnutls.framework/gnutls",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libdav1d/Libdav1d.xcframework/macos-arm64_x86_64/Libdav1d.framework/Libdav1d",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libuavs3d/Libuavs3d.xcframework/macos-arm64_x86_64/Libuavs3d.framework/Libuavs3d",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libuchardet/Libuchardet.xcframework/macos-arm64_x86_64/Libuchardet.framework/Libuchardet",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libbluray/Libbluray.xcframework/macos-arm64_x86_64/Libbluray.framework/Libbluray",
+        "-framework",
+        "AVFoundation",
+        "-framework",
+        "CoreAudio",
+        "-framework",
+        "AudioToolbox",
+        "-framework",
+        "CoreVideo",
+        "-framework",
+        "CoreFoundation",
+        "-framework",
+        "CoreMedia",
+        "-framework",
+        "Metal",
+        "-framework",
+        "VideoToolbox",
+        "-lbz2",
+        "-liconv",
+        "-lexpat",
+        "-lresolv",
+        "-lxml2",
+        "-lz",
+        "-lc++",
+        "-o",
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof"
+      ]
+    },
+    {
+      "name": "linked-libraries",
+      "argv": [
+        "/usr/bin/otool",
+        "-L",
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof"
+      ]
+    },
+    {
+      "name": "ffmpeg-version",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-version"
+      ]
+    },
+    {
+      "name": "generate",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-hide_banner",
+        "-nostdin",
+        "-n",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=320x180:rate=24:duration=3,hue=s=0",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=440:sample_rate=48000:duration=3",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=880:sample_rate=48000:duration=3",
+        "-map",
+        "0:v",
+        "-map",
+        "1:a",
+        "-map",
+        "2:a",
+        "-c:v",
+        "prores_ks",
+        "-profile:v",
+        "3",
+        "-pix_fmt",
+        "yuv422p10le",
+        "-c:a",
+        "pcm_s16le",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov"
+      ]
+    },
+    {
+      "name": "reorder",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-hide_banner",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:1",
+        "-map",
+        "0:0",
+        "-map",
+        "0:2",
+        "-c",
+        "copy",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv"
+      ]
+    },
+    {
+      "name": "h264",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-hide_banner",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-g",
+        "48",
+        "-bf",
+        "3",
+        "-c:a",
+        "aac",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4"
+      ]
+    },
+    {
+      "name": "hevc",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-hide_banner",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0",
+        "-c:v",
+        "libx265",
+        "-pix_fmt",
+        "yuv420p",
+        "-x265-params",
+        "keyint=24:min-keyint=24:scenecut=0:open-gop=1:pools=1",
+        "-tag:v",
+        "hvc1",
+        "-c:a",
+        "aac",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4"
+      ]
+    },
+    {
+      "name": "playback-0",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "0",
+        "2",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0"
+      ]
+    },
+    {
+      "name": "reference-0-0-0",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-0-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-0-1",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-0-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-0-2",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-0-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-0-3",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-0-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-0-4",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-0-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-1-5",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-1-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-1-6",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-1-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-1-7",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-1-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-1-8",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-1-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-1-9",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-1-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-2-10",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-2-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-2-11",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-2-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-2-12",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-2-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-2-13",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-2-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-2-14",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-2-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-3-15",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-3-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-3-16",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-3-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-3-17",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-3-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-3-18",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-3-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-0-3-19",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-0/cycle-3-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reject-track-0",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "0",
+        "99",
+        "/private/tmp/afc-mpv-source-20261016-final/rejected-0"
+      ]
+    },
+    {
+      "name": "reject-kind-0",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "2",
+        "0",
+        "/private/tmp/afc-mpv-source-20261016-final/wrong-kind-0"
+      ]
+    },
+    {
+      "name": "playback-1",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "1",
+        "2",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1"
+      ]
+    },
+    {
+      "name": "reference-1-0-0",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-0-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-0-1",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-0-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-0-2",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-0-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-0-3",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-0-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-0-4",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-0-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-1-5",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-1-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-1-6",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-1-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-1-7",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-1-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-1-8",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-1-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-1-9",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-1-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-2-10",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-2-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-2-11",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-2-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-2-12",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-2-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-2-13",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-2-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-2-14",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-2-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-3-15",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-3-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-3-16",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-3-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-3-17",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-3-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-3-18",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-3-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-1-3-19",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "-map",
+        "0:1",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-1/cycle-3-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reject-track-1",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "1",
+        "99",
+        "/private/tmp/afc-mpv-source-20261016-final/rejected-1"
+      ]
+    },
+    {
+      "name": "reject-kind-1",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+        "2",
+        "1",
+        "/private/tmp/afc-mpv-source-20261016-final/wrong-kind-1"
+      ]
+    },
+    {
+      "name": "playback-2",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "0",
+        "-1",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2"
+      ]
+    },
+    {
+      "name": "reference-2-0-0",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-0-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-0-1",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-0-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-0-2",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-0-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-0-3",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-0-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-0-4",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-0-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-1-5",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-1-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-1-6",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-1-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-1-7",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-1-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-1-8",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-1-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-1-9",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-1-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-2-10",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-2-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-2-11",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-2-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-2-12",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-2-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-2-13",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-2-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-2-14",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-2-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-3-15",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-3-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-3-16",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-3-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-3-17",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-3-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-3-18",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-3-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-2-3-19",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-2/cycle-3-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reject-track-2",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "0",
+        "99",
+        "/private/tmp/afc-mpv-source-20261016-final/rejected-2"
+      ]
+    },
+    {
+      "name": "reject-kind-2",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "2",
+        "0",
+        "/private/tmp/afc-mpv-source-20261016-final/wrong-kind-2"
+      ]
+    },
+    {
+      "name": "playback-3",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-1",
+        "2",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-3"
+      ]
+    },
+    {
+      "name": "reject-track-3",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "-1",
+        "99",
+        "/private/tmp/afc-mpv-source-20261016-final/rejected-3"
+      ]
+    },
+    {
+      "name": "reject-kind-3",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+        "2",
+        "0",
+        "/private/tmp/afc-mpv-source-20261016-final/wrong-kind-3"
+      ]
+    },
+    {
+      "name": "playback-4",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "0",
+        "2",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4"
+      ]
+    },
+    {
+      "name": "reference-4-0-0",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-0-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-0-1",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-0-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-0-2",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-0-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-0-3",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-0-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-0-4",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-0-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-1-5",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-1-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-1-6",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-1-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-1-7",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-1-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-1-8",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-1-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-1-9",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-1-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-2-10",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-2-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-2-11",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-2-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-2-12",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-2-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-2-13",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-2-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-2-14",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-2-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-3-15",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-3-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-3-16",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-3-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-3-17",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-3-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-3-18",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-3-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-4-3-19",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-4/cycle-3-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reject-track-4",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "0",
+        "99",
+        "/private/tmp/afc-mpv-source-20261016-final/rejected-4"
+      ]
+    },
+    {
+      "name": "reject-kind-4",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+        "2",
+        "0",
+        "/private/tmp/afc-mpv-source-20261016-final/wrong-kind-4"
+      ]
+    },
+    {
+      "name": "playback-5",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "0",
+        "2",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5"
+      ]
+    },
+    {
+      "name": "reference-5-0-0",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-0-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-0-1",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-0-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-0-2",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-0-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-0-3",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-0-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-0-4",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-0-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-1-5",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-1-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-1-6",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-1-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-1-7",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-1-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-1-8",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-1-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-1-9",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-1-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-2-10",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-2-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-2-11",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-2-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-2-12",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-2-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-2-13",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-2-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-2-14",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-2-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-3-15",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-3-seek-0.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-3-16",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-3-seek-1.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-3-17",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-3-seek-2.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-3-18",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-3-seek-3.reference.rgb"
+      ]
+    },
+    {
+      "name": "reference-5-3-19",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-source-20261016-final/fixture-5/cycle-3-seek-4.reference.rgb"
+      ]
+    },
+    {
+      "name": "reject-track-5",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "0",
+        "99",
+        "/private/tmp/afc-mpv-source-20261016-final/rejected-5"
+      ]
+    },
+    {
+      "name": "reject-kind-5",
+      "argv": [
+        "/private/tmp/afc-mpv-source-20261016-final/mpv-source-proof",
+        "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+        "2",
+        "0",
+        "/private/tmp/afc-mpv-source-20261016-final/wrong-kind-5"
+      ]
+    }
+  ],
+  "fixtures": [
+    {
+      "path": "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+      "sha256": "636ae33550b96eb9dcd24b28e97c0b225c4ee681182cdbbc5cc4775799a93f76",
+      "videoStreamIndex": 0,
+      "audioStreamIndex": 2,
+      "report": {
+        "cycles": [
+          {
+            "index": 0,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-0-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-0-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-0-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-0-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-0-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          },
+          {
+            "index": 1,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-1-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-1-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-1-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-1-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-1-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          },
+          {
+            "index": 2,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-2-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-2-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-2-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-2-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-2-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          },
+          {
+            "index": 3,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-3-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-3-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-3-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-3-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-3-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          }
+        ],
+        "passed": true,
+        "audioOutput": "null",
+        "failure": null
+      },
+      "comparisons": [
+        {
+          "meanRGBError": 1.8199131944444444,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 0.0,
+          "capture": "cycle-0-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 1.813107638888889,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 1.5,
+          "capture": "cycle-0-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 1.8144965277777778,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 0.25,
+          "capture": "cycle-0-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 1.8146527777777777,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 2.0,
+          "capture": "cycle-0-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 1.81359375,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 0.5,
+          "capture": "cycle-0-seek-4.rgb"
+        },
+        {
+          "meanRGBError": 1.8199131944444444,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 0.0,
+          "capture": "cycle-1-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 1.813107638888889,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 1.5,
+          "capture": "cycle-1-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 1.8144965277777778,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 0.25,
+          "capture": "cycle-1-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 1.8146527777777777,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 2.0,
+          "capture": "cycle-1-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 1.81359375,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 0.5,
+          "capture": "cycle-1-seek-4.rgb"
+        },
+        {
+          "meanRGBError": 1.8199131944444444,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 0.0,
+          "capture": "cycle-2-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 1.813107638888889,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 1.5,
+          "capture": "cycle-2-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 1.8144965277777778,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 0.25,
+          "capture": "cycle-2-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 1.8146527777777777,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 2.0,
+          "capture": "cycle-2-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 1.81359375,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 0.5,
+          "capture": "cycle-2-seek-4.rgb"
+        },
+        {
+          "meanRGBError": 1.8199131944444444,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 0.0,
+          "capture": "cycle-3-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 1.813107638888889,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 1.5,
+          "capture": "cycle-3-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 1.8144965277777778,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 0.25,
+          "capture": "cycle-3-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 1.8146527777777777,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 2.0,
+          "capture": "cycle-3-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 1.81359375,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 0.5,
+          "capture": "cycle-3-seek-4.rgb"
+        }
+      ]
+    },
+    {
+      "path": "/private/tmp/afc-mpv-source-20261016-final/reordered.mkv",
+      "sha256": "c8d35435ccf8d0b9b315fd16ed7f60602b46aa81192704d2bd5624c40892e176",
+      "videoStreamIndex": 1,
+      "audioStreamIndex": 2,
+      "report": {
+        "cycles": [
+          {
+            "index": 0,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-0-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-0-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-0-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-0-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-0-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.917,
+            "pausedEnd": 0.917
+          },
+          {
+            "index": 1,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-1-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-1-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-1-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-1-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-1-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.917,
+            "pausedEnd": 0.917
+          },
+          {
+            "index": 2,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-2-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-2-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-2-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-2-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-2-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.917,
+            "pausedEnd": 0.917
+          },
+          {
+            "index": 3,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-3-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-3-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-3-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-3-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-3-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.917,
+            "pausedEnd": 0.917
+          }
+        ],
+        "passed": true,
+        "audioOutput": "null",
+        "failure": null
+      },
+      "comparisons": [
+        {
+          "meanRGBError": 1.8199131944444444,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 0.0,
+          "capture": "cycle-0-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 1.813107638888889,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 1.5,
+          "capture": "cycle-0-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 1.8144965277777778,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 0.25,
+          "capture": "cycle-0-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 1.8146527777777777,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 2.0,
+          "capture": "cycle-0-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 1.81359375,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 0.5,
+          "capture": "cycle-0-seek-4.rgb"
+        },
+        {
+          "meanRGBError": 1.8199131944444444,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 0.0,
+          "capture": "cycle-1-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 1.813107638888889,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 1.5,
+          "capture": "cycle-1-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 1.8144965277777778,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 0.25,
+          "capture": "cycle-1-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 1.8146527777777777,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 2.0,
+          "capture": "cycle-1-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 1.81359375,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 0.5,
+          "capture": "cycle-1-seek-4.rgb"
+        },
+        {
+          "meanRGBError": 1.8199131944444444,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 0.0,
+          "capture": "cycle-2-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 1.813107638888889,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 1.5,
+          "capture": "cycle-2-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 1.8144965277777778,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 0.25,
+          "capture": "cycle-2-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 1.8146527777777777,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 2.0,
+          "capture": "cycle-2-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 1.81359375,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 0.5,
+          "capture": "cycle-2-seek-4.rgb"
+        },
+        {
+          "meanRGBError": 1.8199131944444444,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 0.0,
+          "capture": "cycle-3-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 1.813107638888889,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 1.5,
+          "capture": "cycle-3-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 1.8144965277777778,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 0.25,
+          "capture": "cycle-3-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 1.8146527777777777,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 2.0,
+          "capture": "cycle-3-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 1.81359375,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 0.5,
+          "capture": "cycle-3-seek-4.rgb"
+        }
+      ]
+    },
+    {
+      "path": "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+      "sha256": "636ae33550b96eb9dcd24b28e97c0b225c4ee681182cdbbc5cc4775799a93f76",
+      "videoStreamIndex": 0,
+      "audioStreamIndex": -1,
+      "report": {
+        "cycles": [
+          {
+            "index": 0,
+            "videoTrackID": 1,
+            "audioTrackID": -1,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-0-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-0-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-0-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-0-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-0-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          },
+          {
+            "index": 1,
+            "videoTrackID": 1,
+            "audioTrackID": -1,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-1-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-1-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-1-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-1-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-1-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          },
+          {
+            "index": 2,
+            "videoTrackID": 1,
+            "audioTrackID": -1,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-2-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-2-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-2-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-2-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-2-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          },
+          {
+            "index": 3,
+            "videoTrackID": 1,
+            "audioTrackID": -1,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-3-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-3-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-3-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-3-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-3-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          }
+        ],
+        "passed": true,
+        "audioOutput": "null",
+        "failure": null
+      },
+      "comparisons": [
+        {
+          "meanRGBError": 1.8199131944444444,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 0.0,
+          "capture": "cycle-0-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 1.813107638888889,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 1.5,
+          "capture": "cycle-0-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 1.8144965277777778,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 0.25,
+          "capture": "cycle-0-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 1.8146527777777777,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 2.0,
+          "capture": "cycle-0-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 1.81359375,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 0.5,
+          "capture": "cycle-0-seek-4.rgb"
+        },
+        {
+          "meanRGBError": 1.8199131944444444,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 0.0,
+          "capture": "cycle-1-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 1.813107638888889,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 1.5,
+          "capture": "cycle-1-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 1.8144965277777778,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 0.25,
+          "capture": "cycle-1-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 1.8146527777777777,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 2.0,
+          "capture": "cycle-1-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 1.81359375,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 0.5,
+          "capture": "cycle-1-seek-4.rgb"
+        },
+        {
+          "meanRGBError": 1.8199131944444444,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 0.0,
+          "capture": "cycle-2-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 1.813107638888889,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 1.5,
+          "capture": "cycle-2-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 1.8144965277777778,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 0.25,
+          "capture": "cycle-2-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 1.8146527777777777,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 2.0,
+          "capture": "cycle-2-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 1.81359375,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 0.5,
+          "capture": "cycle-2-seek-4.rgb"
+        },
+        {
+          "meanRGBError": 1.8199131944444444,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 0.0,
+          "capture": "cycle-3-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 1.813107638888889,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 1.5,
+          "capture": "cycle-3-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 1.8144965277777778,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 0.25,
+          "capture": "cycle-3-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 1.8146527777777777,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 2.0,
+          "capture": "cycle-3-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 1.81359375,
+          "maximumRGBError": 3,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 0.5,
+          "capture": "cycle-3-seek-4.rgb"
+        }
+      ]
+    },
+    {
+      "path": "/private/tmp/afc-mpv-source-20261016-final/source.mov",
+      "sha256": "636ae33550b96eb9dcd24b28e97c0b225c4ee681182cdbbc5cc4775799a93f76",
+      "videoStreamIndex": -1,
+      "audioStreamIndex": 2,
+      "report": {
+        "cycles": [
+          {
+            "index": 0,
+            "videoTrackID": -1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": null
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": null
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": null
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": null
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": null
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.857202504,
+            "pausedEnd": 0.857202504
+          },
+          {
+            "index": 1,
+            "videoTrackID": -1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": null
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": null
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": null
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": null
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": null
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.857313985,
+            "pausedEnd": 0.857313985
+          },
+          {
+            "index": 2,
+            "videoTrackID": -1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": null
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": null
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": null
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": null
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": null
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.854609263,
+            "pausedEnd": 0.854609263
+          },
+          {
+            "index": 3,
+            "videoTrackID": -1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": null
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": null
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": null
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": null
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": null
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.853018016,
+            "pausedEnd": 0.853018016
+          }
+        ],
+        "passed": true,
+        "audioOutput": "null",
+        "failure": null
+      },
+      "comparisons": []
+    },
+    {
+      "path": "/private/tmp/afc-mpv-source-20261016-final/h264-aac.mp4",
+      "sha256": "92a16d3124aed4e153407ff5e0b0d90945f0f7ecbc094b6046cccd09cb2c91bb",
+      "videoStreamIndex": 0,
+      "audioStreamIndex": 2,
+      "report": {
+        "cycles": [
+          {
+            "index": 0,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-0-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-0-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-0-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-0-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-0-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          },
+          {
+            "index": 1,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-1-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-1-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-1-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-1-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-1-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          },
+          {
+            "index": 2,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-2-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-2-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-2-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-2-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-2-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          },
+          {
+            "index": 3,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-3-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-3-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-3-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-3-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-3-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          }
+        ],
+        "passed": true,
+        "audioOutput": "null",
+        "failure": null
+      },
+      "comparisons": [
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 0.0,
+          "capture": "cycle-0-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 1.5,
+          "capture": "cycle-0-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 0.25,
+          "capture": "cycle-0-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 2.0,
+          "capture": "cycle-0-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 0.5,
+          "capture": "cycle-0-seek-4.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 0.0,
+          "capture": "cycle-1-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 1.5,
+          "capture": "cycle-1-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 0.25,
+          "capture": "cycle-1-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 2.0,
+          "capture": "cycle-1-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 0.5,
+          "capture": "cycle-1-seek-4.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 0.0,
+          "capture": "cycle-2-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 1.5,
+          "capture": "cycle-2-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 0.25,
+          "capture": "cycle-2-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 2.0,
+          "capture": "cycle-2-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 0.5,
+          "capture": "cycle-2-seek-4.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 0.0,
+          "capture": "cycle-3-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 1.5,
+          "capture": "cycle-3-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 0.25,
+          "capture": "cycle-3-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 2.0,
+          "capture": "cycle-3-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 0.5,
+          "capture": "cycle-3-seek-4.rgb"
+        }
+      ]
+    },
+    {
+      "path": "/private/tmp/afc-mpv-source-20261016-final/open-gop-hevc-aac.mp4",
+      "sha256": "f59d8a02ba52fdf5487cd0250d51c18b5998ef2e61ff881c317f0e48e3e09ed9",
+      "videoStreamIndex": 0,
+      "audioStreamIndex": 2,
+      "report": {
+        "cycles": [
+          {
+            "index": 0,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-0-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-0-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-0-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-0-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-0-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          },
+          {
+            "index": 1,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-1-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-1-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-1-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-1-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-1-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          },
+          {
+            "index": 2,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-2-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-2-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-2-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-2-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-2-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          },
+          {
+            "index": 3,
+            "videoTrackID": 1,
+            "audioTrackID": 2,
+            "captures": [
+              {
+                "targetSeconds": 0.0,
+                "timePosition": 0.0,
+                "file": "cycle-3-seek-0.rgb"
+              },
+              {
+                "targetSeconds": 1.5,
+                "timePosition": 1.5,
+                "file": "cycle-3-seek-1.rgb"
+              },
+              {
+                "targetSeconds": 0.25,
+                "timePosition": 0.25,
+                "file": "cycle-3-seek-2.rgb"
+              },
+              {
+                "targetSeconds": 2.0,
+                "timePosition": 2.0,
+                "file": "cycle-3-seek-3.rgb"
+              },
+              {
+                "targetSeconds": 0.5,
+                "timePosition": 0.5,
+                "file": "cycle-3-seek-4.rgb"
+              }
+            ],
+            "playStart": 0.5,
+            "playEnd": 0.875,
+            "pausedEnd": 0.875
+          }
+        ],
+        "passed": true,
+        "audioOutput": "null",
+        "failure": null
+      },
+      "comparisons": [
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 0.0,
+          "capture": "cycle-0-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 1.5,
+          "capture": "cycle-0-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 0.25,
+          "capture": "cycle-0-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 2.0,
+          "capture": "cycle-0-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 0,
+          "targetSeconds": 0.5,
+          "capture": "cycle-0-seek-4.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 0.0,
+          "capture": "cycle-1-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 1.5,
+          "capture": "cycle-1-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 0.25,
+          "capture": "cycle-1-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 2.0,
+          "capture": "cycle-1-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 1,
+          "targetSeconds": 0.5,
+          "capture": "cycle-1-seek-4.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 0.0,
+          "capture": "cycle-2-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 1.5,
+          "capture": "cycle-2-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 0.25,
+          "capture": "cycle-2-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 2.0,
+          "capture": "cycle-2-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 2,
+          "targetSeconds": 0.5,
+          "capture": "cycle-2-seek-4.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 0.0,
+          "capture": "cycle-3-seek-0.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 1.5,
+          "capture": "cycle-3-seek-1.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 0.25,
+          "capture": "cycle-3-seek-2.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 2.0,
+          "capture": "cycle-3-seek-3.rgb"
+        },
+        {
+          "meanRGBError": 0.0,
+          "maximumRGBError": 0,
+          "passed": true,
+          "cycle": 3,
+          "targetSeconds": 0.5,
+          "capture": "cycle-3-seek-4.rgb"
+        }
+      ]
+    }
+  ],
+  "pixelMeanTolerance": 3.0,
+  "pixelMaximumTolerance": 32,
+  "candidate": {
+    "revision": "400202b687841fb394cbf0ef59ad8c6fcfc1275b",
+    "packageSHA256": "a8481f4ab962c3edc835448f2aae9fde9d94be9f669f89c1fb8765e6bdc72056",
+    "declaredLibmpvArchiveURL": "https://github.com/aagedal/MPVKit/releases/download/aagedal-1.0.0-n8.1.2-coreaudio.2/Libmpv-GPL.xcframework.zip",
+    "declaredLibmpvArchiveSHA256": "7a362047b0bbe39e9f7001e5b9146cd0651c2eadae38ebcd52f16207b42a4f00",
+    "archiveBytesReauthenticated": false
+  },
+  "architecture": "arm64",
+  "frameworks": [
+    {
+      "artifact": "Libmpv-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libmpv-GPL/Libmpv.xcframework/macos-arm64_x86_64/Libmpv.framework/Libmpv",
+      "sha256": "057d89386ea526528d56a7fb5170e2f6413832a3aed84a1f3bb690bf7cce3424"
+    },
+    {
+      "artifact": "Libavcodec-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavcodec-GPL/Libavcodec.xcframework/macos-arm64_x86_64/Libavcodec.framework/Libavcodec",
+      "sha256": "93203f35a23a34307771d15515953a9ba8e3d7fbd45be552275666b86b2097be"
+    },
+    {
+      "artifact": "Libavdevice-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavdevice-GPL/Libavdevice.xcframework/macos-arm64_x86_64/Libavdevice.framework/Libavdevice",
+      "sha256": "8e471c9428f848dbc377125f3030651f9f82142091f2568c54d2d842177d7d05"
+    },
+    {
+      "artifact": "Libavfilter-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavfilter-GPL/Libavfilter.xcframework/macos-arm64_x86_64/Libavfilter.framework/Libavfilter",
+      "sha256": "c5d0c6afe2a9875d961cde4bf9d570f3650d5cc7e8011d6c2bfe42eed7b4b2a8"
+    },
+    {
+      "artifact": "Libavformat-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavformat-GPL/Libavformat.xcframework/macos-arm64_x86_64/Libavformat.framework/Libavformat",
+      "sha256": "59195169993bfd1e8e4aba80a5ff982e34214746b545a0ee6a2d08c1cf17496e"
+    },
+    {
+      "artifact": "Libavutil-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavutil-GPL/Libavutil.xcframework/macos-arm64_x86_64/Libavutil.framework/Libavutil",
+      "sha256": "5273145c45e8662fffbf4b8f2c1638a8b04749ba204c29c65dd57c4d8d380cb3"
+    },
+    {
+      "artifact": "Libswresample-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libswresample-GPL/Libswresample.xcframework/macos-arm64_x86_64/Libswresample.framework/Libswresample",
+      "sha256": "3b4a5cb51c08b10264ec9479bf454a4a93ff14a02d751416debb16a69b751d80"
+    },
+    {
+      "artifact": "Libswscale-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libswscale-GPL/Libswscale.xcframework/macos-arm64_x86_64/Libswscale.framework/Libswscale",
+      "sha256": "584b351a042fb032fd5343c483a1ef0a8638e0bf8fda28dcb334c4a199d7be8c"
+    },
+    {
+      "artifact": "Libssl",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libssl/Libssl.xcframework/macos-arm64_x86_64/Libssl.framework/Libssl",
+      "sha256": "6fb9488912f19c21a7671e6e094303d0b6d7651e02b8c349cd61db36c4fe72ef"
+    },
+    {
+      "artifact": "Libcrypto",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libcrypto/Libcrypto.xcframework/macos-arm64_x86_64/Libcrypto.framework/Libcrypto",
+      "sha256": "593ea0d98cb297febc56a5717a6bcdaef7175343170f5c2dd1e662f7c5ccda76"
+    },
+    {
+      "artifact": "Libass",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libass/Libass.xcframework/macos-arm64_x86_64/Libass.framework/Libass",
+      "sha256": "8308bf0d52e8edc69b82ce47f499d1cf38ea8676928e0ce65657516f500f3296"
+    },
+    {
+      "artifact": "Libfreetype",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libfreetype/Libfreetype.xcframework/macos-arm64_x86_64/Libfreetype.framework/Libfreetype",
+      "sha256": "0e66a03e64a2f471fcae43e440f1624e59ffa92e07af26b5961d80f924d0175e"
+    },
+    {
+      "artifact": "Libfribidi",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libfribidi/Libfribidi.xcframework/macos-arm64_x86_64/Libfribidi.framework/Libfribidi",
+      "sha256": "7e950716c9599df9ded051b370d2dd521aab3bf67e2eead1cfef3e991357bbef"
+    },
+    {
+      "artifact": "Libharfbuzz",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libharfbuzz/Libharfbuzz.xcframework/macos-arm64_x86_64/Libharfbuzz.framework/Libharfbuzz",
+      "sha256": "0e5e49446b3fd8697bff1b727b04a61eb7f264b387071660c4b35ac5307fa0d7"
+    },
+    {
+      "artifact": "MoltenVK",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/MoltenVK/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a",
+      "sha256": "996ccaa26d67003a46af67c46f650eaca2017e08d8a1abd348d1b3c511f26a7e"
+    },
+    {
+      "artifact": "Libshaderc_combined",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libshaderc_combined/Libshaderc_combined.xcframework/macos-arm64_x86_64/Libshaderc_combined.framework/Libshaderc_combined",
+      "sha256": "f9eead43923df99b822aff42d974deddbf2b399b0db207d9e9a072ca5e3a28a7"
+    },
+    {
+      "artifact": "lcms2",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/lcms2/lcms2.xcframework/macos-arm64_x86_64/lcms2.framework/lcms2",
+      "sha256": "534dc91bc46de20f3f2c9d63a6c7d906c2729c980c1ebf8d021ced787f1ade38"
+    },
+    {
+      "artifact": "Libplacebo",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libplacebo/Libplacebo.xcframework/macos-arm64_x86_64/Libplacebo.framework/Libplacebo",
+      "sha256": "e76c1b86d8ee2a5afcd7366c5dfa37e124a9d37f14e138984404fe36b926bd08"
+    },
+    {
+      "artifact": "Libdovi",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libdovi/Libdovi.xcframework/macos-arm64_x86_64/Libdovi.framework/Libdovi",
+      "sha256": "434ebd779549a96cab93818189ae8293dd99b31b0081334c1f2baa538c829bf9"
+    },
+    {
+      "artifact": "Libunibreak",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libunibreak/Libunibreak.xcframework/macos-arm64_x86_64/Libunibreak.framework/Libunibreak",
+      "sha256": "7f260e7a65fe3e206e36912eb1d224c8b52789cb88ed9710f7413621a80ba0e6"
+    },
+    {
+      "artifact": "Libsmbclient",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libsmbclient/Libsmbclient.xcframework/macos-arm64_x86_64/Libsmbclient.framework/Libsmbclient",
+      "sha256": "88d5977c35f6dcd49a2c785bff2d527d7c9cf882086280202c49c15ffb99400c"
+    },
+    {
+      "artifact": "gmp",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/gmp/gmp.xcframework/macos-arm64_x86_64/gmp.framework/gmp",
+      "sha256": "124fa271d5d2b0dd00785a56bc4cbd0ce4d840ce3758168ce091450593b6ba80"
+    },
+    {
+      "artifact": "nettle",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/nettle/nettle.xcframework/macos-arm64_x86_64/nettle.framework/nettle",
+      "sha256": "270ad00bbee5f3a602ef8ec4b0aaf025dc6f72ba1d96f1dd5ae57128ad44c3ab"
+    },
+    {
+      "artifact": "hogweed",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/hogweed/hogweed.xcframework/macos-arm64_x86_64/hogweed.framework/hogweed",
+      "sha256": "a7500339bc267e6f5df9351e9efa0630143d284ca98976b4e5aa6c62874e17bf"
+    },
+    {
+      "artifact": "gnutls",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/gnutls/gnutls.xcframework/macos-arm64_x86_64/gnutls.framework/gnutls",
+      "sha256": "c45a42f66f0e1a12734cf6ef03dfd9f3c403636d0230b10d3dbcc895bb76e778"
+    },
+    {
+      "artifact": "Libdav1d",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libdav1d/Libdav1d.xcframework/macos-arm64_x86_64/Libdav1d.framework/Libdav1d",
+      "sha256": "c30382e326013178c715411e84dbc182c412dc1eef126e62f2915d95369c2af1"
+    },
+    {
+      "artifact": "Libuavs3d",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libuavs3d/Libuavs3d.xcframework/macos-arm64_x86_64/Libuavs3d.framework/Libuavs3d",
+      "sha256": "de8dbf94aeece633ccfe7a8974abd6e3f90d6fb6520fa4fde3b377b8420ee96e"
+    },
+    {
+      "artifact": "Libuchardet",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libuchardet/Libuchardet.xcframework/macos-arm64_x86_64/Libuchardet.framework/Libuchardet",
+      "sha256": "dcb7147b61a85164f1dbcfd019fc30980ebbffc887f5599dcaa97707f532d24c"
+    },
+    {
+      "artifact": "Libbluray",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libbluray/Libbluray.xcframework/macos-arm64_x86_64/Libbluray.framework/Libbluray",
+      "sha256": "159f3a087d8cb5e0fe760c819156fe1234f9357a51641ca65e888d9c69e5acb1"
+    }
+  ],
+  "proofSourceSHA256": "7c329807621c17342161f190277fd4e85978ab048bfb63c2ec53f5551b93a227",
+  "runnerSHA256": "47dd16f3ca35d4fd2b288a085a671ae068aa04972e0603e58cd3c53218a7d079",
+  "executableSHA256": "a2c20d120202b10ed532ead93c4a0321fc4924945a0d7608f519f79ba92f85ea",
+  "ffmpegSHA256": "7f6028378534aa10a2dfa07d807ddcc0d18c869bf5c2f64c89efcc18ee88c4ee",
+  "ffprobeSHA256": "bfe676bfc3a889bebe63af07c71a926a6167f568c7a932a79c2f1fe51ae6d5a1"
+}

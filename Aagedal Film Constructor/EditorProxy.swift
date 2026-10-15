@@ -275,12 +275,7 @@ extension EditorStore {
             sourcePlayback = player
             statusMessage = "Source preview: \(asset.name)"
             if pendingSourceTransport != nil || preservingTransport {
-                sourcePreviewTask = Task {
-                    await player.seek(to: pendingSourceTransport?.time ?? time)
-                    guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation else { return }
-                    if pendingSourceTransport?.playing ?? playing { player.play() }
-                    pendingSourceTransport = nil
-                }
+                restoreSourceTransport(backend: player, time: time, playing: playing)
             }
             return
         }
@@ -353,7 +348,14 @@ extension EditorStore {
             } else { player = AVPlayer(url: originalURL) }
             guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation else { return }
             let backend = AVFoundationSourceBackend(player: player)
-            await backend.seek(to: pendingSourceTransport?.time ?? time)
+            do {
+                try await backend.seek(to: pendingSourceTransport?.time ?? time)
+            } catch {
+                backend.close()
+                guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation else { return }
+                reportSourceSeekFailure(error)
+                return
+            }
             guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation else {
                 backend.close()
                 return

@@ -694,6 +694,110 @@ struct AppFileSmoke {
         try check(replacement.closeCount == 1, "Clearing selection closes source backend")
         store.close()
         try check(replacement.closeCount == 1, "Repeated cleanup does not close a released backend again")
+
+        let failures = EditorStore()
+        defer { failures.close() }
+        try failures.registerImportedMedia(audio)
+        let failing = CommandSourceBackend()
+        failures.sourcePlayback = failing
+        failing.currentTime = CMTime(seconds: 2, preferredTimescale: 48000)
+        failures.pendingSourceTransport = (.zero, true)
+        failures.playSourceForwards()
+        for _ in 0..<100 where failing.pendingSeek == nil { await Task.yield() }
+        try check(failing.pendingSeek != nil, "Forward failure fixture reaches restart seek")
+        failing.failSeek()
+        for _ in 0..<20 { await Task.yield() }
+        try check(failing.playCount == 0 && !failing.isPlaying && failures.pendingSourceTransport == nil,
+                  "Failed forward restart never plays and clears pending play intent")
+        try check(failures.statusMessage.contains("Source seek failed") && failures.statusMessage.contains("requested position"),
+                  "Current source seek failure reports a useful status")
+
+        failing.currentTime = CMTime(seconds: 1, preferredTimescale: 48000)
+        failures.playSourceBackwards()
+        for _ in 0..<100 where failing.pendingSeek == nil { await Task.yield() }
+        try check(failing.pendingSeek != nil, "Reverse failure fixture reaches seek")
+        failing.failSeek()
+        try await Task.sleep(for: .milliseconds(50))
+        try check(failing.seekCount == 2 && failing.pendingSeek == nil && failing.playCount == 0,
+                  "Failed reverse seek stops the reverse loop")
+
+        failing.currentTime = CMTime(seconds: 2, preferredTimescale: 48000)
+        failures.playSourceForwards()
+        for _ in 0..<100 where failing.pendingSeek == nil { await Task.yield() }
+        try check(failing.pendingSeek != nil, "Obsolete failure fixture reaches restart seek")
+        let current = CommandSourceBackend()
+        failures.sourcePlayback = current
+        failures.pendingSourceTransport = (.zero, true)
+        failures.statusMessage = "New source ready"
+        failing.failSeek()
+        for _ in 0..<20 { await Task.yield() }
+        try check(failures.statusMessage == "New source ready" && failures.pendingSourceTransport?.playing == true && current.playCount == 0,
+                  "Obsolete seek failure cannot clear new source intent or overwrite its status")
+
+        let closed = AVFoundationSourceBackend(player: AVPlayer())
+        closed.close()
+        do {
+            try await closed.seek(to: .zero)
+            throw SmokeError.failed("Closed source adapter accepted seek")
+        } catch SourcePlaybackError.closed { }
+
+        let races = EditorStore()
+        defer { races.close() }
+        try races.registerImportedMedia(audio)
+        let shared = CommandSourceBackend()
+        races.sourcePlayback = shared
+        let restoreTime = CMTime(seconds: 0.75, preferredTimescale: 48000)
+        races.pendingSourceTransport = (restoreTime, true)
+        races.restoreSourceTransport(backend: shared, time: restoreTime, playing: true)
+        let restoreTask = races.sourcePreviewTask!
+        for _ in 0..<100 where shared.pendingSeek == nil { await Task.yield() }
+        try check(shared.pendingSeek != nil, "Same-backend restoration reaches delayed seek")
+        let obsoleteRestore = shared.takePendingSeek()!
+        races.statusMessage = "New forward command"
+        races.playSourceForwards()
+        for _ in 0..<100 where shared.pendingSeek == nil { await Task.yield() }
+        try check(restoreTask.isCancelled && races.sourcePreviewTask == nil && races.pendingSourceTransport == nil,
+                  "Installed forward transport cancels restoration and takes its pending coordinate")
+        try check(shared.requestedTimes.last == restoreTime && shared.pendingSeek != nil,
+                  "Forward transport seeks its captured restore coordinate before playing")
+        obsoleteRestore.resume(throwing: SourcePlaybackError.seekFailed)
+        for _ in 0..<20 { await Task.yield() }
+        try check(races.statusMessage == "New forward command" && shared.pendingSeek != nil && shared.playCount == 0,
+                  "Same-backend obsolete restoration failure leaves the new forward seek untouched")
+        shared.finishSeek()
+        for _ in 0..<20 { await Task.yield() }
+        try check(shared.playCount == 1 && shared.isPlaying, "Only the current forward seek can start playback")
+
+        let reverseTime = CMTime(seconds: 1.25, preferredTimescale: 48000)
+        races.pendingSourceTransport = (reverseTime, true)
+        races.restoreSourceTransport(backend: shared, time: reverseTime, playing: true)
+        for _ in 0..<100 where shared.pendingSeek == nil { await Task.yield() }
+        try check(shared.pendingSeek != nil, "Reverse restoration fixture reaches delayed seek")
+        let obsoleteReverse = shared.takePendingSeek()!
+        races.statusMessage = "New reverse command"
+        races.playSourceBackwards()
+        for _ in 0..<100 where shared.pendingSeek == nil { await Task.yield() }
+        try check((shared.requestedTimes.last?.seconds ?? 0) > 1.2 && shared.pendingSeek != nil,
+                  "Reverse transport starts from the pending restore coordinate")
+        obsoleteReverse.resume(throwing: SourcePlaybackError.seekFailed)
+        for _ in 0..<20 { await Task.yield() }
+        try check(races.statusMessage == "New reverse command" && shared.pendingSeek != nil && !shared.isPlaying && shared.playCount == 1,
+                  "Obsolete same-backend restoration cannot stop reverse or replay")
+        races.pauseSource()
+        shared.finishSeek()
+        for _ in 0..<20 { await Task.yield() }
+
+        races.pendingSourceTransport = (restoreTime, true)
+        races.restoreSourceTransport(backend: shared, time: restoreTime, playing: true)
+        for _ in 0..<100 where shared.pendingSeek == nil { await Task.yield() }
+        try check(shared.pendingSeek != nil, "Pause restoration fixture reaches delayed seek")
+        races.statusMessage = "Source paused"
+        races.pauseSource()
+        shared.failSeek()
+        for _ in 0..<20 { await Task.yield() }
+        try check(races.pendingSourceTransport == nil && races.sourcePreviewTask == nil &&
+                  races.statusMessage == "Source paused" && shared.playCount == 1 && !shared.isPlaying,
+                  "Pause owns an installed backend and suppresses late restoration failure/play intent")
     }
 
     @MainActor
@@ -1352,16 +1456,21 @@ struct AppFileSmoke {
     var currentTime: CMTime = .zero
     var isPlaying = false
     var surface: SourcePlaybackSurface { .avFoundation(AVPlayer()) }
-    var pendingSeek: CheckedContinuation<Void, Never>?
+    var pendingSeek: CheckedContinuation<Void, Error>?
+    var requestedTimes: [CMTime] = []
     var seekCount = 0
     var playCount = 0
     var closeCount = 0
-    func seek(to time: CMTime) async {
-        currentTime = time
+    func seek(to time: CMTime) async throws {
         seekCount += 1
-        await withCheckedContinuation { pendingSeek = $0 }
+        requestedTimes.append(time)
+        try await withCheckedThrowingContinuation { pendingSeek = $0 }
+        try Task.checkCancellation()
+        currentTime = time
     }
-    func finishSeek() { let continuation = pendingSeek; pendingSeek = nil; continuation?.resume() }
+    func takePendingSeek() -> CheckedContinuation<Void, Error>? { let continuation = pendingSeek; pendingSeek = nil; return continuation }
+    func finishSeek() { takePendingSeek()?.resume() }
+    func failSeek() { takePendingSeek()?.resume(throwing: SourcePlaybackError.seekFailed) }
     func play() { playCount += 1; isPlaying = true }
     func pause() { isPlaying = false }
     func close() { closeCount += 1; isPlaying = false }
