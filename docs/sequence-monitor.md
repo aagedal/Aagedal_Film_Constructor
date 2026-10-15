@@ -35,8 +35,22 @@ to unity. Nonlinear fades/crossfades use curve-based approximate volume ramps,
 with a visible qualification notice. Fades of 5 ms or less also show a warning
 about substantial differences from export; finer ramps do not resolve the system
 renderer's measured short-fade errors. See [fade-ramp evidence](evidence/system-fade-ramps-20261015/README.md).
-Still clips,
-explicit channel maps and boosted gain require the native FFmpeg runtime.
+Single-frame PNG/JPEG stills up to 4096 pixels per dimension are prepared off the
+UI thread as one-frame ProRes 4444 movies using the system encoder. The composition
+stretches that frame to the exact clip duration, including synthetic source In/Out
+points; no FFmpeg helper is used at preview runtime. Fit/fill/no scaling, EXIF
+orientation, PNG alpha and lower-picture visibility are retained. Prepared files
+are reused within one backend session and removed on close; a rebuild prepares
+them again. Preparation is cancellable with a 15-second encoder deadline, a
+512-image limit and a 256 MiB temporary-file budget. Animated/multi-image sources
+and larger images fail visibly. Wide-gamut/HDR and ICC-aware preview/export color parity, and signed sandbox
+encoder access remain unqualified. Explicit channel maps and boosted gain require
+the native FFmpeg runtime.
+
+Run `scripts/system-still-smoke.sh /absolute/path/ffmpeg` for generated still and
+video checks; add a new absolute output directory as the second argument to retain
+fixtures and the executable. Host media-service access is required. FFmpeg creates
+the reference video fixture only.
 
 The generated codec/cadence matrix qualifies ProRes/PCM, H.264/AAC and closed-GOP
 HEVC/AAC at 24, 23.976, 29.97 and 59.94 fps. Open-GOP HEVC trims can return black

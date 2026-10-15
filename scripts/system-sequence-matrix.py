@@ -33,7 +33,7 @@ run([*common, '-emit-library', '-emit-module', '-module-name', 'EditorCore',
      *sorted((repo / 'Packages/EditorCore/Sources/EditorCore').glob('*.swift')),
      '-emit-module-path', root / 'EditorCore.swiftmodule', '-o', root / 'libEditorCore.dylib'], 'core-build.log')
 run([*common, '-parse-as-library', '-I', root, '-L', root, '-lEditorCore',
-     sources / 'AVFoundationSequenceBackend.swift', sources / 'SequencePlaybackController.swift',
+     sources / 'AVFoundationSequenceBackend.swift', sources / 'SystemStillPreview.swift', sources / 'SequencePlaybackController.swift',
      repo / 'scripts/system-sequence-matrix.swift', '-o', root / 'matrix'], 'matrix-build.log')
 codecs = [
     ('prores-pcm', ['-c:v', 'prores_ks', '-profile:v', '0', '-pix_fmt', 'yuv422p10le', '-c:a', 'pcm_s16le']),

@@ -115,6 +115,7 @@ def main():
          *sorted((repo / 'Packages/EditorCore/Sources/EditorCore').glob('*.swift')),
          '-emit-module-path', root / 'EditorCore.swiftmodule', '-o', root / 'libEditorCore.dylib'], 'core-build.log')
     run([*common, '-parse-as-library', '-I', root, '-L', root, '-lEditorCore',
+         repo / 'Aagedal Film Constructor/SystemStillPreview.swift',
          repo / 'Aagedal Film Constructor/AVFoundationSequenceBackend.swift',
          repo / 'Aagedal Film Constructor/SequencePlaybackController.swift',
          repo / 'scripts/system-audio-mix-proof.swift', '-o', root / 'mix-proof'], 'mix-build.log')
