@@ -45,15 +45,17 @@ remain required. Explicit local Xcode Debug selection compiles and embeds it.
   synchronization and signed sandbox media grants.
 - [x] Compile and embed explicitly selected native playback libraries in ordinary
   Xcode Debug builds; enforce the macOS 27 baseline and clean selection removal.
+- [x] Enable bounded single-frame PNG/JPEG still preview in ordinary builds,
+  preserving exact holds, scaling, orientation and transparent picture layers.
 - [ ] Complete redistributable native runtime attribution, signing and sandbox
-  qualification for stills, explicit channel mapping, gain above unity and broader formats.
+  qualification for explicit channel mapping, gain above unity and broader formats.
 
 System preview currently accepts video and whole mono/stereo audio streams whose
 layout and actual sample rate match the sequence, with identity routing and gain
 up to unity. Audio
 fades/crossfades use bounded piecewise volume ramps, so nonlinear fades are an
-approximation rather than sample-exact export parity. Still-image clips and
-unsupported selections fail visibly. Native-enabled development builds retain
+approximation rather than sample-exact export parity. Single-frame PNG/JPEG stills up to 4096 pixels per dimension use bounded system
+preparation; unsupported selections fail visibly. Native-enabled development builds retain
 the native engine. Use `scripts/system-sequence-smoke.sh /absolute/path/ffmpeg`
 for generated-media checks; FFmpeg creates test fixtures only and is not required
 by the system preview at runtime.
@@ -1911,3 +1913,27 @@ launch-performance claim has been validated yet.
 - See [retained fade-ramp evidence](docs/evidence/system-fade-ramps-20261015/README.md).
   Faithful short fades, wider codecs/resampling, hardware sync, signed media
   grants and native distribution qualification remain open.
+
+
+### System still-image preview checkpoint (2026-10-15)
+
+- Ordinary AVFoundation sequence preview now accepts single-frame PNG/JPEG images
+  up to 4096 pixels per dimension. A cancellable background worker prepares one
+  system-encoded ProRes 4444 frame; the composition stretches it to the exact
+  timeline hold. Synthetic source In/Out points do not trim into that short movie.
+- Fit/fill/no scaling, EXIF orientation and PNG transparency retain lower picture
+  layers. No-scaling pad/crop centers at integer pixels for odd raster differences.
+  There are no new viewer controls or document changes.
+- Prepared images are reused within the backend session and removed on close;
+  failed or cancelled preparations remove partial files. A 15-second encoder deadline, 512-image ceiling and 256 MiB temporary
+  file budget bound preparation. Originals and rendered export remain unchanged.
+- Generated host checks cover decoded seeks, fractional rates, transparent layered
+  cuts, odd dimensions, live playback, malformed-image rejection, cancellation
+  and temporary-file reuse/cleanup. Existing video/audio sequence smoke also passes.
+- Repository verification passes: 73 Python tests (eight optional skips), 103 core
+  XCTest tests (two optional skips), 87 Swift Testing tests, workspace smokes and
+  an unsigned Debug Xcode app build. macOS 27 reports deprecations for legacy
+  AVFoundation writer/composition APIs; they still compile and pass.
+- Wide-gamut/HDR and ICC-aware preview/export color agreement, animated images,
+  larger rasters, measured hardware sync and signed sandbox encoder access remain
+  unqualified. See [retained still-preview evidence](docs/evidence/system-stills-20261015/README.md).

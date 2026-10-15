@@ -1,0 +1,39 @@
+{
+  "system": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+  "architecture": "arm64",
+  "decodedSeeks": 44,
+  "fixtureSHA256": {
+    "alpha.png": "990116aff0d7d308889e5581d62d137472c8ce1cc7569ab68d6d40c5444acee4",
+    "broken.png": "97a633658ba5a476b05de0b3de492392cec2c2b835f6e9e14698cb39f7ae06cc",
+    "fixture.mov": "f64d05a0fdc8ffd0ab39c6aac79409f932b842e5bf979ed98c851cfdb6507be3",
+    "odd-41.png": "d8537fb1adf2b4c048d153ce8b83e2d2e9cfec390684f2bba5f13cefe801d07f",
+    "odd-81.png": "a272700df8a9553636b4778dc49b24f1e9623298c1e505a7599a054b27bc070f",
+    "opaque.png": "22909f273c2cf7c4a92cc6ca06cc44dbb1e72700cbe86c1e20edaae241614aaf",
+    "oriented.jpg": "87e73c42e5abdc560fbf049cd650a48496c2bf5164d8f510f597e7e5ce1b25f7",
+    "oversized.png": "e2860856db2b0a3e8cf2c7b4d2fa1e6cc3788cdf0ee9dc9d61b76e36689388b7",
+    "unsupported.gif": "5a811e9147fa0f778835fb169a7487199139f087b4ffaf1f30a466b9eb1765bd"
+  },
+  "sourceSHA256": {
+    "Aagedal Film Constructor/SystemStillPreview.swift": "f005c8dd0f2db66cc2a809e4fdc379121345def4dd6949f6c06ae357685d6040",
+    "Aagedal Film Constructor/AVFoundationSequenceBackend.swift": "79f345c533f5e05ae0ca396b0280a8d22e2020e1a99d93175f06266caba765a1",
+    "scripts/system-still-smoke.swift": "1f3b164bb61d0a3ba5ed21c39ed6f01d4e14dd47de6ee5fc6947a715948a7606",
+    "scripts/system-still-smoke.sh": "9a8bd754b0e7b38e245c38c2b34e58d80ceeabc2d9e39843620b3a7a0d6d1542"
+  },
+  "ffmpegVersion": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "checks": {
+    "stillSmoke": true,
+    "systemSequenceSmoke": true,
+    "appFileSmoke": true,
+    "repositoryVerify": true,
+    "unsignedDebugBuild": true
+  },
+  "pixelThresholds": {
+    "opaquePrimaryMinimum": 230,
+    "opaqueOtherMaximum": 20,
+    "halfAlphaMaximumError": 18,
+    "blackMaximum": 8
+  },
+  "fullFrameExportParityQualified": false,
+  "signedSandboxQualified": false,
+  "observation": "System still smoke passed: 44 decoded seeks, fit/fill/none, synthetic source trims, stacked alpha/lower layers, exact cuts, EXIF orientation, live playback, malformed/oversized/animated unsupported input and cancellation."
+}

@@ -3,7 +3,7 @@ import AppKit
 import CoreImage
 import EditorCore
 
-/// System-codec preview for ordinary video and whole mono/stereo audio streams.
+/// System-codec preview for video, bounded PNG/JPEG stills and whole mono/stereo audio streams.
 /// The canonical plan supplies trims, ordering, routing, gain and fade geometry.
 @MainActor
 final class AVFoundationSequenceBackend: SequencePlaybackBackend {
@@ -24,6 +24,11 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
     private var target = CMTime.zero
     private var closed = false
     private var hasVideo = false
+    private let stillDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("afc-system-stills-" + UUID().uuidString)
+    private var stillMovies: [URL: URL] = [:]
+    private var stillMovieBytes = 0
+
+    deinit { try? FileManager.default.removeItem(at: stillDirectory) }
 
     init(project: Project, videoProxies: [UUID: MediaProxy]) throws {
         plan = try TimelineRenderPlan(project: project)
@@ -71,7 +76,10 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
         var layers: [(TimelineRenderPlan.Component, AVMutableVideoCompositionLayerInstruction)] = []
         var mixes: [AVAudioMixInputParameters] = []
         var assets: [URL: AVURLAsset] = [:]
-        defer { withExtendedLifetime(assets) {} }
+        defer {
+            withExtendedLifetime(assets) {}
+            if closed { try? FileManager.default.removeItem(at: stillDirectory) }
+        }
         var sourceTracks: [URL: [AVAssetTrack]] = [:]
         for component in plan.components {
             try Task.checkCancellation()
@@ -80,7 +88,27 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             var streamIndex: Int
             switch component.selection {
             case .still:
-                throw Self.unsupported("Still-image sequence preview requires the native FFmpeg runtime. System preview currently supports video and audio.")
+                if let prepared = stillMovies[original] { url = prepared }
+                else {
+                    guard stillMovies.count < 512 else {
+                        throw Self.unsupported("System preview supports up to 512 distinct still images per sequence. Use the native runtime for larger sequences.")
+                    }
+                    url = try await SystemStillPreview.prepare(url: original, directory: stillDirectory)
+                    do {
+                        try Task.checkCancellation()
+                        guard !closed else { throw CancellationError() }
+                        let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                        guard size > 0, size <= 256 * 1024 * 1024 - stillMovieBytes else {
+                            throw Self.unsupported("Still-image preparation exceeds the 256 MB system preview limit. Use the native runtime.")
+                        }
+                        stillMovieBytes += size
+                        stillMovies[original] = url
+                    } catch {
+                        try? FileManager.default.removeItem(at: url)
+                        throw error
+                    }
+                }
+                streamIndex = 0
             case .video(let index):
                 streamIndex = index
                 if let proxy = proxies[component.assetID] { url = proxy.url; streamIndex = 0 }
@@ -108,7 +136,10 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             let source = tracks[streamIndex]
             let video = source.mediaType == .video
             let expectedType: AVMediaType
-            if case .video = component.selection { expectedType = .video } else { expectedType = .audio }
+            switch component.selection {
+            case .video, .still: expectedType = .video
+            case .audio: expectedType = .audio
+            }
             guard source.mediaType == expectedType,
                   video || source.mediaType == .audio else { throw Self.unsupported("Selected stream type does not match the clip.") }
             if !video {
@@ -148,8 +179,24 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             guard let track = composition.addMutableTrack(withMediaType: source.mediaType, preferredTrackID: kCMPersistentTrackID_Invalid) else {
                 throw Self.unsupported("Could not create a sequence preview track.")
             }
-            let range = try CMTimeRange(start: time(component.sourceRange.start), duration: time(component.sourceRange.duration))
-            do { try track.insertTimeRange(range, of: source, at: time(component.timelineRange.start)) }
+            let range: CMTimeRange
+            if component.selection == .still {
+                // Still source In/Out values describe a synthetic hold, not movie frames.
+                range = try await source.load(.timeRange)
+                guard range.duration.isNumeric, CMTimeCompare(range.duration, .zero) > 0 else {
+                    throw Self.unsupported("Could not prepare still-image sequence preview.")
+                }
+            } else {
+                range = try CMTimeRange(start: time(component.sourceRange.start), duration: time(component.sourceRange.duration))
+            }
+            do {
+                let start = try time(component.timelineRange.start)
+                try track.insertTimeRange(range, of: source, at: start)
+                if component.selection == .still {
+                    track.scaleTimeRange(CMTimeRange(start: start, duration: range.duration),
+                        toDuration: try time(component.timelineRange.duration))
+                }
+            }
             catch { throw Self.unsupported("Could not preview \(url.lastPathComponent) stream \(streamIndex): \(error.localizedDescription)") }
             if video {
                 hasVideo = true
@@ -169,11 +216,17 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                         factor = CGFloat(format.width) / bounds.width
                     } else { factor = 1 }
                 }
+                var offsetX = (canvas.width - bounds.width * factor) / 2
+                var offsetY = (canvas.height - bounds.height * factor) / 2
+                if component.selection == .still && component.scalingMode == .none {
+                    // Canonical integer pad/crop centers toward zero at odd dimensions.
+                    offsetX = offsetX.rounded(.towardZero)
+                    offsetY = offsetY.rounded(.towardZero)
+                }
                 let transform = orientation
                     .concatenating(CGAffineTransform(translationX: -bounds.minX, y: -bounds.minY))
                     .concatenating(CGAffineTransform(scaleX: factor, y: factor))
-                    .concatenating(CGAffineTransform(translationX: (canvas.width - bounds.width * factor) / 2,
-                                                    y: (canvas.height - bounds.height * factor) / 2))
+                    .concatenating(CGAffineTransform(translationX: offsetX, y: offsetY))
                 let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
                 layer.setTransform(transform, at: .zero)
                 layers.append((component, layer))
@@ -221,13 +274,21 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 let instruction = AVMutableVideoCompositionInstruction()
                 instruction.timeRange = try CMTimeRange(start: time(start), duration: time(end.subtracting(start)))
                 instruction.backgroundColor = NSColor.black.cgColor
-                instruction.layerInstructions = try layers.filter {
+                let visibleLayers = try layers.filter {
                     try $0.0.timelineRange.start.compared(to: start) != .orderedDescending &&
                         $0.0.timelineRange.end().compared(to: start) == .orderedDescending
                 }.sorted {
                     if $0.0.layerOrder != $1.0.layerOrder { return $0.0.layerOrder < $1.0.layerOrder }
                     return $0.0.clipID.uuidString < $1.0.clipID.uuidString
-                }.prefix(1).map(\.1)
+                }
+                // Still alpha and fit padding reveal lower picture. A video layer
+                // is opaque (including its black fit bars), so stop beneath it.
+                var selected: [AVMutableVideoCompositionLayerInstruction] = []
+                for (component, layer) in visibleLayers {
+                    selected.append(layer)
+                    if case .video = component.selection { break }
+                }
+                instruction.layerInstructions = selected
                 return instruction
             }
             item.videoComposition = videoComposition
@@ -302,5 +363,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
     func close() async {
         closed = true; pause(); polling?.cancel(); polling = nil
         player?.replaceCurrentItem(with: nil); player = nil; output = nil
+        stillMovies.removeAll(); stillMovieBytes = 0
+        try? FileManager.default.removeItem(at: stillDirectory)
     }
 }

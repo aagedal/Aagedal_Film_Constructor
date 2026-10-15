@@ -215,7 +215,7 @@ proxy picture with original audio, and static audio gain up to unity use the
 shared timeline plan. Whole mono/stereo audio streams must match the sequence
 layout and sample rate and use identity routing. Mismatched or unknown source
 sample rates are refused with guidance to match sequence settings or normalize media. Fade and crossfade curves use approximate volume
-ramps. Unsupported formats, still clips, channel maps and boosted audio require
+ramps. Single-frame PNG/JPEG stills up to 4096 pixels per dimension support fit/fill/no scaling and transparency. Unsupported formats, channel maps and boosted audio require
 the native FFmpeg runtime and report a visible preview error.
 
 Run `scripts/system-sequence-smoke.sh /absolute/path/ffmpeg` to verify generated
