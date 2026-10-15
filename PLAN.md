@@ -1978,3 +1978,27 @@ launch-performance claim has been validated yet.
 See [composition evidence](docs/evidence/system-composition-20261015/README.md),
 [ALAC evidence](docs/evidence/native-alac-20261015/qualification.md) and the
 [MPVKit reassessment](docs/media-engine-audit.md#mpvkit-source-viewer-reassessment-2026-10-15).
+
+
+### Source transport backend checkpoint (2026-10-15)
+
+- Source J/K/L, exact seeks, source marks and representation-switch snapshots
+  now use a main-actor backend interface. The AVFoundation adapter retains the
+  current native presentation surface; transport commands no longer read or
+  control AVPlayer directly.
+- Backend replacement cancels outstanding transport work, pauses playback,
+  cancels pending AVFoundation seeks and detaches the player item before media
+  grants are released. Unpublished proxy backends close after obsolete seeks.
+  Clearing source selection also clears pending play intent.
+- Deterministic delayed-seek checks verify pause rejects a deferred restart,
+  replacement stops reverse continuation, marks use backend coordinates and
+  cleanup closes each released backend once. Existing real-source J/K/L and
+  decoded proxy workspace checks pass, including original audio offsets, rapid
+  switching, missing originals and preserved audio-tail positions.
+- Verification: app-file smoke, proxy-workspace smoke, 73 Python tests (eight
+  optional skips), unsigned Debug Xcode build and diff checks pass. Media/bookmark
+  smoke checks require host services outside the restricted tool sandbox.
+- This completes the transport isolation prerequisite for the MPV source viewer.
+  Proxy composition preparation and import still use AVFoundation. MPV loading,
+  broader-container metadata, track identity, native-runtime coexistence and
+  distribution qualification remain open; no new formats are admitted here.

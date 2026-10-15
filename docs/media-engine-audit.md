@@ -111,10 +111,14 @@ The report also records 15 passing signed observation tests and local signed
 Release validation. These are adjacent-app reports, not rerun editor acceptance
 or Developer ID/notarization qualification.
 
-Implementation should first isolate source transport from `EditorStore`'s
-`AVPlayer` storage and `EditorProxy`'s AVFoundation compositions. Preserve source
-In/Out coordinates, J/K/L, pending seeks, cancellation and proxy picture with
-original audio, including explicit silence when originals are missing.
+Source transport is now isolated behind `SourcePlaybackBackend` (2026-10-15).
+`EditorStore` uses backend coordinates, seek/play/pause and explicit close; the
+AVFoundation adapter owns its player and exposes it for native presentation.
+Delayed-seek and real-media workspace checks retain source In/Out coordinates,
+J/K/L, pending play intent, cancellation and proxy picture with original audio,
+including explicit silence when originals are missing. `EditorProxy` still
+prepares AVFoundation compositions; an MPV implementation must provide equivalent
+proxy picture/original audio preparation before installing its backend.
 `MediaImporter.swift` still obtains duration/tracks through AVFoundation;
 adding MPV playback alone will not admit unsupported containers. A broader
 import path needs qualified metadata, such as the bundled FFprobe, and explicit
