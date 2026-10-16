@@ -110,7 +110,8 @@ struct CoexistenceProof {
             } catch PlaybackSessionError.closed {}
             report = ["passed": true, "cycles": 12, "replacements": 12, "oldEpochRejections": 11,
                       "native": native.map(\.json), "captures": captures, "windows": windows,
-                      "closedAdmissionRejected": true]
+                      "closedAdmissionRejected": true,
+                      "inFlight": try await qualifyInFlight(args[1], output: output, concurrent: concurrent)]
         } catch { report["error"] = String(describing: error) }
         if let session { await session.close() }
         do {
