@@ -54,6 +54,14 @@ def validate_embedded_metadata(metadata, data, index, rate, channels, mode):
         raise ValueError('First-packet seek did not return the observed target timestamp')
 
 
+def validate_seek_offset(observed, requested):
+    # MPV stores this option as a C float, while property readback uses double.
+    expected = struct.unpack('f', struct.pack('f', requested))[0]
+    if (type(observed) not in (int, float) or not math.isfinite(observed)
+            or observed != expected):
+        raise ValueError('Runtime seek offset does not match the requested float option')
+
+
 def range_arguments(label, start, count, rate, mode):
     """Only change runtime trimming; reference and capture comparisons stay exact."""
     if mode not in ('timestamp', 'sample-filter') or start < 0 or count <= 0 or rate <= 0:
@@ -110,13 +118,15 @@ def run_proof(args):
               'applicationIntegrated': False, 'commands': [], 'cases': [], 'rejections': [],
               'rangeMode': args.range_mode, 'demuxer': args.demuxer,
               'aacDecoder': args.aac_decoder,
-              'movEditList': args.mov_edit_list,
+              'movEditList': args.mov_edit_list, 'seekOffset': args.seek_offset,
               'embeddedReferences': [],
               'meanAmplitudeTolerance': MEAN_LIMIT, 'peakAmplitudeTolerance': PEAK_LIMIT,
               'comparisonPolicy': 'Exact interleaved sample count, per-channel mean and all-sample peak; no alignment, padding or edge masking',
               'limitations': ['Offline PCM sink; no CoreAudio or hardware synchronization',
                               'Natural playback and start/end loading ranges, not asynchronous in-place seeks or proxy composition',
                               'Generated same-rate mono/stereo subset; no resampling or distribution qualification']}
+    if args.seek_offset is not None:
+        result['limitations'].append('Explicit high-resolution demuxer seek preroll; loading ranges only, not asynchronous in-place seeks')
     if args.range_mode == 'sample-filter':
         result['limitations'].append('Integer atrim decodes every preceding sample from source zero; not a random-access seek solution')
     if args.mov_edit_list == 'basic':
@@ -204,7 +214,8 @@ def run_proof(args):
                     reject_output = root / (reject_name + '.f32')
                     completed = run([executable, fixture, rejected_index, reject_output,
                                      'natural', '3', rate, args.range_mode, args.demuxer,
-                                     'auto', args.mov_edit_list],
+                                     'auto', args.mov_edit_list,
+                                     'default' if args.seek_offset is None else format(args.seek_offset, '.17g')],
                                     reject_name, timeout=25, allow_failure=True)
                     rejected = (completed.returncode == 3
                                 and json.loads(completed.stdout) == {'rejected': True, 'ffIndex': rejected_index}
@@ -256,7 +267,8 @@ def run_proof(args):
                                          *range_arguments(label, start, count, rate, args.range_mode),
                                          rate, args.range_mode, args.demuxer,
                                          args.aac_decoder if codec == 'aac' else 'auto',
-                                         args.mov_edit_list],
+                                         args.mov_edit_list,
+                                         'default' if args.seek_offset is None else format(args.seek_offset, '.17g')],
                                         case_name, timeout=25, allow_failure=True)
                         case = {'name': case_name, 'codec': codec, 'rate': rate, 'channels': channels,
                                 'ffIndex': ff_index, 'startSample': start, 'requestedSamples': count,
@@ -272,6 +284,8 @@ def run_proof(args):
                                     or case['selection'].get('audioTrackID') != stream + 1
                                     or case['selection'].get('movEditList') != args.mov_edit_list):
                                 raise ValueError('Runtime track identity did not match requested audio stream')
+                            if args.seek_offset is not None:
+                                validate_seek_offset(case['selection'].get('seekOffset'), args.seek_offset)
                             expected = reference_bytes[start * channels * 4:(start + count) * channels * 4]
                             if len(expected) != count * channels * 4:
                                 raise ValueError('Reference does not cover requested nominal source range')
@@ -323,6 +337,8 @@ def main():
     parser.add_argument('--demuxer', choices=('auto', 'lavf'), default='auto')
     parser.add_argument('--mov-edit-list', choices=('default', 'basic'), default='default',
                         help='Basic passes advanced_editlist=0 to forced lavf; does not disable edit lists')
+    parser.add_argument('--seek-offset', type=float,
+                        help='Explicit hr-seek demuxer preroll in seconds; timestamp mode only')
     parser.add_argument('--aac-decoder', choices=('auto', 'aac', 'aac_fixed', 'aac_at'), default='auto',
                         help='AAC-only decoder control; forced names disable fallback and require observed selection')
     parser.add_argument('--embedded-reference', action='store_true',
@@ -332,6 +348,9 @@ def main():
     args = parser.parse_args()
     if args.mov_edit_list == 'basic' and args.demuxer != 'lavf':
         parser.error('--mov-edit-list basic requires --demuxer lavf')
+    if args.seek_offset is not None and (not math.isfinite(args.seek_offset)
+            or not 0 <= args.seek_offset <= 3.4028234663852886e38 or args.range_mode != 'timestamp'):
+        parser.error('--seek-offset requires finite nonnegative seconds and --range-mode timestamp')
     for name in ('checkout', 'artifacts', 'ffmpeg', 'output'):
         if not getattr(args, name).is_absolute():
             parser.error(name + ' must be absolute')

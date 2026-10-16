@@ -23,6 +23,25 @@ class AudioComparisonTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 2)
         self.assertIn('--mov-edit-list basic requires --demuxer lavf', completed.stderr)
 
+    def test_seek_offset_rejects_nonfinite_negative_and_filter_modes(self):
+        for options in (['--seek-offset', 'nan'], ['--seek-offset', 'inf'],
+                        ['--seek-offset', '-0.1'], ['--seek-offset', '1e300'],
+                        ['--seek-offset', '0.1', '--range-mode', 'sample-filter']):
+            with self.subTest(options=options):
+                completed = subprocess.run(
+                    [sys.executable, str(Path(proof.__file__)), *options,
+                     '/missing/checkout', '/missing/artifacts', '/missing/ffmpeg', '/missing/output'],
+                    capture_output=True, text=True)
+                self.assertEqual(completed.returncode, 2)
+                self.assertIn('--seek-offset requires finite nonnegative seconds', completed.stderr)
+
+    def test_seek_offset_readback_matches_mpv_float_storage_exactly(self):
+        proof.validate_seek_offset(0.10000000149011612, 0.1)
+        proof.validate_seek_offset(0, 0)
+        for observed in (None, True, float('nan'), float('inf'), 0.1, 0.2):
+            with self.subTest(observed=observed), self.assertRaises(ValueError):
+                proof.validate_seek_offset(observed, 0.1)
+
     def test_embedded_control_checks_identity_output_and_seek_target(self):
         base = {'passed': True, 'decoder': 'aac', 'seekZero': False,
                 'seekFirstPacket': True, 'useFrameDuration': False,
