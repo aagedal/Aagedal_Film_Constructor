@@ -64,11 +64,11 @@ def validate_seek_offset(observed, requested):
 
 def range_arguments(label, start, count, rate, mode):
     """Only change runtime trimming; reference and capture comparisons stay exact."""
-    if mode not in ('timestamp', 'sample-filter') or start < 0 or count <= 0 or rate <= 0:
+    if mode not in ('timestamp', 'sample-filter', 'pts-filter') or start < 0 or count <= 0 or rate <= 0:
         raise ValueError('Invalid range strategy or sample coordinates')
     if label == 'natural':
         return ['natural', format((start + count) / rate, '.17g')]
-    if mode == 'sample-filter':
+    if mode in ('sample-filter', 'pts-filter'):
         return [str(start), str(start + count)]
     return [format(start / rate, '.17g'), format((start + count) / rate, '.17g')]
 
@@ -119,6 +119,7 @@ def run_proof(args):
               'rangeMode': args.range_mode, 'demuxer': args.demuxer,
               'aacDecoder': args.aac_decoder,
               'movEditList': args.mov_edit_list, 'seekOffset': args.seek_offset,
+              'filterPreroll': args.filter_preroll,
               'embeddedReferences': [],
               'meanAmplitudeTolerance': MEAN_LIMIT, 'peakAmplitudeTolerance': PEAK_LIMIT,
               'comparisonPolicy': 'Exact interleaved sample count, per-channel mean and all-sample peak; no alignment, padding or edge masking',
@@ -129,6 +130,8 @@ def run_proof(args):
         result['limitations'].append('Explicit high-resolution demuxer seek preroll; loading ranges only, not asynchronous in-place seeks')
     if args.range_mode == 'sample-filter':
         result['limitations'].append('Integer atrim decodes every preceding sample from source zero; not a random-access seek solution')
+    if args.range_mode == 'pts-filter':
+        result['limitations'].append('Absolute sample-timebase atrim after an earlier loading seek; no in-place seek, full-duration efficiency or arbitrary timestamp qualification')
     if args.mov_edit_list == 'basic':
         result['limitations'].append('Explicit lavf advanced_editlist=0 control; generated single-edit MOV only, not complex edit-list qualification')
 
@@ -215,7 +218,8 @@ def run_proof(args):
                     completed = run([executable, fixture, rejected_index, reject_output,
                                      'natural', '3', rate, args.range_mode, args.demuxer,
                                      'auto', args.mov_edit_list,
-                                     'default' if args.seek_offset is None else format(args.seek_offset, '.17g')],
+                                     'default' if args.seek_offset is None else format(args.seek_offset, '.17g'),
+                                     'default' if args.filter_preroll is None else format(args.filter_preroll, '.17g')],
                                     reject_name, timeout=25, allow_failure=True)
                     rejected = (completed.returncode == 3
                                 and json.loads(completed.stdout) == {'rejected': True, 'ffIndex': rejected_index}
@@ -268,7 +272,8 @@ def run_proof(args):
                                          rate, args.range_mode, args.demuxer,
                                          args.aac_decoder if codec == 'aac' else 'auto',
                                          args.mov_edit_list,
-                                         'default' if args.seek_offset is None else format(args.seek_offset, '.17g')],
+                                         'default' if args.seek_offset is None else format(args.seek_offset, '.17g'),
+                                         'default' if args.filter_preroll is None else format(args.filter_preroll, '.17g')],
                                         case_name, timeout=25, allow_failure=True)
                         case = {'name': case_name, 'codec': codec, 'rate': rate, 'channels': channels,
                                 'ffIndex': ff_index, 'startSample': start, 'requestedSamples': count,
@@ -284,6 +289,9 @@ def run_proof(args):
                                     or case['selection'].get('audioTrackID') != stream + 1
                                     or case['selection'].get('movEditList') != args.mov_edit_list):
                                 raise ValueError('Runtime track identity did not match requested audio stream')
+                            if args.filter_preroll is not None and (
+                                    case['selection'].get('filterPreroll') != args.filter_preroll):
+                                raise ValueError('Runtime filter preroll does not match requested control')
                             if args.seek_offset is not None:
                                 validate_seek_offset(case['selection'].get('seekOffset'), args.seek_offset)
                             expected = reference_bytes[start * channels * 4:(start + count) * channels * 4]
@@ -332,13 +340,15 @@ def run_proof(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sanitize-address', action='store_true')
-    parser.add_argument('--range-mode', choices=('timestamp', 'sample-filter'), default='timestamp',
-                        help='Integer filter mode decodes from zero; it does not qualify random access')
+    parser.add_argument('--range-mode', choices=('timestamp', 'sample-filter', 'pts-filter'), default='timestamp',
+                        help='sample-filter decodes from zero; pts-filter preserves timestamps after a preroll loading seek')
     parser.add_argument('--demuxer', choices=('auto', 'lavf'), default='auto')
     parser.add_argument('--mov-edit-list', choices=('default', 'basic'), default='default',
                         help='Basic passes advanced_editlist=0 to forced lavf; does not disable edit lists')
     parser.add_argument('--seek-offset', type=float,
                         help='Explicit hr-seek demuxer preroll in seconds; timestamp mode only')
+    parser.add_argument('--filter-preroll', type=float,
+                        help='PTS filter only: start playback this many seconds before the requested integer cut')
     parser.add_argument('--aac-decoder', choices=('auto', 'aac', 'aac_fixed', 'aac_at'), default='auto',
                         help='AAC-only decoder control; forced names disable fallback and require observed selection')
     parser.add_argument('--embedded-reference', action='store_true',
@@ -351,6 +361,10 @@ def main():
     if args.seek_offset is not None and (not math.isfinite(args.seek_offset)
             or not 0 <= args.seek_offset <= 3.4028234663852886e38 or args.range_mode != 'timestamp'):
         parser.error('--seek-offset requires finite nonnegative seconds and --range-mode timestamp')
+    if ((args.range_mode == 'pts-filter') != (args.filter_preroll is not None)
+            or (args.filter_preroll is not None and (not math.isfinite(args.filter_preroll)
+                or not 0 <= args.filter_preroll <= 3600))):
+        parser.error('--range-mode pts-filter requires --filter-preroll with finite seconds from 0 to 3600; other modes forbid it')
     for name in ('checkout', 'artifacts', 'ffmpeg', 'output'):
         if not getattr(args, name).is_absolute():
             parser.error(name + ' must be absolute')

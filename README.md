@@ -310,3 +310,10 @@ now tests MPV loading ranges with 0/100/500 ms demuxer preroll. Larger preroll
 fixes two early AAC comparisons but leaves later content and exact-count failures;
 all natural AAC tails remain excessive. This diagnostic preserves the prior
 bounded decode-from-zero result and leaves application source playback unchanged.
+
+
+The [absolute-PTS seek control](docs/evidence/mpv-pts-seek-20261016/README.md)
+now separates an earlier MPV playback start from integer timestamp-based output
+cuts. PCM and ALAC each pass all 24 comparisons, including nonzero tail seeks;
+500 ms preroll passes 68/96 comparisons overall. Natural AAC EOF and broader compressed-audio seeking remain
+unqualified; application source playback stays AVFoundation.
