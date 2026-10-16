@@ -651,3 +651,10 @@ errors and peak pixel coordinates. The unchanged colored failure is concentrated
 at chroma boundaries; the reference conversion and 3/32 limits remain unchanged.
 
 See [commands, hashes, scope and retained positive/negative reports](evidence/mpv-source-20261016/README.md).
+
+The next [asynchronous bridge proof](evidence/mpv-async-source-20261016/README.md)
+now exercises a Swift main-actor client with copied bounded events, explicit
+selected-track readback, exact seeks, EOF recovery and pending-load/seek teardown.
+AddressSanitizer covers the new bridge/client, and all 60 grayscale captures pass
+the unchanged RGB bounds. It installs no foreign callbacks and uses null sinks;
+app presentation, audio output, proxy composition and distribution remain open.
