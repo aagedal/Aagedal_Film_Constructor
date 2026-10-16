@@ -264,3 +264,9 @@ conversion disagreements. A separate [private-library coexistence proof](docs/ev
 passes both load orders with concurrent native decoding. CoreAudio, native
 display, Swift playback coordination and application integration remain open. Source playback in ordinary builds
 continues to use AVFoundation.
+
+A private [asynchronous source bridge](docs/evidence/mpv-async-source-20261016/README.md)
+now passes a Swift main-actor lifecycle and decoded-seek proof with AddressSanitizer
+on the new bridge/client. It qualifies bounded polling, request correlation,
+track selection, EOF recovery and pending-work teardown. App integration and
+native audio/video presentation remain open.

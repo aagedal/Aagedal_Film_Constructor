@@ -2081,3 +2081,27 @@ Testing suites, host app-file and proxy-workspace smokes, unsigned Debug Xcode
 build and diff checks pass. The colored matrix intentionally retains its nonzero
 result. App/proxy smoke services and Xcode package caches require host access
 outside the restricted tool sandbox.
+
+### Private asynchronous MPV source bridge checkpoint (2026-10-16)
+
+- Added an opaque private C source bridge with asynchronous load/track selection,
+  exact seeks, pause/play, correlated command replies and bounded copied events.
+  Explicit `ff-index`/kind resolution and selected-property verification precede
+  OPENED. The dylib exports only nine bridge functions; no media-library API or
+  borrowed MPV allocation crosses the ABI.
+- A Swift 6 main-actor client passes 12 lifecycle cycles, 60 decoded seek captures,
+  36 rapid commands, duplicate-ID rejection, the 64-request admission ceiling,
+  EOF/recovery, disabled media types, corrupt-file/missing/wrong-kind rejection
+  and 12 closes during loads/seeks. EOF caching and coalesced unchanged-position
+  regressions are fixed. All captures meet unchanged grayscale RGB limits of 3/32.
+- AddressSanitizer instruments the bridge and Swift client; cached archives remain
+  uninstrumented. No foreign callbacks are installed: bounded polling avoids that
+  lifetime boundary. Closing joins MPV workers before releasing the handle.
+- Verification: 91 Python tests (eight optional skips), 106 core XCTest tests
+  (two optional skips), 87 Swift Testing tests, workspace smokes and unsigned
+  Debug Xcode build pass. Xcode requires host package-cache access.
+- This is a development bridge proof, not an app backend change. Color, decoded
+  MPV audio, CoreAudio/GPU presentation, hardware sync, proxy composition,
+  Swift sequence coexistence, signed sandbox and distribution remain open.
+
+See [asynchronous source evidence](docs/evidence/mpv-async-source-20261016/README.md).

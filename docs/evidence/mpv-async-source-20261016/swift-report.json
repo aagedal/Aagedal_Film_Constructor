@@ -1,0 +1,433 @@
+{
+  "boundedReplies" : 64,
+  "captures" : [
+    {
+      "file" : "cycle-0-frame-0.rgb",
+      "height" : 180,
+      "position" : 0,
+      "target" : 0,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-0-frame-36.rgb",
+      "height" : 180,
+      "position" : 1.5,
+      "target" : 1.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-0-frame-6.rgb",
+      "height" : 180,
+      "position" : 0.25,
+      "target" : 0.25,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-0-frame-48.rgb",
+      "height" : 180,
+      "position" : 2,
+      "target" : 2,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-0-frame-12.rgb",
+      "height" : 180,
+      "position" : 0.5,
+      "target" : 0.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-1-frame-0.rgb",
+      "height" : 180,
+      "position" : 0,
+      "target" : 0,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-1-frame-36.rgb",
+      "height" : 180,
+      "position" : 1.5,
+      "target" : 1.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-1-frame-6.rgb",
+      "height" : 180,
+      "position" : 0.25,
+      "target" : 0.25,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-1-frame-48.rgb",
+      "height" : 180,
+      "position" : 2,
+      "target" : 2,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-1-frame-12.rgb",
+      "height" : 180,
+      "position" : 0.5,
+      "target" : 0.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-2-frame-0.rgb",
+      "height" : 180,
+      "position" : 0,
+      "target" : 0,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-2-frame-36.rgb",
+      "height" : 180,
+      "position" : 1.5,
+      "target" : 1.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-2-frame-6.rgb",
+      "height" : 180,
+      "position" : 0.25,
+      "target" : 0.25,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-2-frame-48.rgb",
+      "height" : 180,
+      "position" : 2,
+      "target" : 2,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-2-frame-12.rgb",
+      "height" : 180,
+      "position" : 0.5,
+      "target" : 0.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-3-frame-0.rgb",
+      "height" : 180,
+      "position" : 0,
+      "target" : 0,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-3-frame-36.rgb",
+      "height" : 180,
+      "position" : 1.5,
+      "target" : 1.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-3-frame-6.rgb",
+      "height" : 180,
+      "position" : 0.25,
+      "target" : 0.25,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-3-frame-48.rgb",
+      "height" : 180,
+      "position" : 2,
+      "target" : 2,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-3-frame-12.rgb",
+      "height" : 180,
+      "position" : 0.5,
+      "target" : 0.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-4-frame-0.rgb",
+      "height" : 180,
+      "position" : 0,
+      "target" : 0,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-4-frame-36.rgb",
+      "height" : 180,
+      "position" : 1.5,
+      "target" : 1.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-4-frame-6.rgb",
+      "height" : 180,
+      "position" : 0.25,
+      "target" : 0.25,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-4-frame-48.rgb",
+      "height" : 180,
+      "position" : 2,
+      "target" : 2,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-4-frame-12.rgb",
+      "height" : 180,
+      "position" : 0.5,
+      "target" : 0.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-5-frame-0.rgb",
+      "height" : 180,
+      "position" : 0,
+      "target" : 0,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-5-frame-36.rgb",
+      "height" : 180,
+      "position" : 1.5,
+      "target" : 1.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-5-frame-6.rgb",
+      "height" : 180,
+      "position" : 0.25,
+      "target" : 0.25,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-5-frame-48.rgb",
+      "height" : 180,
+      "position" : 2,
+      "target" : 2,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-5-frame-12.rgb",
+      "height" : 180,
+      "position" : 0.5,
+      "target" : 0.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-6-frame-0.rgb",
+      "height" : 180,
+      "position" : 0,
+      "target" : 0,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-6-frame-36.rgb",
+      "height" : 180,
+      "position" : 1.5,
+      "target" : 1.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-6-frame-6.rgb",
+      "height" : 180,
+      "position" : 0.25,
+      "target" : 0.25,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-6-frame-48.rgb",
+      "height" : 180,
+      "position" : 2,
+      "target" : 2,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-6-frame-12.rgb",
+      "height" : 180,
+      "position" : 0.5,
+      "target" : 0.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-7-frame-0.rgb",
+      "height" : 180,
+      "position" : 0,
+      "target" : 0,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-7-frame-36.rgb",
+      "height" : 180,
+      "position" : 1.5,
+      "target" : 1.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-7-frame-6.rgb",
+      "height" : 180,
+      "position" : 0.25,
+      "target" : 0.25,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-7-frame-48.rgb",
+      "height" : 180,
+      "position" : 2,
+      "target" : 2,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-7-frame-12.rgb",
+      "height" : 180,
+      "position" : 0.5,
+      "target" : 0.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-8-frame-0.rgb",
+      "height" : 180,
+      "position" : 0,
+      "target" : 0,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-8-frame-36.rgb",
+      "height" : 180,
+      "position" : 1.5,
+      "target" : 1.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-8-frame-6.rgb",
+      "height" : 180,
+      "position" : 0.25,
+      "target" : 0.25,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-8-frame-48.rgb",
+      "height" : 180,
+      "position" : 2,
+      "target" : 2,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-8-frame-12.rgb",
+      "height" : 180,
+      "position" : 0.5,
+      "target" : 0.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-9-frame-0.rgb",
+      "height" : 180,
+      "position" : 0,
+      "target" : 0,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-9-frame-36.rgb",
+      "height" : 180,
+      "position" : 1.5,
+      "target" : 1.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-9-frame-6.rgb",
+      "height" : 180,
+      "position" : 0.25,
+      "target" : 0.25,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-9-frame-48.rgb",
+      "height" : 180,
+      "position" : 2,
+      "target" : 2,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-9-frame-12.rgb",
+      "height" : 180,
+      "position" : 0.5,
+      "target" : 0.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-10-frame-0.rgb",
+      "height" : 180,
+      "position" : 0,
+      "target" : 0,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-10-frame-36.rgb",
+      "height" : 180,
+      "position" : 1.5,
+      "target" : 1.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-10-frame-6.rgb",
+      "height" : 180,
+      "position" : 0.25,
+      "target" : 0.25,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-10-frame-48.rgb",
+      "height" : 180,
+      "position" : 2,
+      "target" : 2,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-10-frame-12.rgb",
+      "height" : 180,
+      "position" : 0.5,
+      "target" : 0.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-11-frame-0.rgb",
+      "height" : 180,
+      "position" : 0,
+      "target" : 0,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-11-frame-36.rgb",
+      "height" : 180,
+      "position" : 1.5,
+      "target" : 1.5,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-11-frame-6.rgb",
+      "height" : 180,
+      "position" : 0.25,
+      "target" : 0.25,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-11-frame-48.rgb",
+      "height" : 180,
+      "position" : 2,
+      "target" : 2,
+      "width" : 320
+    },
+    {
+      "file" : "cycle-11-frame-12.rgb",
+      "height" : 180,
+      "position" : 0.5,
+      "target" : 0.5,
+      "width" : 320
+    }
+  ],
+  "cycles" : 12,
+  "disabledTypes" : 2,
+  "eofRecoveries" : 1,
+  "passed" : true,
+  "pendingCloses" : 12,
+  "rapidCommands" : 36,
+  "rejections" : 7,
+  "seeks" : 60
+}

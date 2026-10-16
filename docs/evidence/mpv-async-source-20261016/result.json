@@ -1,0 +1,2629 @@
+{
+  "passed": true,
+  "applicationIntegrated": false,
+  "coreAudioTested": false,
+  "nativeDisplayTested": false,
+  "callbacksTested": false,
+  "commands": [
+    {
+      "name": "swiftc-path",
+      "argv": [
+        "/usr/bin/xcrun",
+        "--find",
+        "swiftc"
+      ]
+    },
+    {
+      "name": "sdk-path",
+      "argv": [
+        "/usr/bin/xcrun",
+        "--show-sdk-path"
+      ]
+    },
+    {
+      "name": "compile-bridge",
+      "argv": [
+        "/usr/bin/clang",
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "-arch",
+        "arm64",
+        "-mmacosx-version-min=27.0",
+        "-dynamiclib",
+        "-Wl,-install_name,/private/tmp/afc-mpv-async-20261016-final-asan/libAFCMPVSourceBridge.dylib",
+        "-Wl,-exported_symbols_list,/private/tmp/afc-mpv-async-20261016-final-asan/exports.txt",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx",
+        "-I",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libmpv-GPL/Libmpv.xcframework/macos-arm64_x86_64/Libmpv.framework/Headers",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/sources/mpv-source-bridge.c",
+        "-fsanitize=address",
+        "-fno-omit-frame-pointer",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libmpv-GPL/Libmpv.xcframework/macos-arm64_x86_64/Libmpv.framework/Libmpv",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavcodec-GPL/Libavcodec.xcframework/macos-arm64_x86_64/Libavcodec.framework/Libavcodec",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavdevice-GPL/Libavdevice.xcframework/macos-arm64_x86_64/Libavdevice.framework/Libavdevice",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavfilter-GPL/Libavfilter.xcframework/macos-arm64_x86_64/Libavfilter.framework/Libavfilter",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavformat-GPL/Libavformat.xcframework/macos-arm64_x86_64/Libavformat.framework/Libavformat",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavutil-GPL/Libavutil.xcframework/macos-arm64_x86_64/Libavutil.framework/Libavutil",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libswresample-GPL/Libswresample.xcframework/macos-arm64_x86_64/Libswresample.framework/Libswresample",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libswscale-GPL/Libswscale.xcframework/macos-arm64_x86_64/Libswscale.framework/Libswscale",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libssl/Libssl.xcframework/macos-arm64_x86_64/Libssl.framework/Libssl",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libcrypto/Libcrypto.xcframework/macos-arm64_x86_64/Libcrypto.framework/Libcrypto",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libass/Libass.xcframework/macos-arm64_x86_64/Libass.framework/Libass",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libfreetype/Libfreetype.xcframework/macos-arm64_x86_64/Libfreetype.framework/Libfreetype",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libfribidi/Libfribidi.xcframework/macos-arm64_x86_64/Libfribidi.framework/Libfribidi",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libharfbuzz/Libharfbuzz.xcframework/macos-arm64_x86_64/Libharfbuzz.framework/Libharfbuzz",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/MoltenVK/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libshaderc_combined/Libshaderc_combined.xcframework/macos-arm64_x86_64/Libshaderc_combined.framework/Libshaderc_combined",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/lcms2/lcms2.xcframework/macos-arm64_x86_64/lcms2.framework/lcms2",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libplacebo/Libplacebo.xcframework/macos-arm64_x86_64/Libplacebo.framework/Libplacebo",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libdovi/Libdovi.xcframework/macos-arm64_x86_64/Libdovi.framework/Libdovi",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libunibreak/Libunibreak.xcframework/macos-arm64_x86_64/Libunibreak.framework/Libunibreak",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libsmbclient/Libsmbclient.xcframework/macos-arm64_x86_64/Libsmbclient.framework/Libsmbclient",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/gmp/gmp.xcframework/macos-arm64_x86_64/gmp.framework/gmp",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/nettle/nettle.xcframework/macos-arm64_x86_64/nettle.framework/nettle",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/hogweed/hogweed.xcframework/macos-arm64_x86_64/hogweed.framework/hogweed",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/gnutls/gnutls.xcframework/macos-arm64_x86_64/gnutls.framework/gnutls",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libdav1d/Libdav1d.xcframework/macos-arm64_x86_64/Libdav1d.framework/Libdav1d",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libuavs3d/Libuavs3d.xcframework/macos-arm64_x86_64/Libuavs3d.framework/Libuavs3d",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libuchardet/Libuchardet.xcframework/macos-arm64_x86_64/Libuchardet.framework/Libuchardet",
+        "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libbluray/Libbluray.xcframework/macos-arm64_x86_64/Libbluray.framework/Libbluray",
+        "-framework",
+        "AVFoundation",
+        "-framework",
+        "CoreAudio",
+        "-framework",
+        "AudioToolbox",
+        "-framework",
+        "CoreVideo",
+        "-framework",
+        "CoreFoundation",
+        "-framework",
+        "CoreMedia",
+        "-framework",
+        "Metal",
+        "-framework",
+        "VideoToolbox",
+        "-lbz2",
+        "-liconv",
+        "-lexpat",
+        "-lresolv",
+        "-lxml2",
+        "-lz",
+        "-lc++",
+        "-o",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/libAFCMPVSourceBridge.dylib"
+      ]
+    },
+    {
+      "name": "exports",
+      "argv": [
+        "/usr/bin/nm",
+        "-gjU",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/libAFCMPVSourceBridge.dylib"
+      ]
+    },
+    {
+      "name": "compile-swift",
+      "argv": [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+        "-swift-version",
+        "6",
+        "-strict-concurrency=complete",
+        "-parse-as-library",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+        "-target",
+        "arm64-apple-macosx27.0",
+        "-module-cache-path",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/module-cache",
+        "-import-objc-header",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/sources/mpv-source-bridge.h",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/sources/mpv-async-source-proof.swift",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/libAFCMPVSourceBridge.dylib",
+        "-o",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/swift-source-client",
+        "-sanitize=address"
+      ]
+    },
+    {
+      "name": "bridge-linked-libraries",
+      "argv": [
+        "/usr/bin/otool",
+        "-L",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/libAFCMPVSourceBridge.dylib"
+      ]
+    },
+    {
+      "name": "ffmpeg-version",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-version"
+      ]
+    },
+    {
+      "name": "generate",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-hide_banner",
+        "-nostdin",
+        "-n",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=320x180:rate=24:duration=3,hue=s=0",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=440:sample_rate=48000:duration=3",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=880:sample_rate=48000:duration=3",
+        "-map",
+        "0:v",
+        "-map",
+        "1:a",
+        "-map",
+        "2:a",
+        "-c:v",
+        "prores_ks",
+        "-profile:v",
+        "3",
+        "-pix_fmt",
+        "yuv422p10le",
+        "-c:a",
+        "pcm_s16le",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/source.mov"
+      ]
+    },
+    {
+      "name": "reorder",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/source.mov",
+        "-map",
+        "0:1",
+        "-map",
+        "0:0",
+        "-map",
+        "0:2",
+        "-c",
+        "copy",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/reordered.mkv"
+      ]
+    },
+    {
+      "name": "swift-client",
+      "argv": [
+        "/private/tmp/afc-mpv-async-20261016-final-asan/swift-source-client",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/source.mov",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/reordered.mkv",
+        "/private/tmp/afc-mpv-async-20261016-final-asan"
+      ]
+    },
+    {
+      "name": "reference-0",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,0)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/reference-0.rgb"
+      ]
+    },
+    {
+      "name": "reference-36",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,36)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/reference-36.rgb"
+      ]
+    },
+    {
+      "name": "reference-6",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,6)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/reference-6.rgb"
+      ]
+    },
+    {
+      "name": "reference-48",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,48)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/reference-48.rgb"
+      ]
+    },
+    {
+      "name": "reference-12",
+      "argv": [
+        "/opt/homebrew/bin/ffmpeg",
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-i",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/source.mov",
+        "-map",
+        "0:0",
+        "-vf",
+        "select=eq(n\\,12)",
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        "/private/tmp/afc-mpv-async-20261016-final-asan/reference-12.rgb"
+      ]
+    }
+  ],
+  "comparisons": [
+    {
+      "meanRGBError": 1.8199131944444444,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8199131944444444,
+        "green": 1.8199131944444444,
+        "blue": 1.8199131944444444
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-0-frame-0.rgb"
+    },
+    {
+      "meanRGBError": 1.813107638888889,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.813107638888889,
+        "green": 1.813107638888889,
+        "blue": 1.813107638888889
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-0-frame-36.rgb"
+    },
+    {
+      "meanRGBError": 1.8144965277777778,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8144965277777778,
+        "green": 1.8144965277777778,
+        "blue": 1.8144965277777778
+      },
+      "peakError": {
+        "pixelIndex": 72,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 72,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-0-frame-6.rgb"
+    },
+    {
+      "meanRGBError": 1.8146527777777777,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8146527777777777,
+        "green": 1.8146527777777777,
+        "blue": 1.8146527777777777
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-0-frame-48.rgb"
+    },
+    {
+      "meanRGBError": 1.81359375,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.81359375,
+        "green": 1.81359375,
+        "blue": 1.81359375
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-0-frame-12.rgb"
+    },
+    {
+      "meanRGBError": 1.8199131944444444,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8199131944444444,
+        "green": 1.8199131944444444,
+        "blue": 1.8199131944444444
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-1-frame-0.rgb"
+    },
+    {
+      "meanRGBError": 1.813107638888889,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.813107638888889,
+        "green": 1.813107638888889,
+        "blue": 1.813107638888889
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-1-frame-36.rgb"
+    },
+    {
+      "meanRGBError": 1.8144965277777778,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8144965277777778,
+        "green": 1.8144965277777778,
+        "blue": 1.8144965277777778
+      },
+      "peakError": {
+        "pixelIndex": 72,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 72,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-1-frame-6.rgb"
+    },
+    {
+      "meanRGBError": 1.8146527777777777,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8146527777777777,
+        "green": 1.8146527777777777,
+        "blue": 1.8146527777777777
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-1-frame-48.rgb"
+    },
+    {
+      "meanRGBError": 1.81359375,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.81359375,
+        "green": 1.81359375,
+        "blue": 1.81359375
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-1-frame-12.rgb"
+    },
+    {
+      "meanRGBError": 1.8199131944444444,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8199131944444444,
+        "green": 1.8199131944444444,
+        "blue": 1.8199131944444444
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-2-frame-0.rgb"
+    },
+    {
+      "meanRGBError": 1.813107638888889,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.813107638888889,
+        "green": 1.813107638888889,
+        "blue": 1.813107638888889
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-2-frame-36.rgb"
+    },
+    {
+      "meanRGBError": 1.8144965277777778,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8144965277777778,
+        "green": 1.8144965277777778,
+        "blue": 1.8144965277777778
+      },
+      "peakError": {
+        "pixelIndex": 72,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 72,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-2-frame-6.rgb"
+    },
+    {
+      "meanRGBError": 1.8146527777777777,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8146527777777777,
+        "green": 1.8146527777777777,
+        "blue": 1.8146527777777777
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-2-frame-48.rgb"
+    },
+    {
+      "meanRGBError": 1.81359375,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.81359375,
+        "green": 1.81359375,
+        "blue": 1.81359375
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-2-frame-12.rgb"
+    },
+    {
+      "meanRGBError": 1.8199131944444444,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8199131944444444,
+        "green": 1.8199131944444444,
+        "blue": 1.8199131944444444
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-3-frame-0.rgb"
+    },
+    {
+      "meanRGBError": 1.813107638888889,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.813107638888889,
+        "green": 1.813107638888889,
+        "blue": 1.813107638888889
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-3-frame-36.rgb"
+    },
+    {
+      "meanRGBError": 1.8144965277777778,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8144965277777778,
+        "green": 1.8144965277777778,
+        "blue": 1.8144965277777778
+      },
+      "peakError": {
+        "pixelIndex": 72,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 72,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-3-frame-6.rgb"
+    },
+    {
+      "meanRGBError": 1.8146527777777777,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8146527777777777,
+        "green": 1.8146527777777777,
+        "blue": 1.8146527777777777
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-3-frame-48.rgb"
+    },
+    {
+      "meanRGBError": 1.81359375,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.81359375,
+        "green": 1.81359375,
+        "blue": 1.81359375
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-3-frame-12.rgb"
+    },
+    {
+      "meanRGBError": 1.8199131944444444,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8199131944444444,
+        "green": 1.8199131944444444,
+        "blue": 1.8199131944444444
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-4-frame-0.rgb"
+    },
+    {
+      "meanRGBError": 1.813107638888889,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.813107638888889,
+        "green": 1.813107638888889,
+        "blue": 1.813107638888889
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-4-frame-36.rgb"
+    },
+    {
+      "meanRGBError": 1.8144965277777778,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8144965277777778,
+        "green": 1.8144965277777778,
+        "blue": 1.8144965277777778
+      },
+      "peakError": {
+        "pixelIndex": 72,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 72,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-4-frame-6.rgb"
+    },
+    {
+      "meanRGBError": 1.8146527777777777,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8146527777777777,
+        "green": 1.8146527777777777,
+        "blue": 1.8146527777777777
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-4-frame-48.rgb"
+    },
+    {
+      "meanRGBError": 1.81359375,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.81359375,
+        "green": 1.81359375,
+        "blue": 1.81359375
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-4-frame-12.rgb"
+    },
+    {
+      "meanRGBError": 1.8199131944444444,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8199131944444444,
+        "green": 1.8199131944444444,
+        "blue": 1.8199131944444444
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-5-frame-0.rgb"
+    },
+    {
+      "meanRGBError": 1.813107638888889,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.813107638888889,
+        "green": 1.813107638888889,
+        "blue": 1.813107638888889
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-5-frame-36.rgb"
+    },
+    {
+      "meanRGBError": 1.8144965277777778,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8144965277777778,
+        "green": 1.8144965277777778,
+        "blue": 1.8144965277777778
+      },
+      "peakError": {
+        "pixelIndex": 72,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 72,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-5-frame-6.rgb"
+    },
+    {
+      "meanRGBError": 1.8146527777777777,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8146527777777777,
+        "green": 1.8146527777777777,
+        "blue": 1.8146527777777777
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-5-frame-48.rgb"
+    },
+    {
+      "meanRGBError": 1.81359375,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.81359375,
+        "green": 1.81359375,
+        "blue": 1.81359375
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-5-frame-12.rgb"
+    },
+    {
+      "meanRGBError": 1.8199131944444444,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8199131944444444,
+        "green": 1.8199131944444444,
+        "blue": 1.8199131944444444
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-6-frame-0.rgb"
+    },
+    {
+      "meanRGBError": 1.813107638888889,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.813107638888889,
+        "green": 1.813107638888889,
+        "blue": 1.813107638888889
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-6-frame-36.rgb"
+    },
+    {
+      "meanRGBError": 1.8144965277777778,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8144965277777778,
+        "green": 1.8144965277777778,
+        "blue": 1.8144965277777778
+      },
+      "peakError": {
+        "pixelIndex": 72,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 72,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-6-frame-6.rgb"
+    },
+    {
+      "meanRGBError": 1.8146527777777777,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8146527777777777,
+        "green": 1.8146527777777777,
+        "blue": 1.8146527777777777
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-6-frame-48.rgb"
+    },
+    {
+      "meanRGBError": 1.81359375,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.81359375,
+        "green": 1.81359375,
+        "blue": 1.81359375
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-6-frame-12.rgb"
+    },
+    {
+      "meanRGBError": 1.8199131944444444,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8199131944444444,
+        "green": 1.8199131944444444,
+        "blue": 1.8199131944444444
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-7-frame-0.rgb"
+    },
+    {
+      "meanRGBError": 1.813107638888889,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.813107638888889,
+        "green": 1.813107638888889,
+        "blue": 1.813107638888889
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-7-frame-36.rgb"
+    },
+    {
+      "meanRGBError": 1.8144965277777778,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8144965277777778,
+        "green": 1.8144965277777778,
+        "blue": 1.8144965277777778
+      },
+      "peakError": {
+        "pixelIndex": 72,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 72,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-7-frame-6.rgb"
+    },
+    {
+      "meanRGBError": 1.8146527777777777,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8146527777777777,
+        "green": 1.8146527777777777,
+        "blue": 1.8146527777777777
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-7-frame-48.rgb"
+    },
+    {
+      "meanRGBError": 1.81359375,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.81359375,
+        "green": 1.81359375,
+        "blue": 1.81359375
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-7-frame-12.rgb"
+    },
+    {
+      "meanRGBError": 1.8199131944444444,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8199131944444444,
+        "green": 1.8199131944444444,
+        "blue": 1.8199131944444444
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-8-frame-0.rgb"
+    },
+    {
+      "meanRGBError": 1.813107638888889,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.813107638888889,
+        "green": 1.813107638888889,
+        "blue": 1.813107638888889
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-8-frame-36.rgb"
+    },
+    {
+      "meanRGBError": 1.8144965277777778,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8144965277777778,
+        "green": 1.8144965277777778,
+        "blue": 1.8144965277777778
+      },
+      "peakError": {
+        "pixelIndex": 72,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 72,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-8-frame-6.rgb"
+    },
+    {
+      "meanRGBError": 1.8146527777777777,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8146527777777777,
+        "green": 1.8146527777777777,
+        "blue": 1.8146527777777777
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-8-frame-48.rgb"
+    },
+    {
+      "meanRGBError": 1.81359375,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.81359375,
+        "green": 1.81359375,
+        "blue": 1.81359375
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-8-frame-12.rgb"
+    },
+    {
+      "meanRGBError": 1.8199131944444444,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8199131944444444,
+        "green": 1.8199131944444444,
+        "blue": 1.8199131944444444
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-9-frame-0.rgb"
+    },
+    {
+      "meanRGBError": 1.813107638888889,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.813107638888889,
+        "green": 1.813107638888889,
+        "blue": 1.813107638888889
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-9-frame-36.rgb"
+    },
+    {
+      "meanRGBError": 1.8144965277777778,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8144965277777778,
+        "green": 1.8144965277777778,
+        "blue": 1.8144965277777778
+      },
+      "peakError": {
+        "pixelIndex": 72,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 72,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-9-frame-6.rgb"
+    },
+    {
+      "meanRGBError": 1.8146527777777777,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8146527777777777,
+        "green": 1.8146527777777777,
+        "blue": 1.8146527777777777
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-9-frame-48.rgb"
+    },
+    {
+      "meanRGBError": 1.81359375,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.81359375,
+        "green": 1.81359375,
+        "blue": 1.81359375
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-9-frame-12.rgb"
+    },
+    {
+      "meanRGBError": 1.8199131944444444,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8199131944444444,
+        "green": 1.8199131944444444,
+        "blue": 1.8199131944444444
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-10-frame-0.rgb"
+    },
+    {
+      "meanRGBError": 1.813107638888889,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.813107638888889,
+        "green": 1.813107638888889,
+        "blue": 1.813107638888889
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-10-frame-36.rgb"
+    },
+    {
+      "meanRGBError": 1.8144965277777778,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8144965277777778,
+        "green": 1.8144965277777778,
+        "blue": 1.8144965277777778
+      },
+      "peakError": {
+        "pixelIndex": 72,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 72,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-10-frame-6.rgb"
+    },
+    {
+      "meanRGBError": 1.8146527777777777,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8146527777777777,
+        "green": 1.8146527777777777,
+        "blue": 1.8146527777777777
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-10-frame-48.rgb"
+    },
+    {
+      "meanRGBError": 1.81359375,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.81359375,
+        "green": 1.81359375,
+        "blue": 1.81359375
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-10-frame-12.rgb"
+    },
+    {
+      "meanRGBError": 1.8199131944444444,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8199131944444444,
+        "green": 1.8199131944444444,
+        "blue": 1.8199131944444444
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-11-frame-0.rgb"
+    },
+    {
+      "meanRGBError": 1.813107638888889,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.813107638888889,
+        "green": 1.813107638888889,
+        "blue": 1.813107638888889
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-11-frame-36.rgb"
+    },
+    {
+      "meanRGBError": 1.8144965277777778,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8144965277777778,
+        "green": 1.8144965277777778,
+        "blue": 1.8144965277777778
+      },
+      "peakError": {
+        "pixelIndex": 72,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 72,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-11-frame-6.rgb"
+    },
+    {
+      "meanRGBError": 1.8146527777777777,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.8146527777777777,
+        "green": 1.8146527777777777,
+        "blue": 1.8146527777777777
+      },
+      "peakError": {
+        "pixelIndex": 56,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 56,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-11-frame-48.rgb"
+    },
+    {
+      "meanRGBError": 1.81359375,
+      "maximumRGBError": 3,
+      "componentsOverMaximumTolerance": 0,
+      "channelMeanErrors": {
+        "red": 1.81359375,
+        "green": 1.81359375,
+        "blue": 1.81359375
+      },
+      "peakError": {
+        "pixelIndex": 66,
+        "channel": "red",
+        "actualRGB": [
+          151,
+          151,
+          151
+        ],
+        "referenceRGB": [
+          148,
+          148,
+          148
+        ],
+        "x": 66,
+        "y": 0
+      },
+      "passed": true,
+      "file": "cycle-11-frame-12.rgb"
+    }
+  ],
+  "limitations": [
+    "Bounded polling on a Swift main actor; no foreign callbacks installed",
+    "Null sinks; color, decoded MPV audio, GPU, hardware sync and sandbox grants remain open",
+    "Private development bridge; no distribution or application backend selection"
+  ],
+  "candidate": {
+    "revision": "400202b687841fb394cbf0ef59ad8c6fcfc1275b",
+    "packageSHA256": "a8481f4ab962c3edc835448f2aae9fde9d94be9f669f89c1fb8765e6bdc72056",
+    "declaredLibmpvArchiveURL": "https://github.com/aagedal/MPVKit/releases/download/aagedal-1.0.0-n8.1.2-coreaudio.2/Libmpv-GPL.xcframework.zip",
+    "declaredLibmpvArchiveSHA256": "7a362047b0bbe39e9f7001e5b9146cd0651c2eadae38ebcd52f16207b42a4f00",
+    "archiveBytesReauthenticated": false
+  },
+  "frameworks": [
+    {
+      "artifact": "Libmpv-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libmpv-GPL/Libmpv.xcframework/macos-arm64_x86_64/Libmpv.framework/Libmpv",
+      "sha256": "057d89386ea526528d56a7fb5170e2f6413832a3aed84a1f3bb690bf7cce3424"
+    },
+    {
+      "artifact": "Libavcodec-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavcodec-GPL/Libavcodec.xcframework/macos-arm64_x86_64/Libavcodec.framework/Libavcodec",
+      "sha256": "93203f35a23a34307771d15515953a9ba8e3d7fbd45be552275666b86b2097be"
+    },
+    {
+      "artifact": "Libavdevice-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavdevice-GPL/Libavdevice.xcframework/macos-arm64_x86_64/Libavdevice.framework/Libavdevice",
+      "sha256": "8e471c9428f848dbc377125f3030651f9f82142091f2568c54d2d842177d7d05"
+    },
+    {
+      "artifact": "Libavfilter-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavfilter-GPL/Libavfilter.xcframework/macos-arm64_x86_64/Libavfilter.framework/Libavfilter",
+      "sha256": "c5d0c6afe2a9875d961cde4bf9d570f3650d5cc7e8011d6c2bfe42eed7b4b2a8"
+    },
+    {
+      "artifact": "Libavformat-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavformat-GPL/Libavformat.xcframework/macos-arm64_x86_64/Libavformat.framework/Libavformat",
+      "sha256": "59195169993bfd1e8e4aba80a5ff982e34214746b545a0ee6a2d08c1cf17496e"
+    },
+    {
+      "artifact": "Libavutil-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libavutil-GPL/Libavutil.xcframework/macos-arm64_x86_64/Libavutil.framework/Libavutil",
+      "sha256": "5273145c45e8662fffbf4b8f2c1638a8b04749ba204c29c65dd57c4d8d380cb3"
+    },
+    {
+      "artifact": "Libswresample-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libswresample-GPL/Libswresample.xcframework/macos-arm64_x86_64/Libswresample.framework/Libswresample",
+      "sha256": "3b4a5cb51c08b10264ec9479bf454a4a93ff14a02d751416debb16a69b751d80"
+    },
+    {
+      "artifact": "Libswscale-GPL",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libswscale-GPL/Libswscale.xcframework/macos-arm64_x86_64/Libswscale.framework/Libswscale",
+      "sha256": "584b351a042fb032fd5343c483a1ef0a8638e0bf8fda28dcb334c4a199d7be8c"
+    },
+    {
+      "artifact": "Libssl",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libssl/Libssl.xcframework/macos-arm64_x86_64/Libssl.framework/Libssl",
+      "sha256": "6fb9488912f19c21a7671e6e094303d0b6d7651e02b8c349cd61db36c4fe72ef"
+    },
+    {
+      "artifact": "Libcrypto",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libcrypto/Libcrypto.xcframework/macos-arm64_x86_64/Libcrypto.framework/Libcrypto",
+      "sha256": "593ea0d98cb297febc56a5717a6bcdaef7175343170f5c2dd1e662f7c5ccda76"
+    },
+    {
+      "artifact": "Libass",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libass/Libass.xcframework/macos-arm64_x86_64/Libass.framework/Libass",
+      "sha256": "8308bf0d52e8edc69b82ce47f499d1cf38ea8676928e0ce65657516f500f3296"
+    },
+    {
+      "artifact": "Libfreetype",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libfreetype/Libfreetype.xcframework/macos-arm64_x86_64/Libfreetype.framework/Libfreetype",
+      "sha256": "0e66a03e64a2f471fcae43e440f1624e59ffa92e07af26b5961d80f924d0175e"
+    },
+    {
+      "artifact": "Libfribidi",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libfribidi/Libfribidi.xcframework/macos-arm64_x86_64/Libfribidi.framework/Libfribidi",
+      "sha256": "7e950716c9599df9ded051b370d2dd521aab3bf67e2eead1cfef3e991357bbef"
+    },
+    {
+      "artifact": "Libharfbuzz",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libharfbuzz/Libharfbuzz.xcframework/macos-arm64_x86_64/Libharfbuzz.framework/Libharfbuzz",
+      "sha256": "0e5e49446b3fd8697bff1b727b04a61eb7f264b387071660c4b35ac5307fa0d7"
+    },
+    {
+      "artifact": "MoltenVK",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/MoltenVK/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a",
+      "sha256": "996ccaa26d67003a46af67c46f650eaca2017e08d8a1abd348d1b3c511f26a7e"
+    },
+    {
+      "artifact": "Libshaderc_combined",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libshaderc_combined/Libshaderc_combined.xcframework/macos-arm64_x86_64/Libshaderc_combined.framework/Libshaderc_combined",
+      "sha256": "f9eead43923df99b822aff42d974deddbf2b399b0db207d9e9a072ca5e3a28a7"
+    },
+    {
+      "artifact": "lcms2",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/lcms2/lcms2.xcframework/macos-arm64_x86_64/lcms2.framework/lcms2",
+      "sha256": "534dc91bc46de20f3f2c9d63a6c7d906c2729c980c1ebf8d021ced787f1ade38"
+    },
+    {
+      "artifact": "Libplacebo",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libplacebo/Libplacebo.xcframework/macos-arm64_x86_64/Libplacebo.framework/Libplacebo",
+      "sha256": "e76c1b86d8ee2a5afcd7366c5dfa37e124a9d37f14e138984404fe36b926bd08"
+    },
+    {
+      "artifact": "Libdovi",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libdovi/Libdovi.xcframework/macos-arm64_x86_64/Libdovi.framework/Libdovi",
+      "sha256": "434ebd779549a96cab93818189ae8293dd99b31b0081334c1f2baa538c829bf9"
+    },
+    {
+      "artifact": "Libunibreak",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libunibreak/Libunibreak.xcframework/macos-arm64_x86_64/Libunibreak.framework/Libunibreak",
+      "sha256": "7f260e7a65fe3e206e36912eb1d224c8b52789cb88ed9710f7413621a80ba0e6"
+    },
+    {
+      "artifact": "Libsmbclient",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libsmbclient/Libsmbclient.xcframework/macos-arm64_x86_64/Libsmbclient.framework/Libsmbclient",
+      "sha256": "88d5977c35f6dcd49a2c785bff2d527d7c9cf882086280202c49c15ffb99400c"
+    },
+    {
+      "artifact": "gmp",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/gmp/gmp.xcframework/macos-arm64_x86_64/gmp.framework/gmp",
+      "sha256": "124fa271d5d2b0dd00785a56bc4cbd0ce4d840ce3758168ce091450593b6ba80"
+    },
+    {
+      "artifact": "nettle",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/nettle/nettle.xcframework/macos-arm64_x86_64/nettle.framework/nettle",
+      "sha256": "270ad00bbee5f3a602ef8ec4b0aaf025dc6f72ba1d96f1dd5ae57128ad44c3ab"
+    },
+    {
+      "artifact": "hogweed",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/hogweed/hogweed.xcframework/macos-arm64_x86_64/hogweed.framework/hogweed",
+      "sha256": "a7500339bc267e6f5df9351e9efa0630143d284ca98976b4e5aa6c62874e17bf"
+    },
+    {
+      "artifact": "gnutls",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/gnutls/gnutls.xcframework/macos-arm64_x86_64/gnutls.framework/gnutls",
+      "sha256": "c45a42f66f0e1a12734cf6ef03dfd9f3c403636d0230b10d3dbcc895bb76e778"
+    },
+    {
+      "artifact": "Libdav1d",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libdav1d/Libdav1d.xcframework/macos-arm64_x86_64/Libdav1d.framework/Libdav1d",
+      "sha256": "c30382e326013178c715411e84dbc182c412dc1eef126e62f2915d95369c2af1"
+    },
+    {
+      "artifact": "Libuavs3d",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libuavs3d/Libuavs3d.xcframework/macos-arm64_x86_64/Libuavs3d.framework/Libuavs3d",
+      "sha256": "de8dbf94aeece633ccfe7a8974abd6e3f90d6fb6520fa4fde3b377b8420ee96e"
+    },
+    {
+      "artifact": "Libuchardet",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libuchardet/Libuchardet.xcframework/macos-arm64_x86_64/Libuchardet.framework/Libuchardet",
+      "sha256": "dcb7147b61a85164f1dbcfd019fc30980ebbffc887f5599dcaa97707f532d24c"
+    },
+    {
+      "artifact": "Libbluray",
+      "binary": "/Users/truls.aagedal/Library/Developer/Xcode/DerivedData/Aagedal_Media_Converter-emveiwkgyerkwhhfmniripdhmhmm/SourcePackages/artifacts/mpvkit/Libbluray/Libbluray.xcframework/macos-arm64_x86_64/Libbluray.framework/Libbluray",
+      "sha256": "159f3a087d8cb5e0fe760c819156fe1234f9357a51641ca65e888d9c69e5acb1"
+    }
+  ],
+  "sourceHashes": {
+    "mpv-source-bridge.h": "e64e81a9a5fbae22bc12b30a2227e14a971e07d25f29cf5bf974e4f8b962df26",
+    "mpv-source-proof.py": "f0d6973316e6b79fdf93b4cb397548061f7ad909912edbb03e711e08b82c1a41",
+    "mpv-source-bridge.c": "6cadc932a61a51b4bdaa87128cfa50e4f0f2b1f20bd2f8de040a995800c1b3a5",
+    "mpv-async-source-proof.py": "b1647b4a376dd4ccae69066c7916779cfbe3a89faed247eeeb643916b5a9a1a0",
+    "mpv-async-source-proof.swift": "33f92a69b64145ea8a96e06ed6a6dc41c8278920337be397ff43b15c77b52eb6"
+  },
+  "exports": [
+    "_afc_mpv_bridge_close",
+    "_afc_mpv_bridge_create",
+    "_afc_mpv_bridge_destroy",
+    "_afc_mpv_bridge_open",
+    "_afc_mpv_bridge_poll",
+    "_afc_mpv_bridge_position",
+    "_afc_mpv_bridge_screenshot_rgb",
+    "_afc_mpv_bridge_seek",
+    "_afc_mpv_bridge_set_paused"
+  ],
+  "addressSanitizer": true,
+  "bridgeSHA256": "581376a857b4bbc79bf9dc02b2c8d5170efc1f4b08b786ae618abe3c968e7f42",
+  "hostSHA256": "4a921d3f16b9830385baca0605a03a88ea8c572aaa85b11a4b657adca5dc07c4",
+  "ffmpegSHA256": "7f6028378534aa10a2dfa07d807ddcc0d18c869bf5c2f64c89efcc18ee88c4ee",
+  "fixtureHashes": {
+    "source.mov": "636ae33550b96eb9dcd24b28e97c0b225c4ee681182cdbbc5cc4775799a93f76",
+    "reordered.mkv": "888739d0f52b18a05187806a4092ee2b47c5615a4d7965daa48aa288115bb0ce"
+  },
+  "swift": {
+    "boundedReplies": 64,
+    "captures": [
+      {
+        "file": "cycle-0-frame-0.rgb",
+        "height": 180,
+        "position": 0,
+        "target": 0,
+        "width": 320
+      },
+      {
+        "file": "cycle-0-frame-36.rgb",
+        "height": 180,
+        "position": 1.5,
+        "target": 1.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-0-frame-6.rgb",
+        "height": 180,
+        "position": 0.25,
+        "target": 0.25,
+        "width": 320
+      },
+      {
+        "file": "cycle-0-frame-48.rgb",
+        "height": 180,
+        "position": 2,
+        "target": 2,
+        "width": 320
+      },
+      {
+        "file": "cycle-0-frame-12.rgb",
+        "height": 180,
+        "position": 0.5,
+        "target": 0.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-1-frame-0.rgb",
+        "height": 180,
+        "position": 0,
+        "target": 0,
+        "width": 320
+      },
+      {
+        "file": "cycle-1-frame-36.rgb",
+        "height": 180,
+        "position": 1.5,
+        "target": 1.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-1-frame-6.rgb",
+        "height": 180,
+        "position": 0.25,
+        "target": 0.25,
+        "width": 320
+      },
+      {
+        "file": "cycle-1-frame-48.rgb",
+        "height": 180,
+        "position": 2,
+        "target": 2,
+        "width": 320
+      },
+      {
+        "file": "cycle-1-frame-12.rgb",
+        "height": 180,
+        "position": 0.5,
+        "target": 0.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-2-frame-0.rgb",
+        "height": 180,
+        "position": 0,
+        "target": 0,
+        "width": 320
+      },
+      {
+        "file": "cycle-2-frame-36.rgb",
+        "height": 180,
+        "position": 1.5,
+        "target": 1.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-2-frame-6.rgb",
+        "height": 180,
+        "position": 0.25,
+        "target": 0.25,
+        "width": 320
+      },
+      {
+        "file": "cycle-2-frame-48.rgb",
+        "height": 180,
+        "position": 2,
+        "target": 2,
+        "width": 320
+      },
+      {
+        "file": "cycle-2-frame-12.rgb",
+        "height": 180,
+        "position": 0.5,
+        "target": 0.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-3-frame-0.rgb",
+        "height": 180,
+        "position": 0,
+        "target": 0,
+        "width": 320
+      },
+      {
+        "file": "cycle-3-frame-36.rgb",
+        "height": 180,
+        "position": 1.5,
+        "target": 1.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-3-frame-6.rgb",
+        "height": 180,
+        "position": 0.25,
+        "target": 0.25,
+        "width": 320
+      },
+      {
+        "file": "cycle-3-frame-48.rgb",
+        "height": 180,
+        "position": 2,
+        "target": 2,
+        "width": 320
+      },
+      {
+        "file": "cycle-3-frame-12.rgb",
+        "height": 180,
+        "position": 0.5,
+        "target": 0.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-4-frame-0.rgb",
+        "height": 180,
+        "position": 0,
+        "target": 0,
+        "width": 320
+      },
+      {
+        "file": "cycle-4-frame-36.rgb",
+        "height": 180,
+        "position": 1.5,
+        "target": 1.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-4-frame-6.rgb",
+        "height": 180,
+        "position": 0.25,
+        "target": 0.25,
+        "width": 320
+      },
+      {
+        "file": "cycle-4-frame-48.rgb",
+        "height": 180,
+        "position": 2,
+        "target": 2,
+        "width": 320
+      },
+      {
+        "file": "cycle-4-frame-12.rgb",
+        "height": 180,
+        "position": 0.5,
+        "target": 0.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-5-frame-0.rgb",
+        "height": 180,
+        "position": 0,
+        "target": 0,
+        "width": 320
+      },
+      {
+        "file": "cycle-5-frame-36.rgb",
+        "height": 180,
+        "position": 1.5,
+        "target": 1.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-5-frame-6.rgb",
+        "height": 180,
+        "position": 0.25,
+        "target": 0.25,
+        "width": 320
+      },
+      {
+        "file": "cycle-5-frame-48.rgb",
+        "height": 180,
+        "position": 2,
+        "target": 2,
+        "width": 320
+      },
+      {
+        "file": "cycle-5-frame-12.rgb",
+        "height": 180,
+        "position": 0.5,
+        "target": 0.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-6-frame-0.rgb",
+        "height": 180,
+        "position": 0,
+        "target": 0,
+        "width": 320
+      },
+      {
+        "file": "cycle-6-frame-36.rgb",
+        "height": 180,
+        "position": 1.5,
+        "target": 1.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-6-frame-6.rgb",
+        "height": 180,
+        "position": 0.25,
+        "target": 0.25,
+        "width": 320
+      },
+      {
+        "file": "cycle-6-frame-48.rgb",
+        "height": 180,
+        "position": 2,
+        "target": 2,
+        "width": 320
+      },
+      {
+        "file": "cycle-6-frame-12.rgb",
+        "height": 180,
+        "position": 0.5,
+        "target": 0.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-7-frame-0.rgb",
+        "height": 180,
+        "position": 0,
+        "target": 0,
+        "width": 320
+      },
+      {
+        "file": "cycle-7-frame-36.rgb",
+        "height": 180,
+        "position": 1.5,
+        "target": 1.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-7-frame-6.rgb",
+        "height": 180,
+        "position": 0.25,
+        "target": 0.25,
+        "width": 320
+      },
+      {
+        "file": "cycle-7-frame-48.rgb",
+        "height": 180,
+        "position": 2,
+        "target": 2,
+        "width": 320
+      },
+      {
+        "file": "cycle-7-frame-12.rgb",
+        "height": 180,
+        "position": 0.5,
+        "target": 0.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-8-frame-0.rgb",
+        "height": 180,
+        "position": 0,
+        "target": 0,
+        "width": 320
+      },
+      {
+        "file": "cycle-8-frame-36.rgb",
+        "height": 180,
+        "position": 1.5,
+        "target": 1.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-8-frame-6.rgb",
+        "height": 180,
+        "position": 0.25,
+        "target": 0.25,
+        "width": 320
+      },
+      {
+        "file": "cycle-8-frame-48.rgb",
+        "height": 180,
+        "position": 2,
+        "target": 2,
+        "width": 320
+      },
+      {
+        "file": "cycle-8-frame-12.rgb",
+        "height": 180,
+        "position": 0.5,
+        "target": 0.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-9-frame-0.rgb",
+        "height": 180,
+        "position": 0,
+        "target": 0,
+        "width": 320
+      },
+      {
+        "file": "cycle-9-frame-36.rgb",
+        "height": 180,
+        "position": 1.5,
+        "target": 1.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-9-frame-6.rgb",
+        "height": 180,
+        "position": 0.25,
+        "target": 0.25,
+        "width": 320
+      },
+      {
+        "file": "cycle-9-frame-48.rgb",
+        "height": 180,
+        "position": 2,
+        "target": 2,
+        "width": 320
+      },
+      {
+        "file": "cycle-9-frame-12.rgb",
+        "height": 180,
+        "position": 0.5,
+        "target": 0.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-10-frame-0.rgb",
+        "height": 180,
+        "position": 0,
+        "target": 0,
+        "width": 320
+      },
+      {
+        "file": "cycle-10-frame-36.rgb",
+        "height": 180,
+        "position": 1.5,
+        "target": 1.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-10-frame-6.rgb",
+        "height": 180,
+        "position": 0.25,
+        "target": 0.25,
+        "width": 320
+      },
+      {
+        "file": "cycle-10-frame-48.rgb",
+        "height": 180,
+        "position": 2,
+        "target": 2,
+        "width": 320
+      },
+      {
+        "file": "cycle-10-frame-12.rgb",
+        "height": 180,
+        "position": 0.5,
+        "target": 0.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-11-frame-0.rgb",
+        "height": 180,
+        "position": 0,
+        "target": 0,
+        "width": 320
+      },
+      {
+        "file": "cycle-11-frame-36.rgb",
+        "height": 180,
+        "position": 1.5,
+        "target": 1.5,
+        "width": 320
+      },
+      {
+        "file": "cycle-11-frame-6.rgb",
+        "height": 180,
+        "position": 0.25,
+        "target": 0.25,
+        "width": 320
+      },
+      {
+        "file": "cycle-11-frame-48.rgb",
+        "height": 180,
+        "position": 2,
+        "target": 2,
+        "width": 320
+      },
+      {
+        "file": "cycle-11-frame-12.rgb",
+        "height": 180,
+        "position": 0.5,
+        "target": 0.5,
+        "width": 320
+      }
+    ],
+    "cycles": 12,
+    "disabledTypes": 2,
+    "eofRecoveries": 1,
+    "passed": true,
+    "pendingCloses": 12,
+    "rapidCommands": 36,
+    "rejections": 7,
+    "seeks": 60
+  }
+}
