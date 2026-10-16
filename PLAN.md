@@ -2274,3 +2274,28 @@ See [AAC priming/frame-duration evidence](docs/evidence/mpv-aac-preroll-20261016
   composition, signed sandbox access and distribution remain open.
 
 See [MOV edit-list evidence](docs/evidence/mpv-mov-edit-list-20261016/README.md).
+
+### MPV timestamp seek-preroll boundary checkpoint (2026-10-16)
+
+- Added an explicit timestamp-only `--seek-offset` control to the offline audio
+  proof, setting high-resolution seek and demuxer preroll before initialization.
+  Runtime offset readback must match MPV's float storage exactly; nonfinite,
+  negative, overflowing and integer-filter combinations are rejected.
+- Three complete AddressSanitizer matrices retain 288 decoded comparisons and
+  48 successful missing/wrong-kind stream rejections. With forced lavf/basic MOV
+  handling, zero preroll passes 38/96; 100 ms and 500 ms each pass 40/96.
+  PCM remains 12/24, ALAC 18/24 and MP3 4/24. AAC improves from 4/24 to 6/24.
+- Preroll fixes the two 44.1 kHz ranges starting at sample 1024, with unchanged
+  amplitude bounds. Later AAC tail ranges still fail content parity, and several
+  timestamp cuts retain sample-count differences. No capture alignment, padding,
+  trimming or reference adjustment is applied.
+- All four natural AAC outputs are byte-identical across the three controls and
+  retain 820/384 extra tail samples. MOV fixture hashes match across runs. The
+  earlier 92/96 integer-filter result still applies only to decoding from zero;
+  efficient sample-exact seeking and natural AAC EOF remain unresolved.
+- Verification: 107 Python tests (eight optional skips), all three runtime
+  matrices, source-hash checks, independent review and diff checks pass for this
+  diagnostic scope. Broad qualification intentionally exits 1. Application source
+  playback remains AVFoundation; no backend or format admission changes.
+
+See [timestamp seek-preroll evidence](docs/evidence/mpv-seek-preroll-20261016/README.md).

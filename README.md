@@ -304,3 +304,9 @@ now passes all 24 generated AAC reference comparisons with the embedded librarie
 seeking to the observed first packet restores priming, and explicit decoded-frame
 duration accounts for the excess tail. MPV itself remains 0/24 for AAC; these
 controls do not yet change source playback or qualify efficient random access.
+
+The [timestamp seek-preroll control](docs/evidence/mpv-seek-preroll-20261016/README.md)
+now tests MPV loading ranges with 0/100/500 ms demuxer preroll. Larger preroll
+fixes two early AAC comparisons but leaves later content and exact-count failures;
+all natural AAC tails remain excessive. This diagnostic preserves the prior
+bounded decode-from-zero result and leaves application source playback unchanged.

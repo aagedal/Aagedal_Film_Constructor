@@ -1,5 +1,5 @@
 /* Offline decoded-audio qualification only. PCM file output bypasses hardware.
- * argv: source, ff-index, output.pcm, start, end, sample-rate, range-mode, demuxer, [decoder], [mov-edit-list].
+ * argv: source, ff-index, output.pcm, start, end, sample-rate, range-mode, demuxer, [decoder], [mov-edit-list], [seek-offset].
  * sample-filter mode decodes from zero and trims integer samples before output.
  * on_preloaded resolves container identity before decoders/output are created.
  */
@@ -45,13 +45,22 @@ static int select_audio(mpv_handle *m, int index, int64_t *selected) {
     return mpv_set_property(m, "aid", MPV_FORMAT_INT64, selected) >= 0;
 }
 int main(int argc, char **argv) {
-    if (argc < 9 || argc > 11) return 2;
+    if (argc < 9 || argc > 12) return 2;
     const char *decoder = argc >= 10 ? argv[9] : "auto";
-    const char *mov_edit_list = argc == 11 ? argv[10] : "default";
+    const char *mov_edit_list = argc >= 11 ? argv[10] : "default";
     if (strcmp(mov_edit_list, "default") && strcmp(mov_edit_list, "basic")) return 2;
     if (!strcmp(mov_edit_list, "basic") && strcmp(argv[8], "lavf")) return 2;
     if (strcmp(decoder, "auto") && strcmp(decoder, "aac") &&
         strcmp(decoder, "aac_fixed") && strcmp(decoder, "aac_at")) return 2;
+    const char *seek_offset = argc == 12 ? argv[11] : "default";
+    if (strcmp(seek_offset, "default")) {
+        char *offset_end = NULL;
+        errno = 0;
+        double offset = strtod(seek_offset, &offset_end);
+        if (errno || !*seek_offset || *offset_end || !isfinite(offset) || offset < 0 ||
+            strcmp(argv[7], "timestamp")) return 2;
+    }
+    double observed_seek_offset = -1;
     char decoder_list[32];
     snprintf(decoder_list, sizeof(decoder_list), "%s,-", decoder);
     int sample_filter = !strcmp(argv[7], "sample-filter");
@@ -86,11 +95,15 @@ int main(int argc, char **argv) {
         (strcmp(argv[8], "auto") && !option(m, "demuxer", argv[8])) ||
         (!strcmp(mov_edit_list, "basic") &&
             !option(m, "demuxer-lavf-o", "advanced_editlist=0")) ||
+        (strcmp(seek_offset, "default") &&
+            (!option(m, "hr-seek", "yes") || !option(m, "hr-seek-demuxer-offset", seek_offset))) ||
         (*filter && !option(m, "af", filter)) ||
         (!sample_filter && strcmp(argv[4], "natural") &&
             (!option(m, "start", argv[4]) || !option(m, "end", argv[5]))) ||
         !option(m, "keep-open", "no") || !option(m, "idle", "yes") ||
         mpv_initialize(m) < 0 || mpv_hook_add(m, 1, "on_preloaded", 0) < 0) goto cleanup;
+    if (mpv_get_property(m, "options/hr-seek-demuxer-offset", MPV_FORMAT_DOUBLE,
+                         &observed_seek_offset) < 0 || !isfinite(observed_seek_offset)) goto cleanup;
     mpv_request_log_messages(m, "debug");
     const char *command[] = {"loadfile", argv[1], NULL};
     if (mpv_command(m, command) < 0) goto cleanup;
@@ -125,8 +138,8 @@ cleanup:
         printf("{\"rejected\":true,\"ffIndex\":%ld}\n", index);
         return 3;
     }
-    if (ok) printf("{\"passed\":true,\"ffIndex\":%ld,\"audioTrackID\":%lld,\"movEditList\":\"%s\"}\n",
-                   index, (long long)selected, mov_edit_list);
+    if (ok) printf("{\"passed\":true,\"ffIndex\":%ld,\"audioTrackID\":%lld,\"movEditList\":\"%s\",\"seekOffset\":%.17g}\n",
+                   index, (long long)selected, mov_edit_list, observed_seek_offset);
     else fprintf(stderr, "Audio decode/selection/EOF failed or timed out\n");
     return ok ? 0 : 1;
 }
