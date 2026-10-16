@@ -40,18 +40,18 @@
 [lavfi/debug] mpv_src_in0:default--[48000Hz fltp:stereo]--default| Parsed_atrim_0 |default--[48000Hz fltp:stereo]--mpv_sink_out0:default
 [lavfi/debug]                                                    |    (atrim)     |
 [lavfi/debug]                                                    +----------------+
-[lavfi/debug] 
+[lavfi/debug]
 [lavfi/debug]                                                       +---------------+
 [lavfi/debug] Parsed_atrim_0:default--[48000Hz fltp:stereo]--default| mpv_sink_out0 |
 [lavfi/debug]                                                       | (abuffersink) |
 [lavfi/debug]                                                       +---------------+
-[lavfi/debug] 
+[lavfi/debug]
 [lavfi/debug] +-------------+
 [lavfi/debug] | mpv_src_in0 |default--[48000Hz fltp:stereo]--Parsed_atrim_0:default
 [lavfi/debug] |  (abuffer)  |
 [lavfi/debug] +-------------+
-[lavfi/debug] 
-[lavfi/debug] 
+[lavfi/debug]
+[lavfi/debug]
 [lavf/v] EOF reached.
 [af/v] [userspeed] 48000Hz stereo 2ch floatp
 [af/v] [userspeed] (disabled)
@@ -81,6 +81,6 @@
 [ao/pcm/v] starting AO
 [ao/pcm/v] audio end or underrun
 [cplayer/v] AO signaled EOF (while in state draining)
-[cplayer/v] EOF code: 1  
+[cplayer/v] EOF code: 1
 [ad/debug] Uninit decoder.
 [cplayer/debug] Terminating demuxers...

@@ -40,18 +40,18 @@
 [lavfi/debug] mpv_src_in0:default--[44100Hz fltp:mono]--default| Parsed_atrim_0 |default--[44100Hz fltp:mono]--mpv_sink_out0:default
 [lavfi/debug]                                                  |    (atrim)     |
 [lavfi/debug]                                                  +----------------+
-[lavfi/debug] 
+[lavfi/debug]
 [lavfi/debug]                                                     +---------------+
 [lavfi/debug] Parsed_atrim_0:default--[44100Hz fltp:mono]--default| mpv_sink_out0 |
 [lavfi/debug]                                                     | (abuffersink) |
 [lavfi/debug]                                                     +---------------+
-[lavfi/debug] 
+[lavfi/debug]
 [lavfi/debug] +-------------+
 [lavfi/debug] | mpv_src_in0 |default--[44100Hz fltp:mono]--Parsed_atrim_0:default
 [lavfi/debug] |  (abuffer)  |
 [lavfi/debug] +-------------+
-[lavfi/debug] 
-[lavfi/debug] 
+[lavfi/debug]
+[lavfi/debug]
 [af/v] [userspeed] 44100Hz mono 1ch floatp
 [af/v] [userspeed] (disabled)
 [af/v] [convert] 44100Hz mono 1ch floatp
@@ -81,6 +81,6 @@
 [cplayer/v] audio draining
 [ao/pcm/v] audio end or underrun
 [cplayer/v] audio EOF reached
-[cplayer/v] EOF code: 1  
+[cplayer/v] EOF code: 1
 [ad/debug] Uninit decoder.
 [cplayer/debug] Terminating demuxers...

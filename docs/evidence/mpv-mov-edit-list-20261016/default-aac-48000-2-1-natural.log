@@ -61,6 +61,6 @@
 [cplayer/v] audio draining
 [ao/pcm/v] audio end or underrun
 [cplayer/v] audio EOF reached
-[cplayer/v] EOF code: 1  
+[cplayer/v] EOF code: 1
 [ad/debug] Uninit decoder.
 [cplayer/debug] Terminating demuxers...

@@ -60,6 +60,6 @@
 [cplayer/v] audio filter EOF
 [ao/pcm/v] audio end or underrun
 [cplayer/v] AO signaled EOF (while in state playing)
-[cplayer/v] EOF code: 1  
+[cplayer/v] EOF code: 1
 [ad/debug] Uninit decoder.
 [cplayer/debug] Terminating demuxers...

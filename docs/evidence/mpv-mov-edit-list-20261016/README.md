@@ -63,7 +63,8 @@ python3 scripts/mpv-audio-proof.py --sanitize-address \
 Use a fresh output directory. Repeat with `--mov-edit-list default` for the
 baseline. `basic-result.json` and `default-result.json` retain commands, source,
 dependency/executable/fixture hashes and all comparisons. Representative logs
-are retained here; complete fixtures, logs and captures remain at report paths.
+are retained here with trailing whitespace removed; complete fixtures, raw logs
+and captures remain at report paths.
 AddressSanitizer instruments the client and direct reference executables; cached
 library archives remain uninstrumented. All tested script hashes match the
 workspace. Verification includes 105 Python tests (eight optional skips), both
