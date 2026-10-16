@@ -23,6 +23,21 @@ class AudioComparisonTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 2)
         self.assertIn('--mov-edit-list basic requires --demuxer lavf', completed.stderr)
 
+    def test_pts_filter_requires_its_own_finite_preroll(self):
+        invalid = (['--range-mode', 'pts-filter'],
+                   ['--filter-preroll', '0.5'],
+                   ['--range-mode', 'sample-filter', '--filter-preroll', '0'],
+                   *(['--range-mode', 'pts-filter', '--filter-preroll', value]
+                     for value in ('nan', 'inf', '-0.1', '3600.1')))
+        for options in invalid:
+            with self.subTest(options=options):
+                completed = subprocess.run(
+                    [sys.executable, str(Path(proof.__file__)), *options,
+                     '/missing/checkout', '/missing/artifacts', '/missing/ffmpeg', '/missing/output'],
+                    capture_output=True, text=True)
+                self.assertEqual(completed.returncode, 2)
+                self.assertIn('--range-mode pts-filter requires --filter-preroll', completed.stderr)
+
     def test_seek_offset_rejects_nonfinite_negative_and_filter_modes(self):
         for options in (['--seek-offset', 'nan'], ['--seek-offset', 'inf'],
                         ['--seek-offset', '-0.1'], ['--seek-offset', '1e300'],
@@ -73,9 +88,11 @@ class AudioComparisonTests(unittest.TestCase):
     def test_range_strategies_keep_exact_requested_endpoints(self):
         self.assertEqual(proof.range_arguments('tail', 128203, 4097, 44100, 'sample-filter'),
                          ['128203', '132300'])
+        self.assertEqual(proof.range_arguments('tail', 128203, 4097, 44100, 'pts-filter'),
+                         ['128203', '132300'])
         self.assertEqual(proof.range_arguments('cut', 1023, 4097, 48000, 'timestamp'),
                          [format(1023 / 48000, '.17g'), format(5120 / 48000, '.17g')])
-        for mode in ('timestamp', 'sample-filter'):
+        for mode in ('timestamp', 'sample-filter', 'pts-filter'):
             self.assertEqual(proof.range_arguments('natural', 0, 132300, 44100, mode), ['natural', '3'])
 
     def test_invalid_range_strategy_or_coordinates_rejected(self):

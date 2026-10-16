@@ -1,5 +1,5 @@
 /* Offline decoded-audio qualification only. PCM file output bypasses hardware.
- * argv: source, ff-index, output.pcm, start, end, sample-rate, range-mode, demuxer, [decoder], [mov-edit-list], [seek-offset].
+ * argv: source, ff-index, output.pcm, start, end, sample-rate, range-mode, demuxer, [decoder], [mov-edit-list], [seek-offset], [filter-preroll].
  * sample-filter mode decodes from zero and trims integer samples before output.
  * on_preloaded resolves container identity before decoders/output are created.
  */
@@ -45,14 +45,14 @@ static int select_audio(mpv_handle *m, int index, int64_t *selected) {
     return mpv_set_property(m, "aid", MPV_FORMAT_INT64, selected) >= 0;
 }
 int main(int argc, char **argv) {
-    if (argc < 9 || argc > 12) return 2;
+    if (argc < 9 || argc > 13) return 2;
     const char *decoder = argc >= 10 ? argv[9] : "auto";
     const char *mov_edit_list = argc >= 11 ? argv[10] : "default";
     if (strcmp(mov_edit_list, "default") && strcmp(mov_edit_list, "basic")) return 2;
     if (!strcmp(mov_edit_list, "basic") && strcmp(argv[8], "lavf")) return 2;
     if (strcmp(decoder, "auto") && strcmp(decoder, "aac") &&
         strcmp(decoder, "aac_fixed") && strcmp(decoder, "aac_at")) return 2;
-    const char *seek_offset = argc == 12 ? argv[11] : "default";
+    const char *seek_offset = argc >= 12 ? argv[11] : "default";
     if (strcmp(seek_offset, "default")) {
         char *offset_end = NULL;
         errno = 0;
@@ -64,10 +64,21 @@ int main(int argc, char **argv) {
     char decoder_list[32];
     snprintf(decoder_list, sizeof(decoder_list), "%s,-", decoder);
     int sample_filter = !strcmp(argv[7], "sample-filter");
-    if ((!sample_filter && strcmp(argv[7], "timestamp")) ||
+    if ((!sample_filter && strcmp(argv[7], "pts-filter") && strcmp(argv[7], "timestamp")) ||
         (strcmp(argv[8], "auto") && strcmp(argv[8], "lavf"))) return 2;
-    char filter[160] = {0};
-    if (sample_filter && strcmp(argv[4], "natural")) {
+    int pts_filter = !strcmp(argv[7], "pts-filter");
+    const char *filter_preroll = argc == 13 ? argv[12] : "default";
+    double preroll = 0;
+    if (pts_filter != !!strcmp(filter_preroll, "default")) return 2;
+    if (pts_filter) {
+        char *preroll_end = NULL;
+        errno = 0;
+        preroll = strtod(filter_preroll, &preroll_end);
+        if (errno || !*filter_preroll || *preroll_end || !isfinite(preroll) ||
+            preroll < 0 || preroll > 3600) return 2;
+    }
+    char filter[256] = {0}, playback_start[64] = {0};
+    if ((sample_filter || pts_filter) && strcmp(argv[4], "natural")) {
         char *start_end = NULL, *stop_end = NULL;
         errno = 0;
         long long start = strtoll(argv[4], &start_end, 10);
@@ -75,7 +86,17 @@ int main(int argc, char **argv) {
         errno = 0;
         long long stop = strtoll(argv[5], &stop_end, 10);
         if (errno || !*argv[5] || *stop_end || stop <= start) return 2;
-        snprintf(filter, sizeof(filter), "lavfi=[atrim=start_sample=%lld:end_sample=%lld]", start, stop);
+        if (pts_filter) {
+            char *rate_end = NULL;
+            errno = 0;
+            long rate = strtol(argv[6], &rate_end, 10);
+            if (errno || !*argv[6] || *rate_end || rate <= 0 || rate > INT32_MAX) return 2;
+            snprintf(filter, sizeof(filter),
+                     "lavfi=[atrim=start_pts=%lld:end_pts=%lld]:fix-pts=no", start, stop);
+            snprintf(playback_start, sizeof(playback_start), "%.17g", fmax(0, (double)start / rate - preroll));
+        } else {
+            snprintf(filter, sizeof(filter), "lavfi=[atrim=start_sample=%lld:end_sample=%lld]", start, stop);
+        }
     }
     char *end = NULL; errno = 0;
     long index = strtol(argv[2], &end, 10);
@@ -98,7 +119,10 @@ int main(int argc, char **argv) {
         (strcmp(seek_offset, "default") &&
             (!option(m, "hr-seek", "yes") || !option(m, "hr-seek-demuxer-offset", seek_offset))) ||
         (*filter && !option(m, "af", filter)) ||
-        (!sample_filter && strcmp(argv[4], "natural") &&
+        (*playback_start && (!option(m, "hr-seek", "yes") ||
+                             !option(m, "hr-seek-demuxer-offset", "0") ||
+                             !option(m, "start", playback_start))) ||
+        (!sample_filter && !pts_filter && strcmp(argv[4], "natural") &&
             (!option(m, "start", argv[4]) || !option(m, "end", argv[5]))) ||
         !option(m, "keep-open", "no") || !option(m, "idle", "yes") ||
         mpv_initialize(m) < 0 || mpv_hook_add(m, 1, "on_preloaded", 0) < 0) goto cleanup;
@@ -133,13 +157,23 @@ int main(int argc, char **argv) {
         } else if (event->event_id == MPV_EVENT_SHUTDOWN) break;
     }
 cleanup:
+    /* EOF can overtake buffered low-priority log events. Preserve decoder
+     * identity evidence before destroy, without waiting or starting more work. */
+    if (ok) for (int i = 0; i < 4096; ++i) {
+        mpv_event *event = mpv_wait_event(m, 0);
+        if (event->event_id == MPV_EVENT_NONE) break;
+        if (event->event_id == MPV_EVENT_LOG_MESSAGE) {
+            mpv_event_log_message *log = event->data;
+            fprintf(stderr, "[%s/%s] %s", log->prefix, log->level, log->text);
+        }
+    }
     mpv_terminate_destroy(m); /* flush/close PCM output before comparison */
     if (rejected) {
         printf("{\"rejected\":true,\"ffIndex\":%ld}\n", index);
         return 3;
     }
-    if (ok) printf("{\"passed\":true,\"ffIndex\":%ld,\"audioTrackID\":%lld,\"movEditList\":\"%s\",\"seekOffset\":%.17g}\n",
-                   index, (long long)selected, mov_edit_list, observed_seek_offset);
+    if (ok) printf("{\"passed\":true,\"ffIndex\":%ld,\"audioTrackID\":%lld,\"movEditList\":\"%s\",\"seekOffset\":%.17g,\"filterPreroll\":%.17g}\n",
+                   index, (long long)selected, mov_edit_list, observed_seek_offset, pts_filter ? preroll : -1);
     else fprintf(stderr, "Audio decode/selection/EOF failed or timed out\n");
     return ok ? 0 : 1;
 }

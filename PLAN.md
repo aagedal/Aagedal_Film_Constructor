@@ -2299,3 +2299,32 @@ See [MOV edit-list evidence](docs/evidence/mpv-mov-edit-list-20261016/README.md)
   playback remains AVFoundation; no backend or format admission changes.
 
 See [timestamp seek-preroll evidence](docs/evidence/mpv-seek-preroll-20261016/README.md).
+
+
+### MPV absolute-PTS loading-seek checkpoint (2026-10-16)
+
+- Added a separate `pts-filter` audio control: playback starts before the requested
+  cut and absolute integer `atrim` timestamps preserve MPV's existing audio input
+  timebase with `fix-pts=no`. The separate `--filter-preroll` is finite, bounded,
+  mandatory in this mode and refused elsewhere. Existing controls retain defaults.
+- Two complete AddressSanitizer matrices retain 192 exact comparisons and 32
+  successful invalid-stream rejections. Zero preroll passes 60/96; 500 ms passes
+  68/96. PCM and ALAC each pass 24/24 byte-exactly in both controls, including
+  nonzero tail seeks. AAC improves from 8/24 to 16/24; MP3 remains 4/24.
+- Bounded AAC counts are exact, but nonzero tail content still fails. Natural
+  AAC remains byte-identical across controls with 820/384 excess samples. MOV
+  fixture hashes match across runs; no comparator alignment or capture repair.
+- A bounded nonblocking successful-EOF drain preserves MPV decoder logs that can
+  otherwise be overtaken by the EOF event. Missing/ambiguous decoder identity
+  still rejects the proof; invalid-stream/error paths retain immediate teardown.
+- Verification: all 108 Python tests pass (eight optional skips), both final
+  runtime matrices complete without client failures, source hashes match,
+  legacy timestamp/integer AAC spot checks retain byte parity, and independent
+  review/diff checks pass. Broad qualification intentionally exits 1.
+- This qualifies only the measured generated loading ranges. Early preroll cuts
+  clamp to zero; later tail ranges exercise nonzero seeks. No decoder-work bound,
+  arbitrary timestamp, asynchronous in-place seek, hardware presentation/sync,
+  proxy composition, signed sandbox or distribution qualification is claimed.
+  Application source playback remains AVFoundation.
+
+See [absolute-PTS seek evidence](docs/evidence/mpv-pts-seek-20261016/README.md).
