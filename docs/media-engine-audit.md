@@ -689,3 +689,12 @@ alignment or relaxed bounds. Sixteen wrong-kind/missing container stream
 selections are refused explicitly before output. This adds measured audio
 boundary blockers to future source integration; it does not qualify CoreAudio,
 clocks, asynchronous in-place seeks, proxy composition or distribution.
+
+The [range/demuxer control matrix](evidence/mpv-audio-controls-20261016/README.md)
+retains the original 30/96 result and tests two explicit controls independently.
+Integer `atrim` after decoding from zero passes PCM/ALAC 24/24 each. Forced lavf
+passes all four natural MP3 selections, and combining it with the integer filter
+passes MP3 24/24 as well, for 72/96 overall. AAC remains 0/24. All comparisons
+retain exact counts and unchanged amplitude limits. These results isolate
+lossless timestamp clipping and demuxer-dependent MP3 behavior; decoding from
+zero does not qualify random access, interactive playback or production formats.

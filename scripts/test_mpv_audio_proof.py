@@ -13,6 +13,20 @@ def audio(values):
 
 
 class AudioComparisonTests(unittest.TestCase):
+    def test_range_strategies_keep_exact_requested_endpoints(self):
+        self.assertEqual(proof.range_arguments('tail', 128203, 4097, 44100, 'sample-filter'),
+                         ['128203', '132300'])
+        self.assertEqual(proof.range_arguments('cut', 1023, 4097, 48000, 'timestamp'),
+                         [format(1023 / 48000, '.17g'), format(5120 / 48000, '.17g')])
+        for mode in ('timestamp', 'sample-filter'):
+            self.assertEqual(proof.range_arguments('natural', 0, 132300, 44100, mode), ['natural', '3'])
+
+    def test_invalid_range_strategy_or_coordinates_rejected(self):
+        for start, count, rate, mode in ((-1, 5, 48000, 'timestamp'), (0, 0, 48000, 'sample-filter'),
+                                         (0, 5, 0, 'timestamp'), (0, 5, 48000, 'align')):
+            with self.subTest(start=start, count=count, rate=rate, mode=mode), self.assertRaises(ValueError):
+                proof.range_arguments('cut', start, count, rate, mode)
+
     def test_exact_samples_pass(self):
         values = audio([0.0, 0.125, -0.25, 0.5])
         result = proof.compare_audio(values, values, 2)

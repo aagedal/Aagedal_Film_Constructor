@@ -2175,3 +2175,29 @@ See [in-flight evidence](docs/evidence/mpv-swift-inflight-20261016/README.md).
   distribution remain open. No production app code or backend selection changed.
 
 See [decoded-audio evidence](docs/evidence/mpv-audio-20261016/README.md).
+
+
+### MPV audio range and demuxer control checkpoint (2026-10-16)
+
+- Added independent timestamp/integer-filter range and automatic/lavf demuxer
+  controls to the existing offline source-audio proof. Defaults retain the
+  original options, fixtures, stream identities and exact comparison policy.
+- Four complete AddressSanitizer matrices retain 384 comparisons and 64 explicit
+  wrong-kind/missing-stream rejections. Timestamp/automatic repeats 30/96;
+  timestamp/lavf passes 34/96; integer-filter/automatic passes 48/96; combining
+  integer filtering with lavf passes 72/96. Every rejection passes.
+- Integer filtering passes all PCM/ALAC ranges exactly. Forced lavf passes all
+  four natural MP3 selections; with integer filtering all 24 MP3 ranges match
+  reference samples exactly. Captured output is never aligned, padded or repaired.
+- AAC remains 0/24 in every control. Retained external packet-edge metadata
+  records priming/padding information without claiming its embedded-runtime
+  handling or the cause of AAC content failures is resolved.
+- Verification: 102 Python tests (eight optional skips), four full diagnostic
+  runtime matrices, independent implementation review and diff checks pass.
+  Each broad audio qualification result intentionally remains nonzero for AAC.
+- The integer control decodes from source zero, so it does not qualify efficient
+  random access or asynchronous seeks. No production backend or format admission
+  changes. Faithful AAC, interactive source seeking, CoreAudio/GPU, hardware sync,
+  proxy composition, signed sandbox access and distribution remain open.
+
+See [audio control evidence](docs/evidence/mpv-audio-controls-20261016/README.md).
