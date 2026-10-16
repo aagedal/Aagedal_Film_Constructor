@@ -1,0 +1,124 @@
+{"passed":true,"ffIndex":0,"audioTrackID":1}
+[cplayer/debug] Run command: loadfile, flags=64, args=[url="/private/tmp/afc-mpv-audio-controls-sample-filter-auto/libmp3lame-44100-1.mkv", flags="replace", index="-1", options=""]
+[global/debug] state path: 'watch_later' -> '-'
+[bdmv/bluray/v] Opening /private/tmp/afc-mpv-audio-controls-sample-filter-auto/libmp3lame-44100-1.mkv
+[file/v] Opening /private/tmp/afc-mpv-audio-controls-sample-filter-auto/libmp3lame-44100-1.mkv
+[file/debug] resize stream to 131072 bytes, drop 0 bytes
+[file/debug] Stream opened successfully.
+[demux/v] Trying demuxers for level=normal.
+[demux/debug] Trying demuxer: directory (force-level: normal)
+[demux/debug] Trying demuxer: disc (force-level: normal)
+[demux/debug] Trying demuxer: edl (force-level: normal)
+[demux/debug] Trying demuxer: cue (force-level: normal)
+[demux/debug] Trying demuxer: rawaudio (force-level: normal)
+[demux/debug] Trying demuxer: rawvideo (force-level: normal)
+[demux/debug] Trying demuxer: mkv (force-level: normal)
+[mkv/debug] Found the head...
+[mkv/debug] + a segment...
+[mkv/debug] Parsing seek head...
+[mkv/debug] |+ segment information...
+[mkv/debug] float 3025.000000
+[mkv/debug] | + muxing app: Lavf63.1.102
+[mkv/debug] | + writing app: Lavf63.1.102
+[mkv/debug] | + timecode scale: 1000000
+[mkv/debug] | + duration: 3.025s
+[mkv/debug] | + segment uid 76 59 85 27 9f 71 9f bb e9 b0 05 26 16 22 c3 40
+[mkv/debug] |+ segment tracks...
+[mkv/debug] float 44100.000000
+[mkv/debug] float 44100.000000
+[mkv/debug] | + a track...
+[mkv/debug] |  + Track number: 1
+[mkv/debug] |  + Track type: Audio
+[mkv/debug] |  + Audio track
+[mkv/debug] |   + Sampling frequency: 44100.000000
+[mkv/debug] |   + Bit depth: 16
+[mkv/debug] |   + Channels: 1
+[mkv/debug] |  + Codec ID: A_MPEG/L3
+[mkv/debug] |  + Language: und
+[mkv/debug] |  + Default duration: 26.122ms ( = 38.281 fps)
+[mkv/debug] | + a track...
+[mkv/debug] |  + Track number: 2
+[mkv/debug] |  + Track type: Video
+[mkv/debug] |  + Video track
+[mkv/debug] |   + Pixel width: 16
+[mkv/debug] |   + Pixel height: 16
+[mkv/debug] |    + Levels: limited
+[mkv/debug] |  + Codec ID: V_MPEG4/ISO/AVC
+[mkv/debug] |  + CodecPrivate, length 44
+[mkv/debug] |  + Language: und
+[mkv/debug] |  + Default flag: 0
+[mkv/debug] |  + Default duration: 41.667ms ( = 24.000 fps)
+[mkv/debug] | + a track...
+[mkv/debug] |  + Track number: 3
+[mkv/debug] |  + Track type: Audio
+[mkv/debug] |  + Audio track
+[mkv/debug] |   + Sampling frequency: 44100.000000
+[mkv/debug] |   + Bit depth: 16
+[mkv/debug] |   + Channels: 1
+[mkv/debug] |  + Codec ID: A_MPEG/L3
+[mkv/debug] |  + Language: und
+[mkv/debug] |  + Default flag: 0
+[mkv/debug] |  + Default duration: 26.122ms ( = 38.281 fps)
+[mkv/debug] |+ found cluster
+[mkv/v] Deferring reading cues.
+[mkv/v] All headers are parsed!
+[demux/v] Detected file format: Matroska
+[cplayer/v] Opening done: /private/tmp/afc-mpv-audio-controls-sample-filter-auto/libmp3lame-44100-1.mkv
+[find_files/v] Loading external files in /private/tmp/afc-mpv-audio-controls-sample-filter-auto/
+[cplayer/v] Running hook: main/on_preloaded
+[cplayer/v] Set property: aid=1 -> 1
+[mkv/v] select track 0
+[mkv/v] refresh track 0 (audio)
+[mkv/v] refresh seek to 0.000000
+[mkv/v] execute seek (to 0.000000 flags 32)
+[cplayer/info] ○ Video  --vid=1  (h264 16x16 24 fps)
+[cplayer/info] ● Audio  --aid=1  (mp3 1ch 44100 Hz) [default]
+[mkv/v] Seeking to 53215 to read header element 0x1c53bb6b.
+[mkv/v] Parsing cues...
+[mkv/warn] Discarding potentially broken or useless index.
+[cplayer/info] ○ Audio  --aid=2  (mp3 1ch 44100 Hz)
+[mkv/v] creating index until TC 5000000
+[mkv/v] seek done
+[ad/v] Codec list:
+[ad/v]     mp3float (mp3) - MP3 (MPEG audio layer 3)
+[ad/v]     mp3 - MP3 (MPEG audio layer 3)
+[ad/v]     mp3_at (mp3) - mp3 (AudioToolbox)
+[ad/v] Opening decoder mp3float
+[ad/v] Requesting 1 threads for decoding.
+[ad/v] Selected decoder: mp3float - MP3 (MPEG audio layer 3)
+[af/v] User filter list:
+[af/v]   (empty)
+[cplayer/v] Starting playback...
+[af/v] [in] 44100Hz mono 1ch floatp
+[af/v] [userspeed] 44100Hz mono 1ch floatp
+[af/v] [userspeed] (disabled)
+[af/v] [convert] 44100Hz mono 1ch floatp
+[ao/v] Trying audio driver 'pcm'
+[ao/pcm/v] requested format: 44100 Hz, mono channels, float
+[ao/pcm/v] Channel layouts:
+[ao/pcm/v]  - waveext
+[ao/pcm/v] result: mono
+[ao/pcm/info] File: /private/tmp/afc-mpv-audio-controls-sample-filter-auto/libmp3lame-44100-1-0-natural.f32 (RAW PCM)
+[ao/pcm/info] PCM: Samplerate: 44100 Hz Channels: 1 Format: float
+[ao/pcm/v] device buffer: 65536 samples.
+[ao/pcm/v] using soft-buffer of 65536 samples.
+[cplayer/info] AO: [pcm] 44100Hz mono 1ch float
+[cplayer/v] AO: Description: RAW PCM/WAVE file writer audio output
+[autoconvert/v] inserting resampler
+[swresample/v] format change, reinitializing resampler
+[swresample/v] 44100Hz mono floatp -> 44100Hz mono float
+[af/v] [out] 44100Hz mono 1ch float
+[cplayer/v] audio ready
+[cplayer/v] starting audio playback
+[cplayer/v] playback restart complete @ -0.025034, audio=playing, video=eof
+[ao/pcm/v] starting AO
+[mkv/v] EOF reached.
+[af/v] filter input EOF
+[af/v] filter output EOF
+[cplayer/v] audio filter EOF
+[ao/pcm/v] audio end or underrun
+[cplayer/v] AO signaled EOF (while in state playing)
+[cplayer/v] EOF code: 1  
+[ad/debug] Uninit decoder.
+[cplayer/debug] Terminating demuxers...
+[cplayer/debug] Done terminating demuxers.

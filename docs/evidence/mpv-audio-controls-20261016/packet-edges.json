@@ -1,0 +1,846 @@
+[
+  {
+    "argv": [
+      "/opt/homebrew/bin/ffprobe",
+      "-v",
+      "error",
+      "-show_packets",
+      "-show_streams",
+      "-select_streams",
+      "a",
+      "-of",
+      "json",
+      "/private/tmp/afc-mpv-audio-controls-timestamp-auto/aac-44100-1.mov"
+    ],
+    "sourceSHA256": "8bba9f76d1b3abd8561dfca2dfa6cc1684f96533d8970ae867d401d4d4307c35",
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "aac",
+        "codec_long_name": "AAC (Advanced Audio Coding)",
+        "profile": "LC",
+        "codec_type": "audio",
+        "codec_tag_string": "mp4a",
+        "codec_tag": "0x6134706d",
+        "mime_codec_string": "mp4a.40.2",
+        "sample_fmt": "fltp",
+        "sample_rate": "44100",
+        "channels": 1,
+        "channel_layout": "mono",
+        "bits_per_sample": 0,
+        "initial_padding": 1024,
+        "id": "0x1",
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/44100",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 132300,
+        "duration": "3.000000",
+        "bit_rate": "69478",
+        "nb_frames": "131",
+        "nb_read_packets": "131",
+        "extradata_size": 5,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "handler_name": "SoundHandler",
+          "vendor_id": "[0][0][0][0]"
+        }
+      },
+      {
+        "index": 2,
+        "codec_name": "aac",
+        "codec_long_name": "AAC (Advanced Audio Coding)",
+        "profile": "LC",
+        "codec_type": "audio",
+        "codec_tag_string": "mp4a",
+        "codec_tag": "0x6134706d",
+        "mime_codec_string": "mp4a.40.2",
+        "sample_fmt": "fltp",
+        "sample_rate": "44100",
+        "channels": 1,
+        "channel_layout": "mono",
+        "bits_per_sample": 0,
+        "initial_padding": 1024,
+        "id": "0x3",
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/44100",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 132300,
+        "duration": "3.000000",
+        "bit_rate": "69689",
+        "nb_frames": "131",
+        "nb_read_packets": "131",
+        "extradata_size": 5,
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "handler_name": "SoundHandler",
+          "vendor_id": "[0][0][0][0]"
+        }
+      }
+    ],
+    "edgePackets": {
+      "0": [
+        {
+          "codec_type": "audio",
+          "stream_index": 0,
+          "pts": -1024,
+          "pts_time": "-0.023220",
+          "dts": -1024,
+          "dts_time": "-0.023220",
+          "duration": 1024,
+          "duration_time": "0.023220",
+          "size": "290",
+          "pos": "757",
+          "flags": "KD_",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 1024,
+              "discard_padding": 0,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        },
+        {
+          "codec_type": "audio",
+          "stream_index": 0,
+          "pts": 132096,
+          "pts_time": "2.995374",
+          "dts": 132096,
+          "dts_time": "2.995374",
+          "duration": 204,
+          "duration_time": "0.004626",
+          "size": "5",
+          "pos": "54315",
+          "flags": "K__",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 0,
+              "discard_padding": 820,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        }
+      ],
+      "2": [
+        {
+          "codec_type": "audio",
+          "stream_index": 2,
+          "pts": -1024,
+          "pts_time": "-0.023220",
+          "dts": -1024,
+          "dts_time": "-0.023220",
+          "duration": 1024,
+          "duration_time": "0.023220",
+          "size": "288",
+          "pos": "1047",
+          "flags": "KD_",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 1024,
+              "discard_padding": 0,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        },
+        {
+          "codec_type": "audio",
+          "stream_index": 2,
+          "pts": 132096,
+          "pts_time": "2.995374",
+          "dts": 132096,
+          "dts_time": "2.995374",
+          "duration": 204,
+          "duration_time": "0.004626",
+          "size": "5",
+          "pos": "54320",
+          "flags": "K__",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 0,
+              "discard_padding": 820,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "argv": [
+      "/opt/homebrew/bin/ffprobe",
+      "-v",
+      "error",
+      "-show_packets",
+      "-show_streams",
+      "-select_streams",
+      "a",
+      "-of",
+      "json",
+      "/private/tmp/afc-mpv-audio-controls-timestamp-auto/aac-48000-2.mov"
+    ],
+    "sourceSHA256": "f408fcbca4305cf5021bc9a7a8deb019023406ac280bbb49c0b7d65151f64a2a",
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "aac",
+        "codec_long_name": "AAC (Advanced Audio Coding)",
+        "profile": "LC",
+        "codec_type": "audio",
+        "codec_tag_string": "mp4a",
+        "codec_tag": "0x6134706d",
+        "mime_codec_string": "mp4a.40.2",
+        "sample_fmt": "fltp",
+        "sample_rate": "48000",
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bits_per_sample": 0,
+        "initial_padding": 1024,
+        "id": "0x1",
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/48000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 144000,
+        "duration": "3.000000",
+        "bit_rate": "127535",
+        "nb_frames": "142",
+        "nb_read_packets": "142",
+        "extradata_size": 5,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "handler_name": "SoundHandler",
+          "vendor_id": "[0][0][0][0]"
+        }
+      },
+      {
+        "index": 2,
+        "codec_name": "aac",
+        "codec_long_name": "AAC (Advanced Audio Coding)",
+        "profile": "LC",
+        "codec_type": "audio",
+        "codec_tag_string": "mp4a",
+        "codec_tag": "0x6134706d",
+        "mime_codec_string": "mp4a.40.2",
+        "sample_fmt": "fltp",
+        "sample_rate": "48000",
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bits_per_sample": 0,
+        "initial_padding": 1024,
+        "id": "0x3",
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/48000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 144000,
+        "duration": "3.000000",
+        "bit_rate": "127527",
+        "nb_frames": "142",
+        "nb_read_packets": "142",
+        "extradata_size": 5,
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "handler_name": "SoundHandler",
+          "vendor_id": "[0][0][0][0]"
+        }
+      }
+    ],
+    "edgePackets": {
+      "0": [
+        {
+          "codec_type": "audio",
+          "stream_index": 0,
+          "pts": -1024,
+          "pts_time": "-0.021333",
+          "dts": -1024,
+          "dts_time": "-0.021333",
+          "duration": 1024,
+          "duration_time": "0.021333",
+          "size": "278",
+          "pos": "757",
+          "flags": "KD_",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 1024,
+              "discard_padding": 0,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        },
+        {
+          "codec_type": "audio",
+          "stream_index": 0,
+          "pts": 143360,
+          "pts_time": "2.986667",
+          "dts": 143360,
+          "dts_time": "2.986667",
+          "duration": 640,
+          "duration_time": "0.013333",
+          "size": "332",
+          "pos": "97380",
+          "flags": "K__",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 0,
+              "discard_padding": 384,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        }
+      ],
+      "2": [
+        {
+          "codec_type": "audio",
+          "stream_index": 2,
+          "pts": -1024,
+          "pts_time": "-0.021333",
+          "dts": -1024,
+          "dts_time": "-0.021333",
+          "duration": 1024,
+          "duration_time": "0.021333",
+          "size": "256",
+          "pos": "1035",
+          "flags": "KD_",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 1024,
+              "discard_padding": 0,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        },
+        {
+          "codec_type": "audio",
+          "stream_index": 2,
+          "pts": 143360,
+          "pts_time": "2.986667",
+          "dts": 143360,
+          "dts_time": "2.986667",
+          "duration": 640,
+          "duration_time": "0.013333",
+          "size": "350",
+          "pos": "97712",
+          "flags": "K__",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 0,
+              "discard_padding": 384,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "argv": [
+      "/opt/homebrew/bin/ffprobe",
+      "-v",
+      "error",
+      "-show_packets",
+      "-show_streams",
+      "-select_streams",
+      "a",
+      "-of",
+      "json",
+      "/private/tmp/afc-mpv-audio-controls-timestamp-auto/libmp3lame-44100-1.mkv"
+    ],
+    "sourceSHA256": "8e842a97bdae6577613e1fa53a022a847d9227b2dd976ac2ce4c6f7e2663ad78",
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "mp3",
+        "codec_long_name": "MP3 (MPEG audio layer 3)",
+        "codec_type": "audio",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "mime_codec_string": "mp4a.40.34",
+        "sample_fmt": "fltp",
+        "sample_rate": "44100",
+        "channels": 1,
+        "channel_layout": "mono",
+        "bits_per_sample": 0,
+        "initial_padding": 1105,
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/1000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "bit_rate": "64000",
+        "nb_read_packets": "116",
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "ENCODER": "Lavc63.1.102 libmp3lame",
+          "DURATION": "00:00:03.025000000"
+        }
+      },
+      {
+        "index": 2,
+        "codec_name": "mp3",
+        "codec_long_name": "MP3 (MPEG audio layer 3)",
+        "codec_type": "audio",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "mime_codec_string": "mp4a.40.34",
+        "sample_fmt": "fltp",
+        "sample_rate": "44100",
+        "channels": 1,
+        "channel_layout": "mono",
+        "bits_per_sample": 0,
+        "initial_padding": 1105,
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/1000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "bit_rate": "64000",
+        "nb_read_packets": "116",
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "ENCODER": "Lavc63.1.102 libmp3lame",
+          "DURATION": "00:00:03.025000000"
+        }
+      }
+    ],
+    "edgePackets": {
+      "0": [
+        {
+          "codec_type": "audio",
+          "stream_index": 0,
+          "pts": -25,
+          "pts_time": "-0.025000",
+          "dts": -25,
+          "dts_time": "-0.025000",
+          "duration": 26,
+          "duration_time": "0.026000",
+          "size": "208",
+          "pos": "1692",
+          "flags": "K__",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 1105,
+              "discard_padding": 0,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        },
+        {
+          "codec_type": "audio",
+          "stream_index": 0,
+          "pts": 2979,
+          "pts_time": "2.979000",
+          "dts": 2979,
+          "dts_time": "2.979000",
+          "duration": 26,
+          "duration_time": "0.026000",
+          "size": "209",
+          "pos": "52765",
+          "flags": "K__",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 0,
+              "discard_padding": 227,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        }
+      ],
+      "2": [
+        {
+          "codec_type": "audio",
+          "stream_index": 2,
+          "pts": -25,
+          "pts_time": "-0.025000",
+          "dts": -25,
+          "dts_time": "-0.025000",
+          "duration": 26,
+          "duration_time": "0.026000",
+          "size": "208",
+          "pos": "1907",
+          "flags": "K__",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 1105,
+              "discard_padding": 0,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        },
+        {
+          "codec_type": "audio",
+          "stream_index": 2,
+          "pts": 2979,
+          "pts_time": "2.979000",
+          "dts": 2979,
+          "dts_time": "2.979000",
+          "duration": 26,
+          "duration_time": "0.026000",
+          "size": "209",
+          "pos": "52993",
+          "flags": "K__",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 0,
+              "discard_padding": 227,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "argv": [
+      "/opt/homebrew/bin/ffprobe",
+      "-v",
+      "error",
+      "-show_packets",
+      "-show_streams",
+      "-select_streams",
+      "a",
+      "-of",
+      "json",
+      "/private/tmp/afc-mpv-audio-controls-timestamp-auto/libmp3lame-48000-2.mkv"
+    ],
+    "sourceSHA256": "92dcf1c4c8aa0fdfebc07e7bf08be1cb54fcc3001cb5a4f7a94188729d95c212",
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "mp3",
+        "codec_long_name": "MP3 (MPEG audio layer 3)",
+        "codec_type": "audio",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "mime_codec_string": "mp4a.40.34",
+        "sample_fmt": "fltp",
+        "sample_rate": "48000",
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bits_per_sample": 0,
+        "initial_padding": 1105,
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/1000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "bit_rate": "128000",
+        "nb_read_packets": "126",
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "ENCODER": "Lavc63.1.102 libmp3lame",
+          "DURATION": "00:00:03.023000000"
+        }
+      },
+      {
+        "index": 2,
+        "codec_name": "mp3",
+        "codec_long_name": "MP3 (MPEG audio layer 3)",
+        "codec_type": "audio",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "mime_codec_string": "mp4a.40.34",
+        "sample_fmt": "fltp",
+        "sample_rate": "48000",
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bits_per_sample": 0,
+        "initial_padding": 1105,
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/1000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "bit_rate": "128000",
+        "nb_read_packets": "126",
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "ENCODER": "Lavc63.1.102 libmp3lame",
+          "DURATION": "00:00:03.023000000"
+        }
+      }
+    ],
+    "edgePackets": {
+      "0": [
+        {
+          "codec_type": "audio",
+          "stream_index": 0,
+          "pts": -23,
+          "pts_time": "-0.023000",
+          "dts": -23,
+          "dts_time": "-0.023000",
+          "duration": 24,
+          "duration_time": "0.024000",
+          "size": "384",
+          "pos": "1692",
+          "flags": "K__",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 1105,
+              "discard_padding": 0,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        },
+        {
+          "codec_type": "audio",
+          "stream_index": 0,
+          "pts": 2977,
+          "pts_time": "2.977000",
+          "dts": 2977,
+          "dts_time": "2.977000",
+          "duration": 24,
+          "duration_time": "0.024000",
+          "size": "384",
+          "pos": "100841",
+          "flags": "K__",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 0,
+              "discard_padding": 47,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        }
+      ],
+      "2": [
+        {
+          "codec_type": "audio",
+          "stream_index": 2,
+          "pts": -23,
+          "pts_time": "-0.023000",
+          "dts": -23,
+          "dts_time": "-0.023000",
+          "duration": 24,
+          "duration_time": "0.024000",
+          "size": "384",
+          "pos": "2083",
+          "flags": "K__",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 1105,
+              "discard_padding": 0,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        },
+        {
+          "codec_type": "audio",
+          "stream_index": 2,
+          "pts": 2977,
+          "pts_time": "2.977000",
+          "dts": 2977,
+          "dts_time": "2.977000",
+          "duration": 24,
+          "duration_time": "0.024000",
+          "size": "384",
+          "pos": "101244",
+          "flags": "K__",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 0,
+              "discard_padding": 47,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

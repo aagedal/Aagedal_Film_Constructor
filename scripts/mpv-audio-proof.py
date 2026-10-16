@@ -25,6 +25,17 @@ MEAN_LIMIT = 1e-6
 PEAK_LIMIT = 1e-5
 
 
+def range_arguments(label, start, count, rate, mode):
+    """Only change runtime trimming; reference and capture comparisons stay exact."""
+    if mode not in ('timestamp', 'sample-filter') or start < 0 or count <= 0 or rate <= 0:
+        raise ValueError('Invalid range strategy or sample coordinates')
+    if label == 'natural':
+        return ['natural', format((start + count) / rate, '.17g')]
+    if mode == 'sample-filter':
+        return [str(start), str(start + count)]
+    return [format(start / rate, '.17g'), format((start + count) / rate, '.17g')]
+
+
 def compare_audio(actual, expected, channels):
     if channels not in (1, 2) or not expected or len(expected) % (4 * channels):
         raise ValueError('Reference is not complete mono/stereo float32 audio')
@@ -68,11 +79,14 @@ def run_proof(args):
     root.mkdir(parents=True)
     result = {'passed': False, 'decodedAudioTested': False, 'coreAudioTested': False,
               'applicationIntegrated': False, 'commands': [], 'cases': [], 'rejections': [],
+              'rangeMode': args.range_mode, 'demuxer': args.demuxer,
               'meanAmplitudeTolerance': MEAN_LIMIT, 'peakAmplitudeTolerance': PEAK_LIMIT,
               'comparisonPolicy': 'Exact interleaved sample count, per-channel mean and all-sample peak; no alignment, padding or edge masking',
               'limitations': ['Offline PCM sink; no CoreAudio or hardware synchronization',
                               'Natural playback and start/end loading ranges, not asynchronous in-place seeks or proxy composition',
                               'Generated same-rate mono/stereo subset; no resampling or distribution qualification']}
+    if args.range_mode == 'sample-filter':
+        result['limitations'].append('Integer atrim decodes every preceding sample from source zero; not a random-access seek solution')
 
     def run(command, name, timeout=180, allow_failure=False):
         command = list(map(str, command))
@@ -137,7 +151,8 @@ def run_proof(args):
                     reject_name = f'reject-{name}-{rejected_index}'
                     reject_output = root / (reject_name + '.f32')
                     completed = run([executable, fixture, rejected_index, reject_output,
-                                     'natural', '3', rate], reject_name, timeout=25, allow_failure=True)
+                                     'natural', '3', rate, args.range_mode, args.demuxer],
+                                    reject_name, timeout=25, allow_failure=True)
                     rejected = (completed.returncode == 3
                                 and json.loads(completed.stdout) == {'rejected': True, 'ffIndex': rejected_index}
                                 and (not reject_output.exists() or reject_output.stat().st_size == 0))
@@ -157,8 +172,8 @@ def run_proof(args):
                         case_name = f'{name}-{stream}-{label}'
                         output = root / (case_name + '.f32')
                         completed = run([executable, fixture, ff_index, output,
-                                         'natural' if label == 'natural' else format(start / rate, '.17g'),
-                                         format((start + count) / rate, '.17g'), rate],
+                                         *range_arguments(label, start, count, rate, args.range_mode),
+                                         rate, args.range_mode, args.demuxer],
                                         case_name, timeout=25, allow_failure=True)
                         case = {'name': case_name, 'codec': codec, 'rate': rate, 'channels': channels,
                                 'ffIndex': ff_index, 'startSample': start, 'requestedSamples': count,
@@ -194,6 +209,9 @@ def run_proof(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sanitize-address', action='store_true')
+    parser.add_argument('--range-mode', choices=('timestamp', 'sample-filter'), default='timestamp',
+                        help='Integer filter mode decodes from zero; it does not qualify random access')
+    parser.add_argument('--demuxer', choices=('auto', 'lavf'), default='auto')
     for name in ('checkout', 'artifacts', 'ffmpeg', 'output'):
         parser.add_argument(name, type=Path)
     args = parser.parse_args()

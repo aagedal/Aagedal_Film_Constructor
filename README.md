@@ -286,3 +286,9 @@ The isolated [MPV decoded-audio proof](docs/evidence/mpv-audio-20261016/README.m
 now finds exact natural PCM/ALAC output for its generated subset, but only 30/96
 broader source/range comparisons pass. AAC/MP3 and some lossless range boundaries
 remain unqualified. This diagnostic does not change application source playback.
+
+A follow-up [audio control matrix](docs/evidence/mpv-audio-controls-20261016/README.md)
+separates timestamp clipping from demuxer behavior. Integer trimming after decoding
+from zero passes all PCM/ALAC ranges; forcing the FFmpeg demuxer additionally
+passes all tested MP3 ranges under that control. AAC remains unqualified, and
+this offline control does not resolve interactive seeking or change app playback.

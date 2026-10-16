@@ -1,5 +1,6 @@
 /* Offline decoded-audio qualification only. PCM file output bypasses hardware.
- * argv: source, ff-index, output.pcm, start-seconds, end-seconds, sample-rate.
+ * argv: source, ff-index, output.pcm, start, end, sample-rate, range-mode, demuxer.
+ * sample-filter mode decodes from zero and trims integer samples before output.
  * on_preloaded resolves container identity before decoders/output are created.
  */
 #include <mpv/client.h>
@@ -44,7 +45,21 @@ static int select_audio(mpv_handle *m, int index, int64_t *selected) {
     return mpv_set_property(m, "aid", MPV_FORMAT_INT64, selected) >= 0;
 }
 int main(int argc, char **argv) {
-    if (argc != 7) return 2;
+    if (argc != 9) return 2;
+    int sample_filter = !strcmp(argv[7], "sample-filter");
+    if ((!sample_filter && strcmp(argv[7], "timestamp")) ||
+        (strcmp(argv[8], "auto") && strcmp(argv[8], "lavf"))) return 2;
+    char filter[160] = {0};
+    if (sample_filter && strcmp(argv[4], "natural")) {
+        char *start_end = NULL, *stop_end = NULL;
+        errno = 0;
+        long long start = strtoll(argv[4], &start_end, 10);
+        if (errno || !*argv[4] || *start_end || start < 0) return 2;
+        errno = 0;
+        long long stop = strtoll(argv[5], &stop_end, 10);
+        if (errno || !*argv[5] || *stop_end || stop <= start) return 2;
+        snprintf(filter, sizeof(filter), "lavfi=[atrim=start_sample=%lld:end_sample=%lld]", start, stop);
+    }
     char *end = NULL; errno = 0;
     long index = strtol(argv[2], &end, 10);
     if (errno || !*argv[2] || *end || index < 0 || index > INT32_MAX) return 2;
@@ -59,7 +74,10 @@ int main(int argc, char **argv) {
         !option(m, "audio-samplerate", argv[6]) || !option(m, "audio-channels", "auto") ||
         !option(m, "msg-level", "ad=debug,af=debug") ||
         !option(m, "volume", "100") || !option(m, "replaygain", "no") ||
-        (strcmp(argv[4], "natural") && (!option(m, "start", argv[4]) || !option(m, "end", argv[5]))) ||
+        (strcmp(argv[8], "auto") && !option(m, "demuxer", argv[8])) ||
+        (*filter && !option(m, "af", filter)) ||
+        (!sample_filter && strcmp(argv[4], "natural") &&
+            (!option(m, "start", argv[4]) || !option(m, "end", argv[5]))) ||
         !option(m, "keep-open", "no") || !option(m, "idle", "yes") ||
         mpv_initialize(m) < 0 || mpv_hook_add(m, 1, "on_preloaded", 0) < 0) goto cleanup;
     mpv_request_log_messages(m, "debug");
