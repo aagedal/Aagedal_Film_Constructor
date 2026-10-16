@@ -34,6 +34,26 @@ def selected_decoder(log, requested='auto'):
     return names[0]
 
 
+def validate_embedded_metadata(metadata, data, index, rate, channels, mode):
+    """A successful control must identify the requested stream and exact output."""
+    if mode not in ('unseeked', 'seek-zero', 'seek-first-packet', 'seek-first-packet-duration'):
+        raise ValueError('Unknown embedded reference control')
+    if (metadata.get('passed') is not True or metadata.get('decoder') != 'aac'
+            or metadata.get('seekZero') is not (mode == 'seek-zero')
+            or metadata.get('seekFirstPacket') is not (mode in ('seek-first-packet', 'seek-first-packet-duration'))
+            or metadata.get('useFrameDuration') is not (mode == 'seek-first-packet-duration')
+            or metadata.get('ffIndex') != index or metadata.get('sampleRate') != rate
+            or metadata.get('channels') != channels
+            or type(metadata.get('samplesPerChannel')) is not int
+            or metadata['samplesPerChannel'] <= 0
+            or metadata['samplesPerChannel'] * channels * 4 != len(data)):
+        raise ValueError('Embedded reference metadata does not match requested stream/output/control')
+    if mode in ('seek-first-packet', 'seek-first-packet-duration') and (
+            type(metadata.get('seekTarget')) is not int
+            or metadata['seekTarget'] != metadata.get('firstPacketPTS')):
+        raise ValueError('First-packet seek did not return the observed target timestamp')
+
+
 def range_arguments(label, start, count, rate, mode):
     """Only change runtime trimming; reference and capture comparisons stay exact."""
     if mode not in ('timestamp', 'sample-filter') or start < 0 or count <= 0 or rate <= 0:
@@ -154,7 +174,7 @@ def run_proof(args):
             run(embedded_command, 'compile-embedded-reference')
             result['embeddedExecutableSHA256'] = source.digest(embedded_executable)
             run(['/usr/bin/otool', '-L', embedded_executable], 'embedded-linked-libraries')
-            result['limitations'].append('Direct embedded AAC reference applies only explicit decoder skip/discard metadata; bounded reference slices are diagnostics, never capture repairs')
+            result['limitations'].append('Direct embedded AAC baseline applies explicit decoder skip/discard metadata; separate first-packet/frame-duration controls test priming and explicit frame extent, never repair MPV captures')
         result['addressSanitizer'] = args.sanitize_address
         result['executableSHA256'] = source.digest(executable)
         result['ffmpegSHA256'] = source.digest(args.ffmpeg)
@@ -197,34 +217,31 @@ def run_proof(args):
                     embedded_bytes = None
                     seek_zero_bytes = None
                     if args.embedded_reference and codec == 'aac':
-                        embedded_output = root / f'{name}-stream-{stream}-embedded.f32'
-                        completed = run([embedded_executable, fixture, ff_index, embedded_output, 'aac'],
-                                        f'embedded-{name}-{stream}')
-                        metadata = json.loads(completed.stdout)
-                        embedded_bytes = embedded_output.read_bytes()
-                        if (metadata.get('passed') is not True or metadata.get('seekZero') is not False
-                                or metadata.get('decoder') != 'aac'
-                                or metadata.get('ffIndex') != ff_index or metadata.get('sampleRate') != rate
-                                or metadata.get('channels') != channels
-                                or metadata.get('samplesPerChannel') * channels * 4 != len(embedded_bytes)):
-                            raise ValueError('Embedded reference metadata does not match requested stream/output')
-                        result['embeddedReferences'].append({'name': f'{name}-{stream}',
-                            'metadata': metadata, 'fixtureSHA256': source.digest(fixture),
-                            'outputSHA256': source.digest(embedded_output),
-                            'naturalVsExternal': compare_audio(embedded_bytes, reference_bytes, channels)})
-                        seek_output = root / f'{name}-stream-{stream}-seek-zero.f32'
-                        completed = run([embedded_executable, fixture, ff_index, seek_output, 'aac', 'seek-zero'],
-                                        f'seek-zero-{name}-{stream}')
-                        seek_metadata = json.loads(completed.stdout)
-                        seek_zero_bytes = seek_output.read_bytes()
-                        if (seek_metadata.get('passed') is not True or seek_metadata.get('seekZero') is not True
-                                or seek_metadata.get('decoder') != 'aac' or seek_metadata.get('ffIndex') != ff_index
-                                or seek_metadata.get('sampleRate') != rate or seek_metadata.get('channels') != channels
-                                or seek_metadata.get('samplesPerChannel') * channels * 4 != len(seek_zero_bytes)):
-                            raise ValueError('Seek-zero reference metadata does not match requested stream/output')
-                        result['embeddedReferences'][-1]['seekZero'] = {
-                            'metadata': seek_metadata, 'outputSHA256': source.digest(seek_output),
-                            'naturalVsExternal': compare_audio(seek_zero_bytes, reference_bytes, channels)}
+                        controls = {}
+                        entry = {'name': f'{name}-{stream}', 'fixtureSHA256': source.digest(fixture)}
+                        for mode in ('unseeked', 'seek-zero', 'seek-first-packet', 'seek-first-packet-duration'):
+                            embedded_output = root / f'{name}-stream-{stream}-{mode}.f32'
+                            completed = run([embedded_executable, fixture, ff_index, embedded_output, 'aac',
+                                             *(['seek-first-packet', 'frame-duration'] if mode == 'seek-first-packet-duration'
+                                                else [] if mode == 'unseeked' else [mode])],
+                                            f'{mode}-{name}-{stream}')
+                            metadata = json.loads(completed.stdout)
+                            data = embedded_output.read_bytes()
+                            validate_embedded_metadata(metadata, data, ff_index, rate, channels, mode)
+                            controls[mode] = data
+                            control = {'metadata': metadata, 'outputSHA256': source.digest(embedded_output),
+                                       'naturalVsExternal': compare_audio(data, reference_bytes, channels)}
+                            if mode == 'unseeked':
+                                entry.update(control)
+                            else:
+                                entry[{'seek-zero': 'seekZero', 'seek-first-packet': 'seekFirstPacket',
+                                       'seek-first-packet-duration': 'seekFirstPacketDuration'}[mode]] = control
+                        embedded_bytes = controls['unseeked']
+                        seek_zero_bytes = controls['seek-zero']
+                        first_packet_bytes = controls['seek-first-packet']
+                        duration_bytes = controls['seek-first-packet-duration']
+                        entry['firstPacketVsUnseeked'] = compare_audio(first_packet_bytes, embedded_bytes, channels)
+                        result['embeddedReferences'].append(entry)
                     for label, start, count in (('natural', 0, len(reference_bytes) // (channels * 4)),
                                                 ('whole', 0, rate * 3), ('sample-1023', 1023, 4097),
                                                 ('sample-1024', 1024, 4097),
@@ -262,6 +279,14 @@ def run_proof(args):
                                 if label != 'natural' and len(seek_expected) != len(expected):
                                     raise ValueError('Seek-zero reference does not cover requested range')
                                 case['captureVsSeekZero'] = compare_audio(output.read_bytes(), seek_expected, channels)
+                                first_expected = (first_packet_bytes if label == 'natural' else
+                                    first_packet_bytes[start * channels * 4:(start + count) * channels * 4])
+                                if label != 'natural' and len(first_expected) != len(expected):
+                                    raise ValueError('First-packet reference does not cover requested range')
+                                duration_expected = (duration_bytes if label == 'natural' else
+                                    duration_bytes[start * channels * 4:(start + count) * channels * 4])
+                                case['firstPacketDurationRangeVsExternal'] = compare_audio(duration_expected, expected, channels)
+                                case['firstPacketRangeVsExternal'] = compare_audio(first_expected, expected, channels)
                                 if label != 'natural':
                                     case['embeddedRangeVsExternal'] = compare_audio(embedded_expected, expected, channels)
                         result['cases'].append(case)

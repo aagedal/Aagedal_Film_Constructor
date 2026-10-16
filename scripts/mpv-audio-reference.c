@@ -1,7 +1,9 @@
 /* Offline diagnostic: decode one container audio stream with the same embedded
- * FFmpeg libraries as MPV. No timestamp clipping, padding or repairs.
- * Optional selected-stream seek-to-zero control before decoding.
- * argv: fixture, ff-index, output.f32, decoder (aac or aac_fixed), [seek-zero].
+ * FFmpeg libraries as MPV. Baseline uses decoder skip/discard metadata only;
+ * optional frame-duration control clips to explicit decoded-frame duration.
+ * No nominal-duration inference, output alignment or padding.
+ * Optional selected-stream seek controls before decoding.
+ * argv: fixture, ff-index, output.f32, decoder (aac or aac_fixed), [unseeked|seek-zero|seek-first-packet], [frame-duration].
  * Decoder skip/discard side data applies to its frame; absent metadata is not
  * inferred from container duration. This is a diagnostic, not format admission.
  */
@@ -25,7 +27,12 @@ typedef struct {
     SwrContext *resampler;
     FILE *output;
     int rate, channels, format;
-    uint64_t samples, skipped, discarded;
+    uint64_t samples, skipped, discarded, packets;
+    int64_t first_packet_pts, last_packet_pts, last_packet_duration;
+    int64_t last_frame_pts, last_frame_duration;
+    int last_frame_samples, use_frame_duration;
+    AVRational time_base;
+    uint64_t duration_clipped;
 } Capture;
 
 static int fail(const char *operation, int error) {
@@ -45,6 +52,9 @@ static int receive(Capture *capture) {
             frame->ch_layout.nb_channels != capture->channels ||
             frame->format != capture->format || frame->nb_samples < 0)
             return fail("unexpected changing audio format", AVERROR(EINVAL));
+        capture->last_frame_pts = frame->pts;
+        capture->last_frame_duration = frame->duration;
+        capture->last_frame_samples = frame->nb_samples;
         uint32_t skip = 0, discard = 0;
         AVFrameSideData *side = av_frame_get_side_data(frame, AV_FRAME_DATA_SKIP_SAMPLES);
         if (side) {
@@ -57,6 +67,20 @@ static int receive(Capture *capture) {
         capture->skipped += skip;
         capture->discarded += discard;
         int count = frame->nb_samples - (int)skip - (int)discard;
+        if (capture->use_frame_duration && frame->duration > 0) {
+            /* A separate diagnostic uses explicit decoded-frame duration only.
+             * Reject fractional sample durations; never infer a source extent. */
+            int64_t duration_samples = av_rescale_q(frame->duration, capture->time_base,
+                                                   (AVRational){1, capture->rate});
+            if (av_compare_ts(frame->duration, capture->time_base, duration_samples,
+                              (AVRational){1, capture->rate}) != 0 || duration_samples < skip)
+                return fail("nonintegral or incompatible frame duration", AVERROR(EINVAL));
+            int64_t available = duration_samples - skip;
+            if (available < count) {
+                capture->duration_clipped += (uint64_t)(count - available);
+                count = (int)available;
+            }
+        }
         if (count) {
             int planar = av_sample_fmt_is_planar((enum AVSampleFormat)frame->format);
             int stride = av_get_bytes_per_sample((enum AVSampleFormat)frame->format);
@@ -85,8 +109,9 @@ static int receive(Capture *capture) {
 }
 
 int main(int argc, char **argv) {
-    if ((argc != 5 && argc != 6) || (strcmp(argv[4], "aac") && strcmp(argv[4], "aac_fixed")) ||
-        (argc == 6 && strcmp(argv[5], "seek-zero"))) return 2;
+    if ((argc < 5 || argc > 7) || (strcmp(argv[4], "aac") && strcmp(argv[4], "aac_fixed")) ||
+        (argc >= 6 && strcmp(argv[5], "unseeked") && strcmp(argv[5], "seek-zero") && strcmp(argv[5], "seek-first-packet")) ||
+        (argc == 7 && strcmp(argv[6], "frame-duration"))) return 2;
     char *end = NULL;
     errno = 0;
     long index = strtol(argv[2], &end, 10);
@@ -106,8 +131,23 @@ int main(int argc, char **argv) {
         fail("missing or wrong-kind stream", AVERROR(EINVAL)); goto cleanup;
     }
     AVStream *stream = format->streams[index];
-    if (argc == 6 && (rc = av_seek_frame(format, (int)index, 0, AVSEEK_FLAG_BACKWARD)) < 0) {
-        fail("seek selected stream to zero", rc); goto cleanup;
+    int64_t seek_target = 0;
+    if (argc >= 6 && !strcmp(argv[5], "seek-first-packet")) {
+        /* Observe the actual first selected packet, including negative priming
+         * timestamps. Do not guess a codec frame size or use nominal duration. */
+        AVPacket *first = av_packet_alloc();
+        if (!first) { fail("allocate first packet", AVERROR(ENOMEM)); goto cleanup; }
+        while ((rc = av_read_frame(format, first)) >= 0 && first->stream_index != index)
+            av_packet_unref(first);
+        if (rc >= 0) seek_target = first->pts;
+        av_packet_free(&first);
+        if (rc < 0 || seek_target == AV_NOPTS_VALUE) {
+            fail("missing first selected packet timestamp", rc < 0 ? rc : AVERROR(EINVAL));
+            goto cleanup;
+        }
+    }
+    if (argc >= 6 && strcmp(argv[5], "unseeked") && (rc = av_seek_frame(format, (int)index, seek_target, AVSEEK_FLAG_BACKWARD)) < 0) {
+        fail("seek selected stream", rc); goto cleanup;
     }
     const AVCodec *decoder = avcodec_find_decoder_by_name(argv[4]);
     if (!decoder || decoder->id != stream->codecpar->codec_id) {
@@ -128,6 +168,8 @@ int main(int argc, char **argv) {
     if ((rc = avcodec_open2(capture.decoder, decoder, NULL)) < 0) {
         fail("open decoder", rc); goto cleanup;
     }
+    capture.time_base = stream->time_base;
+    capture.use_frame_duration = argc == 7;
     capture.rate = capture.decoder->sample_rate;
     capture.channels = capture.decoder->ch_layout.nb_channels;
     capture.format = capture.decoder->sample_fmt;
@@ -144,6 +186,10 @@ int main(int argc, char **argv) {
     if (!capture.output) { perror("create output"); goto cleanup; }
     while ((rc = av_read_frame(format, packet)) >= 0) {
         if (packet->stream_index == index) {
+            if (!capture.packets) capture.first_packet_pts = packet->pts;
+            capture.packets++;
+            capture.last_packet_pts = packet->pts;
+            capture.last_packet_duration = packet->duration;
             rc = avcodec_send_packet(capture.decoder, packet);
             if (rc < 0) { fail("send packet", rc); goto cleanup; }
             rc = receive(&capture);
@@ -176,10 +222,21 @@ int main(int argc, char **argv) {
     }
     capture.output = NULL;
     printf("{\"passed\":true,\"decoder\":\"%s\",\"ffIndex\":%ld,\"seekZero\":%s,"
+           "\"useFrameDuration\":%s,\"durationClippedSamples\":%" PRIu64 ","
+           "\"seekFirstPacket\":%s,\"seekTarget\":%" PRId64 ","
+           "\"timeBaseNumerator\":%d,\"timeBaseDenominator\":%d,"
+           "\"packets\":%" PRIu64 ",\"firstPacketPTS\":%" PRId64 ","
+           "\"lastPacketPTS\":%" PRId64 ",\"lastPacketDuration\":%" PRId64 ","
+           "\"lastFramePTS\":%" PRId64 ",\"lastFrameDuration\":%" PRId64 ",\"lastFrameSamples\":%d,"
            "\"libavcodecVersion\":%u,\"libavformatVersion\":%u,\"libswresampleVersion\":%u,"
            "\"sampleRate\":%d,\"channels\":%d,\"samplesPerChannel\":%" PRIu64 ","
            "\"skippedSamples\":%" PRIu64 ",\"discardedSamples\":%" PRIu64 "}\n",
-           decoder->name, index, argc == 6 ? "true" : "false",
+           decoder->name, index, argc >= 6 && !strcmp(argv[5], "seek-zero") ? "true" : "false",
+           capture.use_frame_duration ? "true" : "false", capture.duration_clipped,
+           argc >= 6 && !strcmp(argv[5], "seek-first-packet") ? "true" : "false", seek_target,
+           stream->time_base.num, stream->time_base.den, capture.packets, capture.first_packet_pts,
+           capture.last_packet_pts, capture.last_packet_duration,
+           capture.last_frame_pts, capture.last_frame_duration, capture.last_frame_samples,
            avcodec_version(), avformat_version(), swresample_version(),
            capture.rate, capture.channels, capture.samples, capture.skipped, capture.discarded);
     result = 0;

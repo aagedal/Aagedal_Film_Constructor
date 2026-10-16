@@ -13,6 +13,26 @@ def audio(values):
 
 
 class AudioComparisonTests(unittest.TestCase):
+    def test_embedded_control_checks_identity_output_and_seek_target(self):
+        base = {'passed': True, 'decoder': 'aac', 'seekZero': False,
+                'seekFirstPacket': True, 'useFrameDuration': False,
+                'ffIndex': 2, 'sampleRate': 48000, 'channels': 2,
+                'samplesPerChannel': 2, 'seekTarget': -1024, 'firstPacketPTS': -1024}
+        data = audio([0] * 4)
+        proof.validate_embedded_metadata(base, data, 2, 48000, 2, 'seek-first-packet')
+        with self.assertRaises(ValueError):
+            proof.validate_embedded_metadata(base, data, 2, 48000, 2, 'unknown')
+        duration = dict(base, useFrameDuration=True)
+        proof.validate_embedded_metadata(duration, data, 2, 48000, 2, 'seek-first-packet-duration')
+        for key, value in (('seekZero', True), ('seekFirstPacket', False),
+                           ('useFrameDuration', True), ('ffIndex', 0), ('decoder', 'aac_fixed'),
+                           ('sampleRate', 44100), ('channels', 1), ('samplesPerChannel', 3),
+                           ('samplesPerChannel', None), ('samplesPerChannel', True),
+                           ('seekTarget', 0), ('firstPacketPTS', 0)):
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                proof.validate_embedded_metadata(dict(base, **{key: value}), data,
+                                                 2, 48000, 2, 'seek-first-packet')
+
     def test_decoder_control_requires_one_observed_selection(self):
         log = '[ad/v] Opening decoder aac\n[ad/v] Selected decoder: aac - AAC (Advanced Audio Coding)\n'
         self.assertEqual(proof.selected_decoder(log), 'aac')
