@@ -698,3 +698,14 @@ passes MP3 24/24 as well, for 72/96 overall. AAC remains 0/24. All comparisons
 retain exact counts and unchanged amplitude limits. These results isolate
 lossless timestamp clipping and demuxer-dependent MP3 behavior; decoding from
 zero does not qualify random access, interactive playback or production formats.
+
+The [AAC decoder/seek isolation](evidence/mpv-aac-seek-20261016/README.md)
+adds forced decoders and direct decoding against the same embedded libraries.
+Unseeked software AAC matches the independent reference in all 20 bounded
+reference ranges; natural counts still expose missing tail discard padding.
+A selected-stream seek to zero before direct decoding reproduces all 24 MPV
+captures byte for byte, with no reported priming skip instead of 1024 samples.
+This makes initial seek/preroll handling a concrete content-divergence lead,
+without attributing every MPV internal step or claiming a correction. Fixed-point
+AAC retains failures; AudioToolbox AAC cannot initialize on these fixtures.
+AAC remains 0/24 and no source formats or application backends are newly admitted.

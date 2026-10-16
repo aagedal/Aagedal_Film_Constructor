@@ -1,0 +1,146 @@
+[
+  {
+    "name": "aac-44100-1-0-natural",
+    "captureSHA256": "778a0de710581a762425c882f3d09dd6a6e58b87dd441915cbe525d5efc6067a",
+    "requestedSeekReferenceSHA256": "778a0de710581a762425c882f3d09dd6a6e58b87dd441915cbe525d5efc6067a",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-44100-1-0-whole",
+    "captureSHA256": "f2d4d5a3cc69170bbb86df35f59be473b53b2976afe20783f6e80c23969cf64b",
+    "requestedSeekReferenceSHA256": "f2d4d5a3cc69170bbb86df35f59be473b53b2976afe20783f6e80c23969cf64b",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-44100-1-0-sample-1023",
+    "captureSHA256": "6fac388d6c649b53f7a67cf230fe36f1432d4bc0f99872b04c35360c730f0d78",
+    "requestedSeekReferenceSHA256": "6fac388d6c649b53f7a67cf230fe36f1432d4bc0f99872b04c35360c730f0d78",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-44100-1-0-sample-1024",
+    "captureSHA256": "aa957fcbc9a9c4698f63bc88981ec1e5970b2365ace113ce65d22ee57d6b6189",
+    "requestedSeekReferenceSHA256": "aa957fcbc9a9c4698f63bc88981ec1e5970b2365ace113ce65d22ee57d6b6189",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-44100-1-0-sample-1025",
+    "captureSHA256": "dc2576003997a3b23cb224df139a4bac19ae325db4261eeeb60ce0454d1f831c",
+    "requestedSeekReferenceSHA256": "dc2576003997a3b23cb224df139a4bac19ae325db4261eeeb60ce0454d1f831c",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-44100-1-0-tail",
+    "captureSHA256": "12662097b655baff1033611682fa00561fa70a50809ad58eb0a92914e98721ae",
+    "requestedSeekReferenceSHA256": "12662097b655baff1033611682fa00561fa70a50809ad58eb0a92914e98721ae",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-44100-1-1-natural",
+    "captureSHA256": "e1915b8cf887d56eab8911b0b78bfdfed7073c120e2807a81c90d4d44e763200",
+    "requestedSeekReferenceSHA256": "e1915b8cf887d56eab8911b0b78bfdfed7073c120e2807a81c90d4d44e763200",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-44100-1-1-whole",
+    "captureSHA256": "2b3f71446cd20500b127a1cc86335f0d7462dc1865422559246a32e69794be58",
+    "requestedSeekReferenceSHA256": "2b3f71446cd20500b127a1cc86335f0d7462dc1865422559246a32e69794be58",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-44100-1-1-sample-1023",
+    "captureSHA256": "4aed6b2485bbc54dc919b0c12ad07ea2d87721c4f8c4012bc02184c515e4f1da",
+    "requestedSeekReferenceSHA256": "4aed6b2485bbc54dc919b0c12ad07ea2d87721c4f8c4012bc02184c515e4f1da",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-44100-1-1-sample-1024",
+    "captureSHA256": "24f115d47b81291c69b98431d441d7e5e012fb546f8cae8681d75c2c483816b2",
+    "requestedSeekReferenceSHA256": "24f115d47b81291c69b98431d441d7e5e012fb546f8cae8681d75c2c483816b2",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-44100-1-1-sample-1025",
+    "captureSHA256": "fa7c10d2e6baba5c9f17e640b002aba60f0826c5963b3cd8df5f9e59c590edf2",
+    "requestedSeekReferenceSHA256": "fa7c10d2e6baba5c9f17e640b002aba60f0826c5963b3cd8df5f9e59c590edf2",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-44100-1-1-tail",
+    "captureSHA256": "e3ffcc1e4db31fcdeb5bd19a22cb7c7c5db82cc53eae98bf33e580e2e0734ba4",
+    "requestedSeekReferenceSHA256": "e3ffcc1e4db31fcdeb5bd19a22cb7c7c5db82cc53eae98bf33e580e2e0734ba4",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-48000-2-0-natural",
+    "captureSHA256": "c56d84b6c29f460db091add437095a609a1515e1148283b83afd4785485b07c5",
+    "requestedSeekReferenceSHA256": "c56d84b6c29f460db091add437095a609a1515e1148283b83afd4785485b07c5",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-48000-2-0-whole",
+    "captureSHA256": "99687d526e6e8186bd880c3d5da90fee45ff70767eb574139a1f7ca325e6fb9f",
+    "requestedSeekReferenceSHA256": "99687d526e6e8186bd880c3d5da90fee45ff70767eb574139a1f7ca325e6fb9f",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-48000-2-0-sample-1023",
+    "captureSHA256": "198c903a52d9a5e2ee5424d0640570cf2f23fdb74623b897afb3090f40889208",
+    "requestedSeekReferenceSHA256": "198c903a52d9a5e2ee5424d0640570cf2f23fdb74623b897afb3090f40889208",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-48000-2-0-sample-1024",
+    "captureSHA256": "90cbc41182e7e239d2144a76b9c56ea69225551a7d7d034c669d6b982c99a7b8",
+    "requestedSeekReferenceSHA256": "90cbc41182e7e239d2144a76b9c56ea69225551a7d7d034c669d6b982c99a7b8",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-48000-2-0-sample-1025",
+    "captureSHA256": "799d35fbcfaf73b338de150c2b86f690e2b8b8ae6457dcd1466702413e14fc22",
+    "requestedSeekReferenceSHA256": "799d35fbcfaf73b338de150c2b86f690e2b8b8ae6457dcd1466702413e14fc22",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-48000-2-0-tail",
+    "captureSHA256": "eb6b1ffe2d98187bacc107af58881a09529bad4bde13f147f35e3fd5aadbd334",
+    "requestedSeekReferenceSHA256": "eb6b1ffe2d98187bacc107af58881a09529bad4bde13f147f35e3fd5aadbd334",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-48000-2-1-natural",
+    "captureSHA256": "b291554d39ce7494d007c5151bd1acedc869ada5bcbfa56cf2aef227f5d874d1",
+    "requestedSeekReferenceSHA256": "b291554d39ce7494d007c5151bd1acedc869ada5bcbfa56cf2aef227f5d874d1",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-48000-2-1-whole",
+    "captureSHA256": "cd5472efd35bb62a8030eb1dee62f9767d28af2a743f89bed059396c0eaed7b7",
+    "requestedSeekReferenceSHA256": "cd5472efd35bb62a8030eb1dee62f9767d28af2a743f89bed059396c0eaed7b7",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-48000-2-1-sample-1023",
+    "captureSHA256": "9ba764d238004c1134a596e22158e14af4ddc3ed56f54c98dfacbfd85e413d0c",
+    "requestedSeekReferenceSHA256": "9ba764d238004c1134a596e22158e14af4ddc3ed56f54c98dfacbfd85e413d0c",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-48000-2-1-sample-1024",
+    "captureSHA256": "9bec443c6f9d049bb0ede6ddfa47b4d461d8b952bacf865b8443d0309d7012c1",
+    "requestedSeekReferenceSHA256": "9bec443c6f9d049bb0ede6ddfa47b4d461d8b952bacf865b8443d0309d7012c1",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-48000-2-1-sample-1025",
+    "captureSHA256": "ce5c9700a56dc6b10eaafedf5d876f6fe7a114c0fd718055de629278ee8d8626",
+    "requestedSeekReferenceSHA256": "ce5c9700a56dc6b10eaafedf5d876f6fe7a114c0fd718055de629278ee8d8626",
+    "byteEqual": true
+  },
+  {
+    "name": "aac-48000-2-1-tail",
+    "captureSHA256": "6daf8d462b2a048736d2ec3a2c1b949eb892fe09e97e9740c196527ad4431a7e",
+    "requestedSeekReferenceSHA256": "6daf8d462b2a048736d2ec3a2c1b949eb892fe09e97e9740c196527ad4431a7e",
+    "byteEqual": true
+  }
+]

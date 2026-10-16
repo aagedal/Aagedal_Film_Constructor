@@ -2201,3 +2201,30 @@ See [decoded-audio evidence](docs/evidence/mpv-audio-20261016/README.md).
   proxy composition, signed sandbox access and distribution remain open.
 
 See [audio control evidence](docs/evidence/mpv-audio-controls-20261016/README.md).
+
+### MPV AAC decoder and initial-seek isolation checkpoint (2026-10-16)
+
+- Added explicit AAC decoder controls with fallback disabled and observed
+  selection verification. Three complete AddressSanitizer matrices retain
+  288 comparisons and 48 successful stream-identity rejections. Software `aac`
+  and `aac_fixed` retain AAC failures; `aac_at` fails initialization with
+  AudioToolbox error -9405. PCM/ALAC/MP3 remain 24/24 each in every matrix.
+- Added a standalone direct embedded-library AAC reference using the same cached
+  closure. Without seeking, all 20 bounded reference ranges match independent
+  FFmpeg within the unchanged 1e-6/1e-5 amplitude limits. Natural output retains
+  extra 820/384 tail samples, so all four natural exact-count checks fail.
+- A selected-stream backward seek to zero before direct decoding reproduces all
+  24 MPV AAC captures byte for byte. The unseeked decoder reports 1024 skipped
+  priming samples; the seek control reports none. This isolates a seek/preroll
+  failure independently of MPV's decoder/filter/output path; prediction/noise
+  state details and a reliable correction remain unproven. Tail discard-padding
+  handling remains a separate unresolved boundary.
+- Verification: final full AddressSanitizer matrix with both direct reference
+  modes, 103 Python tests (eight optional skips), independent implementation
+  review and diff checks pass. The broader audio qualification intentionally
+  remains nonzero, with AAC 0/24 and PCM/ALAC/MP3 24/24 each. No production app
+  code, backend or format admission changed.
+- Faithful AAC, efficient interactive source seeks, CoreAudio/GPU presentation,
+  hardware sync, proxy composition, signed sandbox and distribution remain open.
+
+See [AAC seek evidence](docs/evidence/mpv-aac-seek-20261016/README.md).

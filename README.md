@@ -292,3 +292,9 @@ separates timestamp clipping from demuxer behavior. Integer trimming after decod
 from zero passes all PCM/ALAC ranges; forcing the FFmpeg demuxer additionally
 passes all tested MP3 ranges under that control. AAC remains unqualified, and
 this offline control does not resolve interactive seeking or change app playback.
+
+The [AAC seek isolation](docs/evidence/mpv-aac-seek-20261016/README.md) reproduces
+MPV's audio divergence with a direct embedded-library seek-to-zero control.
+Unseeked decoding matches bounded reference audio, while priming and tail
+handling still prevent faithful AAC qualification. Decoder controls and complete
+failing results are retained; production source playback remains unchanged.
