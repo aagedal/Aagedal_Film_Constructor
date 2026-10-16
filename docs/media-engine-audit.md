@@ -658,3 +658,14 @@ selected-track readback, exact seeks, EOF recovery and pending-load/seek teardow
 AddressSanitizer covers the new bridge/client, and all 60 grayscale captures pass
 the unchanged RGB bounds. It installs no foreign callbacks and uses null sinks;
 app presentation, audio output, proxy composition and distribution remain open.
+
+A subsequent [Swift session coexistence proof](evidence/mpv-swift-coexistence-20261016/README.md)
+now exercises the private asynchronous bridge alongside `NativePlaybackSession`
+and its serial decode worker. Both native-only and concurrent runs pass 120
+picture/audio pairs against independent references and byte-for-byte coexistence
+checks. Twelve loaded-source cycles include sequence-plan replacement and stale
+epoch refusal; 60 MPV grayscale captures pass. Timestamped native completions
+prove overlap during each source-command window. AddressSanitizer covers newly
+built bridge/client/native targets, not prebuilt media dependencies. In-flight
+cancellation, app presentation, color/audio output, proxy composition, signed
+sandbox access and distribution remain open.

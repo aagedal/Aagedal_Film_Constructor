@@ -13,6 +13,10 @@ final class Client {
     private(set) var events: [afc_mpv_event] = []
     private var nextID: UInt64 = 1
 
+    // Also release workers when a throwing operation or cancellation bypasses
+    // explicit close. The bridge has no callbacks and destroy joins its workers.
+    isolated deinit { afc_mpv_bridge_destroy(&handle) }
+
     init() throws {
         var error = [CChar](repeating: 0, count: 256)
         let rc = afc_mpv_bridge_create(&handle, &error, error.count)
@@ -183,6 +187,7 @@ final class Client {
     }
 }
 
+#if !AFC_NATIVE_COEXISTENCE
 @main
 struct Proof {
     @MainActor static func main() async {
@@ -241,3 +246,4 @@ struct Proof {
         if report["passed"] as? Bool != true { print(report["error"] ?? "failed"); exit(1) }
     }
 }
+#endif
