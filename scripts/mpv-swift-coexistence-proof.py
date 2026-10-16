@@ -31,6 +31,7 @@ def validate_report(report, concurrent):
         raise ValueError('Duplicate native output')
     if any(not math.isfinite(row['completed']) for row in native):
         raise ValueError('Invalid native completion timestamp')
+    validate_inflight(report.get('inFlight', []), concurrent)
     if not concurrent:
         if report.get('captures') or report.get('windows'):
             raise ValueError('Native baseline unexpectedly ran MPV')
@@ -49,6 +50,21 @@ def validate_report(report, concurrent):
             raise ValueError('Invalid MPV execution window')
         if not any(start <= row['completed'] <= end for row in native[cycle * 10:(cycle + 1) * 10]):
             raise ValueError('Native requests did not complete during MPV execution')
+
+
+def validate_inflight(rows, concurrent):
+    expected = [(operation, kind) for operation in ('replace', 'cancel', 'close')
+                for kind in ('video', 'audio')]
+    if [(row.get('operation'), row.get('kind')) for row in rows] != expected:
+        raise ValueError('Incomplete in-flight interleavings')
+    for row in rows:
+        if (row.get('rejected') != 2 or
+            row.get('decoderCount') != (2 if row['operation'] == 'replace' else 1) or
+            any(row.get(key) is not True for key in
+                ('queuedDecodeSkipped', 'cacheEmptyAfterRejection', 'decoderReleased')) or
+            row.get('mpvTransportWhileHeld') is not concurrent or
+            row.get('sourceFrame') != (6 if row['operation'] == 'replace' else 0)):
+            raise ValueError('In-flight invalidation, recovery or cleanup failed')
 
 
 def run_proof(args):
@@ -79,7 +95,8 @@ def run_proof(args):
         repo = Path(__file__).resolve().parent.parent
         snapshot = root / 'sources'
         files = [Path(__file__), Path(__file__).with_suffix('.swift'),
-                 Path(__file__).with_name('mpv-async-source-proof.swift')]
+                 Path(__file__).with_name('mpv-async-source-proof.swift'),
+                 Path(__file__).with_name('mpv-swift-inflight-proof.swift')]
         for package in ('EditorCore', 'NativePlaybackProof'):
             package_root = repo / 'Packages' / package
             files += [package_root / 'Package.swift',
@@ -125,6 +142,7 @@ def run_proof(args):
                    '-import-objc-header', nested.output / 'sources/mpv-source-bridge.h',
                    snapshot / 'scripts/mpv-async-source-proof.swift',
                    snapshot / 'scripts/mpv-swift-coexistence-proof.swift',
+                   snapshot / 'scripts/mpv-swift-inflight-proof.swift',
                    private, runtime, '-Xlinker', '-rpath', '-Xlinker', products, *flags, '-o', host]
         generated_map = root / 'native-build/out/Intermediates.noindex/GeneratedModuleMaps/CNativeDecoder.modulemap'
         if generated_map.is_file():
@@ -182,6 +200,23 @@ def run_proof(args):
                         baseline[key] = data
                     elif data != baseline[key]:
                         raise ValueError('Concurrent native output differs from standalone Swift session')
+            for row in report['inFlight']:
+                if row['operation'] == 'close':
+                    continue
+                stem = f"recovery-{row['operation']}-{row['kind']}"
+                frame = row['sourceFrame']
+                picture = (output / (stem + '.rgb')).read_bytes()
+                sound = (output / (stem + '.f32')).read_bytes()
+                comparison = source.compare_rgb(picture, references[frame])
+                if not comparison['passed'] or sound != audio_bytes[frame * 2000 * 4:(frame * 2000 + 1024) * 4]:
+                    raise ValueError('In-flight recovery differs from independent FFmpeg')
+                for suffix, data in (('.rgb', picture), ('.f32', sound)):
+                    key = stem + suffix
+                    if mode == 'native-only':
+                        baseline[key] = data
+                    elif data != baseline[key]:
+                        raise ValueError('Concurrent recovery differs from standalone Swift session')
+                item.setdefault('recoveryComparisons', []).append(comparison)
             for capture in report['captures']:
                 path = output / capture['file']
                 if not path.resolve().is_relative_to(output.resolve()):

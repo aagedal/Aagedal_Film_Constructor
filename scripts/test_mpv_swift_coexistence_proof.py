@@ -11,6 +11,12 @@ class SwiftCoexistenceReportTests(unittest.TestCase):
     def report(self, concurrent=True):
         return {'passed': True, 'cycles': 12, 'replacements': 12, 'oldEpochRejections': 11,
                 'closedAdmissionRejected': True,
+                'inFlight': [{'operation': operation, 'kind': kind, 'rejected': 2,
+                              'queuedDecodeSkipped': True, 'cacheEmptyAfterRejection': True,
+                              'decoderReleased': True, 'mpvTransportWhileHeld': concurrent,
+                              'decoderCount': 2 if operation == 'replace' else 1,
+                              'sourceFrame': 6 if operation == 'replace' else 0}
+                             for operation in ('replace', 'cancel', 'close') for kind in ('video', 'audio')],
                 'native': [{'sourceFrame': frame + (6 if cycle % 2 else 0),
                             'file': f'native-{cycle}-{index}', 'completed': cycle + .5}
                            for cycle in range(12)
@@ -50,6 +56,22 @@ class SwiftCoexistenceReportTests(unittest.TestCase):
             report['captures'][0][key] = value
             with self.subTest(key=key, value=value), self.assertRaises(ValueError):
                 proof.validate_report(report, True)
+
+    def test_inflight_requires_every_interleaving_and_cleanup(self):
+        for concurrent in (False, True):
+            report = self.report(concurrent)
+            report['inFlight'].pop()
+            with self.assertRaises(ValueError):
+                proof.validate_report(report, concurrent)
+            for index in range(6):
+                for key, value in [('operation', 'unknown'), ('kind', 'unknown'), ('rejected', 1),
+                                   ('queuedDecodeSkipped', False), ('cacheEmptyAfterRejection', False),
+                                   ('decoderReleased', False), ('decoderCount', 0), ('mpvTransportWhileHeld', not concurrent),
+                                   ('sourceFrame', -1)]:
+                    report = self.report(concurrent)
+                    report['inFlight'][index][key] = value
+                    with self.subTest(concurrent=concurrent, index=index, key=key), self.assertRaises(ValueError):
+                        proof.validate_report(report, concurrent)
 
     def test_baseline_and_close_failures_cannot_pass(self):
         report = self.report()

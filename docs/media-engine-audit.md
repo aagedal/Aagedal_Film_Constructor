@@ -666,6 +666,14 @@ picture/audio pairs against independent references and byte-for-byte coexistence
 checks. Twelve loaded-source cycles include sequence-plan replacement and stale
 epoch refusal; 60 MPV grayscale captures pass. Timestamped native completions
 prove overlap during each source-command window. AddressSanitizer covers newly
-built bridge/client/native targets, not prebuilt media dependencies. In-flight
-cancellation, app presentation, color/audio output, proxy composition, signed
-sandbox access and distribution remain open.
+built bridge/client/native targets, not prebuilt media dependencies.
+
+The subsequent [in-flight payload proof](evidence/mpv-swift-inflight-20261016/README.md)
+holds real native decoded video/audio before the worker's cancellation checks.
+Replacement, task cancellation and close each reject both the held and queued
+request; MPV transport completes while the worker is held. Recovery matches
+independent FFmpeg and the native-only process byte for byte, and all constructed
+decoders are destroyed after close. This uses proof-only internal testing
+visibility. Interruption inside active libavcodec calls, unbounded edit stress,
+app presentation, color/audio output, proxy composition, signed sandbox access
+and distribution remain open.

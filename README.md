@@ -275,3 +275,9 @@ The private [Swift coexistence proof](docs/evidence/mpv-swift-coexistence-202610
 now exercises asynchronous MPV source commands alongside the native sequence
 session actor, including edited-plan epochs and decoded picture/audio parity.
 The combined AddressSanitizer run passes; app source playback remains AVFoundation.
+
+A deterministic [in-flight payload proof](docs/evidence/mpv-swift-inflight-20261016/README.md)
+now verifies replacement, cancellation and close after real native decode but
+before payload publication, while MPV transport remains responsive. Obsolete
+queued work is skipped; recovery output and decoder teardown pass. This does not
+qualify interruption inside libavcodec or hardware presentation.

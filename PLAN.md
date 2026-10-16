@@ -2129,3 +2129,25 @@ See [asynchronous source evidence](docs/evidence/mpv-async-source-20261016/READM
   hardware sync, signed sandbox access and distribution remain unqualified.
 
 See [Swift coexistence evidence](docs/evidence/mpv-swift-coexistence-20261016/README.md).
+
+### Native in-flight payload rejection and MPV transport checkpoint (2026-10-16)
+
+- Extended the Swift coexistence proof with deterministic replace/cancel/close
+  interleavings for both native video and audio. A proof-only wrapper holds a
+  real decoded payload before the serial worker's cancellation checks, with a
+  second request queued. Concurrent MPV transport completes while it is held.
+- Both native-only and concurrent processes reject all 12 obsolete requests,
+  skip queued decoding and retain no rejected payloads. Close waits for worker
+  drain; construction/destruction counts verify every decoder is released,
+  including replacement recovery decoders.
+- Four recovery picture/audio pairs per process match independent FFmpeg exactly
+  and match the native-only process byte for byte. The earlier 120 native pairs,
+  60 MPV captures and per-cycle overlap checks also pass unchanged.
+- Verification: final full AddressSanitizer proof, 95 Python tests (eight optional
+  skips), independent review and diff checks pass. Snapshotted source hashes
+  match the tested workspace. No production API or application backend changed.
+- This qualifies the post-decode payload-return boundary, not interruption inside
+  an active libavcodec call or unbounded edit stress. MPV color/audio, hardware
+  presentation/sync, proxy composition, signed sandbox and distribution remain open.
+
+See [in-flight evidence](docs/evidence/mpv-swift-inflight-20261016/README.md).
