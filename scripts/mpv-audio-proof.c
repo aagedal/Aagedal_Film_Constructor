@@ -1,5 +1,5 @@
 /* Offline decoded-audio qualification only. PCM file output bypasses hardware.
- * argv: source, ff-index, output.pcm, start, end, sample-rate, range-mode, demuxer, [decoder].
+ * argv: source, ff-index, output.pcm, start, end, sample-rate, range-mode, demuxer, [decoder], [mov-edit-list].
  * sample-filter mode decodes from zero and trims integer samples before output.
  * on_preloaded resolves container identity before decoders/output are created.
  */
@@ -45,8 +45,11 @@ static int select_audio(mpv_handle *m, int index, int64_t *selected) {
     return mpv_set_property(m, "aid", MPV_FORMAT_INT64, selected) >= 0;
 }
 int main(int argc, char **argv) {
-    if (argc != 9 && argc != 10) return 2;
-    const char *decoder = argc == 10 ? argv[9] : "auto";
+    if (argc < 9 || argc > 11) return 2;
+    const char *decoder = argc >= 10 ? argv[9] : "auto";
+    const char *mov_edit_list = argc == 11 ? argv[10] : "default";
+    if (strcmp(mov_edit_list, "default") && strcmp(mov_edit_list, "basic")) return 2;
+    if (!strcmp(mov_edit_list, "basic") && strcmp(argv[8], "lavf")) return 2;
     if (strcmp(decoder, "auto") && strcmp(decoder, "aac") &&
         strcmp(decoder, "aac_fixed") && strcmp(decoder, "aac_at")) return 2;
     char decoder_list[32];
@@ -81,6 +84,8 @@ int main(int argc, char **argv) {
         !option(m, "volume", "100") || !option(m, "replaygain", "no") ||
         (strcmp(decoder, "auto") && !option(m, "ad", decoder_list)) ||
         (strcmp(argv[8], "auto") && !option(m, "demuxer", argv[8])) ||
+        (!strcmp(mov_edit_list, "basic") &&
+            !option(m, "demuxer-lavf-o", "advanced_editlist=0")) ||
         (*filter && !option(m, "af", filter)) ||
         (!sample_filter && strcmp(argv[4], "natural") &&
             (!option(m, "start", argv[4]) || !option(m, "end", argv[5]))) ||
@@ -120,7 +125,8 @@ cleanup:
         printf("{\"rejected\":true,\"ffIndex\":%ld}\n", index);
         return 3;
     }
-    if (ok) printf("{\"passed\":true,\"ffIndex\":%ld,\"audioTrackID\":%lld}\n", index, (long long)selected);
+    if (ok) printf("{\"passed\":true,\"ffIndex\":%ld,\"audioTrackID\":%lld,\"movEditList\":\"%s\"}\n",
+                   index, (long long)selected, mov_edit_list);
     else fprintf(stderr, "Audio decode/selection/EOF failed or timed out\n");
     return ok ? 0 : 1;
 }

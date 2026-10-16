@@ -1,6 +1,8 @@
 import importlib.util
 from pathlib import Path
 import struct
+import subprocess
+import sys
 import unittest
 
 spec = importlib.util.spec_from_file_location('audio_proof', Path(__file__).with_name('mpv-audio-proof.py'))
@@ -13,6 +15,14 @@ def audio(values):
 
 
 class AudioComparisonTests(unittest.TestCase):
+    def test_basic_mov_control_requires_forced_lavf_before_running(self):
+        completed = subprocess.run(
+            [sys.executable, str(Path(proof.__file__)), '--mov-edit-list', 'basic',
+             '/missing/checkout', '/missing/artifacts', '/missing/ffmpeg', '/missing/output'],
+            capture_output=True, text=True)
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn('--mov-edit-list basic requires --demuxer lavf', completed.stderr)
+
     def test_embedded_control_checks_identity_output_and_seek_target(self):
         base = {'passed': True, 'decoder': 'aac', 'seekZero': False,
                 'seekFirstPacket': True, 'useFrameDuration': False,

@@ -2251,3 +2251,26 @@ See [AAC seek evidence](docs/evidence/mpv-aac-seek-20261016/README.md).
   CoreAudio/GPU presentation, hardware sync and distribution remain open.
 
 See [AAC priming/frame-duration evidence](docs/evidence/mpv-aac-preroll-20261016/README.md).
+
+### MPV basic MOV edit-list and bounded AAC checkpoint (2026-10-16)
+
+- Added an explicit `--mov-edit-list default|basic` control to the offline MPV
+  audio proof. Basic mode sets lavf `advanced_editlist=0`, retaining basic edits;
+  forced lavf is required and the runtime-reported control is verified.
+- Two complete AddressSanitizer matrices retain 192 unchanged comparisons and
+  32 successful invalid-stream rejections. Default repeats 72/96; basic passes
+  92/96, including all 20 bounded AAC ranges and PCM/ALAC/MP3 24/24 each.
+- Actual basic-mode AAC captures equal independent unseeked embedded-decoder
+  outputs byte for byte across all 24 cases. Bounded AAC samples match external
+  FFmpeg under unchanged 1e-6/1e-5 amplitude bounds. MOV fixture hashes match
+  across modes; each run retains its own MP3 Matroska fixture hashes.
+- All four natural AAC outputs retain exact-count failures: 820 extra samples
+  at 44.1 kHz and 384 at 48 kHz. No capture alignment, padding or repair is used;
+  both broad qualification runs intentionally exit 1.
+- Verification: 105 Python tests (eight optional skips), both runtime matrices,
+  independent implementation review and diff checks pass for this proof scope.
+  App source playback remains AVFoundation. Natural AAC tail handling, complex
+  edit lists, efficient interactive seeks, hardware presentation/sync, proxy
+  composition, signed sandbox access and distribution remain open.
+
+See [MOV edit-list evidence](docs/evidence/mpv-mov-edit-list-20261016/README.md).

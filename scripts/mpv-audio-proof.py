@@ -110,6 +110,7 @@ def run_proof(args):
               'applicationIntegrated': False, 'commands': [], 'cases': [], 'rejections': [],
               'rangeMode': args.range_mode, 'demuxer': args.demuxer,
               'aacDecoder': args.aac_decoder,
+              'movEditList': args.mov_edit_list,
               'embeddedReferences': [],
               'meanAmplitudeTolerance': MEAN_LIMIT, 'peakAmplitudeTolerance': PEAK_LIMIT,
               'comparisonPolicy': 'Exact interleaved sample count, per-channel mean and all-sample peak; no alignment, padding or edge masking',
@@ -118,6 +119,8 @@ def run_proof(args):
                               'Generated same-rate mono/stereo subset; no resampling or distribution qualification']}
     if args.range_mode == 'sample-filter':
         result['limitations'].append('Integer atrim decodes every preceding sample from source zero; not a random-access seek solution')
+    if args.mov_edit_list == 'basic':
+        result['limitations'].append('Explicit lavf advanced_editlist=0 control; generated single-edit MOV only, not complex edit-list qualification')
 
     def run(command, name, timeout=180, allow_failure=False):
         command = list(map(str, command))
@@ -200,7 +203,8 @@ def run_proof(args):
                     reject_name = f'reject-{name}-{rejected_index}'
                     reject_output = root / (reject_name + '.f32')
                     completed = run([executable, fixture, rejected_index, reject_output,
-                                     'natural', '3', rate, args.range_mode, args.demuxer],
+                                     'natural', '3', rate, args.range_mode, args.demuxer,
+                                     'auto', args.mov_edit_list],
                                     reject_name, timeout=25, allow_failure=True)
                     rejected = (completed.returncode == 3
                                 and json.loads(completed.stdout) == {'rejected': True, 'ffIndex': rejected_index}
@@ -251,7 +255,8 @@ def run_proof(args):
                         completed = run([executable, fixture, ff_index, output,
                                          *range_arguments(label, start, count, rate, args.range_mode),
                                          rate, args.range_mode, args.demuxer,
-                                         args.aac_decoder if codec == 'aac' else 'auto'],
+                                         args.aac_decoder if codec == 'aac' else 'auto',
+                                         args.mov_edit_list],
                                         case_name, timeout=25, allow_failure=True)
                         case = {'name': case_name, 'codec': codec, 'rate': rate, 'channels': channels,
                                 'ffIndex': ff_index, 'startSample': start, 'requestedSamples': count,
@@ -262,7 +267,10 @@ def run_proof(args):
                             case['selectedDecoder'] = selected_decoder(completed.stderr.decode(),
                                                                       args.aac_decoder if codec == 'aac' else 'auto')
                             case['selection'] = json.loads(completed.stdout)
-                            if case['selection'].get('passed') is not True or case['selection'].get('ffIndex') != ff_index or case['selection'].get('audioTrackID') != stream + 1:
+                            if (case['selection'].get('passed') is not True
+                                    or case['selection'].get('ffIndex') != ff_index
+                                    or case['selection'].get('audioTrackID') != stream + 1
+                                    or case['selection'].get('movEditList') != args.mov_edit_list):
                                 raise ValueError('Runtime track identity did not match requested audio stream')
                             expected = reference_bytes[start * channels * 4:(start + count) * channels * 4]
                             if len(expected) != count * channels * 4:
@@ -313,6 +321,8 @@ def main():
     parser.add_argument('--range-mode', choices=('timestamp', 'sample-filter'), default='timestamp',
                         help='Integer filter mode decodes from zero; it does not qualify random access')
     parser.add_argument('--demuxer', choices=('auto', 'lavf'), default='auto')
+    parser.add_argument('--mov-edit-list', choices=('default', 'basic'), default='default',
+                        help='Basic passes advanced_editlist=0 to forced lavf; does not disable edit lists')
     parser.add_argument('--aac-decoder', choices=('auto', 'aac', 'aac_fixed', 'aac_at'), default='auto',
                         help='AAC-only decoder control; forced names disable fallback and require observed selection')
     parser.add_argument('--embedded-reference', action='store_true',
@@ -320,6 +330,8 @@ def main():
     for name in ('checkout', 'artifacts', 'ffmpeg', 'output'):
         parser.add_argument(name, type=Path)
     args = parser.parse_args()
+    if args.mov_edit_list == 'basic' and args.demuxer != 'lavf':
+        parser.error('--mov-edit-list basic requires --demuxer lavf')
     for name in ('checkout', 'artifacts', 'ffmpeg', 'output'):
         if not getattr(args, name).is_absolute():
             parser.error(name + ' must be absolute')
