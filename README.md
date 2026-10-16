@@ -281,3 +281,8 @@ now verifies replacement, cancellation and close after real native decode but
 before payload publication, while MPV transport remains responsive. Obsolete
 queued work is skipped; recovery output and decoder teardown pass. This does not
 qualify interruption inside libavcodec or hardware presentation.
+
+The isolated [MPV decoded-audio proof](docs/evidence/mpv-audio-20261016/README.md)
+now finds exact natural PCM/ALAC output for its generated subset, but only 30/96
+broader source/range comparisons pass. AAC/MP3 and some lossless range boundaries
+remain unqualified. This diagnostic does not change application source playback.
