@@ -2105,3 +2105,27 @@ outside the restricted tool sandbox.
   Swift sequence coexistence, signed sandbox and distribution remain open.
 
 See [asynchronous source evidence](docs/evidence/mpv-async-source-20261016/README.md).
+
+### Asynchronous MPV and Swift sequence coordination checkpoint (2026-10-16)
+
+- Added an offline combined proof using the private asynchronous source bridge
+  and public `NativePlaybackSession` actor, including its serial decode worker.
+  A separate native-only process provides byte-for-byte coexistence comparison;
+  independent FFmpeg references check all picture/audio output.
+- Each process decodes 120 native picture/audio pairs with caching disabled.
+  Twelve plan replacements alternate source trims by six frames, and all 11 old
+  epochs are rejected. MPV is loaded during concurrent plan replacement.
+- Twelve source lifecycle/transport cycles and 60 MPV grayscale seek captures
+  pass unchanged RGB bounds. Timestamp windows end before waiting for native
+  completion and require real decode overlap in every source-command cycle.
+- Swift source ownership now destroys the bridge on error/cancellation paths
+  that bypass explicit close. Native task failures cancel/join work before the
+  session's decoder-drain close; repeated close and closed admission pass.
+- Verification: the full combined AddressSanitizer runtime proof and 94 Python
+  tests (eight optional skips) pass; independent review found no remaining
+  actionable harness issues. No application source/backend selection changed.
+- This completes a finite Swift session coexistence prerequisite. In-flight
+  edit/cancellation, MPV color/audio, CoreAudio/GPU presentation, proxy composition,
+  hardware sync, signed sandbox access and distribution remain unqualified.
+
+See [Swift coexistence evidence](docs/evidence/mpv-swift-coexistence-20261016/README.md).

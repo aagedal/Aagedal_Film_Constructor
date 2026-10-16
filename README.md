@@ -270,3 +270,8 @@ now passes a Swift main-actor lifecycle and decoded-seek proof with AddressSanit
 on the new bridge/client. It qualifies bounded polling, request correlation,
 track selection, EOF recovery and pending-work teardown. App integration and
 native audio/video presentation remain open.
+
+The private [Swift coexistence proof](docs/evidence/mpv-swift-coexistence-20261016/README.md)
+now exercises asynchronous MPV source commands alongside the native sequence
+session actor, including edited-plan epochs and decoded picture/audio parity.
+The combined AddressSanitizer run passes; app source playback remains AVFoundation.
