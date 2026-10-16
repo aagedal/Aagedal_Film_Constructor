@@ -13,6 +13,14 @@ def audio(values):
 
 
 class AudioComparisonTests(unittest.TestCase):
+    def test_decoder_control_requires_one_observed_selection(self):
+        log = '[ad/v] Opening decoder aac\n[ad/v] Selected decoder: aac - AAC (Advanced Audio Coding)\n'
+        self.assertEqual(proof.selected_decoder(log), 'aac')
+        self.assertEqual(proof.selected_decoder(log, 'aac'), 'aac')
+        for text, requested in ((log, 'aac_fixed'), ('', 'auto'), (log + log, 'aac')):
+            with self.subTest(text=text, requested=requested), self.assertRaises(ValueError):
+                proof.selected_decoder(text, requested)
+
     def test_range_strategies_keep_exact_requested_endpoints(self):
         self.assertEqual(proof.range_arguments('tail', 128203, 4097, 44100, 'sample-filter'),
                          ['128203', '132300'])

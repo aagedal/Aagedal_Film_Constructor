@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import platform
 import random
+import re
 import struct
 import subprocess
 import sys
@@ -23,6 +24,14 @@ spec.loader.exec_module(source)
 
 MEAN_LIMIT = 1e-6
 PEAK_LIMIT = 1e-5
+
+
+def selected_decoder(log, requested='auto'):
+    """A forced decoder must actually open; silent fallback is not evidence."""
+    names = re.findall(r'\[ad/v\] Selected decoder: ([A-Za-z0-9_]+) - ', log)
+    if len(names) != 1 or (requested != 'auto' and names[0] != requested):
+        raise ValueError('Missing, ambiguous or unexpected selected audio decoder')
+    return names[0]
 
 
 def range_arguments(label, start, count, rate, mode):
@@ -80,6 +89,8 @@ def run_proof(args):
     result = {'passed': False, 'decodedAudioTested': False, 'coreAudioTested': False,
               'applicationIntegrated': False, 'commands': [], 'cases': [], 'rejections': [],
               'rangeMode': args.range_mode, 'demuxer': args.demuxer,
+              'aacDecoder': args.aac_decoder,
+              'embeddedReferences': [],
               'meanAmplitudeTolerance': MEAN_LIMIT, 'peakAmplitudeTolerance': PEAK_LIMIT,
               'comparisonPolicy': 'Exact interleaved sample count, per-channel mean and all-sample peak; no alignment, padding or edge masking',
               'limitations': ['Offline PCM sink; no CoreAudio or hardware synchronization',
@@ -109,7 +120,10 @@ def run_proof(args):
                                 for name, (_, binary) in zip(source.ARTIFACTS, frameworks)]
         snapshot = root / 'sources'
         snapshot.mkdir()
-        for name in ('mpv-audio-proof.c', 'mpv-audio-proof.py', 'mpv-source-proof.py'):
+        source_names = ['mpv-audio-proof.c', 'mpv-audio-proof.py', 'mpv-source-proof.py']
+        if args.embedded_reference:
+            source_names.append('mpv-audio-reference.c')
+        for name in source_names:
             (snapshot / name).write_bytes(Path(__file__).with_name(name).read_bytes())
         result['sourceHashes'] = {p.name: source.digest(p) for p in snapshot.iterdir()}
         swiftc = Path(run(['/usr/bin/xcrun', '--find', 'swiftc'], 'swiftc-path').stdout.decode().strip())
@@ -126,6 +140,21 @@ def run_proof(args):
         command.extend('-l' + name for name in source.LIBRARIES)
         command.extend(['-o', executable])
         run(command, 'compile')
+        embedded_executable = root / 'embedded-audio-reference'
+        if args.embedded_reference:
+            headers = root / 'headers'
+            headers.mkdir()
+            for name, (framework, _) in zip(source.ARTIFACTS, frameworks):
+                if name.startswith(('Libav', 'Libsw')):
+                    (headers / name.split('-')[0].lower()).symlink_to(framework / 'Headers')
+            embedded_command = [str(item) for item in command]
+            embedded_command[embedded_command.index(str(snapshot / 'mpv-audio-proof.c'))] = str(snapshot / 'mpv-audio-reference.c')
+            embedded_command[-1] = str(embedded_executable)
+            embedded_command.extend(['-I', str(headers), '-framework', 'Security'])
+            run(embedded_command, 'compile-embedded-reference')
+            result['embeddedExecutableSHA256'] = source.digest(embedded_executable)
+            run(['/usr/bin/otool', '-L', embedded_executable], 'embedded-linked-libraries')
+            result['limitations'].append('Direct embedded AAC reference applies only explicit decoder skip/discard metadata; bounded reference slices are diagnostics, never capture repairs')
         result['addressSanitizer'] = args.sanitize_address
         result['executableSHA256'] = source.digest(executable)
         result['ffmpegSHA256'] = source.digest(args.ffmpeg)
@@ -165,6 +194,37 @@ def run_proof(args):
                          '-map', f'0:{ff_index}', '-c:a', 'pcm_f32le', '-f', 'f32le', reference],
                         f'decode-{name}-{stream}')
                     reference_bytes = reference.read_bytes()
+                    embedded_bytes = None
+                    seek_zero_bytes = None
+                    if args.embedded_reference and codec == 'aac':
+                        embedded_output = root / f'{name}-stream-{stream}-embedded.f32'
+                        completed = run([embedded_executable, fixture, ff_index, embedded_output, 'aac'],
+                                        f'embedded-{name}-{stream}')
+                        metadata = json.loads(completed.stdout)
+                        embedded_bytes = embedded_output.read_bytes()
+                        if (metadata.get('passed') is not True or metadata.get('seekZero') is not False
+                                or metadata.get('decoder') != 'aac'
+                                or metadata.get('ffIndex') != ff_index or metadata.get('sampleRate') != rate
+                                or metadata.get('channels') != channels
+                                or metadata.get('samplesPerChannel') * channels * 4 != len(embedded_bytes)):
+                            raise ValueError('Embedded reference metadata does not match requested stream/output')
+                        result['embeddedReferences'].append({'name': f'{name}-{stream}',
+                            'metadata': metadata, 'fixtureSHA256': source.digest(fixture),
+                            'outputSHA256': source.digest(embedded_output),
+                            'naturalVsExternal': compare_audio(embedded_bytes, reference_bytes, channels)})
+                        seek_output = root / f'{name}-stream-{stream}-seek-zero.f32'
+                        completed = run([embedded_executable, fixture, ff_index, seek_output, 'aac', 'seek-zero'],
+                                        f'seek-zero-{name}-{stream}')
+                        seek_metadata = json.loads(completed.stdout)
+                        seek_zero_bytes = seek_output.read_bytes()
+                        if (seek_metadata.get('passed') is not True or seek_metadata.get('seekZero') is not True
+                                or seek_metadata.get('decoder') != 'aac' or seek_metadata.get('ffIndex') != ff_index
+                                or seek_metadata.get('sampleRate') != rate or seek_metadata.get('channels') != channels
+                                or seek_metadata.get('samplesPerChannel') * channels * 4 != len(seek_zero_bytes)):
+                            raise ValueError('Seek-zero reference metadata does not match requested stream/output')
+                        result['embeddedReferences'][-1]['seekZero'] = {
+                            'metadata': seek_metadata, 'outputSHA256': source.digest(seek_output),
+                            'naturalVsExternal': compare_audio(seek_zero_bytes, reference_bytes, channels)}
                     for label, start, count in (('natural', 0, len(reference_bytes) // (channels * 4)),
                                                 ('whole', 0, rate * 3), ('sample-1023', 1023, 4097),
                                                 ('sample-1024', 1024, 4097),
@@ -173,7 +233,8 @@ def run_proof(args):
                         output = root / (case_name + '.f32')
                         completed = run([executable, fixture, ff_index, output,
                                          *range_arguments(label, start, count, rate, args.range_mode),
-                                         rate, args.range_mode, args.demuxer],
+                                         rate, args.range_mode, args.demuxer,
+                                         args.aac_decoder if codec == 'aac' else 'auto'],
                                         case_name, timeout=25, allow_failure=True)
                         case = {'name': case_name, 'codec': codec, 'rate': rate, 'channels': channels,
                                 'ffIndex': ff_index, 'startSample': start, 'requestedSamples': count,
@@ -181,6 +242,8 @@ def run_proof(args):
                         if completed.returncode:
                             case['error'] = 'MPV client failed; see log'
                         else:
+                            case['selectedDecoder'] = selected_decoder(completed.stderr.decode(),
+                                                                      args.aac_decoder if codec == 'aac' else 'auto')
                             case['selection'] = json.loads(completed.stdout)
                             if case['selection'].get('passed') is not True or case['selection'].get('ffIndex') != ff_index or case['selection'].get('audioTrackID') != stream + 1:
                                 raise ValueError('Runtime track identity did not match requested audio stream')
@@ -188,6 +251,19 @@ def run_proof(args):
                             if len(expected) != count * channels * 4:
                                 raise ValueError('Reference does not cover requested nominal source range')
                             case.update(compare_audio(output.read_bytes(), expected, channels))
+                            if embedded_bytes is not None:
+                                embedded_expected = (embedded_bytes if label == 'natural' else
+                                    embedded_bytes[start * channels * 4:(start + count) * channels * 4])
+                                if label != 'natural' and len(embedded_expected) != len(expected):
+                                    raise ValueError('Embedded reference does not cover requested range')
+                                case['captureVsEmbedded'] = compare_audio(output.read_bytes(), embedded_expected, channels)
+                                seek_expected = (seek_zero_bytes if label == 'natural' else
+                                    seek_zero_bytes[start * channels * 4:(start + count) * channels * 4])
+                                if label != 'natural' and len(seek_expected) != len(expected):
+                                    raise ValueError('Seek-zero reference does not cover requested range')
+                                case['captureVsSeekZero'] = compare_audio(output.read_bytes(), seek_expected, channels)
+                                if label != 'natural':
+                                    case['embeddedRangeVsExternal'] = compare_audio(embedded_expected, expected, channels)
                         result['cases'].append(case)
                         result['decodedAudioTested'] = True
         result['summary'] = {codec: {'passed': sum(c['passed'] for c in result['cases'] if c['codec'] == codec),
@@ -212,6 +288,10 @@ def main():
     parser.add_argument('--range-mode', choices=('timestamp', 'sample-filter'), default='timestamp',
                         help='Integer filter mode decodes from zero; it does not qualify random access')
     parser.add_argument('--demuxer', choices=('auto', 'lavf'), default='auto')
+    parser.add_argument('--aac-decoder', choices=('auto', 'aac', 'aac_fixed', 'aac_at'), default='auto',
+                        help='AAC-only decoder control; forced names disable fallback and require observed selection')
+    parser.add_argument('--embedded-reference', action='store_true',
+                        help='Also decode AAC directly with the same embedded libraries, bypassing MPV')
     for name in ('checkout', 'artifacts', 'ffmpeg', 'output'):
         parser.add_argument(name, type=Path)
     args = parser.parse_args()
