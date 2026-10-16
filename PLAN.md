@@ -2151,3 +2151,27 @@ See [Swift coexistence evidence](docs/evidence/mpv-swift-coexistence-20261016/RE
   presentation/sync, proxy composition, signed sandbox and distribution remain open.
 
 See [in-flight evidence](docs/evidence/mpv-swift-inflight-20261016/README.md).
+
+### MPV decoded source-audio boundary checkpoint (2026-10-16)
+
+- Added an offline source-audio proof against the same pinned cached MPVKit
+  candidate, with pre-decoder container stream selection, raw float PCM output
+  and independent FFmpeg references. Two distinct audio streams in audio-first
+  containers exercise actual `ff-index`/MPV audio-ID mapping.
+- All eight natural PCM/ALAC selections match reference samples exactly at
+  44.1 kHz mono and 48 kHz stereo. The broader matrix passes only 30/96 cases:
+  PCM 12/24, ALAC 18/24 and AAC/MP3 0/24. Explicit ranges expose sample-count
+  and content failures; no alignment, padding or tolerance relaxation is applied.
+- All 16 wrong-kind/missing-stream selections are explicitly rejected before
+  audio output. Five comparison regression tests cover sample loss, shifts,
+  channel swaps, wrong content, amplitude bounds and nonfinite/malformed data.
+- Verification: the final AddressSanitizer client completes the full diagnostic
+  matrix with its expected nonzero qualification result; 100 Python tests pass
+  with eight optional skips. Independent review found no blocking harness issues.
+- This is a completed diagnostic checkpoint, not broad decoded-audio or live
+  source qualification. MPV range accuracy and compressed-audio boundaries need
+  resolution before a faithful source backend can be claimed. CoreAudio/GPU,
+  hardware synchronization, proxy composition, signed sandbox access and runtime
+  distribution remain open. No production app code or backend selection changed.
+
+See [decoded-audio evidence](docs/evidence/mpv-audio-20261016/README.md).

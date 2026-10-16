@@ -1,0 +1,102 @@
+/* Offline decoded-audio qualification only. PCM file output bypasses hardware.
+ * argv: source, ff-index, output.pcm, start-seconds, end-seconds, sample-rate.
+ * on_preloaded resolves container identity before decoders/output are created.
+ */
+#include <mpv/client.h>
+#include <errno.h>
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+static const mpv_node *field(const mpv_node *node, const char *key) {
+    if (node->format != MPV_FORMAT_NODE_MAP) return NULL;
+    for (int i = 0; i < node->u.list->num; ++i)
+        if (!strcmp(node->u.list->keys[i], key)) return &node->u.list->values[i];
+    return NULL;
+}
+static int option(mpv_handle *m, const char *key, const char *value) {
+    int rc = mpv_set_option_string(m, key, value);
+    if (rc < 0) fprintf(stderr, "%s: %s\n", key, mpv_error_string(rc));
+    return rc >= 0;
+}
+static double now(void) {
+    struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
+    return t.tv_sec + t.tv_nsec / 1e9;
+}
+static int select_audio(mpv_handle *m, int index, int64_t *selected) {
+    mpv_node list = {0};
+    if (mpv_get_property(m, "track-list", MPV_FORMAT_NODE, &list) < 0) return 0;
+    int matches = 0;
+    if (list.format == MPV_FORMAT_NODE_ARRAY) for (int i = 0; i < list.u.list->num; ++i) {
+        const mpv_node *track = &list.u.list->values[i];
+        const mpv_node *kind = field(track, "type"), *ff = field(track, "ff-index"), *id = field(track, "id");
+        if (kind && kind->format == MPV_FORMAT_STRING && !strcmp(kind->u.string, "audio") &&
+            ff && ff->format == MPV_FORMAT_INT64 && ff->u.int64 == index &&
+            id && id->format == MPV_FORMAT_INT64 && id->u.int64 > 0) {
+            *selected = id->u.int64; ++matches;
+        }
+    }
+    mpv_free_node_contents(&list);
+    if (matches != 1) return -1;
+    return mpv_set_property(m, "aid", MPV_FORMAT_INT64, selected) >= 0;
+}
+int main(int argc, char **argv) {
+    if (argc != 7) return 2;
+    char *end = NULL; errno = 0;
+    long index = strtol(argv[2], &end, 10);
+    if (errno || !*argv[2] || *end || index < 0 || index > INT32_MAX) return 2;
+    mpv_handle *m = mpv_create();
+    if (!m) return 1;
+    int ok = 0, rejected = 0, loaded = 0, hooked = 0, restarted = 0;
+    int64_t selected = -1;
+    if (!option(m, "config", "no") || !option(m, "terminal", "no") ||
+        !option(m, "vo", "null") || !option(m, "vid", "no") ||
+        !option(m, "ao", "pcm") || !option(m, "ao-pcm-file", argv[3]) ||
+        !option(m, "ao-pcm-waveheader", "no") || !option(m, "audio-format", "float") ||
+        !option(m, "audio-samplerate", argv[6]) || !option(m, "audio-channels", "auto") ||
+        !option(m, "msg-level", "ad=debug,af=debug") ||
+        !option(m, "volume", "100") || !option(m, "replaygain", "no") ||
+        (strcmp(argv[4], "natural") && (!option(m, "start", argv[4]) || !option(m, "end", argv[5]))) ||
+        !option(m, "keep-open", "no") || !option(m, "idle", "yes") ||
+        mpv_initialize(m) < 0 || mpv_hook_add(m, 1, "on_preloaded", 0) < 0) goto cleanup;
+    mpv_request_log_messages(m, "debug");
+    const char *command[] = {"loadfile", argv[1], NULL};
+    if (mpv_command(m, command) < 0) goto cleanup;
+    double deadline = now() + 15;
+    while (now() < deadline) {
+        mpv_event *event = mpv_wait_event(m, 0.05);
+        if (event->event_id == MPV_EVENT_LOG_MESSAGE) {
+            mpv_event_log_message *log = event->data;
+            fprintf(stderr, "[%s/%s] %s", log->prefix, log->level, log->text);
+        } else if (event->event_id == MPV_EVENT_HOOK) {
+            mpv_event_hook *hook = event->data;
+            int selected_ok = select_audio(m, (int)index, &selected);
+            rejected = selected_ok == -1;
+            if (mpv_hook_continue(m, hook->id) < 0 || selected_ok != 1) goto cleanup;
+            hooked++;
+        } else if (event->event_id == MPV_EVENT_FILE_LOADED) {
+            int64_t aid = -1;
+            if (mpv_get_property(m, "aid", MPV_FORMAT_INT64, &aid) < 0 || aid != selected) goto cleanup;
+            loaded++;
+        } else if (event->event_id == MPV_EVENT_PLAYBACK_RESTART) {
+            restarted++;
+        } else if (event->event_id == MPV_EVENT_END_FILE) {
+            mpv_event_end_file *eof = event->data;
+            ok = eof->reason == MPV_END_FILE_REASON_EOF && eof->error == 0 &&
+                 hooked == 1 && loaded == 1 && restarted > 0;
+            break;
+        } else if (event->event_id == MPV_EVENT_SHUTDOWN) break;
+    }
+cleanup:
+    mpv_terminate_destroy(m); /* flush/close PCM output before comparison */
+    if (rejected) {
+        printf("{\"rejected\":true,\"ffIndex\":%ld}\n", index);
+        return 3;
+    }
+    if (ok) printf("{\"passed\":true,\"ffIndex\":%ld,\"audioTrackID\":%lld}\n", index, (long long)selected);
+    else fprintf(stderr, "Audio decode/selection/EOF failed or timed out\n");
+    return ok ? 0 : 1;
+}

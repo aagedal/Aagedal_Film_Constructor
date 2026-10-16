@@ -677,3 +677,15 @@ decoders are destroyed after close. This uses proof-only internal testing
 visibility. Interruption inside active libavcodec calls, unbounded edit stress,
 app presentation, color/audio output, proxy composition, signed sandbox access
 and distribution remain open.
+
+## MPV decoded source audio (2026-10-16)
+
+The isolated [audio proof](evidence/mpv-audio-20261016/README.md) now compares raw
+MPV PCM-sink output with independent FFmpeg decodes. All eight natural PCM/ALAC
+selections are byte-exact, but the complete range/codec matrix passes only 30/96
+cases. Sample-count/content errors remain for some bounded lossless ranges and
+all AAC/MP3 cases. The retained qualification result intentionally fails, without
+alignment or relaxed bounds. Sixteen wrong-kind/missing container stream
+selections are refused explicitly before output. This adds measured audio
+boundary blockers to future source integration; it does not qualify CoreAudio,
+clocks, asynchronous in-place seeks, proxy composition or distribution.
