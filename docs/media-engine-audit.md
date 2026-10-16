@@ -709,3 +709,14 @@ This makes initial seek/preroll handling a concrete content-divergence lead,
 without attributing every MPV internal step or claiming a correction. Fixed-point
 AAC retains failures; AudioToolbox AAC cannot initialize on these fixtures.
 AAC remains 0/24 and no source formats or application backends are newly admitted.
+
+The [priming-packet/frame-duration follow-up](evidence/mpv-aac-preroll-20261016/README.md)
+now seeks to the demuxer's observed first selected packet PTS (-1024 for these
+fixtures), restoring the priming skip and byte-exact unseeked output. A separate
+control limits output to explicit decoded-frame duration: final AAC frames hold
+1024 samples but report 204 or 640 samples of duration, exactly accounting for
+the prior 820/384 excess tails. Together these controls pass all 24 direct AAC
+reference comparisons under unchanged bounds, including natural output. Actual
+MPV remains AAC 0/24 and overall 72/96; no captured audio is repaired. This gives
+a demonstrated generated-fixture decoder control, while MPV integration,
+efficient random access and broader stream qualification remain open.

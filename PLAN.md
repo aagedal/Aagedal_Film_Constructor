@@ -2228,3 +2228,26 @@ See [audio control evidence](docs/evidence/mpv-audio-controls-20261016/README.md
   hardware sync, proxy composition, signed sandbox and distribution remain open.
 
 See [AAC seek evidence](docs/evidence/mpv-aac-seek-20261016/README.md).
+
+### Embedded AAC priming and explicit frame-duration checkpoint (2026-10-16)
+
+- Extended the direct embedded-library AAC diagnostic with an observed-first-packet
+  backward seek, independently of the existing zero-seek and unseeked controls.
+  All four selected streams return PTS -1024 and restore the 1024-sample priming
+  skip; complete output hashes match unseeked decoding exactly.
+- Retained first/last packet and final decoded-frame boundary metadata. The last
+  1024-sample frames report durations of 204 samples at 44.1 kHz and 640 at 48 kHz,
+  accounting for all prior 820/384 excess samples without discard-side metadata.
+- Added a separate explicit-frame-duration diagnostic, requiring exact sample
+  conversion and refusing incompatible durations. No nominal source duration,
+  comparator alignment, padding or capture repair is used.
+- Combined first-packet/duration direct decoding passes all 24 AAC reference
+  comparisons, including four natural outputs, under unchanged sample-count and
+  amplitude bounds. The actual MPV matrix remains PCM/ALAC/MP3 24/24 each and
+  AAC 0/24, with all 16 selection rejections passing and overall exit 1 retained.
+- AddressSanitizer matrix, 36 MPV Python regression tests and independent review
+  pass for this proof scope. App source playback remains AVFoundation. Efficient
+  interactive AAC seeks, applying the controls inside MPV, broader streams,
+  CoreAudio/GPU presentation, hardware sync and distribution remain open.
+
+See [AAC priming/frame-duration evidence](docs/evidence/mpv-aac-preroll-20261016/README.md).

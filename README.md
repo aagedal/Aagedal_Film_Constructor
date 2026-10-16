@@ -298,3 +298,9 @@ MPV's audio divergence with a direct embedded-library seek-to-zero control.
 Unseeked decoding matches bounded reference audio, while priming and tail
 handling still prevent faithful AAC qualification. Decoder controls and complete
 failing results are retained; production source playback remains unchanged.
+
+A direct [AAC priming/frame-duration control](docs/evidence/mpv-aac-preroll-20261016/README.md)
+now passes all 24 generated AAC reference comparisons with the embedded libraries:
+seeking to the observed first packet restores priming, and explicit decoded-frame
+duration accounts for the excess tail. MPV itself remains 0/24 for AAC; these
+controls do not yet change source playback or qualify efficient random access.
