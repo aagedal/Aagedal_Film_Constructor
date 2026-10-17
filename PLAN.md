@@ -2352,3 +2352,32 @@ See [absolute-PTS seek evidence](docs/evidence/mpv-pts-seek-20261016/README.md).
   composition, signed sandbox access and distribution remain open.
 
 See [AAC PNS evidence](docs/evidence/mpv-aac-pns-20261017/README.md).
+
+### MP3 same-packet container and loading-range checkpoint (2026-10-17)
+
+- Added an explicit MP3-only `--mp3-container matroska|mov-remux` fixture control.
+  MOV mode requires external FFprobe and verifies stream identities, formats and
+  identical ordered packet payloads for every stream before decoding. Defaults
+  preserve previous commands; fresh references are decoded per container.
+- Three complete AddressSanitizer matrices retain 288 comparisons and 48 passing
+  invalid-stream rejections. Absolute-PTS/500 ms preroll repeats 68/96 in Matroska
+  and passes 82/96 in MOV. MP3 improves from 4/24 to 18/24 byte-exact comparisons;
+  natural EOF and both 44.1 kHz nonzero tail seeks remain failures. Other codecs
+  retain PCM/ALAC 24/24 and AAC 16/24.
+- MOV integer filtering from zero passes 68/96: PCM/ALAC 24/24, AAC 20/24 and
+  MP3 0/24. All bounded MP3 counts are exact but content fails. Every broad audio
+  qualification run intentionally exits 1; no alignment or capture repair is used.
+- Packet timebases change from 1/1000 to reciprocal sample rate, but skip/padding
+  metadata also changes. Independent MOV reference counts differ from Matroska
+  by 1 sample at 44.1 kHz and 48 samples at 48 kHz. Full packet manifests and
+  failed original-reference comparisons preserve that confound: this is not a
+  pure timebase isolation or a correction for existing sources.
+- Verification: 111 Python tests (eight optional skips), all runtime matrices,
+  source/capture hash checks, independent implementation review and diff checks
+  pass for this diagnostic scope. Production app playback remains AVFoundation.
+  Further work must preserve gapless metadata while varying timing and resolve
+  natural EOF and nonzero tail content before claiming faithful MP3 seeks.
+  AAC PNS-enabled seeks, hardware presentation/sync, proxy composition, signed
+  sandbox access and runtime distribution also remain open.
+
+See [MP3 container evidence](docs/evidence/mpv-mp3-container-20261017/README.md).
