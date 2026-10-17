@@ -26,6 +26,16 @@ MEAN_LIMIT = 1e-6
 PEAK_LIMIT = 1e-5
 
 
+def audio_encoder_arguments(codec, aac_pns):
+    """Vary fixture encoding only; non-AAC media and default commands stay intact."""
+    if aac_pns not in ('default', 'on', 'off'):
+        raise ValueError('Unknown AAC PNS fixture control')
+    arguments = ['-c:a', codec]
+    if codec == 'aac' and aac_pns != 'default':
+        arguments.extend(['-aac_pns', '1' if aac_pns == 'on' else '0'])
+    return arguments
+
+
 def selected_decoder(log, requested='auto'):
     """A forced decoder must actually open; silent fallback is not evidence."""
     names = re.findall(r'\[ad/v\] Selected decoder: ([A-Za-z0-9_]+) - ', log)
@@ -118,6 +128,7 @@ def run_proof(args):
               'applicationIntegrated': False, 'commands': [], 'cases': [], 'rejections': [],
               'rangeMode': args.range_mode, 'demuxer': args.demuxer,
               'aacDecoder': args.aac_decoder,
+              'aacPNS': args.aac_pns,
               'movEditList': args.mov_edit_list, 'seekOffset': args.seek_offset,
               'filterPreroll': args.filter_preroll,
               'embeddedReferences': [],
@@ -134,6 +145,8 @@ def run_proof(args):
         result['limitations'].append('Absolute sample-timebase atrim after an earlier loading seek; no in-place seek, full-duration efficiency or arbitrary timestamp qualification')
     if args.mov_edit_list == 'basic':
         result['limitations'].append('Explicit lavf advanced_editlist=0 control; generated single-edit MOV only, not complex edit-list qualification')
+    if args.aac_pns != 'default':
+        result['limitations'].append('AAC encoder PNS fixture control only; does not disable noise substitution in arbitrary source media or qualify general AAC seeking')
 
     def run(command, name, timeout=180, allow_failure=False):
         command = list(map(str, command))
@@ -210,7 +223,7 @@ def run_proof(args):
                 # Deliberately put audio before video; ff-index 2 must resolve to
                 # MPV audio ID 2, rather than treating container index as ID.
                 command.extend(['-map', '1:a', '-map', '0:v', '-map', '2:a',
-                                '-c:v', 'libx264', '-c:a', codec, fixture])
+                                '-c:v', 'libx264', *audio_encoder_arguments(codec, args.aac_pns), fixture])
                 run(command, 'generate-' + name)
                 for rejected_index in (1, 99):
                     reject_name = f'reject-{name}-{rejected_index}'
@@ -351,6 +364,8 @@ def main():
                         help='PTS filter only: start playback this many seconds before the requested integer cut')
     parser.add_argument('--aac-decoder', choices=('auto', 'aac', 'aac_fixed', 'aac_at'), default='auto',
                         help='AAC-only decoder control; forced names disable fallback and require observed selection')
+    parser.add_argument('--aac-pns', choices=('default', 'on', 'off'), default='default',
+                        help='Fixture encoder control for AAC perceptual noise substitution; does not change MPV decoding')
     parser.add_argument('--embedded-reference', action='store_true',
                         help='Also decode AAC directly with the same embedded libraries, bypassing MPV')
     for name in ('checkout', 'artifacts', 'ffmpeg', 'output'):

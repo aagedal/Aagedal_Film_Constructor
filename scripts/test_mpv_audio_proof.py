@@ -15,6 +15,16 @@ def audio(values):
 
 
 class AudioComparisonTests(unittest.TestCase):
+    def test_pns_control_changes_only_explicit_aac_fixture_encoding(self):
+        for codec in ('pcm_s16le', 'alac', 'libmp3lame'):
+            for mode in ('default', 'on', 'off'):
+                self.assertEqual(proof.audio_encoder_arguments(codec, mode), ['-c:a', codec])
+        self.assertEqual(proof.audio_encoder_arguments('aac', 'default'), ['-c:a', 'aac'])
+        self.assertEqual(proof.audio_encoder_arguments('aac', 'on'), ['-c:a', 'aac', '-aac_pns', '1'])
+        self.assertEqual(proof.audio_encoder_arguments('aac', 'off'), ['-c:a', 'aac', '-aac_pns', '0'])
+        with self.assertRaises(ValueError):
+            proof.audio_encoder_arguments('aac', 'repair')
+
     def test_basic_mov_control_requires_forced_lavf_before_running(self):
         completed = subprocess.run(
             [sys.executable, str(Path(proof.__file__)), '--mov-edit-list', 'basic',
