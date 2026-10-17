@@ -2328,3 +2328,27 @@ See [timestamp seek-preroll evidence](docs/evidence/mpv-seek-preroll-20261016/RE
   Application source playback remains AVFoundation.
 
 See [absolute-PTS seek evidence](docs/evidence/mpv-pts-seek-20261016/README.md).
+
+### AAC encoder PNS and nonzero loading-seek checkpoint (2026-10-17)
+
+- Added an explicit fixture-only `--aac-pns default|on|off` control to the offline
+  MPV audio proof. Defaults preserve the original encoder command; other codecs,
+  runtime decoding, requested cuts and comparison bounds remain unchanged.
+- Three complete AddressSanitizer matrices retain 288 comparisons and 48 passing
+  invalid-stream rejections. Default/on each pass 68/96, with identical AAC fixture
+  and capture hashes. PNS-off passes 72/96; AAC improves from 16/24 to 20/24.
+- All 20 bounded PNS-off AAC ranges match independent FFmpeg bytes exactly,
+  including four nonzero tail seeks. This isolates PNS-enabled fixture seek
+  divergence and supports decode-history dependence; it does not repair existing
+  AAC, qualify arbitrary streams or prove a sufficient fixed preroll.
+- Four natural AAC outputs in every mode retain 820/384 excess samples. MP3 stays
+  4/24; all broad qualification runs intentionally exit 1. Small MP3 sample shifts
+  and millisecond packet timestamps motivate a separate same-packet container
+  timebase control, with no cause or correction yet qualified.
+- Verification: 109 Python tests (eight optional skips), all runtime matrices,
+  source/fixture/capture hash checks, independent implementation review and diff
+  checks pass for the diagnostic scope. App source playback stays AVFoundation.
+  Existing PNS-enabled AAC seeks, natural EOF, hardware presentation/sync, proxy
+  composition, signed sandbox access and distribution remain open.
+
+See [AAC PNS evidence](docs/evidence/mpv-aac-pns-20261017/README.md).

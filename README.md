@@ -317,3 +317,9 @@ now separates an earlier MPV playback start from integer timestamp-based output
 cuts. PCM and ALAC each pass all 24 comparisons, including nonzero tail seeks;
 500 ms preroll passes 68/96 comparisons overall. Natural AAC EOF and broader compressed-audio seeking remain
 unqualified; application source playback stays AVFoundation.
+
+An [AAC encoder PNS control](docs/evidence/mpv-aac-pns-20261017/README.md)
+now isolates content divergence after nonzero loading seeks: all 20 bounded AAC
+ranges match reference bytes when the generated fixture disables perceptual noise
+substitution. Existing PNS-enabled sources and natural AAC EOF remain unresolved;
+this fixture diagnostic does not change application playback.
