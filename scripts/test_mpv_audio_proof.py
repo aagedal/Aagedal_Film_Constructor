@@ -1,4 +1,5 @@
 import importlib.util
+import copy
 from pathlib import Path
 import struct
 import subprocess
@@ -15,6 +16,47 @@ def audio(values):
 
 
 class AudioComparisonTests(unittest.TestCase):
+    def test_remux_packet_identity_allows_timing_changes_but_rejects_content_changes(self):
+        original = {'streams': [
+            {'index': i, 'codec_type': 'video' if i == 1 else 'audio',
+             'codec_name': 'h264' if i == 1 else 'mp3', 'sample_rate': '44100',
+             'channels': 1, 'time_base': '1/1000'} for i in range(3)],
+            'packets': [{'stream_index': i, 'size': '100', 'data_hash': 'SHA256:' + str(i + j * 3) * 64,
+                         'pts': j * 26} for j in range(2) for i in range(3)]}
+        remuxed = copy.deepcopy(original)
+        for stream in remuxed['streams']:
+            stream['time_base'] = '1/44100'
+        remuxed['packets'][0].update(pts=-1103, side_data_list=[{'skip_samples': 1103}])
+        evidence = proof.validate_mp3_remux(original, remuxed, 44100, 1)
+        self.assertTrue(all(s['orderedPayloadsIdentical'] for s in evidence))
+        self.assertEqual(evidence[0]['remuxedFirstPacket']['pts'], -1103)
+        for mutation in ('hash', 'order', 'missing', 'empty', 'format', 'kind', 'extra'):
+            altered = copy.deepcopy(remuxed)
+            if mutation == 'hash':
+                altered['packets'][0]['data_hash'] = 'SHA256:' + 'a' * 64
+            elif mutation == 'order':
+                altered['packets'][0], altered['packets'][3] = altered['packets'][3], altered['packets'][0]
+            elif mutation == 'missing':
+                del altered['packets'][0]['data_hash']
+            elif mutation == 'empty':
+                altered['packets'] = []
+            elif mutation == 'format':
+                altered['streams'][0]['sample_rate'] = '48000'
+            elif mutation == 'kind':
+                altered['streams'][0]['codec_type'] = 'video'
+            else:
+                altered['streams'].append(dict(altered['streams'][0], index=3))
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                proof.validate_mp3_remux(original, altered, 44100, 1)
+
+    def test_remux_requires_explicit_packet_probe(self):
+        completed = subprocess.run(
+            [sys.executable, str(Path(proof.__file__)), '--mp3-container', 'mov-remux',
+             '/missing/checkout', '/missing/artifacts', '/missing/ffmpeg', '/missing/output'],
+            capture_output=True, text=True)
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn('--mp3-container mov-remux requires --ffprobe', completed.stderr)
+
     def test_pns_control_changes_only_explicit_aac_fixture_encoding(self):
         for codec in ('pcm_s16le', 'alac', 'libmp3lame'):
             for mode in ('default', 'on', 'off'):
