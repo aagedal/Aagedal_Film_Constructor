@@ -538,7 +538,9 @@ rates. Track stable container stream indices and per-stream timing offsets.
 - [x] Add rational time, validated sequence settings, tracks/families, stable
       source stream identities, clip ranges, scaling modes, and a render plan.
 - [x] Implement move/trim/split/placement, sibling naming, cleanup, and undo/redo.
-- [ ] Bundle/audit FFmpeg and prototype MPV-based source/timeline monitoring.
+- [x] Bundle/audit FFmpeg and prototype MPV-based source/timeline monitoring.
+      Pinned signed FFmpeg/FFprobe 9.0.2 are bundled automatically; MPV proofs
+      are retained under docs/evidence.
 - [ ] Render a minimal sequence with two overlapping videos and several audio
       components at different source in-points. Verify seeking and preview/export
       agreement before selecting the final playback path.
@@ -604,7 +606,8 @@ sequence previews and renders at the same positions with exact output timing.
 - [x] Add persistent panel visibility controls in the toolbar and View menu.
 - [x] Add compact track/family naming, retained-empty-track controls and undoable
       static audio gain with shared monitor/render planning and inherited siblings.
-- [ ] Add edited-sequence monitoring.
+- [x] Add edited-sequence monitoring. Ordinary builds use the AVFoundation
+      sequence backend; verified in the real window by `scripts/app-acceptance.sh`.
 - [x] Connect Source/Sequence monitor selection, edited-plan rebuilding, coalesced
       scrubs and K/L transport to the native runtime in an opt-in development
       workspace; qualify real controller pixels and live sample-clock progress.
@@ -624,7 +627,8 @@ sequence previews and renders at the same positions with exact output timing.
       qualified square-pixel, unrotated CFR video streams; persist exact source
       dimensions/cadence and preserve audio settings/timecode with atomic undo.
       Broad-format, orientation and VFR matching remain open.
-- [ ] Add live sequence transport.
+- [x] Add live sequence transport. Space/K/L play and pause the sequence with an
+      advancing playhead in the real window (playhead echo regression fixed).
 - [x] Add asynchronous filmstrips/waveforms and fit/fill/no-scaling controls.
       Scaling is persisted; sequence preview/render geometry remains unqualified.
 - [x] Expose the automatic empty-track cleanup preference.
@@ -668,7 +672,9 @@ a compatible track, create a crossfade, and undo both operations without lost sy
       is connected in the opt-in development workspace.
 - [ ] Test frame/timecode correspondence, geometry, multiple audio streams, VFR
       mapping, switching at a nonzero playhead, and save/reopen.
-- [ ] Verify proxy playback does not change edits and final exports use originals.
+- [x] Verify proxy playback does not change edits and final exports use originals.
+      Core tests compare original/proxy render commands; real-window acceptance
+      plays with Prefer Proxy and renders from originals (warnings name originals).
 - [x] Connect the global representation preference to opt-in native sequence
       playback with integrity verification, original geometry/audio, nonzero
       playhead preservation and cancellable rebuilds. Shipping runtime and
@@ -686,8 +692,10 @@ remaining signed/native playback checks.
 
 ### 5. Sequence export and interchange
 
-- [ ] Implement FFmpeg sequence render with correct raster, rational frame rate,
+- [x] Implement FFmpeg sequence render with correct raster, rational frame rate,
       start timecode, compositing order, scaling, audio selections, and fades.
+      ProRes 422 HQ/422, H.264 and HEVC with verified counts, codecs and timecode;
+      mono/stereo/5.1, HDR tone mapping and edit-point snapping (2026-10-23).
 - [x] Add a fixed MOV/ProRes HQ/PCM development workflow using sequence output
       settings and timecode, progress, cancellation and verified publication.
       Additional output presets and full source/container qualification remain open.
