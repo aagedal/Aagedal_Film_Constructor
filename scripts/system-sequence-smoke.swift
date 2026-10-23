@@ -161,6 +161,21 @@ import EditorCore
         try require(controller.image != nil && controller.displayedFrameIndex == 59,
             "Scrubbing beyond the sequence end must display the clamped last frame: \(controller.message)")
         controller.deactivate()
-        print("System sequence smoke passed: decoded trims, overlap precedence, reverse/fractional seeks, black gaps, live transport, end scrub/exact fractional end clamp, cleanup, muted custom routing notice and anamorphic widening.")
+        // The workspace echoes each published position back through update(); playback must continue.
+        let echoing = SequencePlaybackController()
+        var playhead = 0.0
+        echoing.positionChanged = { seconds in
+            playhead = seconds
+            echoing.update(project: project, seconds: seconds)
+        }
+        echoing.activate(project: project, seconds: 0)
+        for _ in 0..<1000 where echoing.isPreparing { try await Task.sleep(for: .milliseconds(10)) }
+        echoing.play()
+        try await Task.sleep(for: .milliseconds(1200))
+        try require(echoing.isPlaying && playhead > 0.6,
+            "Echoed playhead updates must not interrupt playback: playing=\(echoing.isPlaying) playhead=\(playhead)")
+        echoing.pause()
+        echoing.deactivate()
+        print("System sequence smoke passed: decoded trims, overlap precedence, reverse/fractional seeks, black gaps, live transport, end scrub/exact fractional end clamp, cleanup, muted custom routing notice, anamorphic widening and continuous playback with playhead echo.")
     }
 }

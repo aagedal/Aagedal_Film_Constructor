@@ -41,7 +41,7 @@ import Testing
     }
 }
 
-@Test func compilerKeepsPathsAsArgumentsAndRejectsSubsampleEdits() throws {
+@Test func compilerKeepsPathsAsArgumentsAndRoundsSubsampleEdits() throws {
     var project = try DemoProjectFactory.musicCollision()
     let path = "/private/tmp/source 'quoted'; $(example).mov"
     project.assets[0].originalURL = URL(fileURLWithPath: path)
@@ -50,7 +50,37 @@ import Testing
     #expect(command.arguments.filter { $0 == path }.count == 4)
     #expect(!command.filterGraph.contains(path))
     project.tracks[0].clips[0].sourceRange.start = try RationalTime(1, 96000)
-    #expect(throws: (any Error).self) { try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: output) }
+    // Half a sample rounds up to the next output sample instead of refusing the edit.
+    let rounded = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: output)
+    #expect(rounded.filterGraph.contains("atrim=start_sample=1:end_sample=240001"))
+}
+
+@Test func compilerSnapsOffGridClipsToSharedFrameAndSampleBoundaries() throws {
+    // An imported 2.3167 s clip followed by another at 29.97 fps: neither edit is on the
+    // frame grid and frame-aligned audio is not sample-aligned, yet the cut must render.
+    let rate = try FrameRate(30000, 1001)
+    let template = TrackTemplate(kind: .video)
+    let audioTemplate = TrackTemplate(kind: .audio, audioLayout: .stereo)
+    let family = TrackFamily(baseName: "Video", template: template)
+    let audioFamily = TrackFamily(baseName: "Audio", template: audioTemplate)
+    let asset = MediaAsset(name: "Phone", originalURL: URL(fileURLWithPath: "/private/tmp/phone.mov"), duration: try RationalTime(10),
+                           streams: [MediaStream(index: 0, kind: .video), MediaStream(index: 1, kind: .audio, audioLayout: .stereo)])
+    let first = try TimeRange(start: .zero, duration: RationalTime(139, 60))
+    let second = try TimeRange(start: RationalTime(1, 3), duration: RationalTime(2))
+    let stereo = AudioSourceSelection(channels: [.init(streamIndex: 1, channelIndex: 0), .init(streamIndex: 1, channelIndex: 1)], layout: .stereo)
+    let clips = [TimelineClip(assetID: asset.id, sourceRange: first, selection: .video(streamIndex: 0)),
+                 TimelineClip(assetID: asset.id, sourceRange: second, timelineStart: first.duration, selection: .video(streamIndex: 0))]
+    let audio = [TimelineClip(assetID: asset.id, sourceRange: first, selection: .audio(stereo)),
+                 TimelineClip(assetID: asset.id, sourceRange: second, timelineStart: first.duration, selection: .audio(stereo))]
+    let project = Project(settings: try SequenceSettings(frameRate: rate), assets: [asset], families: [family, audioFamily],
+                          tracks: [TimelineTrack(familyID: family.id, template: template, clips: clips),
+                                   TimelineTrack(familyID: audioFamily.id, template: audioTemplate, clips: audio)])
+    let command = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: URL(fileURLWithPath: "/private/tmp/off-grid.mov"))
+    // 139/60 s × 30000/1001 = 69.43 frames → the cut lands on frame 69 for both clips.
+    #expect(command.filterGraph.contains("trim=start_frame=0:end_frame=69,setpts=PTS-STARTPTS+0"))
+    #expect(command.filterGraph.contains("setpts=PTS-STARTPTS+69[") || command.filterGraph.contains("setpts=PTS-STARTPTS+69,"))
+    // Audio cut at 111200 samples is shared by the outgoing end and incoming delay.
+    #expect(command.filterGraph.contains("end_sample=111200") && command.filterGraph.contains("adelay=111200S"))
 }
 
 @Test func compilerFadesRetainExactSubsampleDurationBeforeTimelineDelay() throws {

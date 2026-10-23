@@ -50,10 +50,12 @@ final class EditorCommandRegistry: ObservableObject {
     }
     func perform(_ command: EditorCommandID, store: EditorStore?, scope: EditorCommandScope) {
         guard let store else { return }
+        // Menu validation can be stale; recheck at the moment of the action.
+        guard Self.isEditingText || isEnabled(command, store: store, scope: scope) else { NSSound.beep(); return }
         if Self.isEditingText {
             if command == .undo { NSApp.sendAction(Selector(("undo:")), to: nil, from: nil) }
             if command == .redo { NSApp.sendAction(Selector(("redo:")), to: nil, from: nil) }
-            return
+            if command == .undo || command == .redo || !allowsDuringTextEditing(command) { return }
         }
         guard command.isPlayback || scope == .document || command.scope == .document || scope == command.scope else { return }
         switch command {
@@ -90,7 +92,7 @@ final class EditorCommandRegistry: ObservableObject {
     }
     func isEnabled(_ command: EditorCommandID, store: EditorStore?, scope: EditorCommandScope) -> Bool {
         guard let store else { return false }
-        if Self.isEditingText { return command == .undo || command == .redo }
+        if Self.isEditingText && !allowsDuringTextEditing(command) { return command == .undo || command == .redo }
         guard command.isPlayback || scope == .document || command.scope == .document || scope == command.scope else { return false }
         switch command {
         case .zoomTimelineToFit: return store.duration > 0
@@ -116,6 +118,13 @@ final class EditorCommandRegistry: ObservableObject {
             return store.canControlSourceTransport
         case .exportSequence, .exportFCPXML, .exportEDL, .exportOTIO: return store.duration > 0 && store.renderExportDraft == nil && store.edlExportDraft == nil && store.audioAppendAsset == nil
         }
+    }
+    /// Command/Control chords that have no text-editing meaning stay available while a
+    /// field is focused; bare keys, deletion and arrow navigation belong to the text.
+    private func allowsDuringTextEditing(_ command: EditorCommandID) -> Bool {
+        let shortcut = binding(for: command).normalized
+        guard command != .undo, command != .redo, shortcut.command || shortcut.control else { return false }
+        return !["delete", "left", "right", "up", "down", "return", "escape", "tab", "space"].contains(shortcut.key)
     }
     private static var isEditingText: Bool { NSApp?.keyWindow?.firstResponder is NSTextView }
 }
@@ -151,5 +160,59 @@ extension ShortcutBinding {
         if control { result.insert(.control) }
         if shift { result.insert(.shift) }
         return result
+    }
+}
+
+/// Routes editor shortcuts at key-press time. Menu validation is only refreshed when
+/// SwiftUI re-renders the command menus, so it can be stale after edits or focus
+/// changes. The router reads the key window's own store, text focus and command
+/// state for each event, then consumes the key only when a command runs.
+@MainActor
+final class EditorKeyboardRouter {
+    static let shared = EditorKeyboardRouter()
+    private var registry: EditorCommandRegistry?
+    private var monitor: Any?
+    private let stores = NSMapTable<NSWindow, EditorStore>.weakToWeakObjects()
+
+    func install(registry: EditorCommandRegistry) {
+        self.registry = registry
+        guard monitor == nil else { return }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            MainActor.assumeIsolated { EditorKeyboardRouter.shared.handle(event) ? nil : event }
+        }
+    }
+    func register(window: NSWindow, store: EditorStore) { stores.setObject(store, forKey: window) }
+
+    static func binding(for event: NSEvent) -> ShortcutBinding? {
+        let named: [UInt16: String] = [49: "space", 48: "tab", 51: "delete", 117: "delete", 123: "left", 124: "right",
+                                       125: "down", 126: "up", 36: "return", 76: "return", 53: "escape"]
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard let key = named[event.keyCode] ?? event.charactersIgnoringModifiers?.lowercased(), !key.isEmpty else { return nil }
+        return ShortcutBinding(key: key, command: flags.contains(.command), option: flags.contains(.option),
+                               control: flags.contains(.control), shift: flags.contains(.shift)).normalized
+    }
+
+    /// Commands that a focused text field needs are left to the text system.
+    private func handle(_ event: NSEvent) -> Bool {
+        guard let registry, let window = event.window, let store = stores.object(forKey: window),
+              window.attachedSheet == nil, let pressed = Self.binding(for: event),
+              let command = EditorCommandID.allCases.first(where: { registry.binding(for: $0) == pressed && !registry.binding(for: $0).isEmpty })
+        else { return false }
+        if event.isARepeat && command == .togglePlayback { return true }
+        // Source-only commands follow the visible viewer; everything else is document-wide.
+        let scope: EditorCommandScope = command.scope == .source && store.showSequenceMonitor ? .timeline : .document
+        guard registry.isEnabled(command, store: store, scope: scope) else { return false }
+        registry.perform(command, store: store, scope: scope)
+        return true
+    }
+}
+
+extension ShortcutBinding {
+    /// Menu key equivalents are kept only for chords that never conflict with text entry;
+    /// all other shortcuts are delivered by EditorKeyboardRouter at key-press time.
+    var isMenuKeyEquivalent: Bool {
+        let shortcut = normalized
+        return (shortcut.command || shortcut.control)
+            && !["delete", "left", "right", "up", "down", "return", "escape", "tab", "space"].contains(shortcut.key)
     }
 }

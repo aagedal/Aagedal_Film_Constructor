@@ -130,9 +130,12 @@ public enum FFmpegRenderCompiler {
                     throw EditorCoreError.invalidModel("Only audio clips support fades")
                 }
                 let isStill = component.selection == .still
-                let start = isStill ? 0 : try integral(component.sourceRange.start.multiplied(by: settings.frameRate.value), "Visual source in must align to sequence frames")
-                let count = try integral(component.sourceRange.duration.multiplied(by: settings.frameRate.value), "Video duration must align to sequence frames")
-                let placement = try integral(component.timelineRange.start.multiplied(by: settings.frameRate.value), "Video placement must align to frames")
+                // Edit points snap to the nearest sequence frame. Shared boundaries round
+                // identically, so adjacent clips stay adjacent; sub-frame clips are skipped.
+                let start = isStill ? 0 : try nearest(component.sourceRange.start.multiplied(by: settings.frameRate.value))
+                let placement = try nearest(component.timelineRange.start.multiplied(by: settings.frameRate.value))
+                let count = try nearest(component.timelineRange.end().multiplied(by: settings.frameRate.value)) - placement
+                guard count > 0 else { continue }
                 let end = try RationalTime(start).adding(RationalTime(count)).numerator
                 let scaling: String
                 let w = settings.width, h = settings.height
@@ -188,9 +191,11 @@ public enum FFmpegRenderCompiler {
                       !component.routing.outputChannels.isEmpty || selection.layout == settings.audioLayout else {
                     throw EditorCoreError.invalidModel("Invalid audio output map")
                 }
-                let start = try integral(component.sourceRange.start.multiplied(by: Int64(settings.audioSampleRate)), "Audio in must align to samples")
-                let end = try integral(component.sourceRange.end().multiplied(by: Int64(settings.audioSampleRate)), "Audio out must align to samples")
-                let delay = try integral(component.timelineRange.start.multiplied(by: Int64(settings.audioSampleRate)), "Audio placement must align to samples")
+                // Audio edit points snap to the nearest output sample (under 21 µs at 48 kHz).
+                let start = try nearest(component.sourceRange.start.multiplied(by: Int64(settings.audioSampleRate)))
+                let delay = try nearest(component.timelineRange.start.multiplied(by: Int64(settings.audioSampleRate)))
+                let end = try start + nearest(component.timelineRange.end().multiplied(by: Int64(settings.audioSampleRate))) - delay
+                guard end > start else { continue }
                 let envelope = try audioEnvelope(component, sampleCount: end - start, sampleRate: settings.audioSampleRate, layout: layout)
                 for (channel, sourceChannel) in selection.channels.enumerated() {
                     guard let stream = component.sourceStreams.first(where: { $0.index == sourceChannel.streamIndex }), let sourceLayout = stream.audioLayout,
@@ -253,8 +258,11 @@ public enum FFmpegRenderCompiler {
         return aFile == bFile && aDevice == bDevice
     }
     private static func fraction(_ time: RationalTime) -> String { "\(time.numerator)/\(time.denominator)" }
-    private static func integral(_ time: RationalTime, _ message: String) throws -> Int64 {
-        guard time.denominator == 1, time.numerator >= 0 else { throw EditorCoreError.invalidModel(message) }
-        return time.numerator
+    /// Round half up to the nearest whole unit; edit times are never negative.
+    private static func nearest(_ time: RationalTime) throws -> Int64 {
+        guard time.numerator >= 0 else { throw EditorCoreError.invalidModel("Negative edit time") }
+        let (doubled, overflow) = time.numerator.multipliedReportingOverflow(by: 2)
+        guard !overflow else { throw EditorCoreError.overflow }
+        return (doubled + time.denominator) / (2 * time.denominator)
     }
 }

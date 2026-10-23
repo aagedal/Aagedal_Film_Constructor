@@ -10,6 +10,9 @@ import SwiftUI
         }
         .defaultSize(width: 1280, height: 800)
         .commands { EditorCommands(registry: commandRegistry) }
+        .onChange(of: commandRegistry.bindings, initial: true) { _, _ in
+            EditorKeyboardRouter.shared.install(registry: commandRegistry)
+        }
 
         Settings { KeyboardShortcutSettings(registry: commandRegistry) }
     }
@@ -39,6 +42,7 @@ private struct DocumentWorkspace: View {
                     store.load(document)
                     loaded = true
                     observeDocumentBaseline()
+                    AcceptanceDriver.start(store: store)
                     LaunchPerformanceEvents.record("workspace_loaded", details: [
                         "savedDocument": fileURL != nil,
                         "assetCount": store.project.assets.count,
@@ -219,8 +223,8 @@ private struct EditorCommands: Commands {
     private func command(_ id: EditorCommandID) -> some View {
         let binding = registry.binding(for: id)
         return Button(id.title) { registry.perform(id, store: store, scope: scope) }
-            .keyboardShortcut(binding.keyEquivalent.map { KeyboardShortcut($0, modifiers: binding.eventModifiers) })
-            .disabled(!registry.isEnabled(id, store: store, scope: scope))
+            .keyboardShortcut(binding.isMenuKeyEquivalent ? binding.keyEquivalent.map { KeyboardShortcut($0, modifiers: binding.eventModifiers) } : nil)
+            .disabled(store == nil)
     }
 
     var body: some Commands {

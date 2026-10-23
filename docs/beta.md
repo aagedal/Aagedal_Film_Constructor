@@ -61,7 +61,7 @@ up to an hour.
 | HEVC · AAC (MP4) | Smaller files using the hardware encoder |
 
 Every export renders at the sequence resolution, frame rate, audio rate and start
-timecode. The app then checks the frame count, sample count, codecs and timecode
+timecode. Edit points that fall between frames or samples snap to the nearest one. The app then checks the frame count, sample count, codecs and timecode
 before the file appears. Picture is conformed to the sequence frame rate and audio
 is resampled to the sequence rate. Rotation and non-square pixels are corrected.
 
@@ -108,6 +108,18 @@ It runs the app's importer and conversion, preview and export code on the first
 four seconds of each file. It prints PASS/FAIL, timings and warnings, and keeps the
 rendered files in a temporary folder. The format can be `h264`, `hevc`,
 `proRes422` or `proRes422HQ`.
+
+To exercise the real application window end to end, run:
+
+```sh
+scripts/app-acceptance.sh "/path/to/Aagedal Film Constructor.app" /path/to/media/*
+```
+
+The app comes to the front for about a minute. It imports the files onto the
+timeline (converting any that need it), switches to the Sequence viewer with Tab,
+plays and pauses with Space, and opens Render Sequence with ⇧⌘E. It then renders
+H.264 and ProRes 422 HQ and prints PASS/FAIL for each step. Window snapshots and
+renders are kept in the printed folder. The run doesn't save a project.
 
 ## Reporting problems
 

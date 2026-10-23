@@ -77,6 +77,8 @@ final class SequencePlaybackController: ObservableObject {
     private var activeProject: Project?
     private var activeDuration: Double = 0
     private var desiredSeconds: Double = 0
+    /// The playhead echoes published positions back through update(); those echoes are not scrubs.
+    private var lastPublishedSeconds: Double?
     private var pendingSeek = false
     private var revision = UUID()
     private var worker: Task<Void, Never>?
@@ -119,6 +121,8 @@ final class SequencePlaybackController: ObservableObject {
             playbackProject.tracks[index].retained = false
         }
         let changed = playbackProject != pendingProject || representation != pendingRepresentation
+        if !changed, enabled, let published = lastPublishedSeconds, seconds == published { return }
+        lastPublishedSeconds = nil
         pendingProject = playbackProject
         pendingRepresentation = representation
         desiredSeconds = max(0, seconds)
@@ -288,9 +292,11 @@ final class SequencePlaybackController: ObservableObject {
     }
     private func publishPosition() {
         guard let backend, !pendingSeek else { return }
+        let position = backend.position
         isPlaying = backend.isPlaying
-        desiredSeconds = backend.position
-        positionChanged?(backend.position)
+        desiredSeconds = position
+        lastPublishedSeconds = position
+        positionChanged?(position)
     }
     private func releaseScopes() {
         for url in scopes { url.stopAccessingSecurityScopedResource() }

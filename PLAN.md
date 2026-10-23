@@ -34,6 +34,13 @@ strict qualification stays available for parity work. See [the beta guide](docs/
 - [x] `scripts/real-media-export-check.sh` checks import, preview and export of
   real files through the app code. Local iPhone HLG, screen recordings, XDCAM/AVC
   MXF, MPEG-TS, WebM, MP3/M4A and HDR MOV samples pass.
+- [x] Real-window acceptance (`scripts/app-acceptance.sh`): mixed iPhone HDR,
+  screen-recording, XDCAM/AVC-Intra MXF, WebM, MP3 and M4A timelines import,
+  preview, play/pause with Space, open Render with ⇧⌘E and export H.264/ProRes.
+  It found and fixed: a source-monitor crash (AVKit not linked), stale shortcut
+  enablement and launch text focus disabling all shortcuts, sequence playback
+  stopping on its own playhead echo, and off-grid clip durations making sequences
+  unexportable (render now snaps edit points to the nearest frame/sample).
 - [ ] HDR tone mapping, 5.1 output, distribution signing/notarization and
   in-app stream-copy export.
 
