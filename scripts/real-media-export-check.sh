@@ -14,6 +14,7 @@ xcrun swiftc -swift-version 6 -default-isolation MainActor -module-cache-path "$
   -I "$work" -L "$work" -lEditorCore \
   "$repo_root/Aagedal Film Constructor/SequenceExportService.swift" \
   "$repo_root/Aagedal Film Constructor/MediaImporter.swift" \
+  "$repo_root/Aagedal Film Constructor/MediaConversionService.swift" \
   "$repo_root/Aagedal Film Constructor/AVFoundationSequenceBackend.swift" \
   "$repo_root/Aagedal Film Constructor/SystemStillPreview.swift" \
   "$repo_root/Aagedal Film Constructor/SequencePlaybackController.swift" \

@@ -66,7 +66,7 @@ public enum RenderOutputFormat: String, CaseIterable, Codable, Sendable, Identif
 public enum FFmpegRenderCompiler {
     /// Source qualification must be performed by the caller: the canonical plan
     /// does not carry pixel aspect, rotation, color or variable-frame-rate metadata.
-    public static let qualificationLimitations = "Video is conformed to the sequence frame rate and audio to the sequence sample rate. Rotation is applied. HDR sources are converted without tone mapping, and non-square pixels are not corrected. PNG/JPEG stills use only the first decoded frame."
+    public static let qualificationLimitations = "Video is conformed to the sequence frame rate and audio to the sequence sample rate. Rotation is applied. Non-square pixels are corrected to square. HDR sources are converted without tone mapping. PNG/JPEG stills use only the first decoded frame."
 
     /// Explicit prototype subset: frame-aligned video/stills, sample-aligned audio,
     /// zero stream offsets, mono/stereo output, originals.
@@ -171,7 +171,9 @@ public enum FFmpegRenderCompiler {
                 }
                 // Full-range movies (screen recordings, some cameras) are normalized to video range
                 // so overlays and encoders receive one consistent range.
-                let geometry = isStill ? "format=yuva444p,\(scaling),setsar=1" : "scale=out_range=tv,\(scaling),setsar=1,format=yuv444p"
+                // Anamorphic movies are widened to square pixels first; square sources keep their exact width.
+                let squarePixels = "scale=w='if(eq(sar,1),iw,trunc(iw*sar/2)*2)':h=ih:out_range=tv,setsar=1"
+                let geometry = isStill ? "format=yuva444p,\(scaling),setsar=1" : "\(squarePixels),\(scaling),setsar=1,format=yuv444p"
                 graph.append("\(source)\(timing),\(geometry)[v\(index)]")
                 // Explicit half-open visibility also prevents framesync holding a layer past its cut.
                 let visibleEnd = try RationalTime(placement).adding(RationalTime(count)).numerator

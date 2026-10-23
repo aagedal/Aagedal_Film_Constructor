@@ -107,13 +107,13 @@ enum ExportSmokeFailure: Error { case failed(String) }
         }
         // Default (beta) policy: conformable sources render and report approximations.
         let anamorphicResult = try await service.export(plan: TimelineRenderPlan(project: geometryProject), to: directory.appendingPathComponent("geometry-default.mov"))
-        try check(anamorphicResult.videoFrames == 24 && anamorphicResult.warnings.contains { $0.contains("non-square") }, "Non-square source renders with a warning")
+        try check(anamorphicResult.videoFrames == 24, "Non-square source renders with pixel-aspect correction")
         for name in ["equal-rate-vfr.mov", "offset.mov"] {
             let result = try await service.export(plan: TimelineRenderPlan(project: videoProject(name)), to: directory.appendingPathComponent("default-" + name))
             try check(result.videoFrames == 24, "Irregular/offset source renders by default: " + name)
         }
-        let assessed = try await service.assess(plan: TimelineRenderPlan(project: geometryProject))
-        try check(assessed == anamorphicResult.warnings, "Assessment reports the same warnings without rendering")
+        let assessed = try await service.assess(plan: TimelineRenderPlan(project: videoProject("equal-rate-vfr.mov")))
+        try check(assessed.isEmpty, "Assessment of a conformable source reports no approximation: \(assessed)")
         for format in [RenderOutputFormat.h264, .hevc, .proRes422] {
             let destination = directory.appendingPathComponent("delivery." + format.rawValue + "." + format.fileExtension)
             let result = try await service.export(plan: plan, to: destination, options: .init(format: format))

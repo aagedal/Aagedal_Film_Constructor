@@ -62,6 +62,20 @@ public struct MediaAsset: Identifiable, Equatable, Codable, Sendable {
         self.id = id; self.name = name; self.originalURL = originalURL; self.duration = duration; self.streams = streams; self.sourceTimecode = sourceTimecode; self.proxy = proxy
     }
 }
+public extension MediaAsset {
+    /// Imported stills hold for up to an hour; they are placed at the default duration.
+    static func stillSourceExtent() throws -> RationalTime { try RationalTime(3600) }
+    static func defaultStillDuration() throws -> RationalTime { try RationalTime(5) }
+    var isStill: Bool { streams.isEmpty }
+    /// The range placed by Append and Finder drops when no source marks are set.
+    func defaultPlacementRange() throws -> TimeRange {
+        let still = try Self.defaultStillDuration()
+        guard isStill, try duration.compared(to: still) == .orderedDescending else {
+            return try TimeRange(start: .zero, duration: duration)
+        }
+        return try TimeRange(start: .zero, duration: still)
+    }
+}
 public struct SourceChannel: Hashable, Codable, Sendable {
     public var streamIndex: Int
     public var channelIndex: Int

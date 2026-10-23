@@ -198,7 +198,7 @@ struct ContentView: View {
                             Image(systemName: assetIcon(asset)).foregroundStyle(.secondary).frame(width: 20)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(asset.name).lineLimit(2)
-                                Text("\(asset.duration.seconds, specifier: "%.2f") s · \(assetKind(asset))")
+                                Text(asset.isStill ? assetKind(asset) : "\(String(format: "%.2f", asset.duration.seconds)) s · \(assetKind(asset))")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                         }

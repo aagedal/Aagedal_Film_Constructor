@@ -230,6 +230,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             catch { throw Self.unsupported("Could not preview \(url.lastPathComponent) stream \(streamIndex): \(error.localizedDescription)") }
             if video {
                 hasVideo = true
+                // naturalSize already applies pixel aspect, so anamorphic media presents widened.
                 let size = try await source.load(.naturalSize)
                 let orientation = try await source.load(.preferredTransform)
                 let bounds = CGRect(origin: .zero, size: size).applying(orientation)

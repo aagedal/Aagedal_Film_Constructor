@@ -72,7 +72,7 @@ public extension Project {
             }
         }
         let start = try time ?? TimelineRenderPlan(project: self).duration
-        let sourceRange = try sourceRange ?? TimeRange(start: .zero, duration: asset.duration)
+        let sourceRange = try sourceRange ?? asset.defaultPlacementRange()
         try sourceRange.validate()
         guard try sourceRange.end().compared(to: asset.duration) != .orderedDescending else {
             throw EditorCoreError.invalidModel("Source range exceeds media duration")

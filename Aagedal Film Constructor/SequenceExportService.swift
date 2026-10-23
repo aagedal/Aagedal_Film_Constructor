@@ -181,7 +181,7 @@ actor SequenceExportService {
                         throw reject("Selected source raster is missing, invalid, or exceeds the 16384-pixel limit.")
                     }
                     if let sar = stream["sample_aspect_ratio"] as? String, !["1:1", "N/A", "0:1"].contains(sar) {
-                        try qualify("Non-square source pixels are not qualified.", warning: "non-square pixels (\(sar)) are rendered without aspect correction.")
+                        try qualify("Non-square source pixels are not qualified.", warning: nil)
                     }
                     let rotation = numeric((stream["tags"] as? [String: Any])?["rotate"]) ?? 0
                     let sides = stream["side_data_list"] as? [[String: Any]] ?? []

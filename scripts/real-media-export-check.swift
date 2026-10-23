@@ -19,7 +19,17 @@ import EditorCore
         for file in files {
             let label = file.lastPathComponent
             do {
-                let imported = try await MediaImporter.inspect(url: file)
+                let imported: ImportedMedia
+                do {
+                    imported = try await MediaImporter.inspect(url: file)
+                } catch {
+                    // Mirrors MediaImporter.inspectOrConvert with explicit helpers.
+                    let started = Date()
+                    let converted = try await MediaConversionService(ffmpegURL: helpers.appendingPathComponent("ffmpeg"),
+                        ffprobeURL: helpers.appendingPathComponent("ffprobe")).convert(file, into: output)
+                    print("     converted in \(String(format: "%.1f", Date().timeIntervalSince(started))) s → \(converted.lastPathComponent)")
+                    imported = try await MediaImporter.inspect(url: converted, displayName: label)
+                }
                 var project = Project(settings: try SequenceSettings(width: 1920, height: 1080, frameRate: rate))
                 try project.addAsset(imported.asset)
                 let frames = min(seconds * 25, try imported.asset.duration.multiplied(by: rate.value).numerator
