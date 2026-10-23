@@ -91,8 +91,9 @@ notice appears under the viewer, but playback continues:
   are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
-- Mono and stereo sequence output only. A 5.1 setting is saved but can't be
-  previewed or exported.
+- 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed
+  on front left/right and mono on centre by default, and the inspector can route
+  any channel. The preview plays the system's stereo downmix.
 - Reverse sequence playback is unavailable. J plays the source backwards silently.
 - Stream-copy (no re-encode) export is not available in the app yet.
 - Apple Silicon only. Distribution signing and notarization are not set up, so build

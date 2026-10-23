@@ -84,8 +84,8 @@ public enum FFmpegRenderCompiler {
         }
         let settings = plan.settings
         guard settings.width % 2 == 0, settings.height % 2 == 0,
-              settings.audioLayout == .mono || settings.audioLayout == .stereo else {
-            throw EditorCoreError.invalidModel("Prototype requires even raster dimensions and mono/stereo output")
+              [ChannelLayout.mono, .stereo, .surround51].contains(settings.audioLayout) else {
+            throw EditorCoreError.invalidModel("Export requires even raster dimensions and mono, stereo or 5.1 output")
         }
         // Sample-aligned audio may end between video frames. Cover the full sequence
         // with a final black/video frame, retaining the exact audio duration.
@@ -94,7 +94,8 @@ public enum FFmpegRenderCompiler {
         let sampleTime = try plan.duration.multiplied(by: Int64(settings.audioSampleRate))
         let samples = try ceiling(sampleTime)
         let rate = fraction(settings.frameRate.value)
-        let layout = settings.audioLayout == .mono ? "mono" : "stereo"
+        // FFmpeg's 5.1 order (FL FR FC LFE BL BR) matches the model's L R C LFE Ls Rs.
+        let layout = settings.audioLayout == .mono ? "mono" : settings.audioLayout == .stereo ? "stereo" : "5.1"
         var arguments = ["-hide_banner", "-nostdin", "-n"]
         var graph = ["color=c=black:s=\(settings.width)x\(settings.height):r=\(rate),trim=end_frame=\(frames),setpts=PTS-STARTPTS,format=yuv444p[base]",
                      "anullsrc=r=\(settings.audioSampleRate):cl=\(layout),atrim=end_sample=\(samples)[silence]"]
@@ -257,7 +258,7 @@ public enum FFmpegRenderCompiler {
                          edge(component.fadeOut, position: "\(sampleCount)-n")].compactMap { $0 }
         guard !edges.isEmpty else { return "" }
         let expression = edges.joined(separator: "*")
-        let channels = layout == "mono" ? 1 : 2
+        let channels = layout == "mono" ? 1 : layout == "stereo" ? 2 : 6
         let values = (0..<channels).map { "val(\($0))*(\(expression))" }.joined(separator: "|")
         return ",aeval=exprs='\(values)':channel_layout=\(layout)"
     }

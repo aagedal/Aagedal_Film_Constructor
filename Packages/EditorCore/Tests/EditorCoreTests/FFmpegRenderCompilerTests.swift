@@ -186,3 +186,21 @@ private func stillExportProject(url: URL) throws -> Project {
     let upright = try FFmpegRenderCompiler.compile(plan, outputURL: output, format: .h264, toneMappedSources: [url: 0])
     #expect(upright.filterGraph.contains("format=p010le,setparams") && !upright.filterGraph.contains("transpose"))
 }
+
+@Test func surroundSequencesPlaceStereoFrontAndMonoCentreAndRender51() throws {
+    let stereo = MediaAsset(name: "Music", originalURL: URL(fileURLWithPath: "/private/tmp/music.wav"), duration: try RationalTime(2),
+                            streams: [MediaStream(index: 0, kind: .audio, audioLayout: .stereo)])
+    let mono = MediaAsset(name: "Voice", originalURL: URL(fileURLWithPath: "/private/tmp/voice.wav"), duration: try RationalTime(2),
+                          streams: [MediaStream(index: 0, kind: .audio, audioLayout: .mono)])
+    var project = Project(settings: try SequenceSettings(frameRate: FrameRate(25), audioLayout: .surround51), assets: [stereo, mono])
+    try project.appendAsset(stereo.id)
+    try project.appendAsset(mono.id, at: .zero)
+    try project.validate()
+    let command = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: URL(fileURLWithPath: "/private/tmp/surround.mov"))
+    #expect(command.filterGraph.contains("anullsrc=r=48000:cl=5.1"))
+    // Stereo left/right reach FL/FR; mono reaches FC.
+    #expect(command.filterGraph.contains("pan=5.1|c0=c0|c1=0*c0|c2=0*c0|c3=0*c0|c4=0*c0|c5=0*c0"))
+    #expect(command.filterGraph.contains("pan=5.1|c0=0*c1|c1=c1|c2=0*c1|c3=0*c1|c4=0*c1|c5=0*c1"))
+    #expect(command.filterGraph.contains("c2=c0|c3=0*c0"))
+    #expect(command.arguments.contains("6"))
+}

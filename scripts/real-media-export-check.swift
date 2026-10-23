@@ -30,7 +30,9 @@ import EditorCore
                     print("     converted in \(String(format: "%.1f", Date().timeIntervalSince(started))) s → \(converted.lastPathComponent)")
                     imported = try await MediaImporter.inspect(url: converted, displayName: label)
                 }
-                var project = Project(settings: try SequenceSettings(width: 1920, height: 1080, frameRate: rate))
+                // AFC_CHECK_LAYOUT=5.1 renders a 5.1 sequence (stereo → front L/R, mono → centre).
+                let layout: ChannelLayout = ProcessInfo.processInfo.environment["AFC_CHECK_LAYOUT"] == "5.1" ? .surround51 : .stereo
+                var project = Project(settings: try SequenceSettings(width: 1920, height: 1080, frameRate: rate, audioLayout: layout))
                 try project.addAsset(imported.asset)
                 let frames = min(seconds * 25, try imported.asset.duration.multiplied(by: rate.value).numerator
                                  / imported.asset.duration.multiplied(by: rate.value).denominator)

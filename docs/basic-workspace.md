@@ -68,9 +68,9 @@ the bin and choose **Append with audio selection…** to configure it.
    still address existing output channels. Configure routing in **Audio source
    channels…** before changing the output layout, or start with an empty project.
    Audio sample-rate changes preserve clip times and use the sequence rate in
-   render/monitor plans. The development renderer and monitor currently support
-   mono/stereo outputs; a 5.1 output configuration is saved but cannot yet be
-   monitored or rendered. Source 5.1 components can still map explicitly to
+   render/monitor plans. Export renders mono, stereo and 5.1 outputs. In a 5.1 sequence,
+   appended stereo media is routed to front left/right and mono to centre; the
+   preview plays a stereo downmix. Source 5.1 components can still map explicitly to
    mono/stereo sequence outputs. Start timecode changes labels without shifting clips.
    Toggle **Remove empty tracks after edits** to preserve unused tracks. Use
    **Panels** in the toolbar or the **View** menu to hide/show the bin, inspector,

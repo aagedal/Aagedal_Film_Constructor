@@ -54,7 +54,10 @@ strict qualification stays available for parity work. See [the beta guide](docs/
   target on this machine. Re-measure first launch with a signed, notarized build.
 - [x] Tone map HDR (HLG/PQ) sources to SDR Rec. 709 with VideoToolbox, with explicit
   rotation, and tag every export Rec. 709; verified on iPhone HLG and PQ samples.
-- [ ] 5.1 output, distribution signing/notarization and
+- [x] Render 5.1 sequences (L R C LFE Ls Rs) with stereo placed front left/right
+  and mono centre by default; preview monitors a stereo downmix. Verified with
+  per-channel levels on rendered files.
+- [ ] Distribution signing/notarization (needs a Developer ID) and
   in-app stream-copy export.
 
 ## Earlier priority: usable timeline preview (2026-10-14)

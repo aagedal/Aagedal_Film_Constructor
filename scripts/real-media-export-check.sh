@@ -1,5 +1,6 @@
 #!/bin/bash
 # Usage: scripts/real-media-export-check.sh /path/to/Helpers [h264|hevc|proRes422|proRes422HQ] [seconds] media...
+# Set AFC_CHECK_LAYOUT=5.1 to check a 5.1 sequence instead of stereo.
 # Helpers is a directory containing ffmpeg and ffprobe, for example a built app's
 # Contents/Resources/Helpers. Rendered files are kept in a printed temporary folder.
 set -euo pipefail

@@ -39,8 +39,8 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
               plan.duration.seconds * plan.settings.frameRate.value.seconds < Double(Int64.max) else {
             throw Self.unsupported("Sequence dimensions or duration exceed system preview limits.")
         }
-        guard plan.settings.audioLayout == .mono || plan.settings.audioLayout == .stereo else {
-            throw Self.unsupported("System preview requires mono or stereo sequence output.")
+        guard [ChannelLayout.mono, .stereo, .surround51].contains(plan.settings.audioLayout) else {
+            throw Self.unsupported("System preview requires mono, stereo or 5.1 sequence output.")
         }
     }
 
@@ -73,6 +73,9 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
         composition.insertEmptyTimeRange(CMTimeRange(start: .zero, duration: duration))
         hasVideo = false
         previewQualificationNotice = nil
+        if plan.settings.audioLayout == .surround51 {
+            addQualificationNotice("5.1 sequences preview as the system's stereo downmix; export writes all six channels.")
+        }
         let picturePlan = try VideoCompositionPlan(plan)
         var pictureTracks: [Int: AVMutableCompositionTrack] = [:]
         // Preserve editorial priority when creating tracks. AVFoundation can
@@ -131,10 +134,15 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 streamIndex = index
                 if let proxy = proxies[component.assetID] { url = proxy.url; streamIndex = 0 }
             case .audio(let selection):
+                // In 5.1 sequences, stereo on front left/right and mono on centre monitor faithfully
+                // through the system downmix, like identity routes do in stereo sequences.
+                let frontRoute = plan.settings.audioLayout == .surround51
+                    && ((selection.layout == .stereo && component.routing.outputChannels == [0, 1])
+                        || (selection.layout == .mono && component.routing.outputChannels == [2]))
                 guard let first = selection.channels.first,
                       selection.channels.allSatisfy({ $0.streamIndex == first.streamIndex }),
-                      selection.layout == plan.settings.audioLayout,
-                      component.routing.outputChannels.isEmpty || component.routing.outputChannels == Array(selection.channels.indices),
+                      frontRoute || selection.layout == plan.settings.audioLayout,
+                      frontRoute || component.routing.outputChannels.isEmpty || component.routing.outputChannels == Array(selection.channels.indices),
                       let stream = component.sourceStreams.first(where: { $0.index == first.streamIndex }) else {
                     // Keep the rest of the sequence playable; export still renders this routing.
                     addQualificationNotice("Audio with custom channel routing is silent in preview; export includes it.")
