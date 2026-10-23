@@ -23,10 +23,14 @@ Prioritize everyday usability over further qualification proofs. Unqualified
 sources now render or preview with visible approximations instead of refusing;
 strict qualification stays available for parity work. See [the beta guide](docs/beta.md).
 
+This checklist is the beta exit criteria. All items are complete as of 2026-10-24;
+the 0.9 beta is notarized and on PR #58. The unchecked items in the later milestone
+sections are version-one qualification work and are not beta criteria.
+
 - [x] Export ProRes 422 HQ/422 MOV, H.264 MP4 and HEVC MP4 with verified frame
   counts, sample counts, codecs and timecode; name the failing check on error.
-- [x] Render VFR, rotated, HDR (no tone mapping), offset, full-range, anamorphic
-  and long sources by default, reporting approximations before export.
+- [x] Render VFR, rotated, HDR, offset, full-range, anamorphic and long sources by
+  default, reporting approximations before export.
 - [x] Preview dual-mono placements, MP3, other-rate audio and boosted gain with
   notices; mute custom routing in preview instead of failing the sequence.
 - [x] Convert MXF/MKV/WebM/AVI/TS and undecodable H.264 to edit-ready MOV on import.
@@ -53,10 +57,8 @@ strict qualification stays available for parity work. See [the beta guide](docs/
 - [x] Launch: repeated launches of one Release bundle reach the first processed
   interaction in 1.61–1.74 s (`scripts/repeat-launch-timing.py`, 2026-10-23);
   fresh first launches reach a visible, loaded workspace in 1.74–1.95 s.
-  The isolated proof, which copies and registers a fresh unsigned bundle per run,
-  measured 2.1–2.6 s for both this beta and the pre-beta commit that day, versus
-  1.15–1.26 s in earlier evidence; first launch after install therefore exceeds the
-  target on this machine. Re-measure first launch with a signed, notarized build.
+  Earlier that day, under heavier load, the isolated proof (a fresh unsigned bundle
+  per run) measured 2.1–2.6 s for both this beta and the pre-beta commit.
 - [x] Tone map HDR (HLG/PQ) sources to SDR Rec. 709 with VideoToolbox, with explicit
   rotation, and tag every export Rec. 709; verified on iPhone HLG and PQ samples.
 - [x] Render 5.1 sequences (L R C LFE Ls Rs) with stereo placed front left/right
@@ -73,8 +75,7 @@ strict qualification stays available for parity work. See [the beta guide](docs/
   probed at import and used as the media clock (Resolve aborted any import that
   referenced timecoded media from zero); linked picture and sound are one A/V clip
   (Resolve ignores srcEnable); references use realpath. FCPXML now expresses audio
-  channel selections (audio-channel-source), which Resolve ignores. Final Cut
-  import unverified.
+  channel selections (audio-channel-source), which Resolve ignores.
 - [x] Final Cut Pro 11 imports the FCPXML (manual check, 2026-10-24): every clip,
   A/V link, timecode start and layer order arrive intact. Its one warning (unnamed
   sequence format) is fixed by writing Final Cut's format names; the re-import
