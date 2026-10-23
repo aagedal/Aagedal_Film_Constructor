@@ -121,3 +121,12 @@ the following launches. `release-launch-proof.py` copies and registers a new uns
 bundle for every run, so every sample is a first launch. That day it measured
 2.10–2.65 s for both the beta and the pre-beta commit (fdbf058). About 1.5 s of that
 elapsed before `applicationDidFinishLaunching`.
+
+Later that day, fresh copies of the current Release build (new path, first launch)
+reached a visible, loaded workspace window in 1.743, 1.849 and 1.949 s, and their
+second launches in 1.229–1.560 s. In earlier probe runs that macOS allowed to
+activate, the interaction marker followed visibility within a millisecond.
+Interaction could not be recorded for these runs because macOS withheld
+activation while another app was in use, so the script now also reports
+`window visible`. Removing the 115 MB of bundled FFmpeg helpers did not reliably
+change first-launch time (first launches without them took 1.20 and 2.02 s).

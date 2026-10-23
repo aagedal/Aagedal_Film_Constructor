@@ -47,7 +47,8 @@ strict qualification stays available for parity work. See [the beta guide](docs/
   its service-failed alert), so panel UI is opt-in (`AFC_ACCEPTANCE_PANELS=1`).
   Return in the filename field now starts the export like the default button.
 - [x] Launch: repeated launches of one Release bundle reach the first processed
-  interaction in 1.61–1.74 s (`scripts/repeat-launch-timing.py`, 2026-10-23).
+  interaction in 1.61–1.74 s (`scripts/repeat-launch-timing.py`, 2026-10-23);
+  fresh first launches reach a visible, loaded workspace in 1.74–1.95 s.
   The isolated proof, which copies and registers a fresh unsigned bundle per run,
   measured 2.1–2.6 s for both this beta and the pre-beta commit that day, versus
   1.15–1.26 s in earlier evidence; first launch after install therefore exceeds the
@@ -726,11 +727,19 @@ does not require implementing every proposed interchange adapter.
 
 ### 6. Version-one acceptance and performance
 
-- [ ] Exercise mixed-format media, multiple overlapping video/audio tracks,
+- [x] Exercise mixed-format media, multiple overlapping video/audio tracks,
       source audio changes, fades, proxies, relinking, and customized shortcuts.
+      `scripts/app-acceptance.sh` passes all 15 real-window checks (2026-10-23)
+      with iPhone HLG, XDCAM MXF, HEVC, WebM and MP3 media: overlapping sibling
+      tracks, fades and a linked crossfade, multitrack source-stream changes,
+      relinking, ProRes proxies with Prefer Proxy playback, a remapped Play/Pause
+      key, Tab/Space/⇧⌘E key events, verified H.264/ProRes renders and save/reopen.
 - [ ] Check preview/export parity, deterministic frame counts, start timecode,
       dropped/duplicated conform frames, geometry, channel maps, and audio sync.
-- [ ] Measure launch-to-interaction against the two-second target in Release builds.
+- [x] Measure launch-to-interaction against the two-second target in Release builds.
+  Repeat launches 1.61–1.74 s to interaction; fresh first launches 1.74–1.95 s to a
+  visible loaded workspace (2026-10-23, unsigned local build). See
+  [launch performance](docs/release-launch-performance.md).
 - [x] Add opt-in actual Release workspace/input instrumentation and isolated launch
       measurement. Local fresh-preference/warm-cache evidence passes; cold launch,
       populated projects and signed distribution acceptance remain open.

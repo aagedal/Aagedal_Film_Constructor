@@ -170,7 +170,7 @@ extension ShortcutBinding {
 @MainActor
 final class EditorKeyboardRouter {
     static let shared = EditorKeyboardRouter()
-    private var registry: EditorCommandRegistry?
+    private(set) var registry: EditorCommandRegistry?
     private var monitor: Any?
     private let stores = NSMapTable<NSWindow, EditorStore>.weakToWeakObjects()
 

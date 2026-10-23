@@ -118,11 +118,17 @@ To exercise the real application window end to end, run:
 scripts/app-acceptance.sh "/path/to/Aagedal Film Constructor.app" /path/to/media/*
 ```
 
-The app comes to the front for about a minute. It imports the files onto the
-timeline (converting any that need it), switches to the Sequence viewer with Tab,
-plays and pauses with Space, and opens Render Sequence with ⇧⌘E. It then renders
-H.264 and ProRes 422 HQ and prints PASS/FAIL for each step. Window snapshots and
-renders are kept in the printed folder. The run doesn't save a project.
+The app comes to the front for a few minutes. It imports the files onto the
+timeline (converting any that need it) and overlaps a second placement. It then
+applies fades and a crossfade, changes a multitrack clip's source streams,
+relinks one original, generates proxies and switches to Prefer Proxy. Next it
+remaps Play / Pause, switches to the Sequence viewer with Tab, plays and pauses
+with Space, and opens Render Sequence with ⇧⌘E. Finally it renders H.264 and
+ProRes 422 HQ, then saves, closes and reopens the project. It prints PASS/FAIL
+for each step and keeps window snapshots, renders and the project in the printed
+folder. Use media outside Desktop, Documents and Downloads, or macOS asks for
+folder access. The system file panels are skipped unless `AFC_ACCEPTANCE_PANELS=1`
+is set.
 
 ## Reporting problems
 

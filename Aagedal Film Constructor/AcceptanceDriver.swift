@@ -169,6 +169,62 @@ enum AcceptanceDriver {
             try? await Task.sleep(for: .seconds(1))
             snapshot("02-imported", window: workspaceWindow())
 
+            // Editing coverage: overlap, fades, crossfade, relink and proxies before playback/export.
+            @MainActor func clips() -> [TimelineClip] { store.project.tracks.flatMap(\.clips) }
+            let tracksBefore = store.project.tracks.count
+            if let first = media.first, store.importMediaToTimeline(urls: [first], at: 1.0) {
+                _ = await wait(120) { !store.isImporting }
+            }
+            let overlapped = store.project.tracks.count > tracksBefore
+            var fadeApplied = false, crossfadeApplied = false
+            var crossfaded: Set<UUID> = []
+            // The overlapping placement gives a linked crossfade over the exact overlap.
+            if let outgoing = clips().first(where: { $0.requiredTrackKind == .audio && !store.audioCrossfadeTargets(for: $0).isEmpty }),
+               let incoming = store.audioCrossfadeTargets(for: outgoing).first {
+                let overlap = outgoing.timelineStart.seconds + outgoing.sourceRange.duration.seconds - incoming.timelineStart.seconds
+                crossfadeApplied = (try? store.applyAudioCrossfade(outgoingClipID: outgoing.id, incomingClipID: incoming.id,
+                    seconds: overlap > 0 ? overlap : 0.25, curve: .equalPower, expectedProject: store.project)) != nil
+                crossfaded = [outgoing.id, incoming.id]
+            }
+            // Fades on a clip the crossfade doesn't use (a crossfade replaces those fade edges).
+            if let audio = clips().last(where: { $0.requiredTrackKind == .audio && !crossfaded.contains($0.id) }) {
+                fadeApplied = (try? store.applyAudioFades(clipID: audio.id, fadeInSeconds: 0.5, fadeInCurve: .linear,
+                    fadeOutSeconds: 0.5, fadeOutCurve: .equalPower, expectedClip: audio)) != nil
+            }
+            // Source audio change: pick two other mono streams of a multitrack source as left/right.
+            var sourceAudioChanged = false
+            if let asset = store.project.assets.first(where: { $0.streams.filter { $0.kind == .audio && $0.audioLayout == .mono }.count >= 3 }),
+               let clip = clips().first(where: { $0.assetID == asset.id && $0.requiredTrackKind == .audio && !crossfaded.contains($0.id) }) {
+                let monos = asset.streams.filter { $0.kind == .audio && $0.audioLayout == .mono }
+                let selection = AudioSourceSelection(channels: [SourceChannel(streamIndex: monos[1].index, channelIndex: 0),
+                                                                SourceChannel(streamIndex: monos[2].index, channelIndex: 0)], layout: .stereo)
+                sourceAudioChanged = (try? store.applyAudioSelection(clipID: clip.id, selections: [selection], routing: [AudioRouting()],
+                                                                     expectedProject: store.project)) != nil
+            }
+            // Relink the last original to a renamed copy, as after moving media in Finder.
+            var relinked = false
+            if let asset = store.project.assets.last, let original = asset.originalURL {
+                let moved = output.appendingPathComponent("relinked-" + original.lastPathComponent)
+                if (try? FileManager.default.copyItem(at: original, to: moved)) != nil,
+                   let imported = try? await MediaImporter.inspect(url: moved) {
+                    relinked = (try? store.replaceMedia(assetID: asset.id, with: imported)) != nil
+                        && store.project.assets.last?.originalURL?.lastPathComponent == moved.lastPathComponent
+                }
+            }
+            // Proxies for every qualified constant-frame-rate video asset.
+            let proxySources = store.project.assets.filter { $0.streams.contains { $0.kind == .video && $0.videoFormat != nil } }
+            var proxiesReady = 0
+            if !proxySources.isEmpty, (try? store.enqueueProxyJobs(assets: proxySources, preset: .proResProxy, scaleDivisor: 2, directory: output)) != nil {
+                store.runProxyQueue()
+                _ = await wait(600) { store.proxyGenerationTask == nil }
+                proxiesReady = store.project.assets.filter { $0.proxy != nil }.count
+                if proxiesReady > 0 { store.setPlaybackRepresentation(.proxy) }
+            }
+            record("editing", ["overlappingTracks": overlapped, "tracks": store.project.tracks.count, "fades": fadeApplied,
+                               "crossfade": crossfadeApplied, "sourceAudioChanged": sourceAudioChanged, "relinked": relinked, "proxyCandidates": proxySources.count,
+                               "proxiesReady": proxiesReady, "representation": store.playbackRepresentation.rawValue,
+                               "clips": clips().count, "error": store.errorMessage ?? ""])
+
             if !store.showSequenceMonitor { press(.toggleViewer, "\t", keyCode: 48) }
             let monitoring = await wait(5) { store.showSequenceMonitor && store.sequencePlayback != nil }
             let prepared = await wait(30) { store.sequencePlayback?.isPreparing == false }
@@ -190,6 +246,20 @@ enum AcceptanceDriver {
                                        "playheadAfterPause": after, "playheadStable": abs(store.playheadSeconds - after) < 0.001,
                                        "notice": store.sequencePlayback?.message ?? ""])
 
+            // Customized shortcut: remap Play / Pause to P, press it, then restore the user's binding.
+            if let appRegistry = EditorKeyboardRouter.shared.registry {
+                let saved = appRegistry.binding(for: .togglePlayback)
+                let remapError = appRegistry.set(ShortcutBinding(key: "p"), for: .togglePlayback)
+                press(.togglePlayback, "p", keyCode: 35)
+                let remappedPlays = await wait(10) { store.sequencePlayback?.isPlaying == true }
+                press(.togglePlayback, "p", keyCode: 35)
+                let remappedPauses = await wait(5) { store.sequencePlayback?.isPlaying == false }
+                _ = appRegistry.set(saved, for: .togglePlayback)
+                record("custom_shortcut", ["remapped": remapError == nil, "plays": remappedPlays, "pauses": remappedPauses,
+                                           "restored": appRegistry.binding(for: .togglePlayback) == saved])
+            }
+            let previousFormat = UserDefaults.standard.string(forKey: "exportFormat")
+            defer { UserDefaults.standard.set(previousFormat, forKey: "exportFormat") }
             UserDefaults.standard.set(RenderOutputFormat.h264.rawValue, forKey: "exportFormat")
             press(.exportSequence, "e", keyCode: 14, modifiers: [.command, .shift])
             let sheetOpened = await wait(5) { store.renderExportDraft != nil }

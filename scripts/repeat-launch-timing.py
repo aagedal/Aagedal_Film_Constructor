@@ -24,12 +24,19 @@ for run in range(1, args.runs + 1):
             for line in handle:
                 event = json.loads(line); pid = event['pid']
                 events.setdefault(event['event'], event['uptimeSeconds'] - start)
+                # A visible, loaded document window; activation can be withheld by macOS
+                # when another app is in use, which blocks only the interaction marker.
+                if event['event'] == 'readiness_gate_changed' and event.get('visible') and event.get('hasDocument'):
+                    events.setdefault('window_visible', event['uptimeSeconds'] - start)
+        if 'window_visible' in events and time.time() > deadline - 15: break
         time.sleep(0.02)
     if pid: os.kill(pid, 15)
     process.wait(); os.unlink(log)
     seconds = events.get('scripted_interaction_processed')
     results.append(seconds)
+    visible = events.get('window_visible')
     print(f"run {run}: did-finish-launching {events.get('application_did_finish_launching', float('nan')):.3f} s, "
+          f"window visible {visible if visible is None else round(visible, 3)} s, "
           f"interaction {seconds if seconds is None else round(seconds, 3)} s")
     time.sleep(1)
 valid = sorted(s for s in results if s is not None)
