@@ -42,10 +42,12 @@ strict qualification stays available for parity work. See [the beta guide](docs/
   stopping on its own playhead echo, and off-grid clip durations making sequences
   unexportable (render now snaps edit points to the nearest frame/sample).
 - [x] Real-window save/reopen: the project saves through NSDocument save-as and
-  reopens with every clip and converted media linked. The system folder/save panels
-  appear but this session's panel service refuses the unsigned build (AppKit shows
-  its service-failed alert), so panel UI is opt-in (`AFC_ACCEPTANCE_PANELS=1`).
-  Return in the filename field now starts the export like the default button.
+  reopens with every clip and converted media linked. ⌘I opens the real Import
+  panel and Return in Render Sequence opens the real folder panel (checked by the
+  acceptance script). Scripted completion of system panels is unreliable: their
+  service-hosted modal loop doesn't run driver timers, and configuring a panel
+  while it connects makes it fail. Return in the filename field now starts the
+  export like the default button.
 - [x] Launch: repeated launches of one Release bundle reach the first processed
   interaction in 1.61–1.74 s (`scripts/repeat-launch-timing.py`, 2026-10-23);
   fresh first launches reach a visible, loaded workspace in 1.74–1.95 s.

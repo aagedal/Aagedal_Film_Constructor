@@ -9,10 +9,12 @@
 # renders H.264 through the sheet's folder panel and ProRes 422 HQ, saves the
 # project with ⌘S through the save panel, then closes and reopens it. Snapshots, renders and acceptance.json are kept
 # in the printed folder, including the saved project. Restored windows are ignored.
-# The system folder/save panels are skipped by default (an unsigned build can be
-# refused by the panel service, leaving an alert nothing can dismiss); export and
-# save then use the same service and NSDocument save-as calls. Set
-# AFC_ACCEPTANCE_PANELS=1 to drive the real panels in a session that allows them.
+# The system panels are hosted by a separate service whose modal loop doesn't run
+# the driver's timers, and configuring one while it connects makes it fail. So the
+# main run completes export and save through the same export-service and NSDocument
+# save-as calls, and two short extra launches check that ⌘I opens the real Import
+# panel and that Return in Render Sequence opens the real export folder panel.
+# AFC_ACCEPTANCE_PANELS=1 attempts to complete the panels in the main run instead.
 set -euo pipefail
 app="$1"; shift
 [[ $# -gt 0 ]] || { echo "Supply at least one media file." >&2; exit 2; }
@@ -20,6 +22,14 @@ out="$(mktemp -d "${TMPDIR:-/private/tmp}/afc-acceptance.XXXXXX")"
 media="$(IFS='|'; echo "$*")"
 echo "Output: $out"
 open -n -W --env AFC_ACCEPTANCE_PANELS="${AFC_ACCEPTANCE_PANELS:-0}" --env AFC_ACCEPTANCE_DIR="$out" --env "AFC_ACCEPTANCE_MEDIA=$media" "$app" --args -ApplePersistenceIgnoreState YES
+# Real system panels open (no service-failure alert) from the app's own commands.
+probe() {
+  AFC_PANEL_PROBE="$1" AFC_ACCEPTANCE_MEDIA="$first_media" "$app/Contents/MacOS/Aagedal Film Constructor" \
+    -ApplePersistenceIgnoreState YES 2>&1 | grep 'AFC_PANEL_PROBE modal' > "$out/panel-$1.log" || true
+}
+first_media="$1"
+probe launch
+probe export
 python3 - "$out/acceptance.json" <<'PY'
 import json, sys
 steps = {}
@@ -46,6 +56,11 @@ checks = [
     ('saved project reopened in a workspace window', reopen.get('reopened') and reopen.get('windowShown')),
 ] + [(f"{e['format']} export verified ({e.get('frames')} frames)", 'error' not in e and e.get('frames', 0) > 0) for e in steps.get('export', [])]
 if not steps.get('export'): checks.append(('exports ran', False))
+import os
+for name, label in [('launch', 'Import panel opens as a real system panel'), ('export', 'Return in Render Sequence opens the real folder panel')]:
+    path = os.path.join(os.path.dirname(sys.argv[1]), f'panel-{name}.log')
+    text = open(path).read() if os.path.exists(path) else ''
+    checks.append((label, 'modal=NSOpenPanel' in text and 'alert=false' in text))
 for label, ok in checks: print(('PASS ' if ok else 'FAIL ') + label)
 # The system file-panel service refuses unsigned builds in some sessions; the run then
 # completes the same export/save calls without the panel and says so here.

@@ -24,6 +24,64 @@ enum AcceptanceDriver {
     }
 
     static func start(store: EditorStore) {
+        if let probe = ProcessInfo.processInfo.environment["AFC_PANEL_PROBE"], !started {
+            // Diagnostic: open the Import panel (after an optional step) and report whether
+            // the panel service ran it. Steps: launch, import, play.
+            started = true
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2))
+                let media = (ProcessInfo.processInfo.environment["AFC_ACCEPTANCE_MEDIA"] ?? "").split(separator: "|").map { URL(fileURLWithPath: String($0)) }
+                if probe != "launch" {
+                    _ = store.importMediaToTimeline(urls: media, at: 0)
+                    while store.isImporting { try? await Task.sleep(for: .milliseconds(100)) }
+                }
+                if probe == "play" {
+                    store.showSequenceMonitor = true
+                    try? await Task.sleep(for: .seconds(2))
+                    store.sequencePlayback?.play()
+                    try? await Task.sleep(for: .seconds(2))
+                    store.sequencePlayback?.pause()
+                }
+                FileHandle.standardError.write(Data("AFC_PANEL_PROBE step=\(probe) error=\(store.errorMessage ?? "")\n".utf8))
+                if probe == "export" || probe == "export-panel" {
+                    store.beginRenderExport()
+                    try? await Task.sleep(for: .seconds(3))
+                    let window = NSApp.windows.first { NSDocumentController.shared.document(for: $0) != nil }
+                    guard let sheet = window?.attachedSheet else { FileHandle.standardError.write(Data("AFC_PANEL_PROBE no sheet\n".utf8)); exit(1) }
+                    RunLoop.main.add(Timer(timeInterval: 4, repeats: false) { _ in
+                        MainActor.assumeIsolated {
+                            let alert = NSApp.windows.first { $0.isVisible && $0.className.contains("Alert") }
+                            FileHandle.standardError.write(Data("AFC_PANEL_PROBE modal=\(NSApp.modalWindow?.className ?? "nil") alert=\(alert != nil)\n".utf8))
+                            exit(0)
+                        }
+                    }, forMode: .modalPanel)
+                    if probe == "export" {
+                        // Synthesized Return in the focused filename field.
+                        for type in [NSEvent.EventType.keyDown, .keyUp] {
+                            if let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                windowNumber: sheet.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36) {
+                                NSApp.sendEvent(event)
+                            }
+                        }
+                    } else {
+                        // Same panel configuration, opened directly while the sheet is up.
+                        let panel = NSOpenPanel(); panel.canChooseFiles = false; panel.canChooseDirectories = true
+                        panel.canCreateDirectories = true; panel.prompt = "Export"
+                        _ = panel.runModal()
+                    }
+                    return
+                }
+                RunLoop.main.add(Timer(timeInterval: 4, repeats: false) { _ in
+                    MainActor.assumeIsolated {
+                        let alert = NSApp.windows.first { $0.isVisible && $0.className.contains("Alert") }
+                        FileHandle.standardError.write(Data("AFC_PANEL_PROBE modal=\(NSApp.modalWindow?.className ?? "nil") alert=\(alert != nil)\n".utf8))
+                        exit(0)
+                    }
+                }, forMode: .modalPanel)
+                store.importMedia()
+            }
+            return
+        }
         guard let output = outputDirectory, !started else { return }
         started = true
         let media = (ProcessInfo.processInfo.environment["AFC_ACCEPTANCE_MEDIA"] ?? "")
@@ -106,6 +164,7 @@ enum AcceptanceDriver {
             var panelUnavailable: [String] = []
             func completePanel(directory: URL, filename: String?) -> Timer {
                 var navigated = false
+                var firstSeen: Date?
                 let timer = Timer(timeInterval: 0.3, repeats: true) { timer in
                     MainActor.assumeIsolated {
                         // An alert instead of the panel means the system file-panel service refused
@@ -120,6 +179,11 @@ enum AcceptanceDriver {
                         let panel = (NSApp.modalWindow as? NSSavePanel)
                             ?? (NSApp.windows.compactMap { $0.attachedSheet as? NSSavePanel }.first)
                         guard let panel, panel.isVisible else { return }
+                        // The panel is hosted by a system service; configuring it while that
+                        // service is still connecting makes it fail. Let it settle first.
+                        let seen = firstSeen ?? Date()
+                        firstSeen = seen
+                        guard Date().timeIntervalSince(seen) > 2 else { return }
                         if !navigated {
                             panel.directoryURL = directory
                             if let filename { panel.nameFieldStringValue = filename }
