@@ -95,7 +95,7 @@ final class FCPXMLExporterTests: XCTestCase {
         XCTAssertEqual(try document.nodes(forXPath: "//asset/@format").count, 0, "Never invent source geometry or frame rate")
         XCTAssertEqual(result.report.clipCount, 3)
         XCTAssertEqual(result.report.assetCount, 1)
-        XCTAssertTrue(result.report.notes.contains { $0.contains("not been verified") })
+        XCTAssertTrue(result.report.notes.contains { $0.contains("Resolve 21 and Final Cut Pro 11") })
         XCTAssertEqual(try FCPXMLExporter.export(project: project, projectName: "Film & \"edit\"\nOne"), result)
     }
 
