@@ -112,11 +112,20 @@ import EditorCore
                                 await backend.close()
                                 continue
                             }
-                            if CommandLine.arguments.contains("--expect-mp3-rejection") && format == "mp3" {
-                                throw NSError(domain: "MP3 source unexpectedly accepted", code: 1)
-                            }
-                            if CommandLine.arguments.contains("--expect-resampling-rejection") && rate != sourceRate {
-                                throw NSError(domain: "Cross-rate source unexpectedly accepted", code: 1)
+                            // Beta preview plays these sources but must flag them as approximate.
+                            let flaggedMP3 = CommandLine.arguments.contains("--expect-mp3-rejection") && format == "mp3"
+                            let flaggedRate = CommandLine.arguments.contains("--expect-resampling-rejection") && rate != sourceRate
+                            if flaggedMP3 || flaggedRate {
+                                let reason = backend.previewQualificationNotice ?? ""
+                                guard (!flaggedMP3 || reason.contains("MP3 cut points are approximate")),
+                                      (!flaggedRate || reason.contains("resampled approximately")) else {
+                                    throw NSError(domain: "Approximate source accepted without a preview notice", code: 1)
+                                }
+                                observations.append(["case": name, "channels": channels, "sampleRate": rate,
+                                    "sourceSampleRate": sourceRate, "frames": command.audioSamples,
+                                    "rejected": true, "rejectionReason": reason])
+                                await backend.close()
+                                continue
                             }
                             let notice = backend.previewQualificationNotice ?? ""
                             let curved = try plan.components.contains { component in

@@ -129,10 +129,28 @@ import EditorCore
         await tinyFadeBackend.close()
         var unsupported = project
         unsupported.tracks[2].template.routing.outputChannels = [1, 0]
-        let rejected = try AVFoundationSequenceBackend(project: unsupported, videoProxies: [:])
-        do { try await rejected.seek(toFrame: 0); throw NSError(domain: "Expected routing rejection", code: 1) }
-        catch { try require(error.localizedDescription.contains("routing"), "Unsupported channel mapping must fail visibly") }
-        await rejected.close()
+        let muted = try AVFoundationSequenceBackend(project: unsupported, videoProxies: [:])
+        // Custom routing must not block the sequence: it plays muted with a visible notice.
+        try await muted.seek(toFrame: 0)
+        try require(muted.previewQualificationNotice?.contains("custom channel routing is silent") == true,
+            "Unsupported channel mapping must be disclosed while the rest of the sequence plays")
+        await muted.close()
+        // 60×48 at 4:3 pixel aspect presents as 80×48 and must fill an 80×48 sequence when fit.
+        let anamorphicURL = URL(fileURLWithPath: CommandLine.arguments[2])
+        let anamorphicIndex = try await AVURLAsset(url: anamorphicURL).load(.tracks).firstIndex { $0.mediaType == .video }!
+        let anamorphic = MediaAsset(name: "Anamorphic", originalURL: anamorphicURL, duration: try RationalTime(1),
+            streams: [MediaStream(index: anamorphicIndex, kind: .video)])
+        let anamorphicClip = TimelineClip(assetID: anamorphic.id, sourceRange: try TimeRange(start: .zero, duration: RationalTime(1)),
+            selection: .video(streamIndex: anamorphicIndex))
+        let anamorphicProject = Project(settings: project.settings, assets: [anamorphic], families: [vf],
+            tracks: [TimelineTrack(familyID: vf.id, template: videoTemplate, clips: [anamorphicClip])])
+        let widened = try AVFoundationSequenceBackend(project: anamorphicProject, videoProxies: [:])
+        var widenedImage: CGImage?
+        widened.display = { image, _ in widenedImage = image }
+        try await widened.seek(toFrame: 0)
+        let average = pixel(try { guard let widenedImage else { throw NSError(domain: "Missing anamorphic frame", code: 1) }; return widenedImage }())
+        try require(average[0] > 240 && average[1] > 240 && average[2] > 240, "Anamorphic picture must widen to fill the frame: \(average)")
+        await widened.close()
         let controller = SequencePlaybackController()
         try require(controller.available, "Normal builds must enable system sequence preview")
         controller.activate(project: project, seconds: 100)
@@ -143,6 +161,21 @@ import EditorCore
         try require(controller.image != nil && controller.displayedFrameIndex == 59,
             "Scrubbing beyond the sequence end must display the clamped last frame: \(controller.message)")
         controller.deactivate()
-        print("System sequence smoke passed: decoded trims, overlap precedence, reverse/fractional seeks, black gaps, live transport, end scrub/exact fractional end clamp, cleanup and routing rejection.")
+        // The workspace echoes each published position back through update(); playback must continue.
+        let echoing = SequencePlaybackController()
+        var playhead = 0.0
+        echoing.positionChanged = { seconds in
+            playhead = seconds
+            echoing.update(project: project, seconds: seconds)
+        }
+        echoing.activate(project: project, seconds: 0)
+        for _ in 0..<1000 where echoing.isPreparing { try await Task.sleep(for: .milliseconds(10)) }
+        echoing.play()
+        try await Task.sleep(for: .milliseconds(1200))
+        try require(echoing.isPlaying && playhead > 0.6,
+            "Echoed playhead updates must not interrupt playback: playing=\(echoing.isPlaying) playhead=\(playhead)")
+        echoing.pause()
+        echoing.deactivate()
+        print("System sequence smoke passed: decoded trims, overlap precedence, reverse/fractional seeks, black gaps, live transport, end scrub/exact fractional end clamp, cleanup, muted custom routing notice, anamorphic widening and continuous playback with playhead echo.")
     }
 }

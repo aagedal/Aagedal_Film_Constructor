@@ -18,6 +18,15 @@ public extension Project {
             throw EditorCoreError.invalidModel("Missing media asset")
         }
         var audioSelections: [AudioSourceSelection] = []
+        var routes: [AudioRouting] = []
+        if let audio = asset.streams.first(where: { $0.kind == .audio }), let layout = audio.audioLayout,
+           settings.audioLayout == .surround51, layout == .mono || layout == .stereo {
+            // In a 5.1 sequence, stereo plays on front left/right and mono on centre.
+            let channels = layout.channels.indices.map { SourceChannel(streamIndex: audio.index, channelIndex: $0) }
+            audioSelections.append(AudioSourceSelection(channels: channels, layout: layout))
+            routes.append(AudioRouting(outputChannels: layout == .mono ? [2] : [0, 1]))
+            return try appendAsset(assetID, at: time, sourceRange: sourceRange, audioSelections: audioSelections, routing: routes)
+        }
         if let audio = asset.streams.first(where: { $0.kind == .audio }), let layout = audio.audioLayout {
             let channels: [SourceChannel]
             if layout.channels.count == 1 && settings.audioLayout == .stereo {
@@ -72,7 +81,7 @@ public extension Project {
             }
         }
         let start = try time ?? TimelineRenderPlan(project: self).duration
-        let sourceRange = try sourceRange ?? TimeRange(start: .zero, duration: asset.duration)
+        let sourceRange = try sourceRange ?? asset.defaultPlacementRange()
         try sourceRange.validate()
         guard try sourceRange.end().compared(to: asset.duration) != .orderedDescending else {
             throw EditorCoreError.invalidModel("Source range exceeds media duration")

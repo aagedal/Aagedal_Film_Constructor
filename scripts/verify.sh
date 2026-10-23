@@ -5,6 +5,9 @@ build_root="${TMPDIR:-/private/tmp}/aagedal-film-constructor-verification"
 mkdir -p "$build_root/module-cache"
 export CLANG_MODULE_CACHE_PATH="$build_root/module-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$build_root/module-cache"
+# Use Xcode's Swift even when another toolchain (for example swiftly) is first on PATH.
+export PATH="$(dirname "$(xcrun --find swift)"):$PATH"
+export SDKROOT="${SDKROOT:-$(xcrun --show-sdk-path)}"
 python3 -m unittest discover -s "$repo_root/scripts" -p 'test_*.py'
 "$repo_root/scripts/shortcut-smoke.sh"
 "$repo_root/scripts/sequence-monitor-smoke.sh"

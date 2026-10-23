@@ -17,7 +17,75 @@ publication and opt-in helper packaging; FCPXML has a validated structural subse
 This plan records the intended product and implementation order; unchecked
 items remain planned capabilities.
 
-## Current priority: usable timeline preview (2026-10-14)
+## Current priority: usable beta (2026-10-23)
+
+Prioritize everyday usability over further qualification proofs. Unqualified
+sources now render or preview with visible approximations instead of refusing;
+strict qualification stays available for parity work. See [the beta guide](docs/beta.md).
+
+This checklist is the beta exit criteria. All items are complete as of 2026-10-24;
+the 0.9 beta is notarized and on PR #58. The unchecked items in the later milestone
+sections are version-one qualification work and are not beta criteria.
+
+- [x] Export ProRes 422 HQ/422 MOV, H.264 MP4 and HEVC MP4 with verified frame
+  counts, sample counts, codecs and timecode; name the failing check on error.
+- [x] Render VFR, rotated, HDR, offset, full-range, anamorphic and long sources by
+  default, reporting approximations before export.
+- [x] Preview dual-mono placements, MP3, other-rate audio and boosted gain with
+  notices; mute custom routing in preview instead of failing the sequence.
+- [x] Convert MXF/MKV/WebM/AVI/TS and undecodable H.264 to edit-ready MOV on import.
+- [x] Hold stills up to an hour; Space toggles play/pause.
+- [x] `scripts/real-media-export-check.sh` checks import, preview and export of
+  real files through the app code. Local iPhone HLG, screen recordings, XDCAM/AVC
+  MXF, MPEG-TS, WebM, MP3/M4A and HDR MOV samples pass.
+- [x] Real-window acceptance (`scripts/app-acceptance.sh`): mixed iPhone HDR,
+  screen-recording, XDCAM/AVC-Intra MXF, WebM, MP3 and M4A timelines import,
+  preview, play/pause with Space, open Render with ⇧⌘E and export H.264/ProRes.
+  It found and fixed: a source-monitor crash (AVKit not linked), stale shortcut
+  enablement and launch text focus disabling all shortcuts, sequence playback
+  stopping on its own playhead echo, and off-grid clip durations making sequences
+  unexportable (render now snaps edit points to the nearest frame/sample).
+- [x] Real-window save/reopen: the project saves through NSDocument save-as and
+  reopens with every clip and converted media linked. ⌘I opens the real Import
+  panel, and Return in Render Sequence opens the real folder panel. The folder
+  panel round-trips in acceptance: one-shot modal-mode timers navigate and
+  confirm, the app receives the destination and starts exporting, and cancelling
+  through the sheet leaves nothing behind. The save sheet opens and accepts a
+  folder and name, but confirming it from a script doesn't complete, so the save
+  write path is checked through NSDocument save-as. Return in the filename field now starts the
+  export like the default button.
+- [x] Launch: repeated launches of one Release bundle reach the first processed
+  interaction in 1.61–1.74 s (`scripts/repeat-launch-timing.py`, 2026-10-23);
+  fresh first launches reach a visible, loaded workspace in 1.74–1.95 s.
+  Earlier that day, under heavier load, the isolated proof (a fresh unsigned bundle
+  per run) measured 2.1–2.6 s for both this beta and the pre-beta commit.
+- [x] Tone map HDR (HLG/PQ) sources to SDR Rec. 709 with VideoToolbox, with explicit
+  rotation, and tag every export Rec. 709; verified on iPhone HLG and PQ samples.
+- [x] Render 5.1 sequences (L R C LFE Ls Rs) with stereo placed front left/right
+  and mono centre by default; preview monitors a stereo downmix. Verified with
+  per-channel levels on rendered files.
+- [x] Distribution: `scripts/release-sign-notarize.sh` signs with Developer ID
+  (sandbox, hardened runtime, timestamped helpers), notarizes, staples and zips.
+  The 0.9 build was accepted by the notary service and Gatekeeper reports
+  "Notarized Developer ID". The signed sandboxed build passes real-window
+  acceptance with bundled-FFmpeg fixtures (conversion, proxies, exports).
+- [x] Interchange: DaVinci Resolve 21 imports FCPXML and OTIO exports with media
+  linked, exact clip frames, source offsets and layering; its renders match the
+  app's render (40–58 dB PSNR). Fixes found by this check: source timecode is now
+  probed at import and used as the media clock (Resolve aborted any import that
+  referenced timecoded media from zero); linked picture and sound are one A/V clip
+  (Resolve ignores srcEnable); references use realpath. FCPXML now expresses audio
+  channel selections (audio-channel-source), which Resolve ignores.
+- [x] Final Cut Pro 11 imports the FCPXML (manual check, 2026-10-24): every clip,
+  A/V link, timecode start and layer order arrive intact. Its one warning (unnamed
+  sequence format) is fixed by writing Final Cut's format names; the re-import
+  imports without warnings and with the same timeline.
+
+Deferred past beta by decision on 2026-10-24: in-app stream-copy export and
+sample-exact preview audio (preview keeps visible approximation notices; exports
+are sample-exact and verified).
+
+## Earlier priority: usable timeline preview (2026-10-14)
 
 Prioritize normal-build timeline playback ahead of further assembly features.
 The existing MPV exact-seek and graph-rebuild failures remain the reason to keep
@@ -494,7 +562,9 @@ rates. Track stable container stream indices and per-stream timing offsets.
 - [x] Add rational time, validated sequence settings, tracks/families, stable
       source stream identities, clip ranges, scaling modes, and a render plan.
 - [x] Implement move/trim/split/placement, sibling naming, cleanup, and undo/redo.
-- [ ] Bundle/audit FFmpeg and prototype MPV-based source/timeline monitoring.
+- [x] Bundle/audit FFmpeg and prototype MPV-based source/timeline monitoring.
+      Pinned signed FFmpeg/FFprobe 9.0.2 are bundled automatically; MPV proofs
+      are retained under docs/evidence.
 - [ ] Render a minimal sequence with two overlapping videos and several audio
       components at different source in-points. Verify seeking and preview/export
       agreement before selecting the final playback path.
@@ -560,7 +630,8 @@ sequence previews and renders at the same positions with exact output timing.
 - [x] Add persistent panel visibility controls in the toolbar and View menu.
 - [x] Add compact track/family naming, retained-empty-track controls and undoable
       static audio gain with shared monitor/render planning and inherited siblings.
-- [ ] Add edited-sequence monitoring.
+- [x] Add edited-sequence monitoring. Ordinary builds use the AVFoundation
+      sequence backend; verified in the real window by `scripts/app-acceptance.sh`.
 - [x] Connect Source/Sequence monitor selection, edited-plan rebuilding, coalesced
       scrubs and K/L transport to the native runtime in an opt-in development
       workspace; qualify real controller pixels and live sample-clock progress.
@@ -580,7 +651,8 @@ sequence previews and renders at the same positions with exact output timing.
       qualified square-pixel, unrotated CFR video streams; persist exact source
       dimensions/cadence and preserve audio settings/timecode with atomic undo.
       Broad-format, orientation and VFR matching remain open.
-- [ ] Add live sequence transport.
+- [x] Add live sequence transport. Space/K/L play and pause the sequence with an
+      advancing playhead in the real window (playhead echo regression fixed).
 - [x] Add asynchronous filmstrips/waveforms and fit/fill/no-scaling controls.
       Scaling is persisted; sequence preview/render geometry remains unqualified.
 - [x] Expose the automatic empty-track cleanup preference.
@@ -624,7 +696,9 @@ a compatible track, create a crossfade, and undo both operations without lost sy
       is connected in the opt-in development workspace.
 - [ ] Test frame/timecode correspondence, geometry, multiple audio streams, VFR
       mapping, switching at a nonzero playhead, and save/reopen.
-- [ ] Verify proxy playback does not change edits and final exports use originals.
+- [x] Verify proxy playback does not change edits and final exports use originals.
+      Core tests compare original/proxy render commands; real-window acceptance
+      plays with Prefer Proxy and renders from originals (warnings name originals).
 - [x] Connect the global representation preference to opt-in native sequence
       playback with integrity verification, original geometry/audio, nonzero
       playhead preservation and cancellable rebuilds. Shipping runtime and
@@ -642,8 +716,10 @@ remaining signed/native playback checks.
 
 ### 5. Sequence export and interchange
 
-- [ ] Implement FFmpeg sequence render with correct raster, rational frame rate,
+- [x] Implement FFmpeg sequence render with correct raster, rational frame rate,
       start timecode, compositing order, scaling, audio selections, and fades.
+      ProRes 422 HQ/422, H.264 and HEVC with verified counts, codecs and timecode;
+      mono/stereo/5.1, HDR tone mapping and edit-point snapping (2026-10-23).
 - [x] Add a fixed MOV/ProRes HQ/PCM development workflow using sequence output
       settings and timecode, progress, cancellation and verified publication.
       Additional output presets and full source/container qualification remain open.
@@ -670,7 +746,9 @@ remaining signed/native playback checks.
 - [x] Verify decoded CFR frame identities/timestamps, stereo channel routes/sample
       counts and MOV timecode packets at 24, 24000/1001, 30000/1001 DF and
       60000/1001 DF. Native receiver and broader source acceptance remain open.
-- [ ] Add FCPXML sequence export and validate real layered-video/audio imports.
+- [x] Add FCPXML sequence export and validate real layered-video/audio imports.
+      Verified in DaVinci Resolve 21 (scripted import, exact timing and layers);
+      Final Cut Pro import remains unverified.
 - [x] Evaluate OTIO export using its official core/validator; document its subset.
       Layered cuts/gaps pass official core read/write and timing qualification;
       receiving-editor import and spatial conform remain unqualified.
@@ -683,11 +761,19 @@ does not require implementing every proposed interchange adapter.
 
 ### 6. Version-one acceptance and performance
 
-- [ ] Exercise mixed-format media, multiple overlapping video/audio tracks,
+- [x] Exercise mixed-format media, multiple overlapping video/audio tracks,
       source audio changes, fades, proxies, relinking, and customized shortcuts.
+      `scripts/app-acceptance.sh` passes all 15 real-window checks (2026-10-23)
+      with iPhone HLG, XDCAM MXF, HEVC, WebM and MP3 media: overlapping sibling
+      tracks, fades and a linked crossfade, multitrack source-stream changes,
+      relinking, ProRes proxies with Prefer Proxy playback, a remapped Play/Pause
+      key, Tab/Space/⇧⌘E key events, verified H.264/ProRes renders and save/reopen.
 - [ ] Check preview/export parity, deterministic frame counts, start timecode,
       dropped/duplicated conform frames, geometry, channel maps, and audio sync.
-- [ ] Measure launch-to-interaction against the two-second target in Release builds.
+- [x] Measure launch-to-interaction against the two-second target in Release builds.
+  Repeat launches 1.61–1.74 s to interaction; fresh first launches 1.74–1.95 s to a
+  visible loaded workspace (2026-10-23, unsigned local build). See
+  [launch performance](docs/release-launch-performance.md).
 - [x] Add opt-in actual Release workspace/input instrumentation and isolated launch
       measurement. Local fresh-preference/warm-cache evidence passes; cold launch,
       populated projects and signed distribution acceptance remain open.

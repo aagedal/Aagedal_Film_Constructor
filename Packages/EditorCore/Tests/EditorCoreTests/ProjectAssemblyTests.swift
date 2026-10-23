@@ -96,6 +96,18 @@ final class ProjectAssemblyTests: XCTestCase {
         XCTAssertTrue(clips.allSatisfy { $0.linkGroupID == nil })
     }
 
+    func testLongStillsPlaceDefaultDurationAndTrimLonger() throws {
+        let still = MediaAsset(name: "Title.png", duration: try MediaAsset.stillSourceExtent())
+        var project = Project(settings: try SequenceSettings(), assets: [still])
+        let ids = try project.appendAsset(still.id)
+        let clip = try XCTUnwrap(project.tracks.flatMap(\.clips).first { $0.id == ids.first })
+        XCTAssertEqual(clip.sourceRange.duration, try RationalTime(5))
+        // A still can be held longer than the default by explicit range, up to its extent.
+        let held = try TimeRange(start: .zero, duration: RationalTime(120))
+        XCTAssertEqual(try project.appendAsset(still.id, sourceRange: held).count, 1)
+        try project.validate()
+    }
+
     func testFailedImportsAndPlacementAreAtomic() throws {
         let asset = try audiovisual()
         var project = Project(settings: try SequenceSettings(), assets: [asset])

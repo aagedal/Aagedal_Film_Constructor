@@ -57,9 +57,26 @@ public struct MediaAsset: Identifiable, Equatable, Codable, Sendable {
     public var duration: RationalTime
     public var streams: [MediaStream]
     public var sourceTimecode: Timecode?
+    /// Embedded timecode of the first frame as exact seconds (frames × timecode frame duration),
+    /// read from the media's timecode track. Interchange references media in this clock.
+    public var sourceTimecodeStart: RationalTime?
     public var proxy: MediaProxy?
     public init(id: UUID = UUID(), name: String, originalURL: URL? = nil, duration: RationalTime, streams: [MediaStream] = [], sourceTimecode: Timecode? = nil, proxy: MediaProxy? = nil) {
         self.id = id; self.name = name; self.originalURL = originalURL; self.duration = duration; self.streams = streams; self.sourceTimecode = sourceTimecode; self.proxy = proxy
+    }
+}
+public extension MediaAsset {
+    /// Imported stills hold for up to an hour; they are placed at the default duration.
+    static func stillSourceExtent() throws -> RationalTime { try RationalTime(3600) }
+    static func defaultStillDuration() throws -> RationalTime { try RationalTime(5) }
+    var isStill: Bool { streams.isEmpty }
+    /// The range placed by Append and Finder drops when no source marks are set.
+    func defaultPlacementRange() throws -> TimeRange {
+        let still = try Self.defaultStillDuration()
+        guard isStill, try duration.compared(to: still) == .orderedDescending else {
+            return try TimeRange(start: .zero, duration: duration)
+        }
+        return try TimeRange(start: .zero, duration: still)
     }
 }
 public struct SourceChannel: Hashable, Codable, Sendable {

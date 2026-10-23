@@ -35,6 +35,7 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 960, minHeight: 600)
+        .background(TextFocusReleaser(store: store))
         .toolbar {
             ToolbarItemGroup {
                 Button(action: store.importMedia) { Image(systemName: "plus.rectangle.on.folder").accessibilityLabel("Import media") }
@@ -198,7 +199,7 @@ struct ContentView: View {
                             Image(systemName: assetIcon(asset)).foregroundStyle(.secondary).frame(width: 20)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(asset.name).lineLimit(2)
-                                Text("\(asset.duration.seconds, specifier: "%.2f") s · \(assetKind(asset))")
+                                Text(asset.isStill ? assetKind(asset) : "\(String(format: "%.2f", asset.duration.seconds)) s · \(assetKind(asset))")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                         }
@@ -360,7 +361,7 @@ struct ContentView: View {
                 if let image = store.previewImage {
                     Image(nsImage: image).resizable().scaledToFit().padding(12)
                 } else if let player = store.sourcePlayer {
-                    VideoPlayer(player: player)
+                    SourcePlayerView(player: player)
                 } else {
                     VStack(spacing: 10) {
                         Image(systemName: "play.rectangle").font(.system(size: 38))
@@ -733,5 +734,69 @@ private struct ProjectInspector: View {
         audioSampleRate = String(store.project.settings.audioSampleRate)
         audioLayout = store.project.settings.audioLayout
         startTimecode = (try? store.project.settings.startTimecode.formatted(rate: store.project.settings.frameRate)) ?? "00:00:00:00"
+    }
+}
+
+/// AppKit player view. SwiftUI's VideoPlayer only links the _AVKit_SwiftUI overlay,
+/// which aborts at first display on macOS 27 when AVKit itself is not loaded.
+private struct SourcePlayerView: NSViewRepresentable {
+    let player: AVPlayer
+    /// Editor shortcuts own Space, Tab and J/K/L; the player must not take keyboard focus.
+    final class NonFocusingPlayerView: AVPlayerView {
+        override var acceptsFirstResponder: Bool { false }
+    }
+    func makeNSView(context: Context) -> AVPlayerView {
+        let view = NonFocusingPlayerView()
+        view.controlsStyle = .inline
+        view.showsFullScreenToggleButton = false
+        view.player = player
+        return view
+    }
+    func updateNSView(_ view: AVPlayerView, context: Context) {
+        if view.player !== player { view.player = player }
+    }
+}
+
+/// Editing shortcuts are suspended while a text field has focus. Keep focus out of
+/// fields when a workspace opens, and end text editing when the user clicks
+/// anything that isn't a text field (timeline, monitor, bin), as other editors do.
+private struct TextFocusReleaser: NSViewRepresentable {
+    let store: EditorStore
+    func makeNSView(context: Context) -> ReleaserView { ReleaserView(store: store) }
+    func updateNSView(_ nsView: ReleaserView, context: Context) {}
+
+    /// Also registers the window with the keyboard router so shortcuts reach this workspace.
+    final class ReleaserView: NSView {
+        private static var monitor: Any?
+        private weak var store: EditorStore?
+        init(store: EditorStore) { self.store = store; super.init(frame: .zero) }
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            Self.installMonitor()
+            guard let window else { return }
+            if let store { EditorKeyboardRouter.shared.register(window: window, store: store) }
+            // The initial key view is chosen as the window first becomes key.
+            for delay in [0.05, 0.5] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak window] in
+                    guard let window, window.firstResponder is NSText else { return }
+                    window.makeFirstResponder(nil)
+                }
+            }
+        }
+        private static func installMonitor() {
+            guard monitor == nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { event in
+                guard let window = event.window, window.firstResponder is NSText,
+                      let frame = window.contentView?.superview else { return event }
+                var view = frame.hitTest(event.locationInWindow)
+                while let current = view {
+                    if current is NSText || current is NSTextField { return event }
+                    view = current.superview
+                }
+                window.makeFirstResponder(nil)
+                return event
+            }
+        }
     }
 }

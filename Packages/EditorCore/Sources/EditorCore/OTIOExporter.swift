@@ -97,11 +97,19 @@ public enum OTIOExporter {
                 let gap = try component.timelineRange.start.subtracting(cursor)
                 if gap.numerator > 0 { children.append(try item(schema: "Gap.1", name: "Gap", range: TimeRange(start: .zero, duration: gap), clock: clock)) }
                 let asset = assets[component.assetID]!
+                // Source ranges are in the media's own timecode clock, as receiving editors expect.
+                let origin = asset.sourceTimecodeStart ?? .zero
                 var clip = try item(schema: "Clip.2", name: asset.name, range: component.sourceRange, clock: clock)
+                if origin != .zero, var range = clip["source_range"] as? [String: Any] {
+                    let start = try component.sourceRange.start.adding(origin)
+                    // A timecode origin off the track clock keeps its exact rational encoding.
+                    range["start_time"] = (try? time(start, clock: clock)) ?? rawTime(start)
+                    clip["source_range"] = range
+                }
                 let reference: [String: Any] = ["OTIO_SCHEMA": "ExternalReference.1", "name": asset.name,
-                    "metadata": [:], "target_url": asset.originalURL!.absoluteString,
+                    "metadata": [:], "target_url": asset.originalURL!.interchangeFileURL.absoluteString,
                     // This clock encodes exact seconds, without inventing the source frame rate.
-                    "available_range": ["OTIO_SCHEMA": "TimeRange.1", "start_time": rawTime(.zero), "duration": rawTime(asset.duration)]]
+                    "available_range": ["OTIO_SCHEMA": "TimeRange.1", "start_time": rawTime(origin), "duration": rawTime(asset.duration)]]
                 clip["media_references"] = ["DEFAULT_MEDIA": reference]
                 clip["active_media_reference_key"] = "DEFAULT_MEDIA"
                 clip["metadata"] = ["aagedal_film_constructor": ["clip_id": component.clipID.uuidString,

@@ -24,7 +24,8 @@ struct AppFileSmoke {
         try await exerciseSourcePlayback(audio: audio)
         try await exerciseSequenceCommands(audio: audio)
         let still = try await MediaImporter.inspect(url: imageURL)
-        try check(still.asset.streams.isEmpty && still.asset.duration.seconds == 5, "Still image import")
+        try check(still.asset.streams.isEmpty && still.asset.duration.seconds == 3600
+            && (try still.asset.defaultPlacementRange().duration.seconds) == 5, "Still image import: one-hour extent, five-second placement")
         try await exerciseTimelineFileDrop(audioURL: audioURL, imageURL: imageURL, directory: directory)
         try await exerciseMediaBins(audioURL: audioURL, still: still)
         try exerciseDerivedProjectValues(asset: still.asset)

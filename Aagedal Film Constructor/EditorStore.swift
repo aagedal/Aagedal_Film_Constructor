@@ -179,7 +179,7 @@ final class EditorStore: ObservableObject {
         guard !isImporting else { return }
         let panel = NSOpenPanel()
         panel.title = "Import Media"
-        panel.allowedContentTypes = [.movie, .audio, .image]
+        panel.allowedContentTypes = MediaConversionService.importContentTypes
         panel.allowsMultipleSelection = true
         guard panel.runModal() == .OK else { return }
         importMedia(urls: panel.urls)
@@ -219,11 +219,13 @@ final class EditorStore: ObservableObject {
                 let alreadyHeldAccess = scopedURLs.contains(url)
                 holdAccess(url)
                 do {
-                    let result = try await MediaImporter.inspect(url: url)
+                    let result = try await MediaImporter.inspectOrConvert(url: url) {
+                        statusMessage = "Converting \(url.lastPathComponent) for editing…"
+                    }
                     guard !Task.isCancelled, epoch == mediaEpoch else { return }
                     if let start = cursor {
                         // Compute the next cursor before committing, so overflow is atomic too.
-                        let next = try start.adding(result.asset.duration)
+                        let next = try start.adding(result.asset.defaultPlacementRange().duration)
                         var ids: [UUID] = []
                         try change(bookmarkUpdates: [result.asset.id: result.bookmark]) { project in
                             let originalTrackIDs = project.tracks.map(\.id)
@@ -422,10 +424,21 @@ final class EditorStore: ObservableObject {
                 guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset?.id == asset.id, sourcePlayback === player else { return }
                 sourceTransportSeekTime = nil
                 player.play()
+                // Forward playback is now owned by the player; only seeks and reverse keep a task.
+                sourceTransportTask = nil
             } catch {
                 guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset?.id == asset.id, sourcePlayback === player else { return }
                 reportSourceSeekFailure(error)
             }
+        }
+    }
+
+    /// Space-bar transport: pause any running source playback (including reverse), otherwise play forwards.
+    func toggleSourcePlayback() {
+        if sourcePlayback?.isPlaying == true || sourceTransportTask != nil || pendingSourceTransport?.playing == true {
+            pauseSource()
+        } else {
+            playSourceForwards()
         }
     }
 
@@ -492,7 +505,7 @@ final class EditorStore: ObservableObject {
 
     var selectedSourceRange: TimeRange? {
         guard let asset = selectedAsset else { return nil }
-        return sourceRanges[asset.id] ?? (try? TimeRange(start: .zero, duration: asset.duration))
+        return sourceRanges[asset.id] ?? (try? asset.defaultPlacementRange())
     }
 
     func clearSourceMarks() {

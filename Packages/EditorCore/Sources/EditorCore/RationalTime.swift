@@ -5,6 +5,19 @@ public enum EditorCoreError: Error, Equatable, Sendable {
     case invalidModel(String)
 }
 
+extension EditorCoreError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .invalidTime: return "The time value is invalid."
+        case .overflow: return "The timing is too large or too precise to represent."
+        case .invalidFrameRate: return "The frame rate is invalid."
+        case .invalidTimecode: return "The timecode is invalid for this frame rate."
+        case .invalidSettings: return "The sequence settings are invalid."
+        case .invalidModel(let message): return message.hasSuffix(".") ? message : message + "."
+        }
+    }
+}
+
 /// Canonical exact seconds. Operations throw instead of silently wrapping integers.
 public struct RationalTime: Hashable, Codable, Sendable {
     public let numerator: Int64

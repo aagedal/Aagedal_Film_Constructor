@@ -161,4 +161,29 @@ final class OTIOExporterTests: XCTestCase {
             XCTAssertEqual(process.terminationStatus, 0, text)
         }
     }
+
+    func testSourceRangesUseTheMediaTimecodeClock() throws {
+        var project = try DemoProjectFactory.musicCollision()
+        project.assets[0].originalURL = URL(fileURLWithPath: "/private/tmp/otio-timecode.wav")
+        project.tracks[0].template.gain = 1
+        project.assets[0].sourceTimecodeStart = try RationalTime(3600)
+        let json = try OTIOExporter.export(project: project)
+        let root = try JSONSerialization.jsonObject(with: Data(json.utf8)) as! [String: Any]
+        func clips(_ object: Any) -> [[String: Any]] {
+            if let dict = object as? [String: Any] {
+                return ((dict["OTIO_SCHEMA"] as? String)?.hasPrefix("Clip") == true ? [dict] : []) + dict.values.flatMap(clips)
+            }
+            return (object as? [Any])?.flatMap(clips) ?? []
+        }
+        let found = clips(root)
+        XCTAssertFalse(found.isEmpty)
+        for clip in found {
+            let start = (clip["source_range"] as! [String: Any])["start_time"] as! [String: Any]
+            let seconds = (start["value"] as! NSNumber).doubleValue / (start["rate"] as! NSNumber).doubleValue
+            XCTAssertGreaterThanOrEqual(seconds, 3600)
+            let reference = (clip["media_references"] as! [String: Any])["DEFAULT_MEDIA"] as! [String: Any]
+            let available = ((reference["available_range"] as! [String: Any])["start_time"] as! [String: Any])
+            XCTAssertEqual((available["value"] as! NSNumber).doubleValue / (available["rate"] as! NSNumber).doubleValue, 3600)
+        }
+    }
 }

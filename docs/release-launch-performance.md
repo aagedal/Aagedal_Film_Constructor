@@ -110,3 +110,23 @@ pass the two-second synthetic-control target, while cold packaged launch, ordina
 editing controls and media-ready acceptance remain open. Run
 `scripts/timeline-visibility-smoke.sh` for first-layout, scroll-coordinate, edge,
 zoom, overscan and pinned-interaction policy checks; it is included in `verify.sh`.
+
+## Beta repeat-launch timing (2026-10-23)
+
+`scripts/repeat-launch-timing.py "/path/to/Release/Aagedal Film Constructor.app"`
+launches the same built bundle repeatedly through Launch Services and reports the
+time to the instrumented first processed interaction. On 2026-10-23 the beta
+Release build measured 2.27 s on its first launch and 1.61, 1.72, 1.74 and 1.63 s on
+the following launches. `release-launch-proof.py` copies and registers a new unsigned
+bundle for every run, so every sample is a first launch. That day it measured
+2.10–2.65 s for both the beta and the pre-beta commit (fdbf058). About 1.5 s of that
+elapsed before `applicationDidFinishLaunching`.
+
+Later that day, fresh copies of the current Release build (new path, first launch)
+reached a visible, loaded workspace window in 1.743, 1.849 and 1.949 s, and their
+second launches in 1.229–1.560 s. In earlier probe runs that macOS allowed to
+activate, the interaction marker followed visibility within a millisecond.
+Interaction could not be recorded for these runs because macOS withheld
+activation while another app was in use, so the script now also reports
+`window visible`. Removing the 115 MB of bundled FFmpeg helpers did not reliably
+change first-launch time (first launches without them took 1.20 and 2.02 s).
