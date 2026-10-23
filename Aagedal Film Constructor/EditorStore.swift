@@ -424,10 +424,21 @@ final class EditorStore: ObservableObject {
                 guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset?.id == asset.id, sourcePlayback === player else { return }
                 sourceTransportSeekTime = nil
                 player.play()
+                // Forward playback is now owned by the player; only seeks and reverse keep a task.
+                sourceTransportTask = nil
             } catch {
                 guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset?.id == asset.id, sourcePlayback === player else { return }
                 reportSourceSeekFailure(error)
             }
+        }
+    }
+
+    /// Space-bar transport: pause any running source playback (including reverse), otherwise play forwards.
+    func toggleSourcePlayback() {
+        if sourcePlayback?.isPlaying == true || sourceTransportTask != nil || pendingSourceTransport?.playing == true {
+            pauseSource()
+        } else {
+            playSourceForwards()
         }
     }
 

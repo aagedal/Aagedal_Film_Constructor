@@ -57,6 +57,10 @@ final class EditorCommandRegistry: ObservableObject {
         }
         guard command.isPlayback || scope == .document || command.scope == .document || scope == command.scope else { return }
         switch command {
+        case .togglePlayback:
+            if let sequence = store.sequencePlayback {
+                if sequence.isPlaying { sequence.pause() } else { sequence.play() }
+            } else { store.toggleSourcePlayback() }
         case .zoomTimelineToFit: store.timelineFitRequest = UUID()
         case .rippleTrimStart: store.rippleTrimSelectedClip(edge: .leading)
         case .rippleTrimEnd: store.rippleTrimSelectedClip(edge: .trailing)
@@ -101,6 +105,9 @@ final class EditorCommandRegistry: ObservableObject {
         case .splitClip, .deleteClip: return store.selectedClip != nil
         case .previousFrame, .nextFrame: return true
         case .playReverse: return store.sequencePlayback == nil && store.sourcePlayback != nil
+        case .togglePlayback:
+            if let sequence = store.sequencePlayback { return sequence.available && (sequence.isPlaying || (!sequence.isPreparing && store.duration > 0)) }
+            return store.canControlSourceTransport
         case .pausePlayback:
             if let sequence = store.sequencePlayback { return sequence.available }
             return store.canControlSourceTransport

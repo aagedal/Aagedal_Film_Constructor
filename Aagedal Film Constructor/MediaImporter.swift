@@ -122,7 +122,7 @@ enum MediaImporter {
         } catch {
             let type = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType ?? UTType(filenameExtension: url.pathExtension)
             guard type?.conforms(to: .image) != true else { throw error }
-            converting()
+            await converting()
             let converted = try await MediaConversionService.shared.convert(url)
             do {
                 return try await inspect(url: converted, displayName: url.lastPathComponent)

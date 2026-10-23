@@ -17,7 +17,27 @@ publication and opt-in helper packaging; FCPXML has a validated structural subse
 This plan records the intended product and implementation order; unchecked
 items remain planned capabilities.
 
-## Current priority: usable timeline preview (2026-10-14)
+## Current priority: usable beta (2026-10-23)
+
+Prioritize everyday usability over further qualification proofs. Unqualified
+sources now render or preview with visible approximations instead of refusing;
+strict qualification stays available for parity work. See [the beta guide](docs/beta.md).
+
+- [x] Export ProRes 422 HQ/422 MOV, H.264 MP4 and HEVC MP4 with verified frame
+  counts, sample counts, codecs and timecode; name the failing check on error.
+- [x] Render VFR, rotated, HDR (no tone mapping), offset, full-range, anamorphic
+  and long sources by default, reporting approximations before export.
+- [x] Preview dual-mono placements, MP3, other-rate audio and boosted gain with
+  notices; mute custom routing in preview instead of failing the sequence.
+- [x] Convert MXF/MKV/WebM/AVI/TS and undecodable H.264 to edit-ready MOV on import.
+- [x] Hold stills up to an hour; Space toggles play/pause.
+- [x] `scripts/real-media-export-check.sh` checks import, preview and export of
+  real files through the app code. Local iPhone HLG, screen recordings, XDCAM/AVC
+  MXF, MPEG-TS, WebM, MP3/M4A and HDR MOV samples pass.
+- [ ] HDR tone mapping, 5.1 output, distribution signing/notarization and
+  in-app stream-copy export.
+
+## Earlier priority: usable timeline preview (2026-10-14)
 
 Prioritize normal-build timeline playback ahead of further assembly features.
 The existing MPV exact-seek and graph-rebuild failures remain the reason to keep

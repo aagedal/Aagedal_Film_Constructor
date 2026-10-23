@@ -3,10 +3,11 @@ import Foundation
 enum EditorCommandScope: String, Codable { case document, source, timeline }
 
 enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
-    case zoomTimelineToFit, rippleTrimStart, rippleTrimEnd, toggleViewer, undo, redo, importMedia, appendSource, markSourceIn, markSourceOut, clearSourceMarks, splitClip, previousFrame, nextFrame, deleteClip, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO
+    case togglePlayback, zoomTimelineToFit, rippleTrimStart, rippleTrimEnd, toggleViewer, undo, redo, importMedia, appendSource, markSourceIn, markSourceOut, clearSourceMarks, splitClip, previousFrame, nextFrame, deleteClip, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO
     var id: String { rawValue }
     var title: String {
         switch self {
+        case .togglePlayback: "Play / Pause"
         case .zoomTimelineToFit: "Zoom Timeline to Fit"
         case .rippleTrimStart: "Ripple Trim Start to Playhead"
         case .rippleTrimEnd: "Ripple Trim End to Playhead"
@@ -31,7 +32,7 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .exportOTIO: "Export OpenTimelineIO…"
         }
     }
-    var isPlayback: Bool { [.playReverse, .pausePlayback, .playForward].contains(self) }
+    var isPlayback: Bool { [.togglePlayback, .playReverse, .pausePlayback, .playForward].contains(self) }
     var scope: EditorCommandScope {
         switch self {
         case .toggleViewer, .undo, .redo, .importMedia, .exportSequence, .exportFCPXML, .exportEDL, .exportOTIO: .document
@@ -41,6 +42,7 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
     }
     var defaultBinding: ShortcutBinding {
         switch self {
+        case .togglePlayback: ShortcutBinding(key: "space")
         case .zoomTimelineToFit: ShortcutBinding(key: "z", shift: true)
         case .rippleTrimStart: ShortcutBinding(key: "q")
         case .rippleTrimEnd: ShortcutBinding(key: "w")
@@ -99,7 +101,9 @@ struct ShortcutBinding: Codable, Equatable {
         if candidate.command && ((candidate.option && ["h", "m"].contains(candidate.key)) || (candidate.control && candidate.key == "f") || (candidate.shift && candidate.key == "/")) {
             return "This shortcut is reserved for standard application commands."
         }
-        if candidate.key == "space" || (candidate.control && ["left", "right", "up", "down"].contains(candidate.key)) || (candidate.command && candidate.option && candidate.key == "escape") {
+        // Bare or Shift-Space is the editing convention for transport; other Space chords belong to macOS.
+        let transportSpace = commandID.isPlayback && !candidate.command && !candidate.option && !candidate.control
+        if (candidate.key == "space" && !transportSpace) || (candidate.control && ["left", "right", "up", "down"].contains(candidate.key)) || (candidate.command && candidate.option && candidate.key == "escape") {
             return "This combination is reserved for macOS."
         }
         for other in EditorCommandID.allCases where other != commandID {

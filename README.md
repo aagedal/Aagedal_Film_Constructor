@@ -18,6 +18,10 @@ planned for eligible timelines, with exact-cut and codec/container validation. T
 FFmpeg for media processing and MPV evaluated for broad-format preview. Effects,
 titles, keyframing, and plugin hosting are planned for later versions.
 
+**Beta:** the app can now import, edit, preview and export everyday camera, phone,
+screen-recording and broadcast (MXF) media. Start with the [beta guide](docs/beta.md)
+for setup, supported formats, export options and known limitations.
+
 See [PLAN.md](PLAN.md) for the workspace layout, editing workflow, proxy and
 interchange plans, Media Converter/Player reuse audits, and implementation milestones.
 
