@@ -84,13 +84,14 @@ enum AcceptanceDriver {
         }
         guard let output = outputDirectory, !started else { return }
         started = true
-        let media = (ProcessInfo.processInfo.environment["AFC_ACCEPTANCE_MEDIA"] ?? "")
+        let requestedMedia = (ProcessInfo.processInfo.environment["AFC_ACCEPTANCE_MEDIA"] ?? "")
             .split(whereSeparator: { $0 == "\n" || $0 == "|" }).map { path -> URL in
                 // Relative paths name media bundled into Resources, readable inside the sandbox.
                 path.hasPrefix("/") ? URL(fileURLWithPath: String(path))
                     : Bundle.main.resourceURL!.appendingPathComponent(String(path))
             }
         Task { @MainActor in
+            var media = requestedMedia
             var log: [[String: Any]] = []
             func record(_ step: String, _ details: [String: Any] = [:]) {
                 var entry = details; entry["step"] = step; entry["uptime"] = ProcessInfo.processInfo.systemUptime
@@ -219,6 +220,27 @@ enum AcceptanceDriver {
             record("launch", ["keyWindow": ready])
             snapshot("01-launch", window: workspaceWindow())
 
+            // "generate": the bundled FFmpeg writes fixtures into the output folder, so a sandboxed,
+            // notarized build can run end to end without access to the user's media.
+            if media.map(\.lastPathComponent) == ["generate"], let helpers = Bundle.main.resourceURL?.appendingPathComponent("Helpers") {
+                let ffmpeg = helpers.appendingPathComponent("ffmpeg")
+                let fixtures: [(String, [String])] = [
+                    ("generated-h264.mkv", ["-f", "lavfi", "-i", "testsrc2=s=1280x720:r=25:d=6", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=6",
+                                            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-ac", "2", "-shortest"]),
+                    ("generated-prores.mov", ["-f", "lavfi", "-i", "smptehdbars=s=1920x1080:r=25:d=6", "-f", "lavfi", "-i", "sine=frequency=880:sample_rate=48000:duration=6",
+                                              "-c:v", "prores_ks", "-profile:v", "0", "-c:a", "pcm_s16le", "-ac", "2", "-shortest"]),
+                ]
+                var generated: [URL] = []
+                for (name, arguments) in fixtures {
+                    let url = output.appendingPathComponent(name)
+                    do {
+                        _ = try await ExportProcess.run(executable: ffmpeg, arguments: ["-hide_banner", "-nostdin", "-y"] + arguments + [url.path])
+                        generated.append(url)
+                    } catch { record("generate", ["file": name, "error": error.localizedDescription]) }
+                }
+                record("generate", ["files": generated.map(\.lastPathComponent), "sandboxed": ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil])
+                media = generated
+            }
             var sawConversion = false
             let accepted = store.importMediaToTimeline(urls: media, at: 0)
             let imported = await wait(600) {
@@ -257,6 +279,7 @@ enum AcceptanceDriver {
             }
             // Source audio change: pick two other mono streams of a multitrack source as left/right.
             var sourceAudioChanged = false
+            let hasMultitrack = store.project.assets.contains { $0.streams.filter { $0.kind == .audio && $0.audioLayout == .mono }.count >= 3 }
             if let asset = store.project.assets.first(where: { $0.streams.filter { $0.kind == .audio && $0.audioLayout == .mono }.count >= 3 }),
                let clip = clips().first(where: { $0.assetID == asset.id && $0.requiredTrackKind == .audio && !crossfaded.contains($0.id) }) {
                 let monos = asset.streams.filter { $0.kind == .audio && $0.audioLayout == .mono }
@@ -285,7 +308,7 @@ enum AcceptanceDriver {
                 if proxiesReady > 0 { store.setPlaybackRepresentation(.proxy) }
             }
             record("editing", ["overlappingTracks": overlapped, "tracks": store.project.tracks.count, "fades": fadeApplied,
-                               "crossfade": crossfadeApplied, "sourceAudioChanged": sourceAudioChanged, "relinked": relinked, "proxyCandidates": proxySources.count,
+                               "crossfade": crossfadeApplied, "sourceAudioChanged": sourceAudioChanged, "multitrackAvailable": hasMultitrack, "relinked": relinked, "proxyCandidates": proxySources.count,
                                "proxiesReady": proxiesReady, "representation": store.playbackRepresentation.rawValue,
                                "clips": clips().count, "error": store.errorMessage ?? ""])
 

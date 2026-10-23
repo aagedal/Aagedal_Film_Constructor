@@ -13,6 +13,17 @@ This page covers what to expect and what is still missing.
   See [helper packaging](media-helper-packaging.md) for offline setup.
 - `scripts/verify.sh` runs the automated checks and builds the app.
 
+## Distribution build
+
+`scripts/release-sign-notarize.sh [output-folder]` builds Release and signs it with
+Developer ID: sandboxed, hardened runtime, timestamped helpers. It then notarizes
+the app with the `notary` keychain profile, staples the ticket and writes
+`Aagedal-Film-Constructor-<version>.zip`. The release bundle ID is
+`me.aagedal.FilmConstructor`. Override it with `AFC_BUNDLE_ID`, the team with
+`AFC_TEAM_ID` and the profile with `AFC_NOTARY_PROFILE`. Set `AFC_SKIP_NOTARIZE=1`
+to sign only. On 2026-10-23 the 0.9 build was accepted by Apple's notary service,
+and Gatekeeper assesses it as "Notarized Developer ID".
+
 ## Quick start
 
 1. Launch the app. An untitled workspace opens ready for media.
@@ -73,7 +84,10 @@ these warnings into refusals, for when exact decoded parity matters more than
 convenience.
 
 FCPXML, OpenTimelineIO and track EDL exports are also available from the File
-menu. See their pages for supported subsets.
+menu. DaVinci Resolve 21 imports the FCPXML and OTIO output with every clip at the
+exact frame, source offset and layer. FCPXML requires each clip to use one complete
+mono or stereo audio stream that matches the sequence layout. Final Cut Pro import
+is unverified. See their pages for supported subsets.
 
 ## Preview notices
 
@@ -96,8 +110,7 @@ notice appears under the viewer, but playback continues:
   any channel. The preview plays the system's stereo downmix.
 - Reverse sequence playback is unavailable. J plays the source backwards silently.
 - Stream-copy (no re-encode) export is not available in the app yet.
-- Apple Silicon only. Distribution signing and notarization are not set up, so build
-  from source.
+- Apple Silicon only.
 
 ## Checking your own media
 
@@ -112,7 +125,10 @@ four seconds of each file. It prints PASS/FAIL, timings and warnings, and keeps 
 rendered files in a temporary folder. The format can be `h264`, `hevc`,
 `proRes422` or `proRes422HQ`.
 
-To exercise the real application window end to end, run:
+To exercise the real application window end to end, run the command below. Pass
+`generate` instead of media to have the bundled FFmpeg create test files inside
+the run. With `AFC_ACCEPTANCE_CONTAINER=1`, this also works for the signed,
+sandboxed release build.
 
 ```sh
 scripts/app-acceptance.sh "/path/to/Aagedal Film Constructor.app" /path/to/media/*

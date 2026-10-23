@@ -32,6 +32,23 @@ final class FCPXMLExporterTests: XCTestCase {
         } catch FCPXMLExportError.unsupported(let reasons) { return reasons }
     }
 
+    func testLinkedPictureAndSoundBecomeOneAVClip() throws {
+        // The fixture's audio starts one sample later, so it stays a separate audio-only clip.
+        var project = try fixture()
+        let unmatched = try FCPXMLExporter.export(project: project).xml
+        XCTAssertEqual(unmatched.components(separatedBy: "srcEnable=\"audio\"").count - 1, 1)
+        // Give the audio the foreground's exact source and timeline range: one A/V clip results.
+        project.tracks[2].clips[0].sourceRange = project.tracks[0].clips[0].sourceRange
+        let merged = try FCPXMLExporter.export(project: project)
+        let document = try XMLDocument(xmlString: merged.xml)
+        let clips = try document.nodes(forXPath: "//asset-clip")
+        XCTAssertEqual(clips.count, 2)
+        XCTAssertFalse(merged.xml.contains("srcEnable=\"audio\""))
+        let foreground = try document.nodes(forXPath: "//asset-clip[not(@srcEnable)]")
+        XCTAssertEqual(foreground.count, 1)
+        XCTAssertEqual(try (foreground.first as? XMLElement)?.attribute(forName: "audioRole")?.stringValue, "dialogue")
+    }
+
     func testExactTimingMediaReferencesAndLayerOrder() throws {
         let project = try fixture(rate: FrameRate(24000, 1001))
         let result = try FCPXMLExporter.export(project: project, projectName: "Film & \"edit\"\nOne")

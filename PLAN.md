@@ -60,8 +60,15 @@ strict qualification stays available for parity work. See [the beta guide](docs/
 - [x] Render 5.1 sequences (L R C LFE Ls Rs) with stereo placed front left/right
   and mono centre by default; preview monitors a stereo downmix. Verified with
   per-channel levels on rendered files.
-- [ ] Distribution signing/notarization (needs a Developer ID) and
-  in-app stream-copy export.
+- [x] Distribution: `scripts/release-sign-notarize.sh` signs with Developer ID
+  (sandbox, hardened runtime, timestamped helpers), notarizes, staples and zips.
+  The 0.9 build was accepted by the notary service and Gatekeeper reports
+  "Notarized Developer ID". The signed sandboxed build passes real-window
+  acceptance with bundled-FFmpeg fixtures (conversion, proxies, exports).
+- [x] Interchange: DaVinci Resolve 21 imports FCPXML and OTIO exports with exact
+  clip frames, source offsets and layering; FCPXML now writes linked picture and
+  sound as one A/V clip (Resolve ignores srcEnable). Final Cut import unverified.
+- [ ] In-app stream-copy export (post-beta).
 
 ## Earlier priority: usable timeline preview (2026-10-14)
 
@@ -724,7 +731,9 @@ remaining signed/native playback checks.
 - [x] Verify decoded CFR frame identities/timestamps, stereo channel routes/sample
       counts and MOV timecode packets at 24, 24000/1001, 30000/1001 DF and
       60000/1001 DF. Native receiver and broader source acceptance remain open.
-- [ ] Add FCPXML sequence export and validate real layered-video/audio imports.
+- [x] Add FCPXML sequence export and validate real layered-video/audio imports.
+      Verified in DaVinci Resolve 21 (scripted import, exact timing and layers);
+      Final Cut Pro import remains unverified.
 - [x] Evaluate OTIO export using its official core/validator; document its subset.
       Layered cuts/gaps pass official core read/write and timing qualification;
       receiving-editor import and spatial conform remain unqualified.

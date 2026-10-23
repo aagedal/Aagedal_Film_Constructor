@@ -107,16 +107,31 @@ public enum FCPXMLExporter {
                   "          <spine>", "            <gap name=\"Sequence bed\" offset=\"\(time(tcStart))\" start=\"0s\" duration=\"\(time(plan.duration))\">"]
         let videoTracks = project.tracks.filter { $0.kind == .video }
         let audioTracks = project.tracks.filter { $0.kind == .audio }
-        for component in plan.components {
+        // Picture and sound from the same source moment travel as one A/V asset-clip, as Final
+        // Cut writes them. Resolve ignores srcEnable, so split clips would duplicate media there.
+        var mergedAudio: Set<Int> = []
+        var pairedAudio: [Int: Int] = [:]
+        for (index, component) in plan.components.enumerated() where !component.selection.isAudio && component.selection != .still {
+            if let match = plan.components.indices.first(where: { candidate in
+                let other = plan.components[candidate]
+                return other.selection.isAudio && !mergedAudio.contains(candidate) && other.assetID == component.assetID
+                    && other.sourceRange == component.sourceRange && other.timelineRange == component.timelineRange
+            }) {
+                mergedAudio.insert(match); pairedAudio[index] = match
+            }
+        }
+        for (index, component) in plan.components.enumerated() where !mergedAudio.contains(index) {
             let asset = assets.first { $0.id == component.assetID }!
             let isAudio = component.selection.isAudio
             let lane: Int
             if isAudio { lane = -(audioTracks.firstIndex { $0.id == component.trackID }! + 1) }
             else { lane = videoTracks.count - videoTracks.firstIndex { $0.id == component.trackID }! }
-            let attributes = "ref=\"\(refs[asset.id]!)\" name=\"\(attribute(asset.name))\" lane=\"\(lane)\" offset=\"\(time(component.timelineRange.start))\" start=\"\(time(component.sourceRange.start))\" duration=\"\(time(component.sourceRange.duration))\" srcEnable=\"\(isAudio ? "audio" : "video")\""
+            let paired = pairedAudio[index] != nil
+            let enable = paired ? "" : " srcEnable=\"\(isAudio ? "audio" : "video")\""
+            let attributes = "ref=\"\(refs[asset.id]!)\" name=\"\(attribute(asset.name))\" lane=\"\(lane)\" offset=\"\(time(component.timelineRange.start))\" start=\"\(time(component.sourceRange.start))\" duration=\"\(time(component.sourceRange.duration))\"\(enable)"
             if isAudio { lines.append("              <asset-clip \(attributes) audioRole=\"dialogue\"/>") }
             else {
-                lines.append("              <asset-clip \(attributes)>")
+                lines.append("              <asset-clip \(attributes)\(paired ? " audioRole=\"dialogue\"" : "")>")
                 lines.append("                <adjust-conform type=\"\(component.scalingMode.rawValue)\"/>")
                 lines.append("              </asset-clip>")
             }
@@ -125,7 +140,7 @@ public enum FCPXMLExporter {
         return FCPXMLExportResult(xml: lines.joined(separator: "\n"), report: FCPXMLExportReport(clipCount: plan.components.count, assetCount: assets.count, notes: [
             "FCPXML 1.10 subset: original file references, exact sequence timing, layered video, and complete mono/stereo audio streams.",
             "Source raster, frame rate, orientation, pixel aspect, color metadata, and sample rate are inspected from original media by the receiving editor; mixed-rate and spatial conform equivalence have not been qualified.",
-            "Native Final Cut Pro or Resolve import has not been verified. Track families, link groups, and editor preferences are not interchange metadata."
+            "Linked picture and sound with identical timing are written as one A/V clip. DaVinci Resolve 21 imports this subset with exact timing; native Final Cut Pro import has not been verified. Track families and editor preferences are not interchange metadata."
         ]))
     }
 

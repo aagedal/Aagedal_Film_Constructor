@@ -44,7 +44,9 @@ mkdir -p "$(dirname "$DESTINATION")"
 if [[ "${CODE_SIGNING_ALLOWED:-NO}" == YES ]]; then
     : "${EXPANDED_CODE_SIGN_IDENTITY:?Xcode did not supply a helper signing identity}"
     for HELPER_NAME in ffmpeg ffprobe; do
-        /usr/bin/codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" \
+        # OTHER_CODE_SIGN_FLAGS carries --timestamp for notarized distribution builds.
+        # shellcheck disable=SC2086
+        /usr/bin/codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" ${OTHER_CODE_SIGN_FLAGS:-} \
             --options runtime --entitlements "$SRCROOT/Configuration/MediaHelper.entitlements" \
             "$DESTINATION/$HELPER_NAME"
         /usr/bin/codesign --verify --strict "$DESTINATION/$HELPER_NAME"

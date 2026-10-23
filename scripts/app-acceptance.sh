@@ -1,6 +1,8 @@
 #!/bin/bash
 # End-to-end acceptance in the real application window.
 # Usage: scripts/app-acceptance.sh "/path/to/Aagedal Film Constructor.app" media...
+# Pass the single argument "generate" to have the bundled FFmpeg create H.264/MKV and
+# ProRes fixtures inside the run (works in sandboxed, signed builds).
 # The app comes to the front for about a minute: it imports the media onto the
 # timeline (converting formats AVFoundation cannot open), overlaps a second placement,
 # applies fades and a crossfade, relinks one original, generates proxies and prefers
@@ -21,7 +23,18 @@ app="$1"; shift
 out="$(mktemp -d "${TMPDIR:-/private/tmp}/afc-acceptance.XXXXXX")"
 media="$(IFS='|'; echo "$*")"
 echo "Output: $out"
-open -n -W --env AFC_ACCEPTANCE_PANELS="${AFC_ACCEPTANCE_PANELS:-0}" --env AFC_ACCEPTANCE_DIR="$out" --env "AFC_ACCEPTANCE_MEDIA=$media" "$app" --args -ApplePersistenceIgnoreState YES
+# Sandboxed (signed) builds can't write the output folder; AFC_ACCEPTANCE_CONTAINER=1 keeps
+# files in the app container and rebuilds acceptance.json from the streamed log.
+target_dir="$out"; [[ "${AFC_ACCEPTANCE_CONTAINER:-0}" == 1 ]] && target_dir=container
+open -n -W --stderr "$out/app-stderr.log" --env AFC_ACCEPTANCE_PANELS="${AFC_ACCEPTANCE_PANELS:-0}" --env AFC_ACCEPTANCE_DIR="$target_dir" --env "AFC_ACCEPTANCE_MEDIA=$media" "$app" --args -ApplePersistenceIgnoreState YES
+if [[ "$target_dir" == container ]]; then
+  python3 - "$out" <<'PY'
+import json, sys, os
+entries = [json.loads(line.split('AFC_ACCEPTANCE ', 1)[1]) for line in open(os.path.join(sys.argv[1], 'app-stderr.log'))
+           if line.startswith('AFC_ACCEPTANCE ')]
+json.dump(entries, open(os.path.join(sys.argv[1], 'acceptance.json'), 'w'), indent=2)
+PY
+fi
 # Real system panels open (no service-failure alert) from the app's own commands.
 probe() {
   AFC_PANEL_PROBE="$1" AFC_ACCEPTANCE_MEDIA="$first_media" "$app/Contents/MacOS/Aagedal Film Constructor" \
@@ -29,7 +42,8 @@ probe() {
 }
 first_media="$1"
 probe launch
-probe export
+# The export probe places the first media file; generated fixtures exist only inside the run.
+[[ "$first_media" == generate ]] || probe export
 python3 - "$out/acceptance.json" <<'PY'
 import json, sys
 steps = {}
@@ -43,7 +57,7 @@ checks = [
     ('media imported without errors', imp.get('finished') and not imp.get('error') and imp.get('clips', 0) > 0),
     ('overlapping placement created sibling tracks', edit.get('overlappingTracks')),
     ('audio fades and a linked crossfade applied', edit.get('fades') and edit.get('crossfade')),
-    ('source audio changed to other streams of a multitrack original', edit.get('sourceAudioChanged')),
+    ('source audio changed to other streams of a multitrack original', edit.get('sourceAudioChanged') or (not edit.get('multitrackAvailable') and 'skip')),
     ('media relinked to a moved copy', edit.get('relinked')),
     ('proxies generated and Prefer Proxy active', edit.get('proxiesReady', 0) > 0 and edit.get('representation') == 'proxy'),
     ('remapped Play / Pause shortcut works and was restored', shortcut.get('remapped') and shortcut.get('plays') and shortcut.get('pauses') and shortcut.get('restored')),
@@ -60,10 +74,14 @@ import os
 for name, label in [('launch', 'Import panel opens as a real system panel'), ('export', 'Return in Render Sequence opens the real folder panel')]:
     path = os.path.join(os.path.dirname(sys.argv[1]), f'panel-{name}.log')
     text = open(path).read() if os.path.exists(path) else ''
+    if name == 'export' and not os.path.exists(path):
+        checks.append((label, 'skip')); continue
     checks.append((label, 'modal=NSOpenPanel' in text and 'alert=false' in text))
-for label, ok in checks: print(('PASS ' if ok else 'FAIL ') + label)
+for label, ok in checks: print(('SKIP ' if ok == 'skip' else 'PASS ' if ok else 'FAIL ') + label)
 # The system file-panel service refuses unsigned builds in some sessions; the run then
 # completes the same export/save calls without the panel and says so here.
+gen = one('generate')
+if gen: print(f"     generated fixtures: {gen.get('files')} · sandboxed: {gen.get('sandboxed')}")
 print("     key dispatch: " + ", ".join(sorted(set(p.split(' ')[0] for p in done.get('dispatch', [])))))
 print(f"     folder panel: {ui.get('folderPanel', 'not reached')}; save panel: {save.get('savePanel', 'not reached')}")
 for warning in (steps.get('export') or [{}])[0].get('warnings', []): print('     warning: ' + warning)
