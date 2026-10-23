@@ -66,14 +66,18 @@ public enum RenderOutputFormat: String, CaseIterable, Codable, Sendable, Identif
 public enum FFmpegRenderCompiler {
     /// Source qualification must be performed by the caller: the canonical plan
     /// does not carry pixel aspect, rotation, color or variable-frame-rate metadata.
-    public static let qualificationLimitations = "Video is conformed to the sequence frame rate and audio to the sequence sample rate. Rotation is applied. Non-square pixels are corrected to square. HDR sources are converted without tone mapping. PNG/JPEG stills use only the first decoded frame."
+    public static let qualificationLimitations = "Video is conformed to the sequence frame rate and audio to the sequence sample rate. Rotation is applied. Non-square pixels are corrected to square. HDR sources are tone mapped to SDR Rec. 709. PNG/JPEG stills use only the first decoded frame."
 
     /// Explicit prototype subset: frame-aligned video/stills, sample-aligned audio,
     /// zero stream offsets, mono/stereo output, originals.
     /// Video is conformed on the sequence grid with FFmpeg fps round=near before trim.
     /// Source geometry/color metadata and VFR mappings are not yet qualified.
+    /// `toneMappedSources` maps HDR originals to their display rotation in degrees (FFprobe
+    /// display-matrix convention). Their picture is decoded with VideoToolbox, converted to
+    /// SDR Rec. 709 (tone mapped) and rotated explicitly, since hardware frames skip autorotation.
     public static func compile(_ plan: TimelineRenderPlan, outputURL: URL,
-                               format: RenderOutputFormat = .proRes422HQ) throws -> FFmpegRenderCommand {
+                               format: RenderOutputFormat = .proRes422HQ,
+                               toneMappedSources: [URL: Int] = [:]) throws -> FFmpegRenderCommand {
         try plan.settings.validate()
         guard outputURL.isFileURL, outputURL.pathExtension.lowercased() == format.fileExtension else {
             throw EditorCoreError.invalidModel("Export requires a local \(format.fileExtension.uppercased()) destination")
@@ -115,11 +119,12 @@ public enum FFmpegRenderCompiler {
                   component.gain.isFinite, component.gain >= 0 else {
                 throw EditorCoreError.invalidModel("Invalid render component")
             }
-            func input(_ stream: Int, kind: MediaStreamKind) throws -> String {
+            func input(_ stream: Int, kind: MediaStreamKind, hardwareDecode: Bool = false) throws -> String {
                 guard component.sourceStreams.contains(where: { $0.index == stream && $0.kind == kind }) else {
                     throw EditorCoreError.invalidModel("Missing source stream")
                 }
                 inputs.append(RenderSourceInput(url: url, streamIndex: stream, kind: kind))
+                if hardwareDecode { arguments += ["-noautorotate", "-hwaccel", "videotoolbox", "-hwaccel_output_format", "videotoolbox_vld"] }
                 arguments += ["-i", url.path]
                 defer { inputIndex += 1 }
                 return "[\(inputIndex):\(stream)]"
@@ -164,13 +169,27 @@ public enum FFmpegRenderCompiler {
                     timing = "trim=end_frame=1,loop=loop=\(count - 1):size=1:start=0,settb=expr=\(settings.frameRate.value.denominator)/\(settings.frameRate.value.numerator),setpts=N+\(placement)"
                 } else {
                     guard case .video(let stream) = component.selection else { throw EditorCoreError.invalidModel("Invalid visual selection") }
-                    source = try input(stream, kind: .video)
+                    let rotation = toneMappedSources[url]
+                    source = try input(stream, kind: .video, hardwareDecode: rotation != nil)
+                    // VideoToolbox converts HDR (PQ/HLG, BT.2020) to SDR BT.709 with tone mapping.
+                    var sdr = ""
+                    if let rotation {
+                        let turn: String
+                        switch ((rotation % 360) + 360) % 360 {
+                        case 270: turn = "transpose=clock,"
+                        case 90: turn = "transpose=cclock,"
+                        case 180: turn = "hflip,vflip,"
+                        default: turn = ""
+                        }
+                        sdr = "scale_vt=color_matrix=bt709:color_primaries=bt709:color_transfer=bt709,hwdownload,format=p010le,"
+                            + turn + "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709,"
+                    }
                     let offset = component.sourceStreams.first { $0.index == stream && $0.kind == .video }?.timeOffset ?? .zero
                     // A stream beginning after (or before) asset zero keeps its asset-time position;
                     // fps pads or drops from zero so trim frame numbers remain asset frames.
                     let origin = offset == .zero ? "setpts=PTS-STARTPTS,fps=\(rate):round=near"
                         : "setpts=PTS-STARTPTS+(\(offset.numerator)/\(offset.denominator))/TB,fps=\(rate):round=near:start_time=0"
-                    timing = "\(origin),trim=start_frame=\(start):end_frame=\(end),setpts=PTS-STARTPTS+\(placement)"
+                    timing = "\(sdr)\(origin),trim=start_frame=\(start):end_frame=\(end),setpts=PTS-STARTPTS+\(placement)"
                 }
                 // Full-range movies (screen recordings, some cameras) are normalized to video range
                 // so overlays and encoders receive one consistent range.
@@ -213,10 +232,12 @@ public enum FFmpegRenderCompiler {
                 }
             }
         }
-        graph.append("[\(videoLabel)]trim=end_frame=\(frames)[video]")
+        graph.append("[\(videoLabel)]trim=end_frame=\(frames),setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv[video]")
         graph.append(audioLabels.map { "[\($0)]" }.joined() + "amix=inputs=\(audioLabels.count):normalize=0,atrim=end_sample=\(samples)[audio]")
         let filterGraph = graph.joined(separator: ";")
-        arguments += ["-filter_complex", filterGraph, "-map", "[video]", "-map", "[audio]", "-r", rate, "-fps_mode", "cfr"] + format.encoderArguments + ["-ar", String(settings.audioSampleRate), "-ac", String(settings.audioLayout.channels.count), "-video_track_timescale", String(settings.frameRate.value.numerator), "-timecode", try settings.startTimecode.formatted(rate: settings.frameRate), outputURL.path]
+        arguments += ["-filter_complex", filterGraph, "-map", "[video]", "-map", "[audio]", "-r", rate, "-fps_mode", "cfr"] + format.encoderArguments
+            // Sequences are SDR Rec. 709; tag every output so players apply the right matrix.
+            + ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-ar", String(settings.audioSampleRate), "-ac", String(settings.audioLayout.channels.count), "-video_track_timescale", String(settings.frameRate.value.numerator), "-timecode", try settings.startTimecode.formatted(rate: settings.frameRate), outputURL.path]
         return FFmpegRenderCommand(inputs: inputs, arguments: arguments, filterGraph: filterGraph, videoFrames: frames, audioSamples: samples)
     }
     /// aeval's n begins at zero after trim, before timeline delay. The rational

@@ -165,3 +165,24 @@ private func stillExportProject(url: URL) throws -> Project {
         #expect(throws: (any Error).self) { try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: output) }
     }
 }
+
+@Test func compilerToneMapsHDRSourcesWithExplicitRotation() throws {
+    let template = TrackTemplate(kind: .video)
+    let family = TrackFamily(baseName: "Video", template: template)
+    let url = URL(fileURLWithPath: "/private/tmp/hdr-phone.mov")
+    let asset = MediaAsset(name: "HDR", originalURL: url, duration: try RationalTime(2), streams: [MediaStream(index: 0, kind: .video)])
+    let clip = TimelineClip(assetID: asset.id, sourceRange: try TimeRange(start: .zero, duration: RationalTime(1)), selection: .video(streamIndex: 0))
+    let project = Project(settings: try SequenceSettings(frameRate: FrameRate(25)), assets: [asset], families: [family],
+                          tracks: [TimelineTrack(familyID: family.id, template: template, clips: [clip])])
+    let plan = try TimelineRenderPlan(project: project)
+    let output = URL(fileURLWithPath: "/private/tmp/hdr-out.mp4")
+    let plain = try FFmpegRenderCompiler.compile(plan, outputURL: output, format: .h264)
+    #expect(!plain.arguments.contains("-hwaccel") && !plain.filterGraph.contains("scale_vt"))
+    #expect(plain.filterGraph.contains("setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv[video]"))
+    let mapped = try FFmpegRenderCompiler.compile(plan, outputURL: output, format: .h264, toneMappedSources: [url: -90])
+    // Hardware frames skip autorotation, so the -90° display matrix becomes an explicit clockwise turn.
+    #expect(mapped.arguments.starts(with: ["-hide_banner", "-nostdin", "-n", "-noautorotate", "-hwaccel", "videotoolbox"]))
+    #expect(mapped.filterGraph.contains("scale_vt=color_matrix=bt709:color_primaries=bt709:color_transfer=bt709,hwdownload,format=p010le,transpose=clock,"))
+    let upright = try FFmpegRenderCompiler.compile(plan, outputURL: output, format: .h264, toneMappedSources: [url: 0])
+    #expect(upright.filterGraph.contains("format=p010le,setparams") && !upright.filterGraph.contains("transpose"))
+}

@@ -63,7 +63,7 @@ actor SequenceExportService {
         defer { scoped.forEach { $0.stopAccessingSecurityScopedResource() } }
         let probeURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(options.format.fileExtension)
         let command = try FFmpegRenderCompiler.compile(plan, outputURL: probeURL, format: options.format)
-        return try await Self.preflight(plan: plan, command: command, ffprobe: ffprobeURL, strict: options.strictQualification)
+        return try await Self.preflight(plan: plan, command: command, ffprobe: ffprobeURL, strict: options.strictQualification).warnings
     }
     func export(plan: TimelineRenderPlan, to outputURL: URL, options: SequenceExportOptions = .init(),
                 progress: @escaping @Sendable (SequenceExportProgress) -> Void = { _ in }) async throws -> SequenceExportResult {
@@ -92,9 +92,12 @@ actor SequenceExportService {
         try FileManager.default.createDirectory(at: stageDirectory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         defer { try? FileManager.default.removeItem(at: stageDirectory) }
         let staged = stageDirectory.appendingPathComponent("render." + format.fileExtension)
-        let command = try FFmpegRenderCompiler.compile(plan, outputURL: staged, format: format)
+        var command = try FFmpegRenderCompiler.compile(plan, outputURL: staged, format: format)
         progress(.init(fraction: 0, renderedSeconds: 0, stage: "Checking sources"))
-        let warnings = try await preflight(plan: plan, command: command, ffprobe: ffprobe, strict: options.strictQualification)
+        let (warnings, hdrSources) = try await preflight(plan: plan, command: command, ffprobe: ffprobe, strict: options.strictQualification)
+        if !hdrSources.isEmpty {
+            command = try FFmpegRenderCompiler.compile(plan, outputURL: staged, format: format, toneMappedSources: hdrSources)
+        }
         let duration = Double(command.videoFrames) / plan.settings.frameRate.value.seconds
         var arguments = command.arguments
         arguments.insert(contentsOf: ["-progress", "pipe:1", "-nostats"], at: 0)
@@ -117,8 +120,10 @@ actor SequenceExportService {
         progress(.init(fraction: 1, renderedSeconds: duration, stage: "Complete"))
         return .init(outputURL: output, videoFrames: command.videoFrames, audioSamples: command.audioSamples, warnings: warnings)
     }
-    @concurrent private static func preflight(plan: TimelineRenderPlan, command: FFmpegRenderCommand, ffprobe: URL, strict: Bool) async throws -> [String] {
+    @concurrent private static func preflight(plan: TimelineRenderPlan, command: FFmpegRenderCommand, ffprobe: URL,
+                                              strict: Bool) async throws -> (warnings: [String], hdrSources: [URL: Int]) {
         var warnings: [String] = []
+        var hdrSources: [URL: Int] = [:]
         for url in Set(command.inputs.map(\.url)).sorted(by: { $0.path < $1.path }) {
             try Task.checkCancellation()
             let data = try await ExportProcess.run(executable: ffprobe, arguments: ["-v", "error", "-show_streams", "-of", "json", url.path], timeout: 30)
@@ -191,7 +196,10 @@ actor SequenceExportService {
                     let transfer = stream["color_transfer"] as? String ?? "unknown"
                     let primaries = stream["color_primaries"] as? String ?? "unknown"
                     if ["smpte2084", "arib-std-b67", "bt2020-10", "bt2020-12"].contains(transfer) || primaries == "bt2020" {
-                        try qualify("HDR/wide-gamut sources are not qualified.", warning: "HDR or wide-gamut picture is rendered without tone mapping; colors may look flat.")
+                        try qualify("HDR/wide-gamut sources are not qualified.", warning: "HDR picture is tone mapped to SDR (Rec. 709).")
+                        if components.contains(where: { $0.selection != .still }) {
+                            hdrSources[url] = Int(sides.compactMap { numeric($0["rotation"]) }.first(where: { $0 != 0 }) ?? -rotation)
+                        }
                     }
                     if strict, components.contains(where: { $0.selection != .still }) {
                         guard let average = rational(stream["avg_frame_rate"]), let nominal = rational(stream["r_frame_rate"]),
@@ -224,7 +232,7 @@ actor SequenceExportService {
                 }
             }
         }
-        return warnings
+        return (warnings, hdrSources)
     }
     /// Full selected-stream scan, never a sampling claim. Output, elapsed time and frame
     /// count are bounded; larger/slow sources refuse qualification instead of guessing CFR.

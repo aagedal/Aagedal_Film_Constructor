@@ -65,9 +65,10 @@ timecode. Edit points that fall between frames or samples snap to the nearest on
 before the file appears. Picture is conformed to the sequence frame rate and audio
 is resampled to the sequence rate. Rotation and non-square pixels are corrected.
 
-The export window lists any approximations before you export. Currently that is
-HDR material converted without tone mapping (colors can look flat) and variable
-frame rate conformed to the sequence rate. **Strict source qualification** turns
+HDR sources (HLG and PQ, such as iPhone video) are tone mapped to SDR Rec. 709
+with VideoToolbox. Every export is tagged Rec. 709. The export window lists these
+conversions before you export, along with variable frame rate being conformed to
+the sequence rate. **Strict source qualification** turns
 these warnings into refusals, for when exact decoded parity matters more than
 convenience.
 
@@ -88,7 +89,8 @@ notice appears under the viewer, but playback continues:
 
 - Effects, titles, transitions other than audio crossfades, keyframes and a mixer
   are not part of this version.
-- No HDR export or tone mapping. HDR sources export as SDR without tone mapping.
+- No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
+  as macOS displays them.
 - Mono and stereo sequence output only. A 5.1 setting is saved but can't be
   previewed or exported.
 - Reverse sequence playback is unavailable. J plays the source backwards silently.

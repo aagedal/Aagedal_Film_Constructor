@@ -52,7 +52,9 @@ strict qualification stays available for parity work. See [the beta guide](docs/
   measured 2.1–2.6 s for both this beta and the pre-beta commit that day, versus
   1.15–1.26 s in earlier evidence; first launch after install therefore exceeds the
   target on this machine. Re-measure first launch with a signed, notarized build.
-- [ ] HDR tone mapping, 5.1 output, distribution signing/notarization and
+- [x] Tone map HDR (HLG/PQ) sources to SDR Rec. 709 with VideoToolbox, with explicit
+  rotation, and tag every export Rec. 709; verified on iPhone HLG and PQ samples.
+- [ ] 5.1 output, distribution signing/notarization and
   in-app stream-copy export.
 
 ## Earlier priority: usable timeline preview (2026-10-14)
