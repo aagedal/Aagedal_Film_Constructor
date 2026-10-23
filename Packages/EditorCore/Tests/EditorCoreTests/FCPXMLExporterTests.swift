@@ -49,6 +49,16 @@ final class FCPXMLExporterTests: XCTestCase {
         XCTAssertEqual(try (foreground.first as? XMLElement)?.attribute(forName: "audioRole")?.stringValue, "dialogue")
     }
 
+    func testSequenceFormatUsesFinalCutNamesForStandardRasters() throws {
+        XCTAssertEqual(FCPXMLExporter.formatName(try SequenceSettings(frameRate: FrameRate(25))), "FFVideoFormat1080p25")
+        XCTAssertEqual(FCPXMLExporter.formatName(try SequenceSettings(frameRate: FrameRate(24000, 1001))), "FFVideoFormat1080p2398")
+        XCTAssertEqual(FCPXMLExporter.formatName(try SequenceSettings(width: 3840, height: 2160, frameRate: FrameRate(60000, 1001))), "FFVideoFormat3840x2160p5994")
+        XCTAssertEqual(FCPXMLExporter.formatName(try SequenceSettings(width: 1280, height: 720, frameRate: FrameRate(50))), "FFVideoFormat720p50")
+        XCTAssertNil(FCPXMLExporter.formatName(try SequenceSettings(width: 1080, height: 1920, frameRate: FrameRate(30))))
+        XCTAssertNil(FCPXMLExporter.formatName(try SequenceSettings(frameRate: FrameRate(48))))
+        XCTAssertTrue(try FCPXMLExporter.export(project: fixture(rate: FrameRate(25))).xml.contains("name=\"FFVideoFormat1080p25\" frameDuration=\"1/25s\" width=\"1920\" height=\"1080\" colorSpace=\"1-1-1 (Rec. 709)\""))
+    }
+
     func testSourceTimecodeOriginOffsetsAssetAndClipStarts() throws {
         var project = try fixture(rate: FrameRate(25))
         project.assets[0].sourceTimecodeStart = try RationalTime(3600)  // 01:00:00:00

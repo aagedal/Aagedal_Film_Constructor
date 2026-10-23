@@ -90,7 +90,7 @@ public enum FCPXMLExporter {
 
         let refs = Dictionary(uniqueKeysWithValues: assets.enumerated().map { ($0.element.id, "r\($0.offset + 2)") })
         var lines = ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>", "<!DOCTYPE fcpxml>", "<fcpxml version=\"1.10\">", "  <resources>",
-                     "    <format id=\"r1\" frameDuration=\"\(time(frameDuration))\" width=\"\(settings.width)\" height=\"\(settings.height)\"/>"]
+                     "    <format id=\"r1\"\(formatName(settings).map { " name=\"\($0)\"" } ?? "") frameDuration=\"\(time(frameDuration))\" width=\"\(settings.width)\" height=\"\(settings.height)\" colorSpace=\"1-1-1 (Rec. 709)\"/>"]
         for asset in assets {
             let hasVideo = asset.streams.contains { $0.kind == .video }
             let audio = asset.streams.filter { $0.kind == .audio }
@@ -152,6 +152,29 @@ public enum FCPXMLExporter {
         ]))
     }
 
+    /// Final Cut's named progressive SDR formats (from Final Cut Pro 11's format registry).
+    /// Final Cut warns on an unnamed sequence format; other rasters stay custom formats.
+    private static let finalCutRasters: [String: Set<String>] = {
+        let all = ["2398", "24", "25", "2997", "30", "50", "5994", "60"]
+        let film = ["2398", "24", "2997", "30", "5994", "60"]
+        var table: [String: Set<String>] = [:]
+        for raster in ["1080", "720", "1440x1080", "2048x1024", "2048x1080", "2048x1152", "2048x1536", "2048x1556",
+                       "3840x2160", "4096x2048", "4096x2160", "4096x2304", "4096x3112", "5120x2160", "5120x2560",
+                       "5120x2700", "5760x2880", "7680x3840", "7680x4320", "8192x4320", "960x720"] { table[raster] = Set(all) }
+        table["1280x1080"] = Set(film)
+        for raster in ["640x480", "960x540"] { table[raster] = ["2398", "24", "25", "2997", "30"] }
+        return table
+    }()
+    static func formatName(_ settings: SequenceSettings) -> String? {
+        let rates: [RationalTime: String] = [try! RationalTime(24000, 1001): "2398", try! RationalTime(24): "24", try! RationalTime(25): "25",
+            try! RationalTime(30000, 1001): "2997", try! RationalTime(30): "30", try! RationalTime(50): "50",
+            try! RationalTime(60000, 1001): "5994", try! RationalTime(60): "60"]
+        guard let token = rates[settings.frameRate.value] else { return nil }
+        let raster = settings.width == 1920 && settings.height == 1080 ? "1080"
+            : settings.width == 1280 && settings.height == 720 ? "720" : "\(settings.width)x\(settings.height)"
+        guard finalCutRasters[raster]?.contains(token) == true else { return nil }
+        return "FFVideoFormat\(raster)p\(token)"
+    }
     /// 1-based channel numbers across the asset's audio streams in stream order, as FCPXML
     /// srcCh counts them; nil if a channel is missing. Whole single-stream identity needs no list.
     static func channelNumbers(_ selection: AudioSourceSelection, asset: MediaAsset) -> [Int]? {
