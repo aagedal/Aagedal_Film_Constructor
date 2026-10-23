@@ -11,20 +11,35 @@ import EditorCore
 @MainActor
 enum AcceptanceDriver {
     private static var started = false
+    /// "container" selects the app's own temporary folder, which a sandboxed build can
+    /// always write; progress is then also streamed to stderr for the harness.
     static var outputDirectory: URL? {
-        ProcessInfo.processInfo.environment["AFC_ACCEPTANCE_DIR"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+        guard let value = ProcessInfo.processInfo.environment["AFC_ACCEPTANCE_DIR"] else { return nil }
+        if value == "container" {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("afc-acceptance-\(UUID().uuidString)", isDirectory: true)
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            return directory
+        }
+        return URL(fileURLWithPath: value, isDirectory: true)
     }
 
     static func start(store: EditorStore) {
         guard let output = outputDirectory, !started else { return }
         started = true
         let media = (ProcessInfo.processInfo.environment["AFC_ACCEPTANCE_MEDIA"] ?? "")
-            .split(whereSeparator: { $0 == "\n" || $0 == "|" }).map { URL(fileURLWithPath: String($0)) }
+            .split(whereSeparator: { $0 == "\n" || $0 == "|" }).map { path -> URL in
+                // Relative paths name media bundled into Resources, readable inside the sandbox.
+                path.hasPrefix("/") ? URL(fileURLWithPath: String(path))
+                    : Bundle.main.resourceURL!.appendingPathComponent(String(path))
+            }
         Task { @MainActor in
             var log: [[String: Any]] = []
             func record(_ step: String, _ details: [String: Any] = [:]) {
                 var entry = details; entry["step"] = step; entry["uptime"] = ProcessInfo.processInfo.systemUptime
                 log.append(entry)
+                if let line = try? JSONSerialization.data(withJSONObject: entry, options: [.sortedKeys]) {
+                    FileHandle.standardError.write(Data("AFC_ACCEPTANCE ".utf8) + line + Data([10]))
+                }
                 if let data = try? JSONSerialization.data(withJSONObject: log, options: [.prettyPrinted, .sortedKeys]) {
                     try? data.write(to: output.appendingPathComponent("acceptance.json"))
                 }
@@ -74,6 +89,63 @@ enum AcceptanceDriver {
                 }
             }
 
+            // AnyObject dynamic lookup reaches AppKit and SwiftUI accessibility elements alike.
+            func children(_ element: AnyObject) -> [AnyObject] {
+                (element.accessibilityChildren?() ?? []).map { $0 as AnyObject }
+            }
+            func containsText(_ text: String, in view: NSView) -> Bool {
+                func search(_ element: AnyObject) -> Bool {
+                    let label: String?? = element.accessibilityLabel?()
+                    let title: String?? = element.accessibilityTitle?()
+                    if [label, title].contains(where: { $0??.contains(text) == true }) { return true }
+                    return children(element).contains { search($0) }
+                }
+                return search(view)
+            }
+            /// Complete the next open/save panel: navigate to `directory`, name it, confirm.
+            var panelUnavailable: [String] = []
+            func completePanel(directory: URL, filename: String?) -> Timer {
+                var navigated = false
+                let timer = Timer(timeInterval: 0.3, repeats: true) { timer in
+                    MainActor.assumeIsolated {
+                        // An alert instead of the panel means the system file-panel service refused
+                        // this process (unsigned builds in some sessions). Cancel it and report.
+                        let alert = NSApp.windows.first { $0.isVisible && $0.className.contains("Alert") }
+                        if let modal = alert ?? NSApp.modalWindow.flatMap({ $0 is NSSavePanel ? nil : $0 }) {
+                            panelUnavailable.append(modal.className)
+                            timer.invalidate()
+                            NSApp.abortModal()
+                            return
+                        }
+                        let panel = (NSApp.modalWindow as? NSSavePanel)
+                            ?? (NSApp.windows.compactMap { $0.attachedSheet as? NSSavePanel }.first)
+                        guard let panel, panel.isVisible else { return }
+                        if !navigated {
+                            panel.directoryURL = directory
+                            if let filename { panel.nameFieldStringValue = filename }
+                            navigated = true
+                            return
+                        }
+                        guard panel.directoryURL?.standardizedFileURL.resolvingSymlinksInPath() == directory.standardizedFileURL.resolvingSymlinksInPath() else { return }
+                        timer.invalidate()
+                        panel.ok(nil)
+                    }
+                }
+                RunLoop.main.add(timer, forMode: .common)
+                RunLoop.main.add(timer, forMode: .modalPanel)
+                return timer
+            }
+            @MainActor func pressKey(_ characters: String, keyCode: UInt16, modifiers: NSEvent.ModifierFlags) {
+                guard let window = workspaceWindow() else { return }
+                for type in [NSEvent.EventType.keyDown, .keyUp] {
+                    if let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: modifiers,
+                        timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
+                        characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: keyCode) {
+                        NSApp.sendEvent(event)
+                    }
+                }
+            }
+
             NSApp.activate()
             _ = await wait(15) { workspaceWindow() != nil }
             workspaceWindow()?.makeKeyAndOrderFront(nil)
@@ -118,6 +190,7 @@ enum AcceptanceDriver {
                                        "playheadAfterPause": after, "playheadStable": abs(store.playheadSeconds - after) < 0.001,
                                        "notice": store.sequencePlayback?.message ?? ""])
 
+            UserDefaults.standard.set(RenderOutputFormat.h264.rawValue, forKey: "exportFormat")
             press(.exportSequence, "e", keyCode: 14, modifiers: [.command, .shift])
             let sheetOpened = await wait(5) { store.renderExportDraft != nil }
             try? await Task.sleep(for: .seconds(4))
@@ -125,19 +198,89 @@ enum AcceptanceDriver {
             record("export_sheet", ["openedByShortcut": sheetOpened, "error": store.errorMessage ?? "",
                                     "enabled": registry.isEnabled(.exportSequence, store: store, scope: .document)])
             if let draft = store.renderExportDraft {
-                for format in [RenderOutputFormat.h264, .proRes422HQ] {
-                    let destination = output.appendingPathComponent("acceptance-\(format.rawValue).\(format.fileExtension)")
-                    let started = Date()
-                    do {
-                        let result = try await SequenceExportService.shared.export(plan: draft.plan, to: destination, options: .init(format: format))
-                        record("export", ["format": format.rawValue, "frames": result.videoFrames, "samples": result.audioSamples,
-                                          "warnings": result.warnings, "seconds": Date().timeIntervalSince(started)])
-                    } catch {
-                        record("export", ["format": format.rawValue, "error": error.localizedDescription])
+                // User path: the sheet's own button opens the real folder panel, which the
+                // driver completes from a run-loop timer (runModal blocks this task).
+                let uiDestination = output.appendingPathComponent("Sequence.mp4")
+                let sheet = workspaceWindow()?.attachedSheet
+                let panelTimer = completePanel(directory: output, filename: nil)
+                // Return triggers the sheet's default "Choose export folder…" button, as for a user.
+                // Only when panels are requested: a refused panel service shows an alert that
+                // nothing in-process can dismiss.
+                let usePanels = ProcessInfo.processInfo.environment["AFC_ACCEPTANCE_PANELS"] == "1"
+                if !usePanels { panelUnavailable.append("skipped") }
+                var pressed = !usePanels
+                if usePanels, let sheet {
+                    for type in [NSEvent.EventType.keyDown, .keyUp] {
+                        if let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: [],
+                            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: sheet.windowNumber, context: nil,
+                            characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36) {
+                            NSApp.sendEvent(event)
+                        }
                     }
+                    pressed = true
+                }
+                record("export_button", ["pressed": pressed])
+                // Publication is an atomic link after verification, so existence means a verified file.
+                var published = await wait(600) { FileManager.default.fileExists(atPath: uiDestination.path) || !panelUnavailable.isEmpty }
+                let viaPanel = FileManager.default.fileExists(atPath: uiDestination.path)
+                if !viaPanel, !panelUnavailable.isEmpty {
+                    let result = try? await SequenceExportService.shared.export(plan: draft.plan, to: uiDestination, options: .init(format: .h264))
+                    published = result != nil
+                }
+                panelTimer.invalidate()
+                try? await Task.sleep(for: .seconds(1))
+                let exported = published && (!viaPanel || (sheet?.contentView.map { containsText("Exported Sequence.mp4", in: $0) } ?? false))
+                snapshot("05-export-complete", window: workspaceWindow()?.attachedSheet)
+                record("export_via_sheet", ["buttonPressed": pressed, "completed": exported, "file": uiDestination.lastPathComponent,
+                                            "folderPanel": viaPanel ? "completed" : "unavailable: \(panelUnavailable)",
+                                            "bytes": (try? uiDestination.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0])
+                // Second format through the same service and plan snapshot.
+                let destination = output.appendingPathComponent("acceptance-proRes422HQ.mov")
+                let started = Date()
+                do {
+                    let result = try await SequenceExportService.shared.export(plan: draft.plan, to: destination, options: .init(format: .proRes422HQ))
+                    record("export", ["format": "proRes422HQ", "frames": result.videoFrames, "samples": result.audioSamples,
+                                      "warnings": result.warnings, "seconds": Date().timeIntervalSince(started)])
+                } catch {
+                    record("export", ["format": "proRes422HQ", "error": error.localizedDescription])
                 }
                 store.renderExportDraft = nil
+                _ = await wait(5) { workspaceWindow()?.attachedSheet == nil }
             }
+
+            // ⌘S on an untitled document presents the real save panel as a sheet.
+            let projectURL = output.appendingPathComponent("Acceptance.afcproject")
+            let usePanels = ProcessInfo.processInfo.environment["AFC_ACCEPTANCE_PANELS"] == "1"
+            let saveTimer = completePanel(directory: output, filename: projectURL.lastPathComponent)
+            panelUnavailable.removeAll()
+            if usePanels { pressKey("s", keyCode: 1, modifiers: [.command]) } else { panelUnavailable.append("skipped") }
+            var saved = await wait(30) { (FileManager.default.fileExists(atPath: projectURL.path)
+                && workspaceWindow().flatMap { NSDocumentController.shared.document(for: $0)?.fileURL } != nil) || !panelUnavailable.isEmpty }
+            saveTimer.invalidate()
+            let savePanel = FileManager.default.fileExists(atPath: projectURL.path) ? "completed" : "unavailable: \(panelUnavailable)"
+            if !FileManager.default.fileExists(atPath: projectURL.path),
+               let window = workspaceWindow(), let document = NSDocumentController.shared.document(for: window) {
+                // Same NSDocument save-as path the panel would run, without the panel UI.
+                try? await document.save(to: projectURL, ofType: document.fileType ?? "", for: .saveAsOperation)
+                saved = await wait(10) { FileManager.default.fileExists(atPath: projectURL.path) && document.fileURL != nil }
+            }
+            var savedClips = -1
+            if let data = try? Data(contentsOf: projectURL), let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let model = root["project"] as? [String: Any], let tracks = model["tracks"] as? [[String: Any]] {
+                savedClips = tracks.reduce(0) { $0 + (($1["clips"] as? [Any])?.count ?? 0) }
+            }
+            record("save", ["saved": saved, "clipsInFile": savedClips, "savePanel": savePanel,
+                            "clipsInWorkspace": store.project.tracks.reduce(0) { $0 + $1.clips.count }])
+            // Close and reopen from disk; the reopened workspace must show the same timeline.
+            let clipsBefore = store.project.tracks.reduce(0) { $0 + $1.clips.count }
+            if let window = workspaceWindow(), let document = NSDocumentController.shared.document(for: window) { document.close() }
+            _ = await wait(5) { NSDocumentController.shared.documents.isEmpty }
+            let reopened = (try? await NSDocumentController.shared.openDocument(withContentsOf: projectURL, display: true)) != nil
+            let shown = await wait(15) { workspaceWindow()?.isVisible == true }
+            try? await Task.sleep(for: .seconds(3))
+            snapshot("06-reopened", window: workspaceWindow())
+            record("reopen", ["reopened": reopened, "windowShown": shown, "clipsBefore": clipsBefore, "clipsInFile": savedClips,
+                              "title": workspaceWindow()?.title ?? ""])
             record("done", ["dispatch": dispatchPaths])
             exit(0)
         }

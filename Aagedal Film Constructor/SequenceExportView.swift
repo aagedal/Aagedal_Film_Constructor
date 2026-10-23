@@ -72,6 +72,8 @@ struct SequenceExportView: View {
             if exportTask == nil && completedURL == nil {
                 TextField("Filename", text: $filename)
                     .textFieldStyle(.roundedBorder)
+                    // Return in the focused filename field continues like the default button.
+                    .onSubmit { if helpers.isAvailable { startExport() } }
             }
             if !helpers.isAvailable {
                 Label(helpers.message, systemImage: "exclamationmark.triangle")

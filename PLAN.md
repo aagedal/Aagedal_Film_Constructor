@@ -41,10 +41,17 @@ strict qualification stays available for parity work. See [the beta guide](docs/
   enablement and launch text focus disabling all shortcuts, sequence playback
   stopping on its own playhead echo, and off-grid clip durations making sequences
   unexportable (render now snaps edit points to the nearest frame/sample).
-- [ ] Launch-to-interaction is 2.1–2.6 s on 2026-10-23 for both this beta and the
-  pre-beta commit (1.5–2.0 s elapse before applicationDidFinishLaunching for each
-  freshly registered unsigned probe bundle); earlier evidence was 1.15–1.26 s.
-  Re-measure on an idle machine with a signed build.
+- [x] Real-window save/reopen: the project saves through NSDocument save-as and
+  reopens with every clip and converted media linked. The system folder/save panels
+  appear but this session's panel service refuses the unsigned build (AppKit shows
+  its service-failed alert), so panel UI is opt-in (`AFC_ACCEPTANCE_PANELS=1`).
+  Return in the filename field now starts the export like the default button.
+- [x] Launch: repeated launches of one Release bundle reach the first processed
+  interaction in 1.61–1.74 s (`scripts/repeat-launch-timing.py`, 2026-10-23).
+  The isolated proof, which copies and registers a fresh unsigned bundle per run,
+  measured 2.1–2.6 s for both this beta and the pre-beta commit that day, versus
+  1.15–1.26 s in earlier evidence; first launch after install therefore exceeds the
+  target on this machine. Re-measure first launch with a signed, notarized build.
 - [ ] HDR tone mapping, 5.1 output, distribution signing/notarization and
   in-app stream-copy export.
 
