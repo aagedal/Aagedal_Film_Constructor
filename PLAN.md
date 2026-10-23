@@ -77,7 +77,8 @@ strict qualification stays available for parity work. See [the beta guide](docs/
   import unverified.
 - [x] Final Cut Pro 11 imports the FCPXML (manual check, 2026-10-24): every clip,
   A/V link, timecode start and layer order arrive intact. Its one warning (unnamed
-  sequence format) is fixed by writing Final Cut's format names; re-import pending.
+  sequence format) is fixed by writing Final Cut's format names; the re-import
+  imports without warnings and with the same timeline.
 
 Deferred past beta by decision on 2026-10-24: in-app stream-copy export and
 sample-exact preview audio (preview keeps visible approximation notices; exports
