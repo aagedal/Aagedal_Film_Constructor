@@ -148,10 +148,11 @@ with Space, and opens Render Sequence with ⇧⌘E. Finally it renders H.264 and
 ProRes 422 HQ, then saves, closes and reopens the project. It prints PASS/FAIL
 for each step and keeps window snapshots, renders and the project in the printed
 folder. Use media outside Desktop, Documents and Downloads, or macOS asks for
-folder access. Two short extra launches check that ⌘I opens the real Import panel
-and that Return in Render Sequence opens the real folder panel. The main run
-exports and saves through the same calls those panels make, because a script
-can't reliably choose a folder inside a system panel.
+folder access. Short extra launches check that ⌘I opens the real Import panel and
+that Return in Render Sequence opens the real folder panel. They also check that
+the folder panel round-trips: it navigates, confirms, returns the destination to
+the app (export starts) and cancels cleanly. The main run exports and saves
+through the same calls the panels make.
 
 ## Reporting problems
 

@@ -43,10 +43,12 @@ strict qualification stays available for parity work. See [the beta guide](docs/
   unexportable (render now snaps edit points to the nearest frame/sample).
 - [x] Real-window save/reopen: the project saves through NSDocument save-as and
   reopens with every clip and converted media linked. ⌘I opens the real Import
-  panel and Return in Render Sequence opens the real folder panel (checked by the
-  acceptance script). Scripted completion of system panels is unreliable: their
-  service-hosted modal loop doesn't run driver timers, and configuring a panel
-  while it connects makes it fail. Return in the filename field now starts the
+  panel, and Return in Render Sequence opens the real folder panel. The folder
+  panel round-trips in acceptance: one-shot modal-mode timers navigate and
+  confirm, the app receives the destination and starts exporting, and cancelling
+  through the sheet leaves nothing behind. The save sheet opens and accepts a
+  folder and name, but confirming it from a script doesn't complete, so the save
+  write path is checked through NSDocument save-as. Return in the filename field now starts the
   export like the default button.
 - [x] Launch: repeated launches of one Release bundle reach the first processed
   interaction in 1.61–1.74 s (`scripts/repeat-launch-timing.py`, 2026-10-23);

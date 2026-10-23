@@ -43,6 +43,51 @@ enum AcceptanceDriver {
                     store.sequencePlayback?.pause()
                 }
                 FileHandle.standardError.write(Data("AFC_PANEL_PROBE step=\(probe) error=\(store.errorMessage ?? "")\n".utf8))
+                if probe == "export-complete" {
+                    // Complete the real folder panel: Return opens it, one-shot timers in the panel's
+                    // modal mode navigate to a folder and confirm, then the export must appear there.
+                    store.beginRenderExport()
+                    try? await Task.sleep(for: .seconds(3))
+                    let window = NSApp.windows.first { NSDocumentController.shared.document(for: $0) != nil }
+                    guard let sheet = window?.attachedSheet else { FileHandle.standardError.write(Data("AFC_PANEL_PROBE no sheet\n".utf8)); exit(1) }
+                    let folder = URL(fileURLWithPath: ProcessInfo.processInfo.environment["AFC_PANEL_FOLDER"] ?? NSTemporaryDirectory(), isDirectory: true)
+                    func log(_ text: String) { FileHandle.standardError.write(Data("AFC_PANEL_PROBE \(text)\n".utf8)) }
+                    func once(_ delay: TimeInterval, _ body: @escaping @MainActor () -> Void) {
+                        let timer = Timer(timeInterval: delay, repeats: false) { _ in MainActor.assumeIsolated { body() } }
+                        RunLoop.main.add(timer, forMode: .modalPanel)
+                    }
+                    once(4) {
+                        guard let panel = NSApp.modalWindow as? NSOpenPanel else { log("no panel modal=\(NSApp.modalWindow?.className ?? "nil")"); exit(2) }
+                        panel.directoryURL = folder
+                        log("navigating to \(folder.path)")
+                    }
+                    var returned: URL?
+                    once(7) {
+                        guard let panel = NSApp.modalWindow as? NSOpenPanel else { log("panel gone before confirm"); exit(3) }
+                        returned = panel.url
+                        log("panel directory=\(panel.directoryURL?.path ?? "nil") url=\(panel.url?.path ?? "nil")")
+                        panel.ok(nil)
+                    }
+                    for type in [NSEvent.EventType.keyDown, .keyUp] {
+                        if let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                            windowNumber: sheet.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36) {
+                            NSApp.sendEvent(event)
+                        }
+                    }
+                    // runModal has returned once this runs. The panel returns its selected item when one is
+                    // highlighted, so the destination may differ from the navigated folder: cancel the export
+                    // through the sheet (its cleanup removes staging) and check nothing was left behind.
+                    let destination = (window?.attachedSheet != nil) ? "sheet open" : "sheet closed"
+                    log("runModal returned; \(destination)")
+                    try? await Task.sleep(for: .milliseconds(300))
+                    store.renderExportDraft = nil
+                    try? await Task.sleep(for: .seconds(3))
+                    let leftovers = returned.map { url in
+                        ((try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? []).filter { $0.hasPrefix(".afc-export-") || $0 == "Sequence.mov" }
+                    } ?? []
+                    log("export cancelled; sheet dismissed=\(window?.attachedSheet == nil) leftovers=\(leftovers.count)")
+                    exit(0)
+                }
                 if probe == "export" || probe == "export-panel" {
                     store.beginRenderExport()
                     try? await Task.sleep(for: .seconds(3))

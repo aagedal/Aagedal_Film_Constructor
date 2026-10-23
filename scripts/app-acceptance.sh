@@ -37,13 +37,13 @@ PY
 fi
 # Real system panels open (no service-failure alert) from the app's own commands.
 probe() {
-  AFC_PANEL_PROBE="$1" AFC_ACCEPTANCE_MEDIA="$first_media" "$app/Contents/MacOS/Aagedal Film Constructor" \
-    -ApplePersistenceIgnoreState YES 2>&1 | grep 'AFC_PANEL_PROBE modal' > "$out/panel-$1.log" || true
+  AFC_PANEL_PROBE="$1" AFC_PANEL_FOLDER="$out" AFC_ACCEPTANCE_MEDIA="$first_media" "$app/Contents/MacOS/Aagedal Film Constructor" \
+    -ApplePersistenceIgnoreState YES 2>&1 | grep 'AFC_PANEL_PROBE' > "$out/panel-$1.log" || true
 }
 first_media="$1"
 probe launch
 # The export probe places the first media file; generated fixtures exist only inside the run.
-[[ "$first_media" == generate ]] || probe export
+[[ "$first_media" == generate ]] || { probe export; probe export-complete; }
 python3 - "$out/acceptance.json" <<'PY'
 import json, sys
 steps = {}
@@ -71,6 +71,13 @@ checks = [
 ] + [(f"{e['format']} export verified ({e.get('frames')} frames)", 'error' not in e and e.get('frames', 0) > 0) for e in steps.get('export', [])]
 if not steps.get('export'): checks.append(('exports ran', False))
 import os
+round = os.path.join(os.path.dirname(sys.argv[1]), 'panel-export-complete.log')
+if os.path.exists(round):
+    text = open(round).read()
+    # The panel navigates, confirms and returns a destination to the app; the export is then
+    # cancelled through the sheet so nothing is written outside the run folder.
+    checks.append(('folder panel round trip: navigate, confirm, export starts, cancel cleans up',
+                   'navigating to' in text and 'runModal returned' in text and 'sheet dismissed=true leftovers=0' in text))
 for name, label in [('launch', 'Import panel opens as a real system panel'), ('export', 'Return in Render Sequence opens the real folder panel')]:
     path = os.path.join(os.path.dirname(sys.argv[1]), f'panel-{name}.log')
     text = open(path).read() if os.path.exists(path) else ''
