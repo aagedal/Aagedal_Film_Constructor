@@ -41,6 +41,10 @@ strict qualification stays available for parity work. See [the beta guide](docs/
   enablement and launch text focus disabling all shortcuts, sequence playback
   stopping on its own playhead echo, and off-grid clip durations making sequences
   unexportable (render now snaps edit points to the nearest frame/sample).
+- [ ] Launch-to-interaction is 2.1–2.6 s on 2026-10-23 for both this beta and the
+  pre-beta commit (1.5–2.0 s elapse before applicationDidFinishLaunching for each
+  freshly registered unsigned probe bundle); earlier evidence was 1.15–1.26 s.
+  Re-measure on an idle machine with a signed build.
 - [ ] HDR tone mapping, 5.1 output, distribution signing/notarization and
   in-app stream-copy export.
 
