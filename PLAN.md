@@ -75,8 +75,9 @@ strict qualification stays available for parity work. See [the beta guide](docs/
   (Resolve ignores srcEnable); references use realpath. FCPXML now expresses audio
   channel selections (audio-channel-source), which Resolve ignores. Final Cut
   import unverified.
-- [ ] Final Cut Pro import of the FCPXML: awaiting a manual check (Final Cut has no
-  scripting interface); DTD validation against Final Cut's own 1.10 DTD passes.
+- [x] Final Cut Pro 11 imports the FCPXML (manual check, 2026-10-24): every clip,
+  A/V link, timecode start and layer order arrive intact. Its one warning (unnamed
+  sequence format) is fixed by writing Final Cut's format names; re-import pending.
 
 Deferred past beta by decision on 2026-10-24: in-app stream-copy export and
 sample-exact preview audio (preview keeps visible approximation notices; exports

@@ -92,7 +92,8 @@ audio channel selections (for example dual mono, or two channels of a multitrack
 MXF) as `audio-channel-source`, which is valid FCPXML 1.10. Resolve ignores those
 selections and plays the clip's first channel, so check the audio routing after
 importing multitrack sources into Resolve. OTIO has no channel mapping and refuses
-those clips. Final Cut Pro import is unverified. See their pages for supported subsets.
+those clips. Final Cut Pro 11 imports the FCPXML with every clip, timecode start
+and layer intact. See their pages for supported subsets.
 
 ## Preview notices
 

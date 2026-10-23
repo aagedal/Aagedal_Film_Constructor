@@ -148,7 +148,7 @@ public enum FCPXMLExporter {
         return FCPXMLExportResult(xml: lines.joined(separator: "\n"), report: FCPXMLExportReport(clipCount: plan.components.count, assetCount: assets.count, notes: [
             "FCPXML 1.10 subset: original file references, exact sequence timing, layered video, and audio channel selections (audio-channel-source, channels numbered across the source's audio streams).",
             "Source raster, frame rate, orientation, pixel aspect, color metadata, and sample rate are inspected from original media by the receiving editor; mixed-rate and spatial conform equivalence have not been qualified.",
-            "Linked picture and sound with identical timing are written as one A/V clip. DaVinci Resolve 21 imports this subset with exact timing; native Final Cut Pro import has not been verified. Track families and editor preferences are not interchange metadata."
+            "Linked picture and sound with identical timing are written as one A/V clip. DaVinci Resolve 21 and Final Cut Pro 11 import this subset with exact timing. Track families and editor preferences are not interchange metadata."
         ]))
     }
 
