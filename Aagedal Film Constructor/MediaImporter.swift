@@ -107,9 +107,10 @@ enum MediaImporter {
             }
         }
         guard !streams.isEmpty else { throw MediaImportError.unsupportedMedia }
-        return ImportedMedia(asset: MediaAsset(name: displayName ?? url.lastPathComponent, originalURL: url,
-                                               duration: try RationalTime(duration.value, Int64(duration.timescale)),
-                                               streams: streams), bookmark: bookmark)
+        var asset = MediaAsset(name: displayName ?? url.lastPathComponent, originalURL: url,
+                               duration: try RationalTime(duration.value, Int64(duration.timescale)), streams: streams)
+        asset.sourceTimecodeStart = await sourceTimecodeStart(asset: source)
+        return ImportedMedia(asset: asset, bookmark: bookmark)
     }
 
     /// AVFoundation first; formats it cannot open are converted with the bundled FFmpeg.
@@ -131,6 +132,43 @@ enum MediaImporter {
                 throw error
             }
         }
+    }
+
+    /// First-frame embedded timecode as exact seconds, from a QuickTime timecode track.
+    /// Absent or unreadable timecode leaves media at zero, as before.
+    @concurrent
+    static func sourceTimecodeStart(asset: AVAsset) async -> RationalTime? {
+        guard let track = try? await asset.loadTracks(withMediaType: .timecode).first,
+              let reader = try? AVAssetReader(asset: asset) else { return nil }
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+        guard reader.canAdd(output) else { return nil }
+        reader.add(output)
+        guard reader.startReading() else { return nil }
+        defer { reader.cancelReading() }
+        // The reader can emit marker buffers without samples before the first timecode sample.
+        var first: CMSampleBuffer?
+        for _ in 0..<8 {
+            guard let buffer = output.copyNextSampleBuffer() else { break }
+            if CMSampleBufferGetNumSamples(buffer) > 0, CMSampleBufferGetDataBuffer(buffer) != nil { first = buffer; break }
+        }
+        guard let sample = first, let data = CMSampleBufferGetDataBuffer(sample),
+              let format = CMSampleBufferGetFormatDescription(sample) else { return nil }
+        let frameDuration = CMTimeCodeFormatDescriptionGetFrameDuration(format)
+        guard frameDuration.isNumeric, frameDuration.value > 0, frameDuration.timescale > 0 else { return nil }
+        let frames: Int64
+        switch CMFormatDescriptionGetMediaSubType(format) {
+        case kCMTimeCodeFormatType_TimeCode32:
+            var value: Int32 = 0
+            guard CMBlockBufferCopyDataBytes(data, atOffset: 0, dataLength: 4, destination: &value) == noErr else { return nil }
+            frames = Int64(Int32(bigEndian: value))
+        case kCMTimeCodeFormatType_TimeCode64:
+            var value: Int64 = 0
+            guard CMBlockBufferCopyDataBytes(data, atOffset: 0, dataLength: 8, destination: &value) == noErr else { return nil }
+            frames = Int64(bigEndian: value)
+        default: return nil
+        }
+        guard frames > 0 else { return nil }
+        return try? RationalTime(frames).multiplied(by: RationalTime(frameDuration.value, Int64(frameDuration.timescale)))
     }
 
     /// Read compressed sample timing rather than approximating nominalFrameRate.

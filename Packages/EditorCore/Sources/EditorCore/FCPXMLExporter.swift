@@ -69,19 +69,20 @@ public enum FCPXMLExporter {
                 }
                 if video.first?.timeOffset != .zero { reasons.append("\(label): nonzero source stream offsets are not supported.") }
             case .audio(let selection):
-                let audio = asset.streams.filter { $0.kind == .audio }
-                if let stream = audio.first, audio.count == 1, let layout = stream.audioLayout {
-                    let identity = layout.channels.indices.map { SourceChannel(streamIndex: stream.index, channelIndex: $0) }
-                    if selection.channels != identity || selection.layout != layout { reasons.append("\(label): partial, reordered, or remapped audio channel selections are not supported.") }
-                    if layout != settings.audioLayout { reasons.append("\(label): source audio layout must match the sequence layout.") }
-                    if stream.timeOffset != .zero { reasons.append("\(label): nonzero source stream offsets are not supported.") }
-                } else { reasons.append("\(label): exactly one complete audio stream is required.") }
+                // Any selection of whole-asset channels is expressible as audio-channel-source srcCh.
+                if Self.channelNumbers(selection, asset: asset) == nil { reasons.append("\(label): selected audio channels are missing from the source.") }
+                if selection.layout != settings.audioLayout { reasons.append("\(label): the selected audio layout must match the sequence layout.") }
+                for channel in selection.channels {
+                    if asset.streams.first(where: { $0.index == channel.streamIndex })?.timeOffset != .zero {
+                        reasons.append("\(label): nonzero source stream offsets are not supported."); break
+                    }
+                }
                 let identity = Array(0..<selection.channels.count)
                 if !component.routing.outputChannels.isEmpty && component.routing.outputChannels != identity { reasons.append("\(label): nonidentity output channel routing is not supported.") }
             }
         }
         if try !frameAligned(plan.duration, rate: settings.frameRate) { reasons.append("The sequence end must fall on a sequence frame boundary; export does not round or pad it.") }
-        let times = [frameDuration, tcStart, plan.duration] + assets.map(\.duration) + plan.components.flatMap {
+        let times = [frameDuration, tcStart, plan.duration] + assets.map(\.duration) + assets.compactMap(\.sourceTimecodeStart) + plan.components.flatMap {
             [$0.sourceRange.start, $0.sourceRange.duration, $0.timelineRange.start]
         }
         if times.contains(where: { $0.denominator > Int64(Int32.max) }) { reasons.append("An exact time denominator exceeds the FCPXML 32-bit limit.") }
@@ -93,17 +94,19 @@ public enum FCPXMLExporter {
         for asset in assets {
             let hasVideo = asset.streams.contains { $0.kind == .video }
             let audio = asset.streams.filter { $0.kind == .audio }
-            var attributes = "id=\"\(refs[asset.id]!)\" name=\"\(attribute(asset.name))\" start=\"0s\" duration=\"\(time(asset.duration))\" hasVideo=\"\(hasVideo ? 1 : 0)\" hasAudio=\"\(audio.isEmpty ? 0 : 1)\""
+            var attributes = "id=\"\(refs[asset.id]!)\" name=\"\(attribute(asset.name))\" start=\"\(time(asset.sourceTimecodeStart ?? .zero))\" duration=\"\(time(asset.duration))\" hasVideo=\"\(hasVideo ? 1 : 0)\" hasAudio=\"\(audio.isEmpty ? 0 : 1)\""
             if hasVideo { attributes += " videoSources=\"\(asset.streams.filter { $0.kind == .video }.count)\"" }
             if !audio.isEmpty { attributes += " audioSources=\"\(audio.count)\" audioChannels=\"\(audio.reduce(0) { $0 + ($1.audioLayout?.channels.count ?? 0) })\"" }
             // Source raster, source frame rate, and source sample rate are not present in
             // MediaAsset. Do not invent them from the sequence settings; FCP probes the original.
             lines.append("    <asset \(attributes)>")
-            lines.append("      <media-rep kind=\"original-media\" src=\"\(attribute(asset.originalURL!.absoluteString))\"/>")
+            // Receiving editors may not follow symlinks such as /tmp → /private/tmp (Resolve leaves such
+            // media offline), so reference the resolved file.
+            lines.append("      <media-rep kind=\"original-media\" src=\"\(attribute(asset.originalURL!.interchangeFileURL.absoluteString))\"/>")
             lines.append("    </asset>")
         }
         lines += ["  </resources>", "  <library>", "    <event name=\"Aagedal Film Constructor\">", "      <project name=\"\(attribute(projectName))\">",
-                  "        <sequence format=\"r1\" duration=\"\(time(plan.duration))\" tcStart=\"\(time(tcStart))\" tcFormat=\"\(settings.startTimecode.mode == .dropFrame ? "DF" : "NDF")\" audioLayout=\"\(settings.audioLayout == .mono ? "mono" : "stereo")\" audioRate=\"\(rates[settings.audioSampleRate]!)\">",
+                  "        <sequence format=\"r1\" duration=\"\(time(plan.duration))\" tcStart=\"\(time(tcStart))\" tcFormat=\"\(settings.startTimecode.mode == .dropFrame ? "DF" : "NDF")\" audioLayout=\"\(settings.audioLayout == .mono ? "mono" : settings.audioLayout == .stereo ? "stereo" : "surround")\" audioRate=\"\(rates[settings.audioSampleRate]!)\">",
                   "          <spine>", "            <gap name=\"Sequence bed\" offset=\"\(time(tcStart))\" start=\"0s\" duration=\"\(time(plan.duration))\">"]
         let videoTracks = project.tracks.filter { $0.kind == .video }
         let audioTracks = project.tracks.filter { $0.kind == .audio }
@@ -128,22 +131,54 @@ public enum FCPXMLExporter {
             else { lane = videoTracks.count - videoTracks.firstIndex { $0.id == component.trackID }! }
             let paired = pairedAudio[index] != nil
             let enable = paired ? "" : " srcEnable=\"\(isAudio ? "audio" : "video")\""
-            let attributes = "ref=\"\(refs[asset.id]!)\" name=\"\(attribute(asset.name))\" lane=\"\(lane)\" offset=\"\(time(component.timelineRange.start))\" start=\"\(time(component.sourceRange.start))\" duration=\"\(time(component.sourceRange.duration))\"\(enable)"
-            if isAudio { lines.append("              <asset-clip \(attributes) audioRole=\"dialogue\"/>") }
-            else {
+            let attributes = "ref=\"\(refs[asset.id]!)\" name=\"\(attribute(asset.name))\" lane=\"\(lane)\" offset=\"\(time(component.timelineRange.start))\" start=\"\(time(try component.sourceRange.start.adding(asset.sourceTimecodeStart ?? .zero)))\" duration=\"\(time(component.sourceRange.duration))\"\(enable)"
+            let channels = pairedAudio[index].flatMap { channelSource(plan.components[$0], asset: asset) } ?? channelSource(component, asset: asset)
+            if isAudio {
+                if let channels {
+                    lines += ["              <asset-clip \(attributes) audioRole=\"dialogue\">", "                \(channels)", "              </asset-clip>"]
+                } else { lines.append("              <asset-clip \(attributes) audioRole=\"dialogue\"/>") }
+            } else {
                 lines.append("              <asset-clip \(attributes)\(paired ? " audioRole=\"dialogue\"" : "")>")
                 lines.append("                <adjust-conform type=\"\(component.scalingMode.rawValue)\"/>")
+                if let channels { lines.append("                \(channels)") }
                 lines.append("              </asset-clip>")
             }
         }
         lines += ["            </gap>", "          </spine>", "        </sequence>", "      </project>", "    </event>", "  </library>", "</fcpxml>", ""]
         return FCPXMLExportResult(xml: lines.joined(separator: "\n"), report: FCPXMLExportReport(clipCount: plan.components.count, assetCount: assets.count, notes: [
-            "FCPXML 1.10 subset: original file references, exact sequence timing, layered video, and complete mono/stereo audio streams.",
+            "FCPXML 1.10 subset: original file references, exact sequence timing, layered video, and audio channel selections (audio-channel-source, channels numbered across the source's audio streams).",
             "Source raster, frame rate, orientation, pixel aspect, color metadata, and sample rate are inspected from original media by the receiving editor; mixed-rate and spatial conform equivalence have not been qualified.",
             "Linked picture and sound with identical timing are written as one A/V clip. DaVinci Resolve 21 imports this subset with exact timing; native Final Cut Pro import has not been verified. Track families and editor preferences are not interchange metadata."
         ]))
     }
 
+    /// 1-based channel numbers across the asset's audio streams in stream order, as FCPXML
+    /// srcCh counts them; nil if a channel is missing. Whole single-stream identity needs no list.
+    static func channelNumbers(_ selection: AudioSourceSelection, asset: MediaAsset) -> [Int]? {
+        var first: [Int: Int] = [:], next = 1
+        for stream in asset.streams where stream.kind == .audio {
+            first[stream.index] = next
+            next += stream.audioLayout?.channels.count ?? 0
+        }
+        var numbers: [Int] = []
+        for channel in selection.channels {
+            guard let base = first[channel.streamIndex],
+                  let stream = asset.streams.first(where: { $0.index == channel.streamIndex }),
+                  let count = stream.audioLayout?.channels.count, (0..<count).contains(channel.channelIndex) else { return nil }
+            numbers.append(base + channel.channelIndex)
+        }
+        return numbers
+    }
+    private static func channelSource(_ component: TimelineRenderPlan.Component, asset: MediaAsset) -> String? {
+        guard case .audio(let selection) = component.selection, let numbers = channelNumbers(selection, asset: asset) else { return nil }
+        let audio = asset.streams.filter { $0.kind == .audio }
+        let total = audio.reduce(0) { $0 + ($1.audioLayout?.channels.count ?? 0) }
+        if audio.count == 1, numbers == Array(1...max(1, total)) { return nil }
+        // Mono duplicated to every output is how editors already play a mono channel.
+        let unique = numbers.reduce(into: [Int]()) { if !$0.contains($1) { $0.append($1) } }
+        let channels = (unique.count == 1 ? unique : numbers).map(String.init).joined(separator: ", ")
+        return "<audio-channel-source srcCh=\"\(channels)\" role=\"dialogue\"/>"
+    }
     private static func frameAligned(_ value: RationalTime, rate: FrameRate) throws -> Bool {
         try value.multiplied(by: rate.value).denominator == 1
     }
@@ -165,4 +200,14 @@ public enum FCPXMLExporter {
 
 private extension ClipSelection {
     var isAudio: Bool { if case .audio = self { return true }; return false }
+}
+
+extension URL {
+    /// The on-disk path for interchange references. Foundation's resolvingSymlinksInPath()
+    /// maps /private/tmp back to /tmp, which receiving editors such as Resolve can't open.
+    var interchangeFileURL: URL {
+        guard isFileURL, let resolved = realpath(path, nil) else { return self }
+        defer { free(resolved) }
+        return URL(fileURLWithPath: String(cString: resolved), isDirectory: hasDirectoryPath)
+    }
 }

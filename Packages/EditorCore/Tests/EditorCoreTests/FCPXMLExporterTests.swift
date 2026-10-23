@@ -49,6 +49,15 @@ final class FCPXMLExporterTests: XCTestCase {
         XCTAssertEqual(try (foreground.first as? XMLElement)?.attribute(forName: "audioRole")?.stringValue, "dialogue")
     }
 
+    func testSourceTimecodeOriginOffsetsAssetAndClipStarts() throws {
+        var project = try fixture(rate: FrameRate(25))
+        project.assets[0].sourceTimecodeStart = try RationalTime(3600)  // 01:00:00:00
+        let document = try XMLDocument(xmlString: FCPXMLExporter.export(project: project).xml)
+        XCTAssertEqual(try document.nodes(forXPath: "//asset/@start").first?.stringValue, "3600s")
+        let starts = try document.nodes(forXPath: "//asset-clip/@start").compactMap(\.stringValue)
+        XCTAssertTrue(starts.contains("3610s") && starts.contains("3602s"), "\(starts)")
+    }
+
     func testExactTimingMediaReferencesAndLayerOrder() throws {
         let project = try fixture(rate: FrameRate(24000, 1001))
         let result = try FCPXMLExporter.export(project: project, projectName: "Film & \"edit\"\nOne")
@@ -106,17 +115,26 @@ final class FCPXMLExporterTests: XCTestCase {
         XCTAssertTrue(try reasons(audio).contains { $0.contains("crossfades") })
     }
 
-    func testRejectsChannelAndStreamSelectionLoss() throws {
+    func testExpressesChannelSelectionsAndRejectsRouting() throws {
         var project = try fixture()
         let stream = project.assets[0].streams[1]
+        // A second stereo stream: the first stream's channels are 1 and 2 across the asset.
         project.assets[0].streams.append(MediaStream(index: 2, kind: .audio, audioLayout: .stereo))
-        XCTAssertTrue(try reasons(project).contains { $0.contains("complete audio stream") })
+        XCTAssertTrue(try FCPXMLExporter.export(project: project).xml.contains("<audio-channel-source srcCh=\"1, 2\" role=\"dialogue\"/>"))
+        // Selecting the second stream maps to channels 3 and 4.
+        project.tracks[2].clips[0].selection = .audio(AudioSourceSelection(channels: [SourceChannel(streamIndex: 2, channelIndex: 0), SourceChannel(streamIndex: 2, channelIndex: 1)], layout: .stereo))
+        XCTAssertTrue(try FCPXMLExporter.export(project: project).xml.contains("srcCh=\"3, 4\""))
         project.assets[0].streams.removeLast()
+        // Reordered channels are expressible; nonidentity output routing is not.
         project.tracks[2].clips[0].selection = .audio(AudioSourceSelection(channels: [SourceChannel(streamIndex: stream.index, channelIndex: 1), SourceChannel(streamIndex: stream.index, channelIndex: 0)], layout: .stereo))
+        XCTAssertTrue(try FCPXMLExporter.export(project: project).xml.contains("srcCh=\"2, 1\""))
         project.tracks[2].template.routing = .init(outputChannels: [1, 0])
-        let errors = try reasons(project)
-        XCTAssertTrue(errors.contains { $0.contains("channel selections") })
-        XCTAssertTrue(errors.contains { $0.contains("routing") })
+        XCTAssertTrue(try reasons(project).contains { $0.contains("routing") })
+        // Dual mono (one mono channel on both outputs) references the single source channel.
+        project = try fixture()
+        project.assets[0].streams[1] = MediaStream(index: 1, kind: .audio, audioLayout: .mono)
+        project.tracks[2].clips[0].selection = .audio(AudioSourceSelection(channels: [SourceChannel(streamIndex: 1, channelIndex: 0), SourceChannel(streamIndex: 1, channelIndex: 0)], layout: .stereo))
+        XCTAssertTrue(try FCPXMLExporter.export(project: project).xml.contains("srcCh=\"1\""))
         project = try fixture()
         project.assets[0].streams.append(MediaStream(index: 3, kind: .video))
         XCTAssertTrue(try reasons(project).contains { $0.contains("multiple video streams") })
@@ -179,8 +197,13 @@ final class FCPXMLExporterTests: XCTestCase {
     /// or fetched by tests, and passing this check does not establish native import support.
     func testAgainstLocalAppleDTDWhenProvided() throws {
         guard let path = ProcessInfo.processInfo.environment["FCPXML_DTD"] else { throw XCTSkip("Set FCPXML_DTD to Apple's FCPXML 1.10 DTD for schema validation") }
-        for rate in [try FrameRate(24), try FrameRate(24000, 1001), try FrameRate(30000, 1001), try FrameRate(60000, 1001)] {
-            let result = try FCPXMLExporter.export(project: fixture(rate: rate))
+        var channels = try fixture()
+        channels.assets[0].streams.append(MediaStream(index: 2, kind: .audio, audioLayout: .stereo))
+        channels.tracks[2].clips[0].selection = .audio(AudioSourceSelection(channels: [SourceChannel(streamIndex: 2, channelIndex: 1), SourceChannel(streamIndex: 2, channelIndex: 0)], layout: .stereo))
+        var projects = try [FrameRate(24), FrameRate(24000, 1001), FrameRate(30000, 1001), FrameRate(60000, 1001)].map { try fixture(rate: $0) }
+        projects.append(channels)  // audio-channel-source selection
+        for project in projects {
+            let result = try FCPXMLExporter.export(project: project)
             let document = try XMLDocument(xmlString: result.xml)
             let dtd = try XMLDTD(contentsOf: URL(fileURLWithPath: path))
             dtd.name = "fcpxml"

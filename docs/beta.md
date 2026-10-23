@@ -84,10 +84,15 @@ these warnings into refusals, for when exact decoded parity matters more than
 convenience.
 
 FCPXML, OpenTimelineIO and track EDL exports are also available from the File
-menu. DaVinci Resolve 21 imports the FCPXML and OTIO output with every clip at the
-exact frame, source offset and layer. FCPXML requires each clip to use one complete
-mono or stereo audio stream that matches the sequence layout. Final Cut Pro import
-is unverified. See their pages for supported subsets.
+menu. DaVinci Resolve 21 imports both with media linked and every clip at the exact
+frame, source offset and layer. Resolve's renders of the imported timelines match
+the app's own render. Media with embedded timecode (most camera and broadcast
+files) is referenced in its own timecode clock, as editors expect. FCPXML writes
+audio channel selections (for example dual mono, or two channels of a multitrack
+MXF) as `audio-channel-source`, which is valid FCPXML 1.10. Resolve ignores those
+selections and plays the clip's first channel, so check the audio routing after
+importing multitrack sources into Resolve. OTIO has no channel mapping and refuses
+those clips. Final Cut Pro import is unverified. See their pages for supported subsets.
 
 ## Preview notices
 

@@ -57,6 +57,9 @@ public struct MediaAsset: Identifiable, Equatable, Codable, Sendable {
     public var duration: RationalTime
     public var streams: [MediaStream]
     public var sourceTimecode: Timecode?
+    /// Embedded timecode of the first frame as exact seconds (frames × timecode frame duration),
+    /// read from the media's timecode track. Interchange references media in this clock.
+    public var sourceTimecodeStart: RationalTime?
     public var proxy: MediaProxy?
     public init(id: UUID = UUID(), name: String, originalURL: URL? = nil, duration: RationalTime, streams: [MediaStream] = [], sourceTimecode: Timecode? = nil, proxy: MediaProxy? = nil) {
         self.id = id; self.name = name; self.originalURL = originalURL; self.duration = duration; self.streams = streams; self.sourceTimecode = sourceTimecode; self.proxy = proxy

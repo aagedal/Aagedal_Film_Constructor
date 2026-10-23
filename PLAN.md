@@ -65,9 +65,14 @@ strict qualification stays available for parity work. See [the beta guide](docs/
   The 0.9 build was accepted by the notary service and Gatekeeper reports
   "Notarized Developer ID". The signed sandboxed build passes real-window
   acceptance with bundled-FFmpeg fixtures (conversion, proxies, exports).
-- [x] Interchange: DaVinci Resolve 21 imports FCPXML and OTIO exports with exact
-  clip frames, source offsets and layering; FCPXML now writes linked picture and
-  sound as one A/V clip (Resolve ignores srcEnable). Final Cut import unverified.
+- [x] Interchange: DaVinci Resolve 21 imports FCPXML and OTIO exports with media
+  linked, exact clip frames, source offsets and layering; its renders match the
+  app's render (40–58 dB PSNR). Fixes found by this check: source timecode is now
+  probed at import and used as the media clock (Resolve aborted any import that
+  referenced timecoded media from zero); linked picture and sound are one A/V clip
+  (Resolve ignores srcEnable); references use realpath. FCPXML now expresses audio
+  channel selections (audio-channel-source), which Resolve ignores. Final Cut
+  import unverified.
 - [ ] In-app stream-copy export (post-beta).
 
 ## Earlier priority: usable timeline preview (2026-10-14)
