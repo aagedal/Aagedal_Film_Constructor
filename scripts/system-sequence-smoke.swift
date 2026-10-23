@@ -129,10 +129,12 @@ import EditorCore
         await tinyFadeBackend.close()
         var unsupported = project
         unsupported.tracks[2].template.routing.outputChannels = [1, 0]
-        let rejected = try AVFoundationSequenceBackend(project: unsupported, videoProxies: [:])
-        do { try await rejected.seek(toFrame: 0); throw NSError(domain: "Expected routing rejection", code: 1) }
-        catch { try require(error.localizedDescription.contains("routing"), "Unsupported channel mapping must fail visibly") }
-        await rejected.close()
+        let muted = try AVFoundationSequenceBackend(project: unsupported, videoProxies: [:])
+        // Custom routing must not block the sequence: it plays muted with a visible notice.
+        try await muted.seek(toFrame: 0)
+        try require(muted.previewQualificationNotice?.contains("custom channel routing is silent") == true,
+            "Unsupported channel mapping must be disclosed while the rest of the sequence plays")
+        await muted.close()
         let controller = SequencePlaybackController()
         try require(controller.available, "Normal builds must enable system sequence preview")
         controller.activate(project: project, seconds: 100)
@@ -143,6 +145,6 @@ import EditorCore
         try require(controller.image != nil && controller.displayedFrameIndex == 59,
             "Scrubbing beyond the sequence end must display the clamped last frame: \(controller.message)")
         controller.deactivate()
-        print("System sequence smoke passed: decoded trims, overlap precedence, reverse/fractional seeks, black gaps, live transport, end scrub/exact fractional end clamp, cleanup and routing rejection.")
+        print("System sequence smoke passed: decoded trims, overlap precedence, reverse/fractional seeks, black gaps, live transport, end scrub/exact fractional end clamp, cleanup and muted custom routing notice.")
     }
 }

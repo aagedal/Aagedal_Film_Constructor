@@ -18,19 +18,65 @@ public struct FFmpegRenderCommand: Equatable, Codable, Sendable {
     public let audioSamples: Int64
 }
 
+/// Rendered delivery formats. ProRes keeps PCM audio in MOV; delivery formats use
+/// AAC in MP4 with fast-start metadata for direct playback and upload.
+public enum RenderOutputFormat: String, CaseIterable, Codable, Sendable, Identifiable {
+    case proRes422HQ, proRes422, h264, hevc
+    public var id: String { rawValue }
+    public var displayName: String {
+        switch self {
+        case .proRes422HQ: return "ProRes 422 HQ · PCM (MOV)"
+        case .proRes422: return "ProRes 422 · PCM (MOV)"
+        case .h264: return "H.264 · AAC (MP4)"
+        case .hevc: return "HEVC · AAC (MP4)"
+        }
+    }
+    public var fileExtension: String { isProRes ? "mov" : "mp4" }
+    public var isProRes: Bool { self == .proRes422HQ || self == .proRes422 }
+    /// FFprobe identities checked after rendering.
+    public var videoCodecName: String {
+        switch self {
+        case .proRes422HQ, .proRes422: return "prores"
+        case .h264: return "h264"
+        case .hevc: return "hevc"
+        }
+    }
+    public var videoProfileName: String {
+        switch self {
+        case .proRes422HQ: return "HQ"
+        case .proRes422: return "Standard"
+        case .h264: return "High"
+        case .hevc: return "Main"
+        }
+    }
+    public var pixelFormat: String { isProRes ? "yuv422p10le" : "yuv420p" }
+    public var audioCodecName: String { isProRes ? "pcm_s24le" : "aac" }
+    var encoderArguments: [String] {
+        switch self {
+        case .proRes422HQ: return ["-c:v", "prores_ks", "-profile:v", "3", "-pix_fmt", pixelFormat, "-c:a", "pcm_s24le"]
+        case .proRes422: return ["-c:v", "prores_ks", "-profile:v", "2", "-pix_fmt", pixelFormat, "-c:a", "pcm_s24le"]
+        case .h264: return ["-c:v", "libx264", "-preset", "medium", "-crf", "18", "-profile:v", "high", "-pix_fmt", pixelFormat,
+                            "-c:a", "aac", "-b:a", "320k", "-movflags", "+faststart"]
+        case .hevc: return ["-c:v", "hevc_videotoolbox", "-q:v", "65", "-profile:v", "main", "-pix_fmt", pixelFormat, "-tag:v", "hvc1",
+                            "-c:a", "aac", "-b:a", "320k", "-movflags", "+faststart"]
+        }
+    }
+}
+
 public enum FFmpegRenderCompiler {
     /// Source qualification must be performed by the caller: the canonical plan
     /// does not carry pixel aspect, rotation, color or variable-frame-rate metadata.
-    public static let qualificationLimitations = "Development export requires square-pixel SDR sources without rotation; color management and VFR mappings are not qualified. Video source checks scan the full stream and refuse sources exceeding 30 seconds of checking, 2 MB of probe output, or 100,000 frames. Nonzero stream offsets are unsupported. PNG/JPEG stills use only the first decoded frame."
+    public static let qualificationLimitations = "Video is conformed to the sequence frame rate and audio to the sequence sample rate. Rotation is applied. HDR sources are converted without tone mapping, and non-square pixels are not corrected. PNG/JPEG stills use only the first decoded frame."
 
     /// Explicit prototype subset: frame-aligned video/stills, sample-aligned audio,
     /// zero stream offsets, mono/stereo output, originals.
     /// Video is conformed on the sequence grid with FFmpeg fps round=near before trim.
     /// Source geometry/color metadata and VFR mappings are not yet qualified.
-    public static func compile(_ plan: TimelineRenderPlan, outputURL: URL) throws -> FFmpegRenderCommand {
+    public static func compile(_ plan: TimelineRenderPlan, outputURL: URL,
+                               format: RenderOutputFormat = .proRes422HQ) throws -> FFmpegRenderCommand {
         try plan.settings.validate()
-        guard outputURL.isFileURL, outputURL.pathExtension.lowercased() == "mov" else {
-            throw EditorCoreError.invalidModel("Prototype export requires a local MOV destination")
+        guard outputURL.isFileURL, outputURL.pathExtension.lowercased() == format.fileExtension else {
+            throw EditorCoreError.invalidModel("Export requires a local \(format.fileExtension.uppercased()) destination")
         }
         let settings = plan.settings
         guard settings.width % 2 == 0, settings.height % 2 == 0,
@@ -70,8 +116,8 @@ public enum FFmpegRenderCompiler {
                 throw EditorCoreError.invalidModel("Invalid render component")
             }
             func input(_ stream: Int, kind: MediaStreamKind) throws -> String {
-                guard let source = component.sourceStreams.first(where: { $0.index == stream && $0.kind == kind }), source.timeOffset == .zero else {
-                    throw EditorCoreError.invalidModel("Missing stream or unsupported nonzero stream offset")
+                guard component.sourceStreams.contains(where: { $0.index == stream && $0.kind == kind }) else {
+                    throw EditorCoreError.invalidModel("Missing source stream")
                 }
                 inputs.append(RenderSourceInput(url: url, streamIndex: stream, kind: kind))
                 arguments += ["-i", url.path]
@@ -116,9 +162,16 @@ public enum FFmpegRenderCompiler {
                 } else {
                     guard case .video(let stream) = component.selection else { throw EditorCoreError.invalidModel("Invalid visual selection") }
                     source = try input(stream, kind: .video)
-                    timing = "setpts=PTS-STARTPTS,fps=\(rate):round=near,trim=start_frame=\(start):end_frame=\(end),setpts=PTS-STARTPTS+\(placement)"
+                    let offset = component.sourceStreams.first { $0.index == stream && $0.kind == .video }?.timeOffset ?? .zero
+                    // A stream beginning after (or before) asset zero keeps its asset-time position;
+                    // fps pads or drops from zero so trim frame numbers remain asset frames.
+                    let origin = offset == .zero ? "setpts=PTS-STARTPTS,fps=\(rate):round=near"
+                        : "setpts=PTS-STARTPTS+(\(offset.numerator)/\(offset.denominator))/TB,fps=\(rate):round=near:start_time=0"
+                    timing = "\(origin),trim=start_frame=\(start):end_frame=\(end),setpts=PTS-STARTPTS+\(placement)"
                 }
-                let geometry = isStill ? "format=yuva444p,\(scaling),setsar=1" : "\(scaling),setsar=1,format=yuv444p"
+                // Full-range movies (screen recordings, some cameras) are normalized to video range
+                // so overlays and encoders receive one consistent range.
+                let geometry = isStill ? "format=yuva444p,\(scaling),setsar=1" : "scale=out_range=tv,\(scaling),setsar=1,format=yuv444p"
                 graph.append("\(source)\(timing),\(geometry)[v\(index)]")
                 // Explicit half-open visibility also prevents framesync holding a layer past its cut.
                 let visibleEnd = try RationalTime(placement).adding(RationalTime(count)).numerator
@@ -141,9 +194,14 @@ public enum FFmpegRenderCompiler {
                     guard let stream = component.sourceStreams.first(where: { $0.index == sourceChannel.streamIndex }), let sourceLayout = stream.audioLayout,
                           sourceLayout.channels.indices.contains(sourceChannel.channelIndex) else { throw EditorCoreError.invalidModel("Invalid source channel") }
                     let source = try input(sourceChannel.streamIndex, kind: .audio)
+                    // Sample counts begin at the stream's first sample; align them to asset time.
+                    let shift = try stream.timeOffset.multiplied(by: Int64(settings.audioSampleRate))
+                    let offsetSamples = Int64((Double(shift.numerator) / Double(shift.denominator)).rounded())
+                    let pad = offsetSamples > 0 ? "adelay=\(offsetSamples)S:all=1," : ""
+                    let skip = max(0, -offsetSamples)
                     let map = settings.audioLayout.channels.indices.map { "c\($0)=\($0 == routing[channel] ? "c\(sourceChannel.channelIndex)" : "0*c\(sourceChannel.channelIndex)")" }.joined(separator: "|")
                     let label = "a\(index)c\(channel)"
-                    graph.append("\(source)aresample=\(settings.audioSampleRate),atrim=start_sample=\(start):end_sample=\(end),asetpts=PTS-STARTPTS,pan=\(layout)|\(map),aformat=sample_fmts=flt,volume=\(component.gain):precision=float\(envelope),adelay=\(delay)S:all=1[\(label)]")
+                    graph.append("\(source)aresample=\(settings.audioSampleRate),\(pad)atrim=start_sample=\(start + skip):end_sample=\(end + skip),asetpts=PTS-STARTPTS,pan=\(layout)|\(map),aformat=sample_fmts=flt,volume=\(component.gain):precision=float\(envelope),adelay=\(delay)S:all=1[\(label)]")
                     audioLabels.append(label)
                 }
             }
@@ -151,7 +209,7 @@ public enum FFmpegRenderCompiler {
         graph.append("[\(videoLabel)]trim=end_frame=\(frames)[video]")
         graph.append(audioLabels.map { "[\($0)]" }.joined() + "amix=inputs=\(audioLabels.count):normalize=0,atrim=end_sample=\(samples)[audio]")
         let filterGraph = graph.joined(separator: ";")
-        arguments += ["-filter_complex", filterGraph, "-map", "[video]", "-map", "[audio]", "-r", rate, "-fps_mode", "cfr", "-c:v", "prores_ks", "-profile:v", "3", "-pix_fmt", "yuv422p10le", "-c:a", "pcm_s24le", "-ar", String(settings.audioSampleRate), "-ac", String(settings.audioLayout.channels.count), "-video_track_timescale", String(settings.frameRate.value.numerator), "-timecode", try settings.startTimecode.formatted(rate: settings.frameRate), outputURL.path]
+        arguments += ["-filter_complex", filterGraph, "-map", "[video]", "-map", "[audio]", "-r", rate, "-fps_mode", "cfr"] + format.encoderArguments + ["-ar", String(settings.audioSampleRate), "-ac", String(settings.audioLayout.channels.count), "-video_track_timescale", String(settings.frameRate.value.numerator), "-timecode", try settings.startTimecode.formatted(rate: settings.frameRate), outputURL.path]
         return FFmpegRenderCommand(inputs: inputs, arguments: arguments, filterGraph: filterGraph, videoFrames: frames, audioSamples: samples)
     }
     /// aeval's n begins at zero after trim, before timeline delay. The rational

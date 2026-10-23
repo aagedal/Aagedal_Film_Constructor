@@ -16,6 +16,7 @@ enum ExportSmokeFailure: Error { case failed(String) }
         project.assets[0].originalURL = directory.appendingPathComponent("source.wav")
         let plan = try TimelineRenderPlan(project: project)
         let service = SequenceExportService(ffmpegURL: ffmpeg, ffprobeURL: ffprobe)
+        let strict = SequenceExportOptions(strictQualification: true)
         let output = directory.appendingPathComponent("output.mov")
         let result = try await service.export(plan: plan, to: output)
         try check(result.videoFrames == 240 && result.audioSamples == 480000, "Verified export counts")
@@ -43,7 +44,7 @@ enum ExportSmokeFailure: Error { case failed(String) }
         let clip = TimelineClip(assetID: asset.id, sourceRange: try TimeRange(start: .zero, duration: RationalTime(1)), selection: .video(streamIndex: 0))
         let geometryProject = Project(settings: project.settings, assets: [asset], families: [family], tracks: [TimelineTrack(familyID: family.id, template: template, clips: [clip])])
         do {
-            _ = try await service.export(plan: TimelineRenderPlan(project: geometryProject), to: directory.appendingPathComponent("geometry.mov"))
+            _ = try await service.export(plan: TimelineRenderPlan(project: geometryProject), to: directory.appendingPathComponent("geometry.mov"), options: strict)
             throw ExportSmokeFailure.failed("Unsupported source pixel geometry accepted")
         } catch is SequenceExportError { }
         func videoProject(_ name: String) throws -> Project {
@@ -63,7 +64,7 @@ enum ExportSmokeFailure: Error { case failed(String) }
         for name in ["equal-rate-vfr.mov", "offset.mov"] {
             let destination = directory.appendingPathComponent("rejected-" + name)
             do {
-                _ = try await service.export(plan: TimelineRenderPlan(project: videoProject(name)), to: destination)
+                _ = try await service.export(plan: TimelineRenderPlan(project: videoProject(name)), to: destination, options: strict)
                 throw ExportSmokeFailure.failed("Irregular/offset source accepted: " + name)
             } catch let error as SequenceExportError {
                 try check(error.localizedDescription.contains("timestamp") || error.localizedDescription.contains("offset"), "Timestamp qualification refusal: " + error.localizedDescription)
@@ -97,13 +98,31 @@ enum ExportSmokeFailure: Error { case failed(String) }
         for (source, name, expected) in [(cfr, "stale-raster.mov", "raster"), (project, "invalid-rate.mov", "sample rate")] {
             let destination = directory.appendingPathComponent(name)
             do {
-                _ = try await alteredService.export(plan: TimelineRenderPlan(project: source), to: destination)
+                _ = try await alteredService.export(plan: TimelineRenderPlan(project: source), to: destination, options: strict)
                 throw ExportSmokeFailure.failed("Invalid raster/rate metadata accepted")
             } catch let error as SequenceExportError {
                 try check(error.localizedDescription.contains(expected), "Raster/rate qualification refusal: " + error.localizedDescription)
             }
             try check(!FileManager.default.fileExists(atPath: destination.path), "Invalid raster/rate never publishes")
         }
+        // Default (beta) policy: conformable sources render and report approximations.
+        let anamorphicResult = try await service.export(plan: TimelineRenderPlan(project: geometryProject), to: directory.appendingPathComponent("geometry-default.mov"))
+        try check(anamorphicResult.videoFrames == 24 && anamorphicResult.warnings.contains { $0.contains("non-square") }, "Non-square source renders with a warning")
+        for name in ["equal-rate-vfr.mov", "offset.mov"] {
+            let result = try await service.export(plan: TimelineRenderPlan(project: videoProject(name)), to: directory.appendingPathComponent("default-" + name))
+            try check(result.videoFrames == 24, "Irregular/offset source renders by default: " + name)
+        }
+        let assessed = try await service.assess(plan: TimelineRenderPlan(project: geometryProject))
+        try check(assessed == anamorphicResult.warnings, "Assessment reports the same warnings without rendering")
+        for format in [RenderOutputFormat.h264, .hevc, .proRes422] {
+            let destination = directory.appendingPathComponent("delivery." + format.rawValue + "." + format.fileExtension)
+            let result = try await service.export(plan: plan, to: destination, options: .init(format: format))
+            try check(result.videoFrames == 240 && result.audioSamples == 480000 && FileManager.default.fileExists(atPath: destination.path), "Verified delivery export: " + format.rawValue)
+        }
+        do {
+            _ = try await service.export(plan: plan, to: directory.appendingPathComponent("wrong-container.mov"), options: .init(format: .h264))
+            throw ExportSmokeFailure.failed("H.264 accepted a MOV destination")
+        } catch let error as ExportSmokeFailure { throw error } catch { }
         let cancelled = directory.appendingPathComponent("cancelled.mov")
         let task = Task { try await service.export(plan: plan, to: cancelled) }
         try await Task.sleep(for: .milliseconds(50))
@@ -174,6 +193,6 @@ enum ExportSmokeFailure: Error { case failed(String) }
         try check(!FileManager.default.fileExists(atPath: stubbornOutput.path), "Stubborn cancellation never publishes")
         let names = try FileManager.default.contentsOfDirectory(atPath: directory.path)
         try check(!names.contains { $0.hasPrefix(".afc-export-") }, "All staging files removed")
-        print("Export service smoke passed: verified MOV, protected destination, actual CFR/VFR/offset and raster/rate qualification, resampling, bounded diagnostics, helper failures, cancellation cleanup with no orphan")
+        print("Export service smoke passed: verified MOV/MP4 formats, default warnings, protected destination, actual CFR/VFR/offset and raster/rate qualification, resampling, bounded diagnostics, helper failures, cancellation cleanup with no orphan")
     }
 }

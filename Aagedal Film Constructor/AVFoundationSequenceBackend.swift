@@ -133,12 +133,19 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             case .audio(let selection):
                 guard let first = selection.channels.first,
                       selection.channels.allSatisfy({ $0.streamIndex == first.streamIndex }),
-                      selection.channels.map(\.channelIndex) == Array(selection.channels.indices),
                       selection.layout == plan.settings.audioLayout,
                       component.routing.outputChannels.isEmpty || component.routing.outputChannels == Array(selection.channels.indices),
-                      let stream = component.sourceStreams.first(where: { $0.index == first.streamIndex }),
-                      stream.audioLayout == selection.layout else {
-                    throw Self.unsupported("System preview supports whole mono/stereo streams with unchanged channel routing. This selection requires the native runtime.")
+                      let stream = component.sourceStreams.first(where: { $0.index == first.streamIndex }) else {
+                    // Keep the rest of the sequence playable; export still renders this routing.
+                    addQualificationNotice("Audio with custom channel routing is silent in preview; export includes it.")
+                    continue
+                }
+                let wholeStream = selection.channels.map(\.channelIndex) == Array(selection.channels.indices) && stream.audioLayout == selection.layout
+                // The system mixer plays a mono track on every output channel, matching dual mono.
+                let dualMono = stream.audioLayout?.channels.count == 1 && selection.channels.allSatisfy { $0.channelIndex == 0 }
+                guard wholeStream || dualMono else {
+                    addQualificationNotice("Audio with custom channel routing is silent in preview; export includes it.")
+                    continue
                 }
                 streamIndex = first.streamIndex
             }
@@ -171,7 +178,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 if descriptions.contains(where: { description in
                     CMAudioFormatDescriptionGetStreamBasicDescription(description)?.pointee.mFormatID == kAudioFormatMPEGLayer3
                 }) {
-                    throw Self.unsupported("System preview cannot faithfully trim MP3 audio. Normalize \(url.lastPathComponent) to PCM or ALAC before editing.")
+                    addQualificationNotice("MP3 cut points are approximate in preview; export trims exactly.")
                 }
                 // Interior AAC fixtures agree, but source edges and even one-packet
                 // insets do not. No measured margin establishes a faithful general
@@ -187,11 +194,14 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 }) {
                     addQualificationNotice("AAC source-edge audio is approximate. Normalize to PCM or ALAC for faithful trims.")
                 }
-                guard !descriptions.isEmpty, descriptions.allSatisfy({ description in
+                guard !descriptions.isEmpty else {
+                    throw Self.unsupported("\(url.lastPathComponent) has no readable audio format.")
+                }
+                if !descriptions.allSatisfy({ description in
                     guard let format = CMAudioFormatDescriptionGetStreamBasicDescription(description) else { return false }
                     return format.pointee.mSampleRate == Double(plan.settings.audioSampleRate)
-                }) else {
-                    throw Self.unsupported("System preview requires audio at the sequence sample rate (\(plan.settings.audioSampleRate) Hz). \(url.lastPathComponent) uses a different or unknown sample rate. Match the sequence rate or use normalized media.")
+                }) {
+                    addQualificationNotice("Audio not at \(plan.settings.audioSampleRate) Hz is resampled approximately in preview; export resamples exactly.")
                 }
             }
             let destination = pictureLanes[componentIndex].flatMap { pictureTracks[$0] }
@@ -251,11 +261,13 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 layer.setTransform(transform, at: .zero)
                 layers[componentIndex] = layer
             } else {
-                guard component.gain <= 1 else { throw Self.unsupported("System preview supports audio gain up to unity. Boosted tracks require the native runtime.") }
+                if component.gain > 1 {
+                    addQualificationNotice("Gain above 0 dB plays at 0 dB in preview; export applies the full gain.")
+                }
                 let parameters = AVMutableAudioMixInputParameters(track: track)
                 let start = component.timelineRange.start.seconds
                 let ramps = try AudioFadeRampPlan(duration: component.timelineRange.duration,
-                    fadeIn: component.fadeIn, fadeOut: component.fadeOut, gain: component.gain)
+                    fadeIn: component.fadeIn, fadeOut: component.fadeOut, gain: min(component.gain, 1))
                 if component.gain > 0 && [component.fadeIn, component.fadeOut].contains(where: {
                     $0.duration.numerator > 0 && $0.duration.seconds <= 0.005
                 }) {

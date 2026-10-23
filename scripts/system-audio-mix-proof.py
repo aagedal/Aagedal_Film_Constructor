@@ -166,12 +166,12 @@ def main():
     for mix in mixes:
         name = mix['case']
         if mix.get('rejected'):
-            rejected_rate = args.expect_resampling_rejection and mix['sourceSampleRate'] != mix['sampleRate'] and mix['rejectionReason'].startswith('System preview requires audio at the sequence sample rate')
-            rejected_mp3 = args.expect_mp3_rejection and name.startswith('mp3-') and mix['rejectionReason'].startswith('System preview cannot faithfully trim MP3 audio')
+            rejected_rate = args.expect_resampling_rejection and mix['sourceSampleRate'] != mix['sampleRate'] and 'resampled approximately' in mix['rejectionReason']
+            rejected_mp3 = args.expect_mp3_rejection and name.startswith('mp3-') and 'MP3 cut points are approximate' in mix['rejectionReason']
             if not (rejected_rate or rejected_mp3):
                 raise RuntimeError(f'{name}: unexpected rejection')
             cases.append(dict(mix, passed=True, qualification='explicit-mp3-rejection' if rejected_mp3 else 'explicit-cross-rate-rejection'))
-            print(f'{name}: PASS explicitly rejected', flush=True)
+            print(f'{name}: PASS flagged as approximate preview', flush=True)
             continue
         run([args.ffmpeg, *mix['arguments']], name + '-render.log')
         raw = root / (name + '-reference.f32')

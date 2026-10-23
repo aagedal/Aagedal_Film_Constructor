@@ -15,6 +15,13 @@ nonisolated struct SequenceExportResult: Sendable {
     let outputURL: URL
     let videoFrames: Int64
     let audioSamples: Int64
+    let warnings: [String]
+}
+/// Strict qualification refuses any source outside the decoded-parity subset.
+/// The default renders conformable sources and reports approximations as warnings.
+nonisolated struct SequenceExportOptions: Sendable {
+    var format: RenderOutputFormat = .proRes422HQ
+    var strictQualification = false
 }
 nonisolated enum SequenceExportError: LocalizedError {
     case unavailable, destination(String), process(String), verification(String)
@@ -46,20 +53,31 @@ actor SequenceExportService {
         let ready = ["ffmpeg", "ffprobe"].allSatisfy { name in
             helper(name, bundle: bundle).map { FileManager.default.isExecutableFile(atPath: $0.path) } ?? false
         }
-        return .init(isAvailable: ready, message: ready ? "MOV / ProRes export available" : SequenceExportError.unavailable.localizedDescription)
+        return .init(isAvailable: ready, message: ready ? "Export available" : SequenceExportError.unavailable.localizedDescription)
     }
-    func export(plan: TimelineRenderPlan, to outputURL: URL,
+    /// Probe sources without rendering; returns approximations the export would make.
+    func assess(plan: TimelineRenderPlan, options: SequenceExportOptions = .init()) async throws -> [String] {
+        guard let ffprobeURL, FileManager.default.isExecutableFile(atPath: ffprobeURL.path) else { throw SequenceExportError.unavailable }
+        let urls = Set(plan.components.compactMap(\.originalURL))
+        let scoped = urls.filter { $0.startAccessingSecurityScopedResource() }
+        defer { scoped.forEach { $0.stopAccessingSecurityScopedResource() } }
+        let probeURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(options.format.fileExtension)
+        let command = try FFmpegRenderCompiler.compile(plan, outputURL: probeURL, format: options.format)
+        return try await Self.preflight(plan: plan, command: command, ffprobe: ffprobeURL, strict: options.strictQualification)
+    }
+    func export(plan: TimelineRenderPlan, to outputURL: URL, options: SequenceExportOptions = .init(),
                 progress: @escaping @Sendable (SequenceExportProgress) -> Void = { _ in }) async throws -> SequenceExportResult {
         guard let ffmpegURL, let ffprobeURL,
               FileManager.default.isExecutableFile(atPath: ffmpegURL.path),
               FileManager.default.isExecutableFile(atPath: ffprobeURL.path) else { throw SequenceExportError.unavailable }
-        return try await Self.render(plan: plan, output: outputURL, ffmpeg: ffmpegURL, ffprobe: ffprobeURL, progress: progress)
+        return try await Self.render(plan: plan, output: outputURL, options: options, ffmpeg: ffmpegURL, ffprobe: ffprobeURL, progress: progress)
     }
-    @concurrent private static func render(plan: TimelineRenderPlan, output: URL, ffmpeg: URL, ffprobe: URL,
+    @concurrent private static func render(plan: TimelineRenderPlan, output: URL, options: SequenceExportOptions, ffmpeg: URL, ffprobe: URL,
                                            progress: @escaping @Sendable (SequenceExportProgress) -> Void) async throws -> SequenceExportResult {
         try Task.checkCancellation()
-        guard output.isFileURL, output.pathExtension.lowercased() == "mov" else {
-            throw SequenceExportError.destination("Choose a local MOV destination.")
+        let format = options.format
+        guard output.isFileURL, output.pathExtension.lowercased() == format.fileExtension else {
+            throw SequenceExportError.destination("Choose a local \(format.fileExtension.uppercased()) destination.")
         }
         let urls = Set(plan.components.compactMap(\.originalURL) + [output, output.deletingLastPathComponent()])
         let scoped = urls.filter { $0.startAccessingSecurityScopedResource() }
@@ -73,10 +91,10 @@ actor SequenceExportService {
         let stageDirectory = output.deletingLastPathComponent().appendingPathComponent(".afc-export-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: stageDirectory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         defer { try? FileManager.default.removeItem(at: stageDirectory) }
-        let staged = stageDirectory.appendingPathComponent("render.mov")
-        let command = try FFmpegRenderCompiler.compile(plan, outputURL: staged)
+        let staged = stageDirectory.appendingPathComponent("render." + format.fileExtension)
+        let command = try FFmpegRenderCompiler.compile(plan, outputURL: staged, format: format)
         progress(.init(fraction: 0, renderedSeconds: 0, stage: "Checking sources"))
-        try await preflight(plan: plan, command: command, ffprobe: ffprobe)
+        let warnings = try await preflight(plan: plan, command: command, ffprobe: ffprobe, strict: options.strictQualification)
         let duration = Double(command.videoFrames) / plan.settings.frameRate.value.seconds
         var arguments = command.arguments
         arguments.insert(contentsOf: ["-progress", "pipe:1", "-nostats"], at: 0)
@@ -86,18 +104,22 @@ actor SequenceExportService {
         })
         try Task.checkCancellation()
         progress(.init(fraction: 0.99, renderedSeconds: duration, stage: "Verifying"))
-        let probe = try await ExportProcess.run(executable: ffprobe, arguments: ["-v", "error", "-count_frames", "-show_streams", "-show_format", "-of", "json", staged.path])
-        try verify(probe, plan: plan, command: command)
+        // Packet counts equal frame counts for these intra/progressive encoders and avoid a
+        // second full decode; strict qualification still decodes every rendered frame.
+        let counting = options.strictQualification ? "-count_frames" : "-count_packets"
+        let probe = try await ExportProcess.run(executable: ffprobe, arguments: ["-v", "error", counting, "-show_streams", "-show_format", "-of", "json", staged.path])
+        try verify(probe, plan: plan, command: command, format: format, counted: options.strictQualification ? "nb_read_frames" : "nb_read_packets")
         try Task.checkCancellation()
         // link(2) atomically creates a new name and cannot overwrite a destination created during rendering.
         guard Darwin.link(staged.path, output.path) == 0 else {
             throw SequenceExportError.destination("Could not publish export: \(String(cString: strerror(errno)))")
         }
         progress(.init(fraction: 1, renderedSeconds: duration, stage: "Complete"))
-        return .init(outputURL: output, videoFrames: command.videoFrames, audioSamples: command.audioSamples)
+        return .init(outputURL: output, videoFrames: command.videoFrames, audioSamples: command.audioSamples, warnings: warnings)
     }
-    @concurrent private static func preflight(plan: TimelineRenderPlan, command: FFmpegRenderCommand, ffprobe: URL) async throws {
-        for url in Set(command.inputs.map(\.url)) {
+    @concurrent private static func preflight(plan: TimelineRenderPlan, command: FFmpegRenderCommand, ffprobe: URL, strict: Bool) async throws -> [String] {
+        var warnings: [String] = []
+        for url in Set(command.inputs.map(\.url)).sorted(by: { $0.path < $1.path }) {
             try Task.checkCancellation()
             let data = try await ExportProcess.run(executable: ffprobe, arguments: ["-v", "error", "-show_streams", "-of", "json", url.path], timeout: 30)
             guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -106,6 +128,14 @@ actor SequenceExportService {
             }
             func reject(_ reason: String) -> SequenceExportError {
                 .verification("Export source \(url.lastPathComponent): \(reason)")
+            }
+            /// Strict mode refuses; otherwise the render proceeds and reports the approximation once.
+            func qualify(_ strictReason: String, warning: String?) throws {
+                if strict { throw reject(strictReason) }
+                if let warning {
+                    let message = "\(url.lastPathComponent): \(warning)"
+                    if !warnings.contains(message) { warnings.append(message) }
+                }
             }
             func numeric(_ value: Any?) -> Double? {
                 if let string = value as? String { return Double(string) }
@@ -126,7 +156,7 @@ actor SequenceExportService {
                     throw reject("Selected stream index/kind does not match FFprobe. Reimport or select a qualified source.")
                 }
                 if let offset = numeric(stream["start_time"]), !offset.isFinite || abs(offset) > 0.000001 {
-                    throw reject("Nonzero source stream start offsets are not qualified.")
+                    try qualify("Nonzero source stream start offsets are not qualified.", warning: nil)
                 }
                 let components = plan.components.filter { component in
                     guard component.originalURL == url else { return false }
@@ -151,19 +181,19 @@ actor SequenceExportService {
                         throw reject("Selected source raster is missing, invalid, or exceeds the 16384-pixel limit.")
                     }
                     if let sar = stream["sample_aspect_ratio"] as? String, !["1:1", "N/A", "0:1"].contains(sar) {
-                        throw reject("Non-square source pixels are not qualified.")
+                        try qualify("Non-square source pixels are not qualified.", warning: "non-square pixels (\(sar)) are rendered without aspect correction.")
                     }
                     let rotation = numeric((stream["tags"] as? [String: Any])?["rotate"]) ?? 0
                     let sides = stream["side_data_list"] as? [[String: Any]] ?? []
-                    guard rotation == 0, sides.allSatisfy({ (numeric($0["rotation"]) ?? 0) == 0 }) else {
-                        throw reject("Rotated sources are not qualified.")
+                    if rotation != 0 || !sides.allSatisfy({ (numeric($0["rotation"]) ?? 0) == 0 }) {
+                        try qualify("Rotated sources are not qualified.", warning: nil)
                     }
                     let transfer = stream["color_transfer"] as? String ?? "unknown"
                     let primaries = stream["color_primaries"] as? String ?? "unknown"
-                    guard !["smpte2084", "arib-std-b67", "bt2020-10", "bt2020-12"].contains(transfer), primaries != "bt2020" else {
-                        throw reject("HDR/wide-gamut sources are not qualified.")
+                    if ["smpte2084", "arib-std-b67", "bt2020-10", "bt2020-12"].contains(transfer) || primaries == "bt2020" {
+                        try qualify("HDR/wide-gamut sources are not qualified.", warning: "HDR or wide-gamut picture is rendered without tone mapping; colors may look flat.")
                     }
-                    if components.contains(where: { $0.selection != .still }) {
+                    if strict, components.contains(where: { $0.selection != .still }) {
                         guard let average = rational(stream["avg_frame_rate"]), let nominal = rational(stream["r_frame_rate"]),
                               average == nominal, nominal.seconds <= 1000,
                               let timeBase = rational(stream["time_base"]), timeBase.seconds <= 1 / nominal.seconds else {
@@ -177,15 +207,24 @@ actor SequenceExportService {
                         }
                     }
                 }
+                if !strict, kind == "video", components.contains(where: { $0.selection != .still }),
+                   let average = stream["avg_frame_rate"] as? String, let nominal = stream["r_frame_rate"] as? String, average != nominal {
+                    try qualify("", warning: "variable frame rate is conformed to the sequence frame rate.")
+                }
                 if let duration = numeric(stream["duration"]), duration.isFinite {
                     for component in components where component.selection != .still {
-                        guard try component.sourceRange.end().seconds <= duration + 0.000021 else {
-                            throw reject("Selected source range exceeds the probed stream duration.")
+                        let end = try component.sourceRange.end().seconds
+                        if strict {
+                            guard end <= duration + 0.000021 else { throw reject("Selected source range exceeds the probed stream duration.") }
+                        } else if end > duration + 0.1 {
+                            // Containers often end one stream slightly early; the mix pads silence/holds picture.
+                            try qualify("", warning: "selected range extends \(String(format: "%.2f", end - duration)) s past the end of the \(kind) stream; it is padded.")
                         }
                     }
                 }
             }
         }
+        return warnings
     }
     /// Full selected-stream scan, never a sampling claim. Output, elapsed time and frame
     /// count are bounded; larger/slow sources refuse qualification instead of guessing CFR.
@@ -227,7 +266,8 @@ actor SequenceExportService {
         }
         return frames.count
     }
-    nonisolated private static func verify(_ data: Data, plan: TimelineRenderPlan, command: FFmpegRenderCommand) throws {
+    nonisolated private static func verify(_ data: Data, plan: TimelineRenderPlan, command: FFmpegRenderCommand,
+                                           format: RenderOutputFormat, counted: String) throws {
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let streams = root["streams"] as? [[String: Any]],
               let video = streams.first(where: { $0["codec_type"] as? String == "video" }),
@@ -242,18 +282,24 @@ actor SequenceExportService {
         let timecode = try plan.settings.startTimecode.formatted(rate: plan.settings.frameRate)
         let tags = video["tags"] as? [String: Any]
         let formatTags = (root["format"] as? [String: Any])?["tags"] as? [String: Any]
-        guard video["codec_name"] as? String == "prores", video["profile"] as? String == "HQ",
-              video["pix_fmt"] as? String == "yuv422p10le", integer(video["width"]) == Int64(plan.settings.width),
-              integer(video["height"]) == Int64(plan.settings.height),
-              video["r_frame_rate"] as? String == "\(rate.numerator)/\(rate.denominator)",
-              integer(video["nb_read_frames"]) == command.videoFrames,
-              audio["codec_name"] as? String == "pcm_s24le", integer(audio["bits_per_raw_sample"]) == 24,
-              integer(audio["sample_rate"]) == Int64(plan.settings.audioSampleRate),
-              integer(audio["channels"]) == Int64(plan.settings.audioLayout.channels.count),
-              integer(audio["duration_ts"]) == command.audioSamples,
-              audio["time_base"] as? String == "1/\(plan.settings.audioSampleRate)",
-              (tags?["timecode"] as? String ?? formatTags?["timecode"] as? String) == timecode else {
-            throw SequenceExportError.verification("Rendered MOV failed frame count, audio sample count, raster, rate, codec, or timecode verification.")
+        let checks: [(String, Bool)] = [
+            ("video codec", video["codec_name"] as? String == format.videoCodecName),
+            ("video profile", video["profile"] as? String == format.videoProfileName),
+            ("pixel format", video["pix_fmt"] as? String == format.pixelFormat),
+            ("raster", integer(video["width"]) == Int64(plan.settings.width) && integer(video["height"]) == Int64(plan.settings.height)),
+            ("frame rate", video["r_frame_rate"] as? String == "\(rate.numerator)/\(rate.denominator)"),
+            ("frame count \(integer(video[counted]).map(String.init) ?? "missing") ≠ \(command.videoFrames)", integer(video[counted]) == command.videoFrames),
+            ("audio codec", audio["codec_name"] as? String == format.audioCodecName),
+            ("audio bit depth", !format.isProRes || integer(audio["bits_per_raw_sample"]) == 24),
+            ("audio sample rate", integer(audio["sample_rate"]) == Int64(plan.settings.audioSampleRate)),
+            ("audio channels", integer(audio["channels"]) == Int64(plan.settings.audioLayout.channels.count)),
+            ("audio sample count \(integer(audio["duration_ts"]).map(String.init) ?? "missing") ≠ \(command.audioSamples)", integer(audio["duration_ts"]) == command.audioSamples),
+            ("audio time base", audio["time_base"] as? String == "1/\(plan.settings.audioSampleRate)"),
+            ("timecode", (tags?["timecode"] as? String ?? formatTags?["timecode"] as? String) == timecode),
+        ]
+        let failed = checks.filter { !$0.1 }.map(\.0)
+        guard failed.isEmpty else {
+            throw SequenceExportError.verification("Rendered \(format.fileExtension.uppercased()) failed verification: \(failed.joined(separator: ", ")).")
         }
     }
 }

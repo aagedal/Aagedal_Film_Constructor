@@ -15,7 +15,30 @@ import Testing
     #expect(throws: (any Error).self) { try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: URL(fileURLWithPath: "/private/tmp/out.mp4")) }
     #expect(throws: (any Error).self) { try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: project.assets[0].originalURL!) }
     project.assets[0].streams[0].timeOffset = try RationalTime(1, 2)
-    #expect(throws: (any Error).self) { try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: output) }
+    let delayed = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: output)
+    // Audio starting half a second into the asset is padded so sample counts stay in asset time.
+    #expect(delayed.filterGraph.contains("aresample=48000,adelay=24000S:all=1,atrim=start_sample=480000:end_sample=720000"))
+    project.assets[0].streams[0].timeOffset = try RationalTime(-1, 4)
+    let early = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: output)
+    #expect(early.filterGraph.contains("aresample=48000,atrim=start_sample=492000:end_sample=732000"))
+}
+
+@Test func compilerSelectsDeliveryFormatsByContainer() throws {
+    var project = try DemoProjectFactory.musicCollision()
+    project.assets[0].originalURL = URL(fileURLWithPath: "/private/tmp/source.mov")
+    let plan = try TimelineRenderPlan(project: project)
+    let mp4 = URL(fileURLWithPath: "/private/tmp/out.mp4")
+    let h264 = try FFmpegRenderCompiler.compile(plan, outputURL: mp4, format: .h264)
+    #expect(h264.arguments.contains("libx264") && h264.arguments.contains("aac") && h264.arguments.contains("+faststart"))
+    let hevc = try FFmpegRenderCompiler.compile(plan, outputURL: mp4, format: .hevc)
+    #expect(hevc.arguments.contains("hevc_videotoolbox") && hevc.arguments.contains("hvc1"))
+    let standard = try FFmpegRenderCompiler.compile(plan, outputURL: URL(fileURLWithPath: "/private/tmp/out.mov"), format: .proRes422)
+    #expect(standard.arguments.contains("prores_ks") && standard.arguments.contains("pcm_s24le"))
+    #expect(throws: (any Error).self) { try FFmpegRenderCompiler.compile(plan, outputURL: URL(fileURLWithPath: "/private/tmp/out.mov"), format: .h264) }
+    for format in RenderOutputFormat.allCases {
+        let command = try FFmpegRenderCompiler.compile(plan, outputURL: URL(fileURLWithPath: "/private/tmp/out." + format.fileExtension), format: format)
+        #expect(command.arguments.contains("-timecode") && command.videoFrames == 240)
+    }
 }
 
 @Test func compilerKeepsPathsAsArgumentsAndRejectsSubsampleEdits() throws {
@@ -79,7 +102,9 @@ private func stillExportProject(url: URL) throws -> Project {
     project.assets[0].streams = [.init(index: 0, kind: .video)]
     project.tracks[0].clips[0].sourceRange.start = .zero
     project.assets[0].streams[0].timeOffset = try RationalTime(1, 24)
-    #expect(throws: (any Error).self) { try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: URL(fileURLWithPath: "/private/tmp/still-output.mov")) }
+    // Stills always use their first decoded frame; a stream offset cannot move it.
+    let offsetStill = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: URL(fileURLWithPath: "/private/tmp/still-output.mov"))
+    #expect(offsetStill.filterGraph.contains("trim=end_frame=1,loop="))
 }
 
 @Test func compilerCoversSampleAlignedAudioEndsWithoutExtendingPCM() throws {

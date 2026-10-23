@@ -13,6 +13,10 @@ struct SequenceExportView: View {
     @State private var completedURL: URL?
     @State private var isCancelling = false
     @State private var filename = "Sequence.mov"
+    @AppStorage("exportFormat") private var format: RenderOutputFormat = .proRes422HQ
+    @AppStorage("exportStrictQualification") private var strictQualification = false
+    @State private var warnings: [String] = []
+    @State private var isAssessing = false
 
     private var helpers: SequenceExportHelperAvailability {
         SequenceExportService.helperAvailability()
@@ -22,7 +26,14 @@ struct SequenceExportView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Render sequence").font(.title2.bold())
             Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 8) {
-                GridRow { Text("Format"); Text("QuickTime MOV · ProRes 422 HQ · PCM 24-bit") }
+                GridRow {
+                    Text("Format")
+                    Picker("Format", selection: $format) {
+                        ForEach(RenderOutputFormat.allCases) { Text($0.displayName).tag($0) }
+                    }
+                    .labelsHidden().fixedSize()
+                    .disabled(exportTask != nil || completedURL != nil)
+                }
                 GridRow {
                     Text("Picture")
                     Text("\(draft.plan.settings.width) × \(draft.plan.settings.height) · \(draft.plan.settings.frameRate.value.numerator)/\(draft.plan.settings.frameRate.value.denominator) fps")
@@ -41,6 +52,19 @@ struct SequenceExportView: View {
                 .foregroundStyle(.secondary)
             Text(FFmpegRenderCompiler.qualificationLimitations)
                 .font(.caption).foregroundStyle(.secondary)
+            Toggle("Strict source qualification (refuse sources that would be approximated)", isOn: $strictQualification)
+                .font(.caption)
+                .disabled(exportTask != nil || completedURL != nil)
+            if isAssessing {
+                ProgressView().controlSize(.small)
+            } else if !warnings.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(warnings, id: \.self) { warning in
+                        Label(warning, systemImage: "exclamationmark.triangle").font(.caption)
+                    }
+                }
+                .foregroundStyle(.orange).textSelection(.enabled)
+            }
             if (try? draft.plan.duration.multiplied(by: draft.plan.settings.frameRate.value).denominator) != 1 {
                 Text("The sequence ends between video frames. Video covers the final partial frame; audio keeps its exact sample duration.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -82,14 +106,36 @@ struct SequenceExportView: View {
         .padding(24).frame(width: 570)
         .interactiveDismissDisabled(exportTask != nil)
         .onDisappear { exportTask?.cancel() }
+        .onChange(of: format, initial: true) { _, format in
+            let stem = (filename as NSString).deletingPathExtension
+            filename = (stem.isEmpty ? "Sequence" : stem) + "." + format.fileExtension
+        }
+        .task(id: strictQualification) { await assess() }
     }
+
+    /// Probe sources up front so approximations or refusals are visible before choosing a folder.
+    private func assess() async {
+        guard helpers.isAvailable else { return }
+        isAssessing = true
+        defer { isAssessing = false }
+        do {
+            warnings = try await SequenceExportService.shared.assess(plan: draft.plan, options: options)
+            if errorMessage != nil, completedURL == nil, exportTask == nil { errorMessage = nil }
+        } catch is CancellationError {
+        } catch {
+            warnings = []
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private var options: SequenceExportOptions { .init(format: format, strictQualification: strictQualification) }
 
     private func startExport() {
         guard !filename.isEmpty, filename != ".", filename != "..",
               !filename.contains("/"), !filename.contains(":"),
               !filename.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
-              filename.lowercased().hasSuffix(".mov") else {
-            errorMessage = "Enter a MOV filename without path separators."
+              filename.lowercased().hasSuffix("." + format.fileExtension) else {
+            errorMessage = "Enter a .\(format.fileExtension) filename without path separators."
             return
         }
         let panel = NSOpenPanel()
@@ -107,13 +153,14 @@ struct SequenceExportView: View {
             let folderAccess = folder.startAccessingSecurityScopedResource()
             defer { if folderAccess { folder.stopAccessingSecurityScopedResource() } }
             do {
-                let result = try await SequenceExportService.shared.export(plan: draft.plan, to: destination) { progress in
+                let result = try await SequenceExportService.shared.export(plan: draft.plan, to: destination, options: options) { progress in
                     Task { @MainActor in
                         fraction = progress.fraction
                         stage = progress.stage
                     }
                 }
                 completedURL = result.outputURL
+                warnings = result.warnings
             } catch is CancellationError {
                 stage = "Export cancelled"
             } catch {
