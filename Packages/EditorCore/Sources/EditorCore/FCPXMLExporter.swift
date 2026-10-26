@@ -56,7 +56,7 @@ public enum FCPXMLExporter {
             let asset = assets.first { $0.id == component.assetID }!
             let label = "Clip \(component.clipID.uuidString) (\(asset.name))"
             if component.fadeIn.duration != .zero || component.fadeOut.duration != .zero { reasons.append("\(label): fades are not supported.") }
-            if component.gain != 1 { reasons.append("\(label): track gain must be unity.") }
+            if component.gain != 1 { reasons.append("\(label): track gain and clip volume must be unity.") }
             switch component.selection {
             case .still:
                 reasons.append("\(label): still-image duration and geometry have not been qualified.")

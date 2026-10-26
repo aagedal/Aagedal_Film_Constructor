@@ -654,6 +654,25 @@ final class EditorStore: ObservableObject {
         }
         do { try change { try $0.setTrackGain(id: id, gain: pow(10, value / 20)) } } catch { report(error) }
     }
+    /// The selected audio component, or every audio component linked to the selected picture.
+    var selectedVolumeClips: [TimelineClip] {
+        guard let clip = selectedClip else { return [] }
+        if clip.requiredTrackKind == .audio { return [clip] }
+        guard let group = clip.linkGroupID else { return [] }
+        return project.tracks.flatMap(\.clips).filter { $0.linkGroupID == group && $0.requiredTrackKind == .audio }
+    }
+    func setSelectedClipVolume(decibels: String) {
+        let clips = selectedVolumeClips
+        guard !clips.isEmpty else { return }
+        guard let value = Double(decibels.replacingOccurrences(of: "−", with: "-")), !value.isNaN, value <= 24 else {
+            errorMessage = "Enter a clip volume of +24 dB or less. Use −inf or −100 for silence."
+            return
+        }
+        // Volumes below −96 dB are treated as silence.
+        let gain = value <= -96 ? 0 : pow(10, value / 20)
+        edit(.setGain(clipIDs: clips.map(\.id), gain: gain))
+        if errorMessage == nil { statusMessage = "Set clip volume to \(gain == 0 ? "silence" : String(format: "%+.1f dB", value))." }
+    }
     func deleteSelectedClip() {
         guard let id = selectedClipID else { return }
         edit(.delete(clipID: id)); reconcileSelection()

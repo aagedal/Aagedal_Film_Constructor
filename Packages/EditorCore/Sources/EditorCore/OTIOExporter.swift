@@ -48,7 +48,7 @@ public enum OTIOExporter {
             if asset.sourceTimecode?.frameCount != nil && asset.sourceTimecode?.frameCount != 0 {
                 reasons.append("\(label): source timecode without a known source frame rate is not supported.")
             }
-            if component.gain != 1 { reasons.append("\(label): track gain must be unity.") }
+            if component.gain != 1 { reasons.append("\(label): track gain and clip volume must be unity.") }
             if component.fadeIn.duration != .zero || component.fadeOut.duration != .zero { reasons.append("\(label): fades are not supported.") }
             let clock: RationalTime
             switch component.selection {

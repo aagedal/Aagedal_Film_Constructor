@@ -19,6 +19,8 @@ public enum EditCommand: Sendable {
     case removeAudioCrossfade(crossfadeID: UUID)
     /// Audio components take any curve; pictures fade their opacity linearly.
     case setFades(clipID: UUID, fadeIn: AudioFade, fadeOut: AudioFade)
+    /// Set the linear volume of the listed audio components; other kinds are refused.
+    case setGain(clipIDs: [UUID], gain: Double)
     /// Replace one audio component with explicitly mapped components, preserving linked picture/timing.
     case selectAudioSource(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting])
     /// Replace explicitly chosen, aligned linked audio components with one mapped component.
@@ -395,6 +397,14 @@ public struct TimelineEditEngine: Sendable {
                   let clipIndex = project.tracks[trackIndex].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
             project.tracks[trackIndex].clips[clipIndex].fadeIn = fadeIn
             project.tracks[trackIndex].clips[clipIndex].fadeOut = fadeOut
+        case .setGain(let clipIDs, let gain):
+            guard !clipIDs.isEmpty else { throw TimelineEditError.missingClip }
+            for id in clipIDs {
+                guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == id } }),
+                      let c = project.tracks[t].clips.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingClip }
+                guard project.tracks[t].clips[c].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
+                project.tracks[t].clips[c].gain = gain
+            }
         case .delete(let clipID):
             let components = try linked(to: clipID, in: project)
             remove(Set(components.map { $0.clip.id }), from: &project)

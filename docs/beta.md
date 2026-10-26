@@ -64,6 +64,13 @@ and Gatekeeper assesses it as "Notarized Developer ID".
 - FCPXML, OTIO and EDL exports refuse sequences with fades or transitions rather
   than dropping them.
 
+## Volume
+
+Select a clip and enter **Clip volume (dB)** in the inspector (up to +24 dB; −inf
+silences it). With a picture selected, the field sets its linked audio. Clip
+volume multiplies the track gain set in the track header. The preview plays gain
+above 0 dB at 0 dB; the export applies it in full.
+
 ## Media support
 
 **Opened directly** (through AVFoundation): MOV, MP4 and M4V with H.264, HEVC

@@ -477,6 +477,7 @@ private struct ProjectInspector: View {
     @State private var fadeInCurve = AudioFadeCurve.linear
     @State private var fadeOutCurve = AudioFadeCurve.linear
     @State private var fadeDraftClip: TimelineClip?
+    @State private var clipVolume = "0"
     @State private var crossfadeTargetID: UUID?
     @State private var crossfadeDuration = "0.5"
     @State private var crossfadeCurve = AudioFadeCurve.equalPower
@@ -514,6 +515,12 @@ private struct ProjectInspector: View {
                                     .labelStyle(.iconOnly).help("Edit audio source channels and output routing")
                                 Text("\(clip.requiredAudioLayout?.channels.count ?? 0) selected channels")
                                     .font(.caption).foregroundStyle(.secondary)
+                            }
+                            if !store.selectedVolumeClips.isEmpty {
+                                Divider()
+                                numericField(isPicture ? "Linked audio volume (dB)" : "Clip volume (dB)", text: $clipVolume)
+                                Button("Apply volume", systemImage: "speaker.wave.2") { store.setSelectedClipVolume(decibels: clipVolume) }
+                                    .labelStyle(.iconOnly).help("Apply clip volume; track gain applies on top")
                             }
                             Divider()
                             numericField("Fade in (s)", text: $fadeInDuration)
@@ -721,6 +728,9 @@ private struct ProjectInspector: View {
         fadeInCurve = clip.fadeIn.curve
         fadeOutCurve = clip.fadeOut.curve
         fadeDraftClip = clip
+        if let gain = store.selectedVolumeClips.first?.gain {
+            clipVolume = gain == 0 ? "-inf" : String(format: "%.1f", 20 * log10(gain))
+        }
         refreshCrossfade()
     }
     private func applySequenceSettings() {

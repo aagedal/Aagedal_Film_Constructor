@@ -32,7 +32,10 @@ express it.
   components. Decoded-pixel checks: `VideoTransitionRenderTests` (export, with
   `AFC_FFMPEG`) and `scripts/system-transition-smoke.sh` (preview vs export).
 - [ ] Titles: text clips with font, size, colour and position.
-- [ ] Per-clip audio volume in dB, independent of track gain.
+- [x] Per-clip audio volume in dB (up to +24, or silence), multiplied with track
+  gain in render and preview. Selecting a picture sets its linked audio. Split,
+  trim and save keep it; consolidation requires equal volumes; FCPXML, OTIO and
+  EDL refuse non-unity volume.
 - [ ] Ripple delete, and insert/overwrite edits at the playhead from the source.
 - [ ] Copy, paste and duplicate clips.
 
