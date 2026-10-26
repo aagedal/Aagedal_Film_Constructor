@@ -101,6 +101,11 @@ express it.
   field and lists, jumps to and removes them; the timeline draws the envelope. Export
   levels (`VolumeKeyframeTests`) and preview levels (`system-transition-smoke.sh`)
   measure 1 : 0.625 : 0.25 at the expected points.
+- [x] Stabilise: FFmpeg deshake renders a stabilised HEVC copy of the clip's source range
+  (±1 s) into Application Support; one undoable edit adds it and points the picture at it
+  (`replacePictureMedia`, keyframes shifted with the source), leaving linked sound on the
+  original. `scripts/stabilise-smoke.sh` measures 43% less frame-to-frame motion on shaky
+  synthetic footage.
 - [x] Chroma key: per-picture key colour, similarity and blend. Export runs FFmpeg
   `chromakey` on the picture's chroma before padding; the preview applies a 32³ colour cube
   built from the same formula (Rec. 709 chroma of the picture against FFmpeg's BT.601 key

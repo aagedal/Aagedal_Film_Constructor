@@ -111,3 +111,40 @@ final class ClipClipboardTests: XCTestCase {
         XCTAssertNoThrow(try project.validate())
     }
 }
+
+final class ReplacePictureMediaTests: XCTestCase {
+    func testPictureMovesToMediaStartingLaterAndKeepsTimingAndLinkedSound() throws {
+        let movie = MediaAsset(name: "Movie", originalURL: URL(fileURLWithPath: "/private/tmp/shaky.mov"), duration: try RationalTime(30),
+                               streams: [.init(index: 0, kind: .video), .init(index: 1, kind: .audio, audioLayout: .stereo)])
+        let steady = MediaAsset(name: "Movie (stabilised)", originalURL: URL(fileURLWithPath: "/private/tmp/steady.mov"), duration: try RationalTime(8),
+                                streams: [.init(index: 0, kind: .video)])
+        var project = Project(settings: try SequenceSettings(frameRate: FrameRate(25)), assets: [movie, steady])
+        let ids = try project.appendAsset(movie.id, at: RationalTime(2), sourceRange: TimeRange(start: RationalTime(11), duration: RationalTime(6)))
+        var engine = try TimelineEditEngine(project: project)
+        try engine.apply(.replacePictureMedia(clipID: ids[0], assetID: steady.id, streamIndex: 0, sourceOffset: RationalTime(10)))
+        let picture = try XCTUnwrap(engine.project.tracks.flatMap(\.clips).first { $0.id == ids[0] })
+        XCTAssertEqual(picture.assetID, steady.id)
+        XCTAssertEqual(picture.sourceRange, try TimeRange(start: RationalTime(1), duration: RationalTime(6)))
+        XCTAssertEqual(picture.timelineStart, try RationalTime(2))
+        XCTAssertEqual(engine.project.tracks.flatMap(\.clips).first { $0.id == ids[1] }?.assetID, movie.id, "Linked sound stays on the original")
+        XCTAssertThrowsError(try engine.apply(.replacePictureMedia(clipID: ids[0], assetID: steady.id, streamIndex: 0, sourceOffset: RationalTime(20))),
+                             "The new media must cover the clip")
+        engine.undo()
+        XCTAssertEqual(engine.project, project)
+    }
+
+    func testStabilisingKeepsDissolvesTheNewMediaSupports() throws {
+        let movie = MediaAsset(name: "Movie", originalURL: URL(fileURLWithPath: "/private/tmp/shaky.mov"), duration: try RationalTime(30), streams: [.init(index: 0, kind: .video)])
+        let steady = MediaAsset(name: "Movie (stabilised)", originalURL: URL(fileURLWithPath: "/private/tmp/steady.mov"), duration: try RationalTime(7),
+                                streams: [.init(index: 0, kind: .video)])
+        var project = Project(settings: try SequenceSettings(frameRate: FrameRate(25)), assets: [movie, steady])
+        let a = try project.appendAsset(movie.id, at: .zero, sourceRange: TimeRange(start: RationalTime(2), duration: RationalTime(4)))[0]
+        let b = try project.appendAsset(movie.id, at: RationalTime(4), sourceRange: TimeRange(start: RationalTime(11), duration: RationalTime(5)))[0]
+        var engine = try TimelineEditEngine(project: project)
+        try engine.apply(.setAudioCrossfade(outgoingClipID: a, incomingClipID: b, duration: RationalTime(1), curve: .linear))
+        // The copy starts a second before the shot's source in, leaving room for the dissolve.
+        try engine.apply(.replacePictureMedia(clipID: b, assetID: steady.id, streamIndex: 0, sourceOffset: RationalTime(10)))
+        XCTAssertEqual(engine.project.audioCrossfades.count, 1)
+        XCTAssertNoThrow(try TimelineRenderPlan(project: engine.project))
+    }
+}

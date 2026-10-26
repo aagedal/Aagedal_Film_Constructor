@@ -851,6 +851,47 @@ final class EditorStore: ObservableObject {
         guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
         edit(.setTransformKeyframes(clipID: clip.id, keyframes: keyframes))
     }
+    @Published private(set) var isStabilising = false
+    /// Stabilises the selected picture: makes a stabilised copy of the source it plays (with a
+    /// second of margin for trims) and points the picture at it in one undoable edit.
+    /// Linked sound keeps playing the original.
+    func stabiliseSelectedClip() {
+        guard !isStabilising, let clip = selectedClip, case .video = clip.selection,
+              let asset = asset(id: clip.assetID), let original = asset.originalURL else { return }
+        guard let ffmpeg = Bundle.main.resourceURL?.appendingPathComponent("Helpers/ffmpeg"),
+              FileManager.default.isExecutableFile(atPath: ffmpeg.path) else {
+            errorMessage = "Stabilising needs the bundled FFmpeg helper."
+            return
+        }
+        do {
+            let margin = try RationalTime(1)
+            let start = try clip.sourceRange.start.compared(to: margin) == .orderedDescending ? clip.sourceRange.start.subtracting(margin) : .zero
+            let end = try clip.sourceEnd().adding(margin)
+            let stop = try end.compared(to: asset.duration) == .orderedDescending ? asset.duration : end
+            let duration = try stop.subtracting(start)
+            let clipID = clip.id, epoch = mediaEpoch
+            isStabilising = true
+            statusMessage = "Stabilising \(asset.name)… This takes a while for long or 4K shots."
+            Task {
+                defer { isStabilising = false }
+                do {
+                    let url = try await StabilisationService.stabilise(source: original, start: start.seconds, duration: duration.seconds,
+                                                                       ffmpeg: ffmpeg, into: StabilisationService.directory())
+                    guard epoch == mediaEpoch else { return }
+                    let imported = try await MediaImporter.inspect(url: url, displayName: asset.name + " (stabilised)")
+                    guard let stream = imported.asset.streams.first(where: { $0.kind == .video }) else { throw EditorCoreError.invalidModel("The stabilised copy has no picture") }
+                    try change(bookmarkUpdates: [imported.asset.id: imported.bookmark]) { project in
+                        try project.addAsset(imported.asset)
+                        var engine = try TimelineEditEngine(project: project)
+                        try engine.apply(.replacePictureMedia(clipID: clipID, assetID: imported.asset.id, streamIndex: stream.index, sourceOffset: start))
+                        project = engine.project
+                    }
+                    mediaPreviewRevision = UUID()
+                    statusMessage = "Stabilised \(asset.name). Undo returns to the original."
+                } catch { errorMessage = "Could not stabilise: \(audioEditErrorMessage(error))" }
+            }
+        } catch { report(error) }
+    }
     func setSelectedClipKey(_ key: ChromaKey?) {
         guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
         edit(.setKey(clipID: clip.id, key: key))

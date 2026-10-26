@@ -587,6 +587,16 @@ private struct ProjectInspector: View {
                                 }
                                 ColorControls(color: clip.color) { store.setSelectedClipColor($0) }.id(clip.id)
                                 KeyControls(key: clip.key) { store.setSelectedClipKey($0) }.id(clip.id)
+                                if case .video = clip.selection {
+                                    HStack {
+                                        Button(store.isStabilising ? "Stabilising…" : "Stabilise", systemImage: "camera.metering.center.weighted") {
+                                            store.stabiliseSelectedClip()
+                                        }.disabled(store.isStabilising)
+                                        if store.isStabilising { ProgressView().controlSize(.small) }
+                                    }
+                                    Text("Smooths camera shake by making a stabilised copy of this shot's media (plus a second each side for trims). Undo returns to the original.")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
                             } else {
                                 Button("Audio source channels…", systemImage: "waveform") { editingAudio = true }
                                     .labelStyle(.iconOnly).help("Edit audio source channels and output routing")

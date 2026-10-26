@@ -128,6 +128,14 @@ Put a green- or blue-screen clip on a track above the background, select it and 
 **Chroma key** in the inspector. Pick the screen colour, raise **Similarity** until the
 background clears and use **Blend** to soften edges. Preview and export key the same way.
 
+## Stabilise
+
+Select a shaky picture clip and click **Stabilise** in the inspector. The app makes a
+stabilised copy of the media the clip plays (plus a second either side for trims) in its
+Application Support "Stabilised" folder and points the clip at it, so preview and export
+show the same steadied frames. Linked sound keeps the original. Undo returns to the
+original media. Expect about real time or slower for 4K shots.
+
 ## Titles
 
 Press ⌃T (or the **T** button in the timeline toolbar) to add a five-second title at
@@ -231,7 +239,7 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Effects beyond basic colour correction and blur (curves, stabilisation; levels cover black/white points and gamma, chroma key covers keying), title animation beyond position, scale and opacity, transitions other than dissolves, slides, pushes, wipes, dips and crossfades, and audio effects beyond the three-band EQ (compression, noise reduction) are not part of this version.
+- Full curves and tracking-based stabilisation (levels, chroma key and deshake stabilisation are included), title animation beyond position, scale and opacity, transitions other than dissolves, slides, pushes, wipes, dips and crossfades, and audio effects beyond the three-band EQ (compression, noise reduction) are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
 - 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed
