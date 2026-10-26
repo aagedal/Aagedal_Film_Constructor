@@ -23,6 +23,7 @@ swiftc -swift-version 6 -default-isolation MainActor -module-cache-path "$smoke_
   "$repo_root/Aagedal Film Constructor/SystemStillPreview.swift" \
   "$repo_root/Aagedal Film Constructor/AVFoundationSequenceBackend.swift" \
   "$repo_root/Aagedal Film Constructor/CoreImageCompositor.swift" \
+  "$repo_root/Aagedal Film Constructor/AudioMeters.swift" \
   "$repo_root/Aagedal Film Constructor/SequencePlaybackController.swift" \
   "$repo_root/scripts/system-still-smoke.swift" -o "$smoke_root/smoke"
 NSUnbufferedIO=YES DYLD_LIBRARY_PATH="$smoke_root" "$smoke_root/smoke" "$smoke_root"

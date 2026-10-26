@@ -96,6 +96,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
         var layers: [Int: AVMutableVideoCompositionLayerInstruction] = [:]
         var placements: [Int: (track: CMPersistentTrackID, placement: LayerPlacement)] = [:]
         var mixes: [AVAudioMixInputParameters] = []
+        var meterReadings: [UUID: [MeterReading]] = [:]
         var assets: [URL: AVURLAsset] = [:]
         defer {
             withExtendedLifetime(assets) {}
@@ -294,6 +295,12 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     addQualificationNotice("Gain above 0 dB plays at 0 dB in preview; export applies the full gain.")
                 }
                 let parameters = AVMutableAudioMixInputParameters(track: track)
+                // A post-fader tap feeds the mixer's meter for this editorial track.
+                let reading = MeterReading()
+                if let tap = MeterTap.make(for: reading) {
+                    parameters.audioTapProcessor = tap
+                    meterReadings[component.trackID, default: []].append(reading)
+                }
                 let start = component.timelineRange.start.seconds
                 let ramps = try AudioFadeRampPlan(duration: component.timelineRange.duration,
                     fadeIn: component.fadeIn, fadeOut: component.fadeOut, gain: min(component.gain, 1))
@@ -345,6 +352,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
         // Retimed sound keeps its pitch, as in export.
         if plan.components.contains(where: { $0.speed != .one }) { item.audioTimePitchAlgorithm = .spectral }
         let mix = AVMutableAudioMix(); mix.inputParameters = mixes; item.audioMix = mix
+        AudioMeters.shared.attach(meterReadings)
         if hasVideo {
             let videoComposition = AVMutableVideoComposition()
             videoComposition.renderSize = CGSize(width: plan.settings.width, height: plan.settings.height)
@@ -494,6 +502,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
     }
     func pause() { player?.pause() }
     func close() async {
+        AudioMeters.shared.detach()
         closed = true; pause(); polling?.cancel(); polling = nil
         player?.replaceCurrentItem(with: nil); player = nil; output = nil
         stillMovies.removeAll(); stillMovieBytes = 0

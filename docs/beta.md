@@ -132,6 +132,10 @@ reference those images as stills.
 
 ## Volume, keyframes, mute and solo
 
+Choose **Panels → Mixer** (or View → Show Mixer) for a mixer beside the inspector:
+each audio track has mute, solo, a gain fader and a meter that shows its post-fader
+peak while the sequence plays.
+
 To ride a level (for example ducking music under speech), select the clip, move the
 playhead to where the change starts, enter a volume and click the diamond to add a
 keyframe; add another where it should end. Volume ramps linearly between keyframes
@@ -211,7 +215,7 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Effects beyond basic colour correction (curves, blur, keying), title animation beyond position and scale, transitions other than dissolves, slides, pushes, dips and crossfades (no wipes), opacity keyframes (use fades) and a mixer are not part of this version.
+- Effects beyond basic colour correction (curves, blur, keying), title animation beyond position and scale, transitions other than dissolves, slides, pushes, dips and crossfades (no wipes), opacity keyframes (use fades) and audio effects (EQ, compression) are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
 - 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed

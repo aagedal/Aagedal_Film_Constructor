@@ -8,6 +8,7 @@ struct ContentView: View {
     @AppStorage("workspace.showMediaBin") private var showMediaBin = true
     @AppStorage("workspace.showInspector") private var showInspector = true
     @AppStorage("workspace.showTimeline") private var showTimeline = true
+    @AppStorage("workspace.showMixer") private var showMixer = false
     @State private var isMediaBinDropTargeted = false
     @State private var binName = ""
     @State private var creatingBin = false
@@ -26,6 +27,9 @@ struct ContentView: View {
                     .focusedValue(\.editorCommandScope, store.showSequenceMonitor ? .timeline : .source)
                 if showInspector {
                     ProjectInspector(store: store).frame(minWidth: 240, idealWidth: 270, maxWidth: 340)
+                }
+                if showMixer {
+                    MixerPanel(store: store).frame(minWidth: 220, idealWidth: 260, maxWidth: 360)
                 }
             }
             .frame(minHeight: 260)
@@ -57,6 +61,7 @@ struct ContentView: View {
                     Toggle("Media bin", isOn: $showMediaBin)
                     Toggle("Inspector", isOn: $showInspector)
                     Toggle("Timeline", isOn: $showTimeline)
+                    Toggle("Mixer", isOn: $showMixer)
                     Divider()
                     Button("Show all panels") {
                         showMediaBin = true; showInspector = true; showTimeline = true

@@ -82,6 +82,9 @@ express it.
   field and lists, jumps to and removes them; the timeline draws the envelope. Export
   levels (`VolumeKeyframeTests`) and preview levels (`system-transition-smoke.sh`)
   measure 1 : 0.625 : 0.25 at the expected points.
+- [x] Mixer panel: per-track mute, solo, gain fader and a post-fader peak meter fed by
+  MTAudioProcessingTap taps on the preview's audio tracks (falling peak hold). The
+  smoke checks the meter reports a known tone; acceptance checks it moves in playback.
 - [x] Track mute/solo: the eye hides a video track; M mutes and S solos audio tracks.
   The render plan (preview and every export) leaves them out; collision siblings
   inherit the state.

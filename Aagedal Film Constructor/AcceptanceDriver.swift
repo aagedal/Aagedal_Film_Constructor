@@ -480,12 +480,16 @@ enum AcceptanceDriver {
             let prepared = await wait(30) { store.sequencePlayback?.isPreparing == false }
             record("sequence_viewer", ["tabSwitchedToSequence": monitoring, "prepared": prepared,
                                        "message": store.sequencePlayback?.message ?? ""])
+            // Show the mixer for the playback check; the user's choice is restored at the end.
+            let previousMixer = UserDefaults.standard.object(forKey: "workspace.showMixer")
+            UserDefaults.standard.set(true, forKey: "workspace.showMixer")
             let before = store.playheadSeconds
             press(.togglePlayback, " ", keyCode: 49)
             let playing = await wait(10) { store.sequencePlayback?.isPlaying == true }
             try? await Task.sleep(for: .seconds(2))
             snapshot("03-playing", window: workspaceWindow())
             let during = store.playheadSeconds
+            let meterPeak = AudioMeters.shared.levels.values.max() ?? -120
             press(.togglePlayback, " ", keyCode: 49)
             let paused = await wait(5) { store.sequencePlayback?.isPlaying == false }
             try? await Task.sleep(for: .milliseconds(500))
@@ -493,7 +497,7 @@ enum AcceptanceDriver {
             try? await Task.sleep(for: .milliseconds(500))
             record("space_transport", ["startedPlaying": playing, "paused": paused,
                                        "playheadBefore": before, "playheadWhilePlaying": during,
-                                       "playheadAfterPause": after, "playheadStable": abs(store.playheadSeconds - after) < 0.001,
+                                       "playheadAfterPause": after, "meterPeak": meterPeak, "playheadStable": abs(store.playheadSeconds - after) < 0.001,
                                        "notice": store.sequencePlayback?.message ?? ""])
 
             // Customized shortcut: remap Play / Pause to P, press it, then restore the user's binding.
@@ -601,6 +605,7 @@ enum AcceptanceDriver {
             snapshot("06-reopened", window: workspaceWindow())
             record("reopen", ["reopened": reopened, "windowShown": shown, "clipsBefore": clipsBefore, "clipsInFile": savedClips,
                               "title": workspaceWindow()?.title ?? ""])
+            UserDefaults.standard.set(previousMixer, forKey: "workspace.showMixer")
             record("done", ["dispatch": dispatchPaths])
             exit(0)
         }

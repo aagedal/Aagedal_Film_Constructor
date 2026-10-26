@@ -88,6 +88,7 @@ checks = [
     ('remapped Play / Pause shortcut works and was restored', shortcut.get('remapped') and shortcut.get('plays') and shortcut.get('pauses') and shortcut.get('restored')),
     ('Tab switched to a prepared Sequence viewer', seq.get('tabSwitchedToSequence') and seq.get('prepared')),
     ('Space started playback and the playhead advanced', space.get('startedPlaying') and space.get('playheadWhilePlaying', 0) > 0.5),
+    ('mixer meters moved during playback', space.get('meterPeak', -120) > -60),
     ('Space paused and the playhead held', space.get('paused') and space.get('playheadStable')),
     ('⇧⌘E opened Render Sequence', sheet.get('openedByShortcut')),
     ('Render Sequence H.264 export verified', ui.get('buttonPressed') and ui.get('completed') and ui.get('bytes', 0) > 0),

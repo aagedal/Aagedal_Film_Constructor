@@ -287,7 +287,12 @@ import EditorCore
         print("automation levels: \(level(0.2)) \(level(1.0)) \(level(2.2))")
         try require(abs(level(1.0) / reference - 0.625) < 0.03 && abs(level(2.2) / reference - 0.25) < 0.03,
                     "Preview follows volume keyframes")
+        // The mixer's post-fader meter heard the tone on its track (1/8 amplitude ≈ −18 dBFS).
+        AudioMeters.shared.poll()
+        let meter = AudioMeters.shared.levels[automated.tracks[0].id] ?? -120
+        print("meter level: \(meter) dBFS")
+        try require(meter > -30 && meter < -10, "The track meter reports the tone")
         await audioBackend.close()
-        print("PASS volume keyframes in preview")
+        print("PASS volume keyframes in preview and track meter")
     }
 }
