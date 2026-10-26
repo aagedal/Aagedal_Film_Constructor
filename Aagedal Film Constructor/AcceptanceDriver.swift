@@ -129,6 +129,11 @@ enum AcceptanceDriver {
         }
         guard let output = outputDirectory, !started else { return }
         started = true
+        if ProcessInfo.processInfo.environment["AFC_STORY"] == "1" {
+            let entries = (ProcessInfo.processInfo.environment["AFC_ACCEPTANCE_MEDIA"] ?? "").split(separator: "|").map(String.init)
+            StoryDriver.run(store: store, output: output, media: entries)
+            return
+        }
         let requestedMedia = (ProcessInfo.processInfo.environment["AFC_ACCEPTANCE_MEDIA"] ?? "")
             .split(whereSeparator: { $0 == "\n" || $0 == "|" }).map { path -> URL in
                 // Relative paths name media bundled into Resources, readable inside the sandbox.

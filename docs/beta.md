@@ -272,6 +272,15 @@ the app (export starts) and cancels cleanly. The main run exports and saves
 through the same calls the panels make. The probes are off by default: an unsigned build can be refused by the
 system panel service, which leaves an "open file operation failed" alert to dismiss.
 
+To watch the app cut a short film from your own shots (marks, dissolves, slow motion,
+grade, title, music bed with ducking, playback, export and save), run:
+
+```sh
+scripts/story-edit.sh "/path/to/Aagedal Film Constructor.app" "shot1.mov@8-13" "shot2.mov@20-25" "shot3.mov@5-9" "shot4.mov@60-66"
+```
+
+Each argument is a file and its source in/out in seconds; the third shot plays at 50%.
+
 ## Reporting problems
 
 Please include the message shown in the app, the file's FFprobe summary

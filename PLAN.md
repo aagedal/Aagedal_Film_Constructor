@@ -58,6 +58,12 @@ express it.
   expressions; the system preview uses transform ramps and the CoreImage compositor
   evaluates the same placement per frame. `TransformKeyframeTests` measures the decoded
   inset's position and size; the preview matches export at the keyframes and between.
+- [x] Editorial run on real footage (2026-10-26, `scripts/story-edit.sh`): the real app cut a
+  24-second film from four 4K25 H.264 drone shots: marked source ranges appended with
+  ⌘E, a fade up, three dissolves with source handles, one shot at 50%, a grade on every
+  shot, a rising two-line title, and a music bed faded in and out and ducked by 10 dB with
+  keyframes. It played in the sequence viewer, exported a verified 600-frame 1080p H.264
+  with no warnings and saved. Frames and per-second loudness of the export match the edit.
 - [x] FCPXML adjustments: volume, fades, scale, position, opacity and their keyframes are
   written as `adjust-volume`, `adjust-transform` and `adjust-blend` with params; an
   adjusted fixture validates against Apple's 1.10 DTD. Import into Final Cut Pro and
