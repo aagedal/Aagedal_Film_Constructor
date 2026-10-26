@@ -109,7 +109,7 @@ public struct NativePlaybackPlan: Equatable, Sendable {
                 throw EditorCoreError.invalidModel("Native playback requires an absolute local original URL")
             }
             try component.fadeIn.validate(duration: component.sourceRange.duration)
-            guard component.volumeKeyframes.isEmpty, component.speed == .one else { throw EditorCoreError.invalidModel("The native runtime does not render volume keyframes") }
+            guard component.volumeKeyframes.isEmpty, component.speed == .one, component.eq.isFlat else { throw EditorCoreError.invalidModel("The native runtime does not render volume keyframes") }
             try component.fadeOut.validate(duration: component.sourceRange.duration)
             try component.sourceRange.validate()
             try component.timelineRange.validate()

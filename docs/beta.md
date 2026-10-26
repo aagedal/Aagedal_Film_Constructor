@@ -131,6 +131,12 @@ like any other clip. Titles are drawn as transparent images in the app's
 Application Support "Titles" folder and redrawn if missing. Interchange exports
 reference those images as stills.
 
+## EQ
+
+Select an audio clip (or a picture with linked sound) and drag **Low** (120 Hz shelf),
+**Mid** (1 kHz) or **High** (8 kHz shelf) under **EQ** in the inspector, ±24 dB. The
+preview and the export run the same filters.
+
 ## Volume, keyframes, mute and solo
 
 Choose **Panels → Mixer** (or View → Show Mixer) for a mixer beside the inspector:
@@ -216,7 +222,7 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Effects beyond basic colour correction and blur (curves, keying, stabilisation), title animation beyond position and scale, transitions other than dissolves, slides, pushes, wipes, dips and crossfades, opacity keyframes (use fades) and audio effects (EQ, compression) are not part of this version.
+- Effects beyond basic colour correction and blur (curves, keying, stabilisation), title animation beyond position and scale, transitions other than dissolves, slides, pushes, wipes, dips and crossfades, opacity keyframes (use fades) and audio effects beyond the three-band EQ (compression, noise reduction) are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
 - 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed

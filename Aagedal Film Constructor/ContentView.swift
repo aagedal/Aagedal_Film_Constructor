@@ -600,6 +600,9 @@ private struct ProjectInspector: View {
                                     Button("Add keyframe at playhead", systemImage: "diamond") { store.addVolumeKeyframeAtPlayhead(decibels: clipVolume) }
                                         .labelStyle(.iconOnly).help("Add a volume keyframe at the playhead with this volume; volume ramps between keyframes")
                                 }
+                                if let sound = store.selectedVolumeClips.first {
+                                    EQControls(eq: sound.eq) { store.setSelectedEQ($0) }.id(sound.id)
+                                }
                                 if let automation = store.selectedVolumeClips.first, !automation.volumeKeyframes.isEmpty {
                                     let keyframes = automation.volumeKeyframes
                                     ForEach(keyframes.indices, id: \.self) { index in
@@ -891,6 +894,38 @@ private struct ProjectInspector: View {
         audioSampleRate = String(store.project.settings.audioSampleRate)
         audioLayout = store.project.settings.audioLayout
         startTimecode = (try? store.project.settings.startTimecode.formatted(rate: store.project.settings.frameRate)) ?? "00:00:00:00"
+    }
+}
+
+/// Low, mid and high bands; each slider commits one undoable change on release.
+private struct EQControls: View {
+    let eq: AudioEQ
+    let apply: (AudioEQ) -> Void
+    @State private var draft: AudioEQ
+    init(eq: AudioEQ, apply: @escaping (AudioEQ) -> Void) {
+        self.eq = eq; self.apply = apply
+        _draft = State(initialValue: eq)
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("EQ").font(.subheadline.bold())
+                Spacer()
+                Button("Reset EQ", systemImage: "arrow.counterclockwise") { draft = .flat; apply(.flat) }
+                    .labelStyle(.iconOnly).help("Flatten all bands").disabled(eq.isFlat)
+            }
+            band("Low", "120 Hz shelf", value: $draft.low)
+            band("Mid", "1 kHz", value: $draft.mid)
+            band("High", "8 kHz shelf", value: $draft.high)
+        }
+        .onChange(of: eq) { _, value in draft = value }
+    }
+    private func band(_ title: String, _ help: String, value: Binding<Double>) -> some View {
+        HStack {
+            Text(title).font(.caption).frame(width: 40, alignment: .leading).help(help)
+            Slider(value: value, in: -24...24) { editing in if !editing && draft != eq { apply(draft) } }
+            Text(String(format: "%+.0f dB", value.wrappedValue)).font(.caption.monospacedDigit()).frame(width: 48, alignment: .trailing)
+        }
     }
 }
 

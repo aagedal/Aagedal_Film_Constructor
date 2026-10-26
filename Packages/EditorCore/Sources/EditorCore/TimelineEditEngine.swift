@@ -21,6 +21,8 @@ public enum EditCommand: Sendable {
     case setFades(clipID: UUID, fadeIn: AudioFade, fadeOut: AudioFade)
     /// Set the linear volume of the listed audio components; other kinds are refused.
     case setGain(clipIDs: [UUID], gain: Double)
+    /// Set the EQ of the listed audio components.
+    case setEQ(clipIDs: [UUID], eq: AudioEQ)
     /// Replace the volume automation of the listed audio components.
     case setVolumeKeyframes(clipIDs: [UUID], keyframes: [VolumeKeyframe])
     /// Change the speed of a clip and its linked components, keeping their source in and the
@@ -417,6 +419,14 @@ public struct TimelineEditEngine: Sendable {
                       let c = project.tracks[t].clips.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingClip }
                 guard project.tracks[t].clips[c].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
                 project.tracks[t].clips[c].gain = gain
+            }
+        case .setEQ(let clipIDs, let eq):
+            guard !clipIDs.isEmpty else { throw TimelineEditError.missingClip }
+            for id in clipIDs {
+                guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == id } }),
+                      let c = project.tracks[t].clips.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingClip }
+                guard project.tracks[t].clips[c].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
+                project.tracks[t].clips[c].eq = eq
             }
         case .setVolumeKeyframes(let clipIDs, let keyframes):
             guard !clipIDs.isEmpty else { throw TimelineEditError.missingClip }

@@ -376,6 +376,28 @@ enum AcceptanceDriver {
                 let before = (dissolves(), edgeFades())
                 press(.addTransition, "t", keyCode: 17, modifiers: [.command])
                 _ = await wait(3) { (dissolves(), edgeFades()) != before }
+                // Whole clips have no handles, so ⌘T makes a dip. Make a handle by ripple trimming a
+                // clip's end, then wipe from it into the clip that now meets it.
+                if !store.project.audioCrossfades.contains(where: { r in clips().first { $0.id == r.outgoingClipID }?.requiredTrackKind == .video }),
+                   let track = store.project.tracks.first(where: { $0.kind == .video && $0.clips.count > 1 }) {
+                    let ordered = track.clips.sorted { $0.timelineStart.seconds < $1.timelineStart.seconds }
+                    for (outgoing, incoming) in zip(ordered, ordered.dropFirst())
+                    where abs(outgoing.timelineStart.seconds + outgoing.sourceRange.duration.seconds - incoming.timelineStart.seconds) < 0.001
+                        && outgoing.sourceRange.duration.seconds > 2 {
+                        store.selectTimelineClip(outgoing.id)
+                        store.seek(to: outgoing.timelineStart.seconds + outgoing.sourceRange.duration.seconds - 1)
+                        store.rippleTrimSelectedClip(edge: .trailing)
+                        try? store.applyAudioCrossfade(outgoingClipID: outgoing.id, incomingClipID: incoming.id, seconds: 0.5,
+                                                       curve: .linear, style: .wipeRight, expectedProject: store.project)
+                        if store.project.audioCrossfades.contains(where: { $0.style == .wipeRight }) { break }
+                    }
+                }
+                // Turn a created dissolve into a wipe, so the renders include one.
+                if let relation = store.project.audioCrossfades.first(where: { r in clips().first { $0.id == r.outgoingClipID }?.requiredTrackKind == .video }) {
+                    try? store.applyAudioCrossfade(outgoingClipID: relation.outgoingClipID, incomingClipID: relation.incomingClipID,
+                        seconds: relation.duration.seconds, curve: .linear, style: .wipeRight, expectedProject: store.project)
+                    features["wipe"] = ["applied": store.project.audioCrossfades.contains { $0.style == .wipeRight }]
+                }
                 features["transition"] = ["dissolves": dissolves(), "fadedPictures": edgeFades(), "changed": (dissolves(), edgeFades()) != before,
                                           "status": store.statusMessage, "error": store.errorMessage ?? "",
                                           "selected": store.selectedClipID == picture.id, "playhead": store.playheadSeconds]
@@ -437,8 +459,12 @@ enum AcceptanceDriver {
                 store.selectTimelineClip(picture.id)
                 store.setSelectedClipTransform(scale: "33", x: "30", y: "30", opacity: "80")
                 // Colour switches preview to the CoreImage compositor for the playback and export steps.
-                store.setSelectedClipColor(ColorAdjustment(brightness: 0.1, contrast: 1.2, saturation: 0.5))
-                features["color"] = ["applied": !(clips().first { $0.id == picture.id }?.color.isNeutral ?? true)]
+                store.setSelectedClipColor(ColorAdjustment(brightness: 0.1, contrast: 1.2, saturation: 0.5, blur: 0.01))
+                // The picture's linked sound gets an EQ, which the preview tap and export both apply.
+                store.setSelectedEQ(AudioEQ(low: -6, mid: 3, high: 2))
+                features["eq"] = ["applied": store.selectedVolumeClips.allSatisfy { !$0.eq.isFlat } && !store.selectedVolumeClips.isEmpty]
+                features["color"] = ["applied": !(clips().first { $0.id == picture.id }?.color.isNeutral ?? true),
+                                     "blur": clips().first { $0.id == picture.id }?.color.blur ?? 0]
                 let transform = clips().first { $0.id == picture.id }?.transform
                 features["transform"] = ["scale": transform?.scale ?? 0, "opacity": transform?.opacity ?? 0]
             }

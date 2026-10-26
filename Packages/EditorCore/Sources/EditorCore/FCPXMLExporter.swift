@@ -56,6 +56,7 @@ public enum FCPXMLExporter {
             let asset = assets.first { $0.id == component.assetID }!
             let label = "Clip \(component.clipID.uuidString) (\(asset.name))"
             if component.fadeIn.duration != .zero || component.fadeOut.duration != .zero { reasons.append("\(label): fades are not supported.") }
+            if !component.eq.isFlat { reasons.append("\(label): EQ is not supported.") }
             if !component.volumeKeyframes.isEmpty { reasons.append("\(label): volume keyframes are not supported.") }
             if component.speed != .one { reasons.append("\(label): speed changes are not supported.") }
             if !component.color.isNeutral { reasons.append("\(label): colour correction is not supported.") }

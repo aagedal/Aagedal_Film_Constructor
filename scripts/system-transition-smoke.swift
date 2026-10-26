@@ -359,5 +359,41 @@ import EditorCore
         try require(meter > -30 && meter < -10, "The track meter reports the tone")
         await audioBackend.close()
         print("PASS volume keyframes in preview and track meter")
+
+        // EQ in the preview tap: a 60 Hz tone drops by the low shelf's computed response.
+        let low = directory.appendingPathComponent("low.mov")
+        _ = try run(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "sine=frequency=60:sample_rate=48000:duration=3", "-ac", "2", "-c:a", "pcm_s24le", low.path])
+        let lowTracks = try await AVURLAsset(url: low).load(.tracks)
+        let li = lowTracks.firstIndex { $0.mediaType == .audio }!
+        let lowAsset = MediaAsset(name: "Low", originalURL: low, duration: try RationalTime(3), streams: [MediaStream(index: li, kind: .audio, audioLayout: .stereo)])
+        func previewLevel(_ eq: AudioEQ) async throws -> Double {
+            let clip = TimelineClip(assetID: lowAsset.id, sourceRange: try TimeRange(start: .zero, duration: RationalTime(3)),
+                                    selection: .audio(.init(channels: [.init(streamIndex: li, channelIndex: 0), .init(streamIndex: li, channelIndex: 1)], layout: .stereo)), eq: eq)
+            let project = Project(settings: base.settings, assets: [lowAsset], families: [audioFamily],
+                                  tracks: [TimelineTrack(familyID: audioFamily.id, template: audioTemplate, clips: [clip])])
+            let backend = try AVFoundationSequenceBackend(project: project, videoProxies: [:])
+            let item = try await backend.makePlayerItem()
+            let reader = try AVAssetReader(asset: item.asset)
+            let output = AVAssetReaderAudioMixOutput(audioTracks: try await item.asset.loadTracks(withMediaType: .audio),
+                audioSettings: [AVFormatIDKey: kAudioFormatLinearPCM, AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true,
+                                AVLinearPCMIsNonInterleaved: false, AVSampleRateKey: 48000, AVNumberOfChannelsKey: 2])
+            output.audioMix = item.audioMix
+            reader.add(output); reader.startReading()
+            var samples: [Float] = []
+            while let buffer = output.copyNextSampleBuffer(), let block = CMSampleBufferGetDataBuffer(buffer) {
+                var length = 0; var pointer: UnsafeMutablePointer<CChar>?
+                CMBlockBufferGetDataPointer(block, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &length, dataPointerOut: &pointer)
+                pointer!.withMemoryRebound(to: Float.self, capacity: length / 4) { samples += UnsafeBufferPointer(start: $0, count: length / 4) }
+            }
+            await backend.close()
+            let middle = samples[(samples.count / 4)..<(samples.count * 3 / 4)]
+            return 10 * log10(middle.reduce(0) { $0 + Double($1 * $1) } / Double(middle.count))
+        }
+        let shelf = AudioEQ(low: -12)
+        let change = try await previewLevel(shelf) - previewLevel(.flat)
+        let expected = shelf.biquads(sampleRate: 48000).reduce(0) { $0 + $1.response(at: 60, sampleRate: 48000) }
+        print("EQ change at 60 Hz: preview \(change) dB, computed \(expected) dB")
+        try require(abs(change - expected) < 1, "Preview EQ differs from the computed response")
+        print("PASS EQ in preview")
     }
 }

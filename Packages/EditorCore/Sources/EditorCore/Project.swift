@@ -67,6 +67,8 @@ public struct Project: Equatable, Codable, Sendable {
                 try VolumeEnvelope.validate(clip.volumeKeyframes)
                 try clip.color.validate()
                 try PictureAnimation.validate(clip.transformKeyframes)
+                try clip.eq.validate()
+                guard clip.requiredTrackKind == .audio || clip.eq.isFlat else { throw EditorCoreError.invalidModel("Pictures have no EQ") }
                 guard clip.requiredTrackKind == .video || clip.transformKeyframes.isEmpty else { throw EditorCoreError.invalidModel("Audio has no position keyframes") }
                 guard clip.requiredTrackKind == .video || clip.color.isNeutral else { throw EditorCoreError.invalidModel("Audio has no colour") }
                 guard clip.requiredTrackKind == .audio || clip.volumeKeyframes.isEmpty else { throw EditorCoreError.invalidModel("Pictures have no volume") }
@@ -153,6 +155,7 @@ public struct TimelineRenderPlan: Equatable, Sendable {
             public let fromLeft: Bool
         }
         public var reveal: Reveal?
+        public var eq: AudioEQ = .flat
         /// Whether the picture is scaled, moved, animated or translucent rather than filling the frame as is.
         public var hasPlacement: Bool { !transform.isIdentity || !transformKeyframes.isEmpty || reveal != nil }
         /// Keyframe times on the sequence timeline, in seconds.
@@ -238,7 +241,7 @@ public struct TimelineRenderPlan: Equatable, Sendable {
                                                TransformKeyframe(time: end, offsetX: target)]
                     }
                 }
-                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain * clip.gain, fadeIn: fadeIn, fadeOut: fadeOut, transform: clip.transform, volumeKeyframes: clip.volumeKeyframes, color: clip.color, speed: clip.speed, transformKeyframes: transformKeyframes, reveal: reveal))
+                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain * clip.gain, fadeIn: fadeIn, fadeOut: fadeOut, transform: clip.transform, volumeKeyframes: clip.volumeKeyframes, color: clip.color, speed: clip.speed, transformKeyframes: transformKeyframes, reveal: reveal, eq: clip.eq))
             }
         }
         components = result; duration = end

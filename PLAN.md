@@ -89,6 +89,10 @@ express it.
 - [x] Blur: a Gaussian blur on the fitted, frame-sized picture before placement (export
   `gblur`, preview `CIGaussianBlur` on the same canvas). Export pixels are checked in
   `BlurTests`; preview and export edge profiles agree within 18 levels.
+- [x] Three-band EQ per audio component (120 Hz low shelf, 1 kHz peak, 8 kHz high shelf,
+  ±24 dB): EditorCore computes RBJ biquads; export runs them with FFmpeg `biquad`, the
+  preview tap runs them per channel. Decoded export changes match the computed response
+  within 0.3 dB; the preview within 0.001 dB.
 - [x] Mixer panel: per-track mute, solo, gain fader and a post-fader peak meter fed by
   MTAudioProcessingTap taps on the preview's audio tracks (falling peak hold). The
   smoke checks the meter reports a known tone; acceptance checks it moves in playback.

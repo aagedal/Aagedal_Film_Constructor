@@ -894,6 +894,13 @@ final class EditorStore: ObservableObject {
             if errorMessage == nil { statusMessage = "Added a volume keyframe. Add another to ramp between them." }
         } catch { report(error) }
     }
+    /// EQ for the selected audio, or a picture's linked audio.
+    func setSelectedEQ(_ eq: AudioEQ) {
+        let clips = selectedVolumeClips
+        guard !clips.isEmpty else { return }
+        edit(.setEQ(clipIDs: clips.map(\.id), eq: eq))
+        if errorMessage == nil { statusMessage = eq.isFlat ? "Reset EQ." : "Updated EQ." }
+    }
     func setSelectedVolumeKeyframes(_ keyframes: [VolumeKeyframe]) {
         let clips = selectedVolumeClips
         guard !clips.isEmpty else { return }

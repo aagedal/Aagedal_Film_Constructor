@@ -212,6 +212,8 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
     public var color: ColorAdjustment
     /// Animated scale and position in source time; empty for a static placement.
     public var transformKeyframes: [TransformKeyframe]
+    /// Three-band EQ for audio components; flat for pictures.
+    public var eq: AudioEQ
     /// Playback speed: the clip plays `sourceRange.duration × speed` of source in
     /// `sourceRange.duration` of timeline. `sourceRange.start` is in source time.
     public var speed: RationalTime
@@ -220,11 +222,11 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
     public func sourceEnd() throws -> RationalTime { try sourceRange.start.adding(sourceExtent()) }
     /// Source time reached `timelineOffset` into the clip.
     public func sourceTime(atTimelineOffset offset: RationalTime) throws -> RationalTime { try sourceRange.start.adding(offset.multiplied(by: speed)) }
-    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1, transform: PictureTransform = .identity, volumeKeyframes: [VolumeKeyframe] = [], color: ColorAdjustment = .neutral, speed: RationalTime = RationalTime.one, transformKeyframes: [TransformKeyframe] = []) {
+    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1, transform: PictureTransform = .identity, volumeKeyframes: [VolumeKeyframe] = [], color: ColorAdjustment = .neutral, speed: RationalTime = RationalTime.one, transformKeyframes: [TransformKeyframe] = [], eq: AudioEQ = .flat) {
         self.id = id; self.assetID = assetID; self.sourceRange = sourceRange; self.timelineStart = timelineStart; self.selection = selection; self.scalingMode = scalingMode; self.linkGroupID = linkGroupID; self.fadeIn = fadeIn; self.fadeOut = fadeOut
-        self.gain = gain; self.transform = transform; self.volumeKeyframes = volumeKeyframes; self.color = color; self.speed = speed; self.transformKeyframes = transformKeyframes
+        self.gain = gain; self.transform = transform; self.volumeKeyframes = volumeKeyframes; self.color = color; self.speed = speed; self.transformKeyframes = transformKeyframes; self.eq = eq
     }
-    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain, transform, volumeKeyframes, color, speed, transformKeyframes }
+    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain, transform, volumeKeyframes, color, speed, transformKeyframes, eq }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.init(id: try c.decode(UUID.self, forKey: .id), assetID: try c.decode(UUID.self, forKey: .assetID),
@@ -238,7 +240,8 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
                   volumeKeyframes: try c.decodeIfPresent([VolumeKeyframe].self, forKey: .volumeKeyframes) ?? [],
                   color: try c.decodeIfPresent(ColorAdjustment.self, forKey: .color) ?? .neutral,
                   speed: try c.decodeIfPresent(RationalTime.self, forKey: .speed) ?? RationalTime.one,
-                  transformKeyframes: try c.decodeIfPresent([TransformKeyframe].self, forKey: .transformKeyframes) ?? [])
+                  transformKeyframes: try c.decodeIfPresent([TransformKeyframe].self, forKey: .transformKeyframes) ?? [],
+                  eq: try c.decodeIfPresent(AudioEQ.self, forKey: .eq) ?? .flat)
     }
     public var requiredTrackKind: TrackKind { if case .audio = selection { return .audio }; return .video }
     public var requiredAudioLayout: ChannelLayout? { if case .audio(let selection) = selection { return selection.layout }; return nil }
