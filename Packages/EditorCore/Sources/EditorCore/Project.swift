@@ -126,7 +126,7 @@ public struct Project: Equatable, Codable, Sendable {
         if template.kind == .video {
             guard template.routing.outputChannels.isEmpty else { throw EditorCoreError.invalidModel("Video track has audio routing") }
         } else if !template.routing.outputChannels.isEmpty {
-            guard template.routing.outputChannels.count == template.audioLayout?.channels.count, template.routing.outputChannels.allSatisfy({ $0 >= 0 && $0 < settings.audioLayout.channels.count }) else { throw EditorCoreError.invalidModel("Invalid output channel map") }
+            guard template.routing.fits(inputCount: template.audioLayout?.channels.count ?? 0, outputCount: settings.audioLayout.channels.count) else { throw EditorCoreError.invalidModel("Invalid output channel map") }
         } else {
             guard template.audioLayout == settings.audioLayout else { throw EditorCoreError.invalidModel("An explicit output map is required for differing layouts") }
         }

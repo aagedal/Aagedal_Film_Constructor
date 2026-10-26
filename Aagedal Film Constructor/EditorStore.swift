@@ -853,6 +853,108 @@ final class EditorStore: ObservableObject {
             }
         } catch { report(error) }
     }
+    // MARK: Retime and frame-rate interpretation
+
+    /// ⌘R: the selected clip and its linked components show speed controls, and their end
+    /// handle changes speed instead of trimming.
+    @Published var retimeMode = false
+    func toggleRetimeMode() {
+        retimeMode.toggle()
+        statusMessage = retimeMode ? "Retime: drag the selected clip's end handle to change its speed, or pick a speed on the clip. ⌘R to finish." : "Retime controls hidden."
+    }
+
+    /// Timeline length units for a speed change: frames when picture is linked, else samples.
+    private func retimeGrid(for clip: TimelineClip) -> Double {
+        TimelineGesture.components(of: clip, in: project).contains { $0.requiredTrackKind == .video }
+            ? project.settings.frameRate.value.seconds : Double(project.settings.audioSampleRate)
+    }
+
+    /// A drag of the end handle by `delta` seconds, kept to whole units and to 10–1000% speed.
+    func proposedRetimeDelta(clip: TimelineClip, delta: Double) -> Double {
+        guard let extent = try? clip.sourceExtent().seconds, delta.isFinite else { return 0 }
+        let grid = retimeGrid(for: clip), duration = clip.sourceRange.duration.seconds
+        let shortest = ceil(extent / 10 * grid) / grid, longest = floor(extent / 0.1 * grid) / grid
+        let proposed = min(longest, max(shortest, ((duration + delta) * grid).rounded() / grid))
+        return proposed - duration
+    }
+
+    /// Lengthens or shortens the selected clip by changing its speed; it keeps its source in and the media it plays.
+    func retimeSelectedClip(durationDelta: Double) {
+        guard let clip = selectedClip, let extent = try? clip.sourceExtent().seconds else { return }
+        let duration = clip.sourceRange.duration.seconds + proposedRetimeDelta(clip: clip, delta: durationDelta)
+        guard duration > 0 else { return }
+        setSelectedClipSpeed(percent: String(format: "%.2f", min(1000, max(10, extent / duration * 100))))
+    }
+
+    /// Conform: play a clip recorded at one frame rate at another, frame for frame (120 fps
+    /// shot at 24 fps plays every frame at 20% speed). Linked sound slows with it, keeping pitch.
+    func interpretSelectedClip(recorded recordedText: String, playAt playText: String) {
+        guard let clip = selectedClip else { return }
+        do {
+            let recorded = try FrameRate(parsing: recordedText), play = try FrameRate(parsing: playText)
+            let speed = try play.value.divided(by: recorded.value)
+            guard try speed.compared(to: RationalTime(1, 10)) != .orderedAscending, try speed.compared(to: RationalTime(10)) != .orderedDescending else {
+                errorMessage = "Playing \(recorded.editableText) fps material at \(play.editableText) fps needs \(String(format: "%g", speed.seconds * 100))% speed; speeds from 10% to 1000% are supported."
+                return
+            }
+            edit(.setSpeed(clipID: clip.id, speed: speed))
+            if errorMessage == nil {
+                statusMessage = "Playing \(recorded.editableText) fps at \(play.editableText) fps (\(String(format: "%g", speed.seconds * 100))% speed)."
+            }
+        } catch { errorMessage = "Enter frame rates such as 120, 59.94 or 24000/1001." }
+    }
+
+    // MARK: Audio configuration
+
+    /// Sound components linked to the selected clip (or the selected sound itself).
+    var selectedAudioComponents: [TimelineClip] {
+        guard let clip = selectedClip else { return [] }
+        return TimelineGesture.components(of: clip, in: project).filter { $0.requiredTrackKind == .audio }
+    }
+
+    /// Replaces the selected clip's linked sound with these components on matching tracks.
+    func configureSelectedAudio(_ plans: [AudioComponentPlan]) {
+        guard let clip = selectedClip else { return }
+        let picture = TimelineGesture.components(of: clip, in: project).first { $0.requiredTrackKind == .video }
+        guard !plans.isEmpty || picture != nil else {
+            errorMessage = "Keep at least one audio component, or delete the clip."
+            return
+        }
+        edit(.configureAudio(clipID: picture?.id ?? clip.id, selections: plans.map(\.selection), routing: plans.map(\.routing)))
+        if selectedClip == nil {
+            // The selected sound was replaced: select its picture, or the first new component.
+            selectedClipID = picture?.id ?? project.tracks.flatMap(\.clips).first {
+                $0.assetID == clip.assetID && $0.timelineStart == clip.timelineStart && $0.requiredTrackKind == .audio
+            }?.id
+        }
+    }
+
+    /// Sets how new placements of this media split their sound, and reconfigures every use
+    /// of it in the open sequence the same way.
+    func setDefaultAudioConfiguration(_ configuration: AudioConfiguration, assetID: UUID) {
+        guard let index = project.assets.firstIndex(where: { $0.id == assetID }) else { return }
+        let plans = project.assets[index].audioComponents(configuration, sequence: project.settings.audioLayout)
+        guard !plans.isEmpty else { return }
+        do {
+            var count = 0
+            try change { project in
+                project.assets[index].audioConfiguration = configuration
+                var handled: Set<UUID> = []
+                for clip in project.tracks.flatMap(\.clips) where clip.assetID == assetID && clip.selection != .still {
+                    let key = clip.linkGroupID ?? clip.id
+                    guard handled.insert(key).inserted else { continue }
+                    let representative = TimelineGesture.components(of: clip, in: project).first { $0.requiredTrackKind == .video } ?? clip
+                    var engine = try TimelineEditEngine(project: project)
+                    try engine.apply(.configureAudio(clipID: representative.id, selections: plans.map(\.selection), routing: plans.map(\.routing)))
+                    project = engine.project
+                    count += 1
+                }
+            }
+            if selectedClip == nil { selectedClipID = nil }
+            statusMessage = "\(configuration.displayName) is now the default for this media" + (count > 0 ? "; updated \(count) clip\(count == 1 ? "" : "s") in this sequence." : ".")
+        } catch { report(error) }
+    }
+
     /// Keyframes the selected picture's scale and position (percent) at the playhead.
     func addTransformKeyframeAtPlayhead(scale: String, x: String, y: String, opacity: String = "100") {
         guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }

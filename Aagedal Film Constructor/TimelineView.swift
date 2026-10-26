@@ -258,6 +258,17 @@ struct TimelineView: View {
                         store.selectTimelineClip(clip.id)
                         store.trimSelectedClip(edge: edge, delta: delta, alone: alone)
                     },
+                    retiming: isRetiming(clip),
+                    proposedRetime: { store.proposedRetimeDelta(clip: clip, delta: $0) },
+                    retime: { delta in
+                        linkedDrag = nil
+                        store.selectTimelineClip(clip.id)
+                        store.retimeSelectedClip(durationDelta: delta)
+                    },
+                    setSpeed: { percent in
+                        store.selectTimelineClip(clip.id)
+                        store.setSelectedClipSpeed(percent: percent)
+                    },
                     follow: linkedDrag.flatMap { $0.sourceID != clip.id && $0.ids.contains(clip.id) ? $0 : nil },
                     dragChanged: { offset, leading, trailing, alone in
                         if clip.linkGroupID == nil || alone || (offset == 0 && leading == 0 && trailing == 0) {
@@ -310,6 +321,12 @@ struct TimelineView: View {
             }
             playhead(height: 64).allowsHitTesting(false)
         }.frame(width: canvasWidth, height: 64)
+    }
+
+    /// Retime mode shows on the selected clip and its linked components.
+    private func isRetiming(_ clip: TimelineClip) -> Bool {
+        guard store.retimeMode, clip.selection != .still, let selected = store.selectedClip else { return false }
+        return selected.id == clip.id || (selected.linkGroupID != nil && selected.linkGroupID == clip.linkGroupID)
     }
 
     private func compatible(_ clip: TimelineClip, _ track: TimelineTrack) -> Bool {
@@ -370,6 +387,8 @@ struct TimelineView: View {
                 store.moveSelectedClip(to: clip.timelineStart.seconds, rowOffset: isPicture ? -current - 1 : tracks.count - current)
             })
         }
+        Button(store.retimeMode ? "Hide Retime Controls" : "Retime Controls", action: act(store.toggleRetimeMode))
+            .disabled(clip.selection == .still)
         Menu("Speed") {
             ForEach(["25", "50", "100", "200", "400"], id: \.self) { preset in
                 Button("\(preset)%", action: act { store.setSelectedClipSpeed(percent: preset) })
@@ -437,6 +456,11 @@ private struct TimelineClipView: View {
     /// The Bool is true for an Option-drag, which trims this component alone.
     let proposedTrim: (TimelineTrimEdge, Double, Bool) -> Double
     let trim: (TimelineTrimEdge, Double, Bool) -> Void
+    /// Retime mode (⌘R): a speed bar on top, and the end handle changes speed.
+    let retiming: Bool
+    let proposedRetime: (Double) -> Double
+    let retime: (Double) -> Void
+    let setSpeed: (String) -> Void
     /// Another clip's live drag that this linked component follows.
     let follow: LinkedDrag?
     let dragChanged: (CGFloat, Double, Double, Bool) -> Void
@@ -562,8 +586,9 @@ private struct TimelineClipView: View {
                 .onEnded { value in
                     move(proposedMove(clip.timelineStart.seconds + value.translation.width / pixelsPerSecond), proposedRow(value.translation.height))
                 })
-            .overlay(alignment: .leading) { trimHandle(.leading) }
-            .overlay(alignment: .trailing) { trimHandle(.trailing) }
+            .overlay(alignment: .leading) { if !retiming { trimHandle(.leading) } }
+            .overlay(alignment: .trailing) { if retiming { retimeHandle } else { trimHandle(.trailing) } }
+            .overlay(alignment: .topLeading) { if retiming { speedBar } }
             .overlay(alignment: .topLeading) {
                 fadeHandle(.leading)
                 fadeHandle(.trailing)
@@ -663,6 +688,40 @@ private struct TimelineClipView: View {
                 ? (edge == .leading ? "Drag inward to fade in from black; drop onto the previous clip to dissolve" : "Drag inward to fade out to black; drop onto the next clip to dissolve")
                 : (edge == .leading ? "Drag inward to fade in; drop onto another audio clip to link it" : "Drag inward to fade out; drop onto incoming audio to link it"))
             .accessibilityLabel(edge == .leading ? "Fade in handle" : "Fade out handle")
+    }
+
+    /// The clip's speed while retiming (live during a drag), with a menu of common speeds.
+    private var speedBar: some View {
+        let extent = (try? clip.sourceExtent().seconds) ?? clipDuration
+        let percent = extent / clipDuration * 100
+        return Menu {
+            ForEach(["10", "25", "50", "75", "100", "150", "200", "400", "1000"], id: \.self) { preset in
+                Button("\(preset)%") { setSpeed(preset) }
+            }
+        } label: {
+            Label(String(format: "%g%%", (percent * 10).rounded() / 10), systemImage: "speedometer")
+        }
+        .menuStyle(.borderlessButton).fixedSize()
+        .font(.caption2.bold()).foregroundStyle(.black)
+        .padding(.horizontal, 6).frame(height: 15)
+        .background(Color.orange.opacity(0.9), in: UnevenRoundedRectangle(topLeadingRadius: 5, bottomTrailingRadius: 5))
+        .help("Clip speed; pick a speed, or drag the end handle to retime")
+    }
+
+    /// Dragging the end of a clip in retime mode changes its speed: longer is slower.
+    private var retimeHandle: some View {
+        Image(systemName: "chevron.left.chevron.right")
+            .font(.system(size: 9, weight: .bold)).foregroundStyle(.black)
+            .frame(width: 14, height: 52)
+            .background(Color.orange.opacity(0.9))
+            .contentShape(Rectangle())
+            .highPriorityGesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .updating($interactionActive) { _, state, _ in state = true }
+                .updating($ownTrailing) { value, state, _ in state = proposedRetime(value.translation.width / pixelsPerSecond) }
+                .onChanged { _ in select() }
+                .onEnded { value in retime(proposedRetime(value.translation.width / pixelsPerSecond)) })
+            .help("Drag to retime: longer plays slower, shorter faster (10–1000%)")
+            .accessibilityLabel("Retime handle")
     }
 
     private func trimHandle(_ edge: TimelineTrimEdge) -> some View {

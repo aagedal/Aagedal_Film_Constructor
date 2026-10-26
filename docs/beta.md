@@ -48,8 +48,8 @@ and Gatekeeper assesses it as "Notarized Developer ID".
 6. Select the sequence in the media bin to set its name, resolution, frame rate,
    audio rate and start timecode in the inspector. The first picture you add can
    match the sequence to its source. The inspector shows whatever you clicked last:
-   a timeline clip (with **Video** and **Audio** tabs under its timing), a sequence
-   or bin media.
+   a timeline clip (with **Video** and **Audio** tabs), a sequence or bin media.
+   Clip timing lives on the timeline: drag to move and trim.
 7. A project can hold several sequences. Choose **New sequence** from the bin's
    folder menu; it starts empty with the open sequence's settings. Click a sequence
    in the bin to open it on the timeline, and right-click it to rename, move or
@@ -121,9 +121,18 @@ inspector lists keyframes to jump to or remove.
 
 ## Speed
 
-Select a clip and enter **Speed (%)** in the inspector (10–1000%), or pick a preset.
-The clip keeps its source in and plays the same media faster or slower, so it gets
-shorter or longer; linked sound changes with it and keeps its pitch. A longer clip
+Select a clip and press ⌘R (**Retime Controls**). The clip and its linked
+components show their speed in an orange bar, and their end handle turns orange:
+drag it out to slow the clip down or in to speed it up (10–1000%). Click the speed
+in the bar for common speeds. Press ⌘R again to hide the controls. The clip keeps
+its source in and plays the same media faster or slower, so it gets shorter or
+longer; linked sound changes with it and keeps its pitch.
+
+For smooth slow motion, interpret the frame rate instead: in the inspector's
+**Video** tab, under **Frame rate**, enter what the clip was **Recorded at** (filled
+in when the importer could verify it; type it for variable-rate phone footage) and
+the rate to **Play at**, then click the tick. 120 fps played at 24 fps shows every
+recorded frame at exactly 20% speed. A longer clip
 never overwrites the next one; it moves to a track above. Interchange exports
 refuse speed changes.
 
@@ -196,6 +205,27 @@ silences it). With a picture selected, the field sets its linked audio. Clip
 volume multiplies the track gain set in the track header. The preview plays gain
 above 0 dB at 0 dB; the export applies it in full.
 
+## Audio configuration
+
+A clip's **Audio** tab starts with **Audio configuration**: how the source's
+channels split into timeline components, as in Final Cut Pro.
+
+- **As recorded**: each audio stream as it is (a stereo stream stays stereo).
+- **Stereo**: the first two channels as one stereo component.
+- **Stereo pairs**: channels 1–2, 3–4 and so on as stereo components.
+- **Multi-mono**: every channel its own mono component, in the centre of the mix.
+- **5.1 surround**: the first six channels as one 5.1 component (5.1 sequences).
+
+The change lands on the timeline at once. Each component gets a track of its own
+layout, so mono components sit on mono tracks, and new tracks are added as needed;
+emptied tracks go away (if **Remove empty tracks** is on). The components stay
+linked to the picture. Turn single components off and on with their switches;
+components you keep keep their volume, EQ and fades. **Custom channels and
+routing…** still picks channels and outputs by hand.
+
+Select media in the bin to set its default **Audio configuration**: new placements
+use it, and every use in the open sequence changes with it.
+
 ## Media support
 
 **Opened directly** (through AVFoundation): MOV, MP4 and M4V with H.264, HEVC
@@ -258,7 +288,7 @@ notice appears under the viewer, but playback continues:
 - AAC and MP3 cut points, fade curves and audio at a different sample rate are
   close approximations. The export is exact.
 - In stereo sequences, gain above 0 dB and custom routing of a stereo stream's
-  channels (swaps, dual mono, one channel to one side) play as exported. Routing
+  channels (swaps, dual mono, one channel to one side, centred mono) play as exported. Routing
   in 5.1 sequences, or of channels from several streams, is silent in preview. It
   is still exported.
 

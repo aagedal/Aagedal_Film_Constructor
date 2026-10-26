@@ -117,7 +117,8 @@ final class AudioSourceSelectionTests: XCTestCase {
         var engine = try TimelineEditEngine(project: project)
         try engine.selectAudioSource(clipID: id, selections: [selection(2, .mono)], routing: [AudioRouting(outputChannels: [0])])
         engine.undo()
-        for route in [AudioRouting(), AudioRouting(outputChannels: [0, 1]), AudioRouting(outputChannels: [2])] {
+        // Mono may play on several outputs (centred), but not twice on one.
+        for route in [AudioRouting(), AudioRouting(outputChannels: [0, 0]), AudioRouting(outputChannels: [2])] {
             XCTAssertThrowsError(try engine.selectAudioSource(clipID: id, selections: [selection(2, .mono)], routing: [route]))
             XCTAssertEqual(engine.project, project)
             XCTAssertTrue(engine.canRedo)

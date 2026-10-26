@@ -142,7 +142,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 let frontRoute = plan.settings.audioLayout == .surround51
                     && ((selection.layout == .stereo && component.routing.outputChannels == [0, 1])
                         || (selection.layout == .mono && component.routing.outputChannels == [2]))
-                let routing = component.routing.outputChannels.isEmpty ? Array(selection.channels.indices) : component.routing.outputChannels
+                let routing = component.routing.outputs(inputCount: selection.channels.count)
                 guard let first = selection.channels.first,
                       selection.channels.allSatisfy({ $0.streamIndex == first.streamIndex }),
                       let stream = component.sourceStreams.first(where: { $0.index == first.streamIndex }) else {
@@ -153,13 +153,18 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 let wholeStream = selection.channels.map(\.channelIndex) == Array(selection.channels.indices) && stream.audioLayout == selection.layout
                 // The system mixer plays a mono track on every output channel, matching dual mono.
                 let dualMono = stream.audioLayout?.channels.count == 1 && selection.channels.allSatisfy { $0.channelIndex == 0 }
-                let identity = frontRoute || (selection.layout == plan.settings.audioLayout && routing == Array(selection.channels.indices))
+                // Centred mono from a one-channel stream is what the system mixer does with it.
+                let centredMono = selection.layout.channels.count == 1 && component.routing == .centre(in: plan.settings.audioLayout)
+                let identity = frontRoute || centredMono
+                    || (selection.layout == plan.settings.audioLayout && routing == selection.channels.indices.map { [$0] })
                 if identity && (wholeStream || dualMono) {
                     // The system mixer plays the stream as selected.
-                } else if plan.settings.audioLayout == .stereo, stream.audioLayout?.channels.count == 2, routing.count == selection.channels.count {
+                } else if plan.settings.audioLayout == .stereo, stream.audioLayout?.channels.count == 2 {
                     // The tap sees the stream's two channels and maps them onto the two outputs,
-                    // as export's pan does: any channel choice, swap, dual mono or one side.
-                    tapRoutes[componentIndex] = zip(selection.channels, routing).map { TapRoute(input: $0.channelIndex, output: $1) }
+                    // as export's pan does: any channel choice, swap, dual mono, one side or centred mono.
+                    tapRoutes[componentIndex] = zip(selection.channels, routing).flatMap { channel, outputs in
+                        outputs.map { TapRoute(input: channel.channelIndex, output: $0) }
+                    }
                 } else {
                     addQualificationNotice("Audio with custom channel routing is silent in preview; export includes it.")
                     continue

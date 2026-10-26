@@ -516,9 +516,6 @@ private struct ProjectSaveProtectionNotice: View {
 
 private struct ProjectInspector: View {
     @ObservedObject var store: EditorStore
-    @State private var sourceStart = "0"
-    @State private var clipDuration = "0"
-    @State private var timelineStart = "0"
     @State private var width = "1920"
     @State private var height = "1080"
     @State private var frameRate = "24"
@@ -533,7 +530,6 @@ private struct ProjectInspector: View {
     @State private var fadeDraftClip: TimelineClip?
     @State private var clipVolume = "0"
     @State private var transformScale = "100"
-    @State private var speedPercent = "100"
     @State private var transformX = "0"
     @State private var transformY = "0"
     @State private var transformOpacity = "100"
@@ -546,6 +542,8 @@ private struct ProjectInspector: View {
     private enum Tab: Hashable { case video, audio }
     @State private var tab = Tab.video
     @State private var sequenceName = ""
+    @State private var recordedRate = ""
+    @State private var playRate = ""
 
     var body: some View {
         ScrollView {
@@ -585,39 +583,6 @@ private struct ProjectInspector: View {
     @ViewBuilder private func clipInspector(_ clip: TimelineClip) -> some View {
         let isPicture = clip.requiredTrackKind == .video
         Text(store.asset(id: clip.assetID)?.name ?? "Clip").font(.headline).lineLimit(2)
-        GroupBox("Timing") {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .bottom) {
-                    numericField("Timeline start (s)", text: $timelineStart)
-                    Button("Move clip", systemImage: "arrow.right") {
-                        guard let value = entered(timelineStart, current: clip.timelineStart.seconds), value.isFinite, value >= 0 else { store.errorMessage = "Enter a valid timeline start in seconds."; return }
-                        store.moveSelectedClip(to: value)
-                    }.labelStyle(.iconOnly).help("Move clip to the entered timeline start")
-                }
-                HStack(alignment: .bottom) {
-                    numericField("Source in (s)", text: $sourceStart)
-                    numericField("Duration (s)", text: $clipDuration)
-                    Button("Apply trim", systemImage: "scissors") {
-                        guard let start = entered(sourceStart, current: clip.sourceRange.start.seconds),
-                              let duration = entered(clipDuration, current: clip.sourceRange.duration.seconds), start.isFinite, duration.isFinite, start >= 0, duration > 0 else { store.errorMessage = "Enter a nonnegative source in and a positive duration in seconds."; return }
-                        store.trimSelectedClip(start: start, duration: duration)
-                    }.labelStyle(.iconOnly).help("Apply source in and duration")
-                }
-                if clip.selection != .still {
-                    HStack(alignment: .bottom) {
-                        numericField("Speed (%)", text: $speedPercent)
-                        Button("Apply speed", systemImage: "gauge.with.dots.needle.67percent") { store.setSelectedClipSpeed(percent: speedPercent) }
-                            .labelStyle(.iconOnly).help("Apply speed to this clip and its linked components. Keeps the source in; the clip gets longer or shorter and sound keeps its pitch.")
-                        Menu {
-                            ForEach(["25", "50", "100", "200", "400"], id: \.self) { preset in
-                                Button("\(preset)%") { speedPercent = preset; store.setSelectedClipSpeed(percent: preset) }
-                            }
-                        } label: { Label("Speed presets", systemImage: "list.bullet") }
-                        .labelStyle(.iconOnly).help("Speed presets").fixedSize()
-                    }
-                }
-            }.padding(5)
-        }
         Picker("Section", selection: $tab) {
             Label("Video", systemImage: "film").tag(Tab.video)
             Label("Audio", systemImage: "waveform").tag(Tab.audio)
@@ -643,6 +608,7 @@ private struct ProjectInspector: View {
                     .id(asset.id).padding(5)
             }
         }
+        if clip.selection != .still { frameRateControls(clip) }
         GroupBox("Transform") {
             VStack(alignment: .leading, spacing: 8) {
                 Picker("Scaling", selection: Binding(get: { clip.scalingMode }, set: store.setScalingMode)) {
@@ -728,20 +694,41 @@ private struct ProjectInspector: View {
         GroupBox { VStack(alignment: .leading, spacing: 8) { crossfadeControls(clip) }.padding(5) }
     }
 
+    /// Frame-rate interpretation, and the speed the clip plays at.
+    @ViewBuilder private func frameRateControls(_ clip: TimelineClip) -> some View {
+        GroupBox("Frame rate") {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .bottom) {
+                    numericField("Recorded at (fps)", text: $recordedRate)
+                    numericField("Play at (fps)", text: $playRate)
+                    Button("Interpret frame rate", systemImage: "checkmark") {
+                        store.interpretSelectedClip(recorded: recordedRate, playAt: playRate)
+                    }.labelStyle(.iconOnly).help("Play every recorded frame at this rate, for example 120 fps at 24 fps for smooth slow motion")
+                        .disabled(recordedRate.isEmpty || playRate.isEmpty)
+                }
+                HStack {
+                    Text(clip.speed == .one ? "Plays at normal speed." : String(format: "Plays at %g%% speed.", (clip.speed.seconds * 10000).rounded() / 100))
+                        .font(.caption)
+                    Spacer()
+                    Button("Normal speed", systemImage: "arrow.counterclockwise") { store.setSelectedClipSpeed(percent: "100") }
+                        .labelStyle(.iconOnly).help("Play at normal speed").disabled(clip.speed == .one)
+                }
+                Text("Linked sound slows or speeds up with the picture and keeps its pitch. Press ⌘R to retime by dragging on the timeline.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }.padding(5)
+        }
+    }
+
     @ViewBuilder private func audioSections(_ clip: TimelineClip) -> some View {
         let isPicture = clip.requiredTrackKind == .video
-        if !isPicture {
-            GroupBox("Channels") {
-                HStack {
-                    Text("\(clip.requiredAudioLayout?.channels.count ?? 0) selected channels").font(.callout)
-                    Spacer()
-                    Button("Audio source channels…", systemImage: "waveform") { editingAudio = true }
-                        .labelStyle(.iconOnly).help("Edit audio source channels and output routing")
-                }.padding(5)
+        if let asset = store.asset(id: clip.assetID), !asset.audioChannels.isEmpty {
+            AudioConfigurationControls(store: store, asset: asset, components: store.selectedAudioComponents) {
+                if let sound = store.selectedAudioComponents.first { store.selectTimelineClip(sound.id); editingAudio = true }
             }
         }
         if store.selectedVolumeClips.isEmpty {
-            Text("This clip has no sound.").font(.callout).foregroundStyle(.secondary)
+            Text(store.asset(id: clip.assetID)?.audioChannels.isEmpty == false ? "Turn on an audio component above to add this clip's sound." : "This clip has no sound.")
+                .font(.callout).foregroundStyle(.secondary)
         } else {
             GroupBox("Volume") {
                 VStack(alignment: .leading, spacing: 8) {
@@ -911,6 +898,22 @@ private struct ProjectInspector: View {
                     .labelStyle(.iconOnly).help("Relink source media")
             }.frame(maxWidth: .infinity, alignment: .leading).padding(5)
         }
+        if !asset.audioChannels.isEmpty {
+            GroupBox("Audio configuration") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Picker("Default", selection: Binding(get: { asset.audioConfiguration }, set: { value in
+                        if let value { store.setDefaultAudioConfiguration(value, assetID: asset.id) }
+                    })) {
+                        Text("Sequence layout").tag(AudioConfiguration?.none)
+                        ForEach(asset.availableAudioConfigurations(sequence: store.project.settings.audioLayout), id: \.self) {
+                            Text($0.displayName).tag(Optional($0))
+                        }
+                    }
+                    Text("How this media's \(asset.audioChannels.count) audio channel\(asset.audioChannels.count == 1 ? "" : "s") split into timeline components. Changing it updates every use in the open sequence and new placements; mono components play in the centre on mono tracks.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }.padding(5)
+            }
+        }
         if store.project.tracks.allSatisfy({ $0.clips.isEmpty }) {
             GroupBox("Open sequence") { VStack(alignment: .leading, spacing: 6) { matchButtons(asset) }.padding(5) }
         }
@@ -1034,16 +1037,17 @@ private struct ProjectInspector: View {
     }
     private func refreshClip() {
         guard let clip = store.selectedClip else { return }
-        sourceStart = display(clip.sourceRange.start.seconds)
-        clipDuration = display(clip.sourceRange.duration.seconds)
-        timelineStart = display(clip.timelineStart.seconds)
         fadeInDuration = display(clip.fadeIn.duration.seconds)
         fadeOutDuration = display(clip.fadeOut.duration.seconds)
         fadeInCurve = clip.fadeIn.curve
         fadeOutCurve = clip.fadeOut.curve
         fadeDraftClip = clip
         func percent(_ value: Double) -> String { String(format: "%g", (value * 1000).rounded() / 10) }
-        speedPercent = percent(clip.speed.seconds)
+        let recorded = store.asset(id: clip.assetID)?.streams.first { $0.kind == .video }?.videoFormat?.frameRate
+        recordedRate = recorded?.editableText ?? ""
+        if let recorded, let effective = try? recorded.value.multiplied(by: clip.speed), let rate = try? FrameRate(effective.numerator, effective.denominator) {
+            playRate = rate.editableText
+        } else { playRate = store.project.settings.frameRate.editableText }
         transformScale = percent(clip.transform.scale); transformX = percent(clip.transform.offsetX)
         transformY = percent(clip.transform.offsetY); transformOpacity = percent(clip.transform.opacity)
         if let gain = store.selectedVolumeClips.first?.gain {
@@ -1068,6 +1072,72 @@ private struct ProjectInspector: View {
         audioLayout = store.project.settings.audioLayout
         startTimecode = (try? store.project.settings.startTimecode.formatted(rate: store.project.settings.frameRate)) ?? "00:00:00:00"
         sequenceName = store.project.sequenceName
+    }
+}
+
+/// A clip's audio configuration, as in Final Cut Pro: pick how the source channels split into
+/// components, and turn single components on or off. Each change lands on the timeline at
+/// once, on tracks of the component's own layout.
+private struct AudioConfigurationControls: View {
+    @ObservedObject var store: EditorStore
+    let asset: MediaAsset
+    /// The clip's sound components on the timeline now.
+    let components: [TimelineClip]
+    let editCustom: () -> Void
+
+    private var sequence: ChannelLayout { store.project.settings.audioLayout }
+    private var current: [AudioSourceSelection] {
+        components.compactMap { if case .audio(let selection) = $0.selection { selection } else { nil } }
+    }
+    /// The configuration these components come from: an exact match, else one they are part of.
+    private var configuration: AudioConfiguration? {
+        let selections = Set(current)
+        guard !selections.isEmpty else { return nil }
+        return asset.audioConfiguration(matching: current, sequence: sequence)
+            ?? asset.availableAudioConfigurations(sequence: sequence).first {
+                Set(asset.audioComponents($0, sequence: sequence).map(\.selection)).isSuperset(of: selections)
+            }
+    }
+
+    var body: some View {
+        GroupBox("Audio configuration") {
+            VStack(alignment: .leading, spacing: 8) {
+                Picker("Channels", selection: Binding(get: { configuration }, set: { value in
+                    if let value { store.configureSelectedAudio(asset.audioComponents(value, sequence: sequence)) }
+                })) {
+                    if configuration == nil { Text(current.isEmpty ? "None" : "Custom").tag(AudioConfiguration?.none) }
+                    ForEach(asset.availableAudioConfigurations(sequence: sequence), id: \.self) { Text($0.displayName).tag(Optional($0)) }
+                }
+                if let configuration {
+                    let plans = asset.audioComponents(configuration, sequence: sequence)
+                    ForEach(plans.indices, id: \.self) { index in
+                        Toggle(name(plans[index].selection), isOn: Binding(get: { current.contains(plans[index].selection) }, set: { on in
+                            store.configureSelectedAudio(plans.filter { $0.selection == plans[index].selection ? on : current.contains($0.selection) })
+                        }))
+                        .font(.callout)
+                    }
+                } else {
+                    ForEach(current.indices, id: \.self) { Text(name(current[$0])).font(.callout) }
+                }
+                HStack {
+                    Spacer()
+                    Button("Custom channels and routing…", systemImage: "slider.horizontal.below.square.and.square.filled", action: editCustom)
+                        .labelStyle(.iconOnly).help("Choose source channels and sequence outputs by hand").disabled(components.isEmpty)
+                }
+                Text("Each component gets its own track of its layout; mono plays in the centre. Set the default for this media in the bin.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }.padding(5)
+        }
+    }
+
+    /// "Ch 1–2 · Stereo", numbering channels across the source's audio streams.
+    private func name(_ selection: AudioSourceSelection) -> String {
+        let all = asset.audioChannels
+        let numbers = selection.channels.map { channel in (all.firstIndex(of: channel) ?? 0) + 1 }
+        let label = selection.layout == .mono ? "Mono" : selection.layout == .stereo ? "Stereo" : selection.layout == .surround51 ? "5.1" : "\(selection.layout.channels.count) ch"
+        let channels = numbers.count > 1 && numbers == Array(numbers[0]...(numbers[0] + numbers.count - 1))
+            ? "Ch \(numbers[0])–\(numbers.last!)" : "Ch " + numbers.map(String.init).joined(separator: "+")
+        return "\(channels) · \(label)"
     }
 }
 

@@ -3,7 +3,7 @@ import Foundation
 enum EditorCommandScope: String, Codable { case document, source, timeline }
 
 enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
-    case togglePlayback, zoomTimelineToFit, rippleTrimStart, rippleTrimEnd, toggleViewer, undo, redo, importMedia, appendSource, markSourceIn, markSourceOut, clearSourceMarks, splitClip, addTransition, addTitle, insertSource, overwriteSource, previousFrame, nextFrame, deleteClip, rippleDelete, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO
+    case togglePlayback, zoomTimelineToFit, rippleTrimStart, rippleTrimEnd, toggleViewer, undo, redo, importMedia, appendSource, markSourceIn, markSourceOut, clearSourceMarks, splitClip, addTransition, addTitle, insertSource, overwriteSource, previousFrame, nextFrame, deleteClip, rippleDelete, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO, toggleRetime
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -35,6 +35,7 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .exportFCPXML: "Export FCPXML…"
         case .exportEDL: "Export Track EDL…"
         case .exportOTIO: "Export OpenTimelineIO…"
+        case .toggleRetime: "Retime Controls"
         }
     }
     var isPlayback: Bool { [.togglePlayback, .playReverse, .pausePlayback, .playForward].contains(self) }
@@ -73,6 +74,7 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .playForward: ShortcutBinding(key: "l")
         case .exportSequence: ShortcutBinding(key: "e", command: true, shift: true)
         case .exportFCPXML, .exportEDL, .exportOTIO: ShortcutBinding(key: "")
+        case .toggleRetime: ShortcutBinding(key: "r", command: true)
         }
     }
 }

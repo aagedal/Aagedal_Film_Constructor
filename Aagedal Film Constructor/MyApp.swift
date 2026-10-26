@@ -287,6 +287,7 @@ private struct EditorCommands: Commands {
             command(.insertSource)
             command(.overwriteSource)
             command(.splitClip)
+            command(.toggleRetime)
             command(.addTransition)
             command(.addTitle)
             command(.rippleTrimStart)

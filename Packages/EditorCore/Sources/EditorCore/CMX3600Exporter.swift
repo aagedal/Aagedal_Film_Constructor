@@ -56,8 +56,7 @@ public enum CMX3600Exporter {
         else {
             channel = track.audioLayout == .stereo ? "AA" : "A"
             if track.audioLayout != .mono && track.audioLayout != .stereo { reasons.append("Only complete mono or stereo audio tracks are supported.") }
-            let identity = Array(0..<(track.audioLayout?.channels.count ?? 0))
-            if !track.template.routing.outputChannels.isEmpty && track.template.routing.outputChannels != identity {
+            if let layout = track.audioLayout, !track.template.routing.isDefaultPlacement(of: layout, in: project.settings.audioLayout) {
                 reasons.append("Audio output channel remapping is not supported.")
             }
         }

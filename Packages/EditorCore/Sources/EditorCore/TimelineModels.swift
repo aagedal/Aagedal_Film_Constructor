@@ -63,6 +63,9 @@ public struct MediaAsset: Identifiable, Equatable, Codable, Sendable {
     public var proxy: MediaProxy?
     /// Generated title text; `originalURL` then references its rendered image.
     public var title: TitleDefinition?
+    /// How new placements split this media's sound into timeline components; nil keeps
+    /// the default (the first audio stream in the sequence layout).
+    public var audioConfiguration: AudioConfiguration?
     public init(id: UUID = UUID(), name: String, originalURL: URL? = nil, duration: RationalTime, streams: [MediaStream] = [], sourceTimecode: Timecode? = nil, proxy: MediaProxy? = nil) {
         self.id = id; self.name = name; self.originalURL = originalURL; self.duration = duration; self.streams = streams; self.sourceTimecode = sourceTimecode; self.proxy = proxy
     }
@@ -237,8 +240,40 @@ public struct PictureTransform: Equatable, Codable, Sendable {
 public enum TrackKind: String, Codable, Sendable { case video, audio }
 public struct AudioRouting: Equatable, Codable, Sendable {
     /// Destination speaker for every input channel; an empty map means identity routing.
+    /// A single (mono) input may list several outputs: it plays at full level on each, so
+    /// mono on [left, right] sits in the centre of a stereo mix.
     public var outputChannels: [Int]
     public init(outputChannels: [Int] = []) { self.outputChannels = outputChannels }
+
+    /// The outputs each input channel plays on.
+    public func outputs(inputCount: Int) -> [[Int]] {
+        if outputChannels.isEmpty { return (0..<inputCount).map { [$0] } }
+        if inputCount == 1 { return [outputChannels] }
+        return outputChannels.map { [$0] }
+    }
+
+    /// Whether this map fits `inputCount` channels into a layout of `outputCount` speakers.
+    /// An empty map additionally needs the layouts to match, which callers check.
+    public func fits(inputCount: Int, outputCount: Int) -> Bool {
+        if outputChannels.isEmpty { return true }
+        guard outputChannels.allSatisfy({ $0 >= 0 && $0 < outputCount }) else { return false }
+        if outputChannels.count == inputCount { return true }
+        return inputCount == 1 && Set(outputChannels).count == outputChannels.count
+    }
+
+    /// Mono in the centre of the sequence: both front channels in stereo, the centre in 5.1.
+    public static func centre(in sequence: ChannelLayout) -> AudioRouting {
+        if sequence == .stereo { return AudioRouting(outputChannels: [0, 1]) }
+        if sequence == .surround51 { return AudioRouting(outputChannels: [2]) }
+        return AudioRouting(outputChannels: [0])
+    }
+
+    /// Whether a component plays as interchange formats place it by default: unchanged, or
+    /// mono in the centre.
+    public func isDefaultPlacement(of layout: ChannelLayout, in sequence: ChannelLayout) -> Bool {
+        outputChannels.isEmpty || outputChannels == Array(layout.channels.indices)
+            || (layout.channels.count == 1 && self == Self.centre(in: sequence))
+    }
 }
 public struct TrackTemplate: Equatable, Codable, Sendable {
     public var kind: TrackKind

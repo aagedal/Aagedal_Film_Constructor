@@ -196,7 +196,7 @@ final class ProjectAssemblyTests: XCTestCase {
             XCTAssertThrowsError(try project.appendAsset(asset.id, audioSelections: [mono, invalid], routing: [left, left]))
             XCTAssertEqual(project, before)
         }
-        for invalid in [AudioRouting(), AudioRouting(outputChannels: [-1]), AudioRouting(outputChannels: [2]), AudioRouting(outputChannels: [0, 1])] {
+        for invalid in [AudioRouting(), AudioRouting(outputChannels: [-1]), AudioRouting(outputChannels: [2]), AudioRouting(outputChannels: [1, 1])] {
             XCTAssertThrowsError(try project.appendAsset(asset.id, audioSelections: [mono, mono], routing: [left, invalid]))
             XCTAssertEqual(project, before)
         }
