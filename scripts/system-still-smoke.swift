@@ -221,7 +221,7 @@ import UniformTypeIdentifiers
             try await backend.seek(toFrame: 12)
             let split = (80 - width) / 2 + width / 2
             try require(pixel(image!, split - 1, 24)[0] > 220 && pixel(image!, split, 24)[1] > 220,
-                "Odd no-scaling pad/crop keeps integer pixel boundary")
+                "Odd no-scaling pad/crop keeps integer pixel boundary: \(pixel(image!, split - 1, 24)) \(pixel(image!, split, 24))")
             await backend.close()
             decoded += 1
         }

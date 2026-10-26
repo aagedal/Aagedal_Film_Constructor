@@ -81,7 +81,8 @@ occupied time stacks the copy on a new sibling track rather than overwriting.
   to fade, or drop it onto the neighbouring clip to dissolve. The inspector sets
   exact fade and dissolve durations and removes dissolves.
 - Picture fades and dissolves are linear and snap to whole frames. Exports render
-  them exactly; the sequence preview matches within normal colour conversion.
+  them exactly. For Rec. 709 media, preview and export colours match within a few
+  levels and fades within about one frame's opacity step.
 - FCPXML, OTIO and EDL exports refuse sequences with fades or transitions rather
   than dropping them.
 

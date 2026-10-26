@@ -75,8 +75,8 @@ import EditorCore
             let expected = try reference(frame), actual = try await preview(frame)
             let difference = zip(expected, actual).map { abs($0 - $1) }.max() ?? 255
             print("frame \(frame): export \(expected) preview \(actual)")
-            // System and FFmpeg colour conversion of saturated primaries differ by up to ~26 levels.
-            try require(difference <= 32, "Preview frame \(frame) differs from export: \(actual) vs \(expected)")
+            // Solid colours agree within 3 levels; ramps within one frame's opacity step (~13).
+            try require(difference <= 16, "Preview frame \(frame) differs from export: \(actual) vs \(expected)")
         }
         let middle = try reference(36)
         try require(abs(middle[0] - middle[2]) < 30 && middle[0] > 90, "Dissolve midpoint must blend red and blue: \(middle)")
