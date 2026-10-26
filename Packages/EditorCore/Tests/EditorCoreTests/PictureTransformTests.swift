@@ -35,7 +35,7 @@ final class PictureTransformTests: XCTestCase {
         XCTAssertTrue(command.filterGraph.contains("scale=w='max(1,round(iw*0.5))'"))
         XCTAssertTrue(command.filterGraph.contains("lut=a='val*0.5'"))
         XCTAssertTrue(command.filterGraph.contains("x='(main_w-overlay_w)/2+0.25*main_w'"))
-        XCTAssertThrowsError(try FCPXMLExporter.export(project: engine.project))
+        XCTAssertTrue(try FCPXMLExporter.export(project: engine.project).xml.contains("<adjust-blend amount=\"0.5\"/>"))
         try engine.apply(.split(clipID: top, at: RationalTime(1)))
         XCTAssertTrue(engine.project.tracks[0].clips.allSatisfy { $0.transform == pip }, "Both halves keep the transform")
     }

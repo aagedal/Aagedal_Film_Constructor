@@ -87,7 +87,7 @@ occupied time stacks the copy on a new sibling track rather than overwriting.
   exact fade and dissolve durations and removes dissolves.
 - Picture fades and dissolves are linear and snap to whole frames. Exports render
   them exactly. For Rec. 709 media, preview and export match within a few levels.
-- FCPXML, OTIO and EDL exports refuse sequences with fades or transitions rather
+- FCPXML writes fades as adjustments; FCPXML, OTIO and EDL refuse transitions rather
   than dropping them.
 
 ## Scale, position and opacity
@@ -199,7 +199,9 @@ these warnings into refusals, for when exact decoded parity matters more than
 convenience.
 
 FCPXML, OpenTimelineIO and track EDL exports are also available from the File
-menu. DaVinci Resolve 21 imports both with media linked and every clip at the exact
+menu. FCPXML also carries volume, fades, scale, position,
+opacity and their keyframes as Final Cut adjustments (DTD-valid; editor import of
+these adjustments is not yet verified). DaVinci Resolve 21 imports both with media linked and every clip at the exact
 frame, source offset and layer. Resolve's renders of the imported timelines match
 the app's own render. Media with embedded timecode (most camera and broadcast
 files) is referenced in its own timecode clock, as editors expect. FCPXML writes

@@ -27,6 +27,7 @@ final class TransformKeyframeTests: XCTestCase {
         XCTAssertThrowsError(try PictureAnimation.validate([TransformKeyframe(time: .zero, scale: 0)]))
         var (project, top) = try project(directory: URL(fileURLWithPath: "/private/tmp"))
         XCTAssertEqual(try JSONDecoder().decode(Project.self, from: JSONEncoder().encode(project)), project)
+        XCTAssertTrue(try FCPXMLExporter.export(project: project).xml.contains("<keyframeAnimation>"))
         var engine = try TimelineEditEngine(project: project)
         try engine.apply(.split(clipID: top, at: RationalTime(1, 2)))
         XCTAssertTrue(engine.project.tracks[0].clips.allSatisfy { $0.transformKeyframes == keyframes }, "Halves keep source-anchored animation")
@@ -36,7 +37,6 @@ final class TransformKeyframeTests: XCTestCase {
         let command = try FFmpegRenderCompiler.compile(plan, outputURL: URL(fileURLWithPath: "/private/tmp/animated.mov"))
         XCTAssertTrue(command.filterGraph.contains(":eval=frame"))
         XCTAssertTrue(command.filterGraph.contains("if(lt(t,"))
-        XCTAssertThrowsError(try FCPXMLExporter.export(project: project))
     }
 
     func testRenderedAnimationDecodedPositionAndSize() throws {

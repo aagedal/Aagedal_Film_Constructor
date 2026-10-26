@@ -55,13 +55,11 @@ public enum FCPXMLExporter {
         for component in plan.components {
             let asset = assets.first { $0.id == component.assetID }!
             let label = "Clip \(component.clipID.uuidString) (\(asset.name))"
-            if component.fadeIn.duration != .zero || component.fadeOut.duration != .zero { reasons.append("\(label): fades are not supported.") }
+            // Fades, volume, scale, position, opacity and their keyframes are written as Final Cut adjustments.
             if !component.eq.isFlat { reasons.append("\(label): EQ is not supported.") }
-            if !component.volumeKeyframes.isEmpty { reasons.append("\(label): volume keyframes are not supported.") }
             if component.speed != .one { reasons.append("\(label): speed changes are not supported.") }
-            if !component.color.isNeutral { reasons.append("\(label): colour correction is not supported.") }
-            if component.hasPlacement { reasons.append("\(label): scale, position, opacity and their keyframes are not supported.") }
-            if component.gain != 1 { reasons.append("\(label): track gain and clip volume must be unity.") }
+            if !component.color.isNeutral { reasons.append("\(label): colour correction and blur are not supported.") }
+            if component.reveal != nil { reasons.append("\(label): wipes are not supported.") }
             switch component.selection {
             case .still:
                 reasons.append("\(label): still-image duration and geometry have not been qualified.")
@@ -139,12 +137,16 @@ public enum FCPXMLExporter {
             let attributes = "ref=\"\(refs[asset.id]!)\" name=\"\(attribute(asset.name))\" lane=\"\(lane)\" offset=\"\(time(component.timelineRange.start))\" start=\"\(time(try component.sourceRange.start.adding(asset.sourceTimecodeStart ?? .zero)))\" duration=\"\(time(component.sourceRange.duration))\"\(enable)"
             let channels = pairedAudio[index].flatMap { channelSource(plan.components[$0], asset: asset) } ?? channelSource(component, asset: asset)
             if isAudio {
-                if let channels {
-                    lines += ["              <asset-clip \(attributes) audioRole=\"dialogue\">", "                \(channels)", "              </asset-clip>"]
+                let volume = volumeAdjustment(component, origin: asset.sourceTimecodeStart ?? .zero)
+                if channels != nil || !volume.isEmpty {
+                    lines += ["              <asset-clip \(attributes) audioRole=\"dialogue\">"] + volume
+                        + (channels.map { ["                \($0)"] } ?? []) + ["              </asset-clip>"]
                 } else { lines.append("              <asset-clip \(attributes) audioRole=\"dialogue\"/>") }
             } else {
                 lines.append("              <asset-clip \(attributes)\(paired ? " audioRole=\"dialogue\"" : "")>")
                 lines.append("                <adjust-conform type=\"\(component.scalingMode.rawValue)\"/>")
+                lines += pictureAdjustments(component, settings: settings, origin: asset.sourceTimecodeStart ?? .zero)
+                if let pair = pairedAudio[index] { lines += volumeAdjustment(plan.components[pair], origin: asset.sourceTimecodeStart ?? .zero) }
                 if let channels { lines.append("                \(channels)") }
                 lines.append("              </asset-clip>")
             }
@@ -153,8 +155,68 @@ public enum FCPXMLExporter {
         return FCPXMLExportResult(xml: lines.joined(separator: "\n"), report: FCPXMLExportReport(clipCount: plan.components.count, assetCount: assets.count, notes: [
             "FCPXML 1.10 subset: original file references, exact sequence timing, layered video, and audio channel selections (audio-channel-source, channels numbered across the source's audio streams).",
             "Source raster, frame rate, orientation, pixel aspect, color metadata, and sample rate are inspected from original media by the receiving editor; mixed-rate and spatial conform equivalence have not been qualified.",
-            "Linked picture and sound with identical timing are written as one A/V clip. DaVinci Resolve 21 and Final Cut Pro 11 import this subset with exact timing. Track families and editor preferences are not interchange metadata."
+            "Linked picture and sound with identical timing are written as one A/V clip. DaVinci Resolve 21 and Final Cut Pro 11 import this subset with exact timing. Track families and editor preferences are not interchange metadata.",
+            "Volume, fades, scale, position, opacity and their keyframes are written as Final Cut adjustments (position in percent of frame height, y up). They match Apple's DTD; their interpretation by receiving editors has not been verified. Equal-power fades are written as ease fades."
         ]))
+    }
+
+    private static func decimal(_ value: Double) -> String {
+        var text = String(format: "%.4f", value)
+        while text.hasSuffix("0") { text.removeLast() }
+        if text.hasSuffix(".") { text.removeLast() }
+        return text == "-0" ? "0" : text
+    }
+    private static func decibels(_ gain: Double) -> String { gain > 0 ? decimal(max(-96, 20 * log10(gain))) + "dB" : "-96dB" }
+    private static func fades(_ component: TimelineRenderPlan.Component) -> [String] {
+        func type(_ fade: AudioFade, _ eased: String) -> String { fade.curve == .linear ? " type=\"linear\"" : " type=\"\(eased)\"" }
+        var result: [String] = []
+        if component.fadeIn.duration != .zero { result.append("<fadeIn\(type(component.fadeIn, "easeIn")) duration=\"\(time(component.fadeIn.duration))\"/>") }
+        if component.fadeOut.duration != .zero { result.append("<fadeOut\(type(component.fadeOut, "easeOut")) duration=\"\(time(component.fadeOut.duration))\"/>") }
+        return result
+    }
+    /// A param element with optional fades and linear keyframes (times in the clip's source time).
+    private static func param(_ name: String, fades: [String], keyframes: [(RationalTime, String)], origin: RationalTime) throws -> [String] {
+        guard !fades.isEmpty || !keyframes.isEmpty else { return [] }
+        var lines = ["                  <param name=\"\(name)\">"] + fades.map { "                    \($0)" }
+        if !keyframes.isEmpty {
+            lines.append("                    <keyframeAnimation>")
+            for (at, value) in keyframes {
+                lines.append("                      <keyframe time=\"\(time(try at.adding(origin)))\" value=\"\(value)\" interp=\"linear\" curve=\"linear\"/>")
+            }
+            lines.append("                    </keyframeAnimation>")
+        }
+        return lines + ["                  </param>"]
+    }
+    /// Scale and position (adjust-transform) and opacity with fades (adjust-blend).
+    private static func pictureAdjustments(_ component: TimelineRenderPlan.Component, settings: SequenceSettings, origin: RationalTime) -> [String] {
+        let aspect = Double(settings.width) / Double(settings.height)
+        func position(_ x: Double, _ y: Double) -> String { "\(decimal(x * aspect * 100)) \(decimal(-y * 100))" }
+        let t = component.transform, keys = component.transformKeyframes
+        var lines: [String] = []
+        if !t.isIdentity || !keys.isEmpty {
+            let first = keys.first.map { (s: $0.scale, x: $0.offsetX, y: $0.offsetY) } ?? (s: t.scale, x: t.offsetX, y: t.offsetY)
+            let inner = (try? param("position", fades: [], keyframes: keys.map { ($0.time, position($0.offsetX, $0.offsetY)) }, origin: origin)) ?? []
+                + ((try? param("scale", fades: [], keyframes: keys.map { ($0.time, "\(decimal($0.scale)) \(decimal($0.scale))") }, origin: origin)) ?? [])
+            let open = "                <adjust-transform position=\"\(position(first.x, first.y))\" scale=\"\(decimal(first.s)) \(decimal(first.s))\""
+            lines += inner.isEmpty ? [open + "/>"] : [open + ">"] + inner.map { String($0.dropFirst(2)) } + ["                </adjust-transform>"]
+        }
+        let opacityKeys = keys.contains { $0.opacity != 1 } ? keys.map { ($0.time, decimal(t.opacity * $0.opacity)) } : []
+        let fadeLines = fades(component)
+        if t.opacity != 1 || !opacityKeys.isEmpty || !fadeLines.isEmpty {
+            let inner = (try? param("amount", fades: fadeLines, keyframes: opacityKeys, origin: origin)) ?? []
+            let open = "                <adjust-blend amount=\"\(decimal(t.opacity))\""
+            lines += inner.isEmpty ? [open + "/>"] : [open + ">"] + inner.map { String($0.dropFirst(2)) } + ["                </adjust-blend>"]
+        }
+        return lines
+    }
+    /// Clip and track gain, fades and volume keyframes as one adjust-volume.
+    private static func volumeAdjustment(_ component: TimelineRenderPlan.Component, origin: RationalTime) -> [String] {
+        let keys = component.volumeKeyframes.map { ($0.time, decibels(component.gain * $0.gain)) }
+        let fadeLines = fades(component)
+        guard component.gain != 1 || !keys.isEmpty || !fadeLines.isEmpty else { return [] }
+        let inner = (try? param("amount", fades: fadeLines, keyframes: keys, origin: origin)) ?? []
+        let open = "                <adjust-volume amount=\"\(decibels(component.gain))\""
+        return inner.isEmpty ? [open + "/>"] : [open + ">"] + inner.map { String($0.dropFirst(2)) } + ["                </adjust-volume>"]
     }
 
     /// Final Cut's named progressive SDR formats (from Final Cut Pro 11's format registry).

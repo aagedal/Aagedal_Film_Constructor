@@ -47,14 +47,11 @@ final class ClipVolumeTests: XCTestCase {
         XCTAssertThrowsError(try withPicture.apply(.setGain(clipIDs: [picture.id], gain: 0.5)))
     }
 
-    func testInterchangeRefusesClipVolume() throws {
+    func testFCPXMLWritesClipVolume() throws {
         var project = try DemoProjectFactory.musicCollision()
         project.assets[0].originalURL = URL(fileURLWithPath: "/private/tmp/clip-volume.wav")
         project.tracks[0].template.gain = 1
         project.tracks[0].clips[0].gain = 0.5
-        XCTAssertThrowsError(try FCPXMLExporter.export(project: project)) { error in
-            guard case FCPXMLExportError.unsupported(let reasons) = error else { return XCTFail("\(error)") }
-            XCTAssertTrue(reasons.contains { $0.contains("clip volume") })
-        }
+        XCTAssertTrue(try FCPXMLExporter.export(project: project).xml.contains("<adjust-volume amount=\"-6.0206dB\"/>"))
     }
 }

@@ -27,7 +27,7 @@ final class VolumeKeyframeTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(Project.self, from: data), engine.project)
         let command = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: engine.project), outputURL: URL(fileURLWithPath: "/private/tmp/keyframes.mov"))
         XCTAssertTrue(command.filterGraph.contains("if(lt(n,"))
-        XCTAssertThrowsError(try FCPXMLExporter.export(project: engine.project))
+        XCTAssertTrue(try FCPXMLExporter.export(project: engine.project).xml.contains("<param name=\"amount\">"))
     }
 
     func testRenderedAutomationDecodedLevels() throws {

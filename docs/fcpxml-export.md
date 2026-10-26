@@ -16,9 +16,20 @@ Source media format attributes are deliberately omitted. The core does not curre
 
 ## Refused features
 
-Audio fades and crossfades; nonunity gain; source stream time offsets; partial/reordered audio selections; multiple audio streams; nonidentity channel routing; mono-to-stereo or other differing layout conversion; selection among multiple video streams; still images; unscaled video geometry; missing/nonlocal original URLs; nonzero source timecode without a known source frame rate; unsupported sequence audio layouts/sample rates; empty sequences; times whose denominator exceeds the DTD's 32-bit limit; XML 1.0-incompatible text; and video or sequence timing that would require rounding.
+Crossfades, dissolves and other transitions; EQ; speed changes; colour correction and blur; source stream time offsets; partial/reordered audio selections; multiple audio streams; nonidentity channel routing; mono-to-stereo or other differing layout conversion; selection among multiple video streams; still images; unscaled video geometry; missing/nonlocal original URLs; nonzero source timecode without a known source frame rate; unsupported sequence audio layouts/sample rates; empty sequences; times whose denominator exceeds the DTD's 32-bit limit; XML 1.0-incompatible text; and video or sequence timing that would require rounding.
 
 Track family names, empty track retention, link groups, and editor preferences do not have equivalents in this subset. The export report explicitly states that they are not interchange metadata. The resulting connected-clip structure represents edit timing and layer order, not an exact round trip of the app's track organization.
+
+## Adjustments
+
+Clip and track volume, audio and picture fades, scale, position, opacity and their
+keyframes are written as Final Cut adjustments: `adjust-volume` (dB, with `fadeIn`/
+`fadeOut` and volume keyframes), `adjust-transform` (position in percent of the frame
+height with y up, uniform scale, keyframed `position` and `scale` params) and
+`adjust-blend` (opacity, with fades and opacity keyframes). Keyframe times are in the
+clip's source time. Equal-power fades are written as ease fades. These elements validate
+against Apple's FCPXML 1.10 DTD (bundled with Final Cut Pro); how Final Cut Pro and
+Resolve interpret them has not yet been checked by importing.
 
 ## Validation and remaining qualification
 
