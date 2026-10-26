@@ -275,6 +275,11 @@ enum AcceptanceDriver {
                                             "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-ac", "2", "-shortest"]),
                     ("generated-prores.mov", ["-f", "lavfi", "-i", "smptehdbars=s=1920x1080:r=25:d=6", "-f", "lavfi", "-i", "sine=frequency=880:sample_rate=48000:duration=6",
                                               "-c:v", "prores_ks", "-profile:v", "0", "-c:a", "pcm_s16le", "-ac", "2", "-shortest"]),
+                    // Broadcast-style multitrack: picture and four mono streams at different pitches.
+                    ("generated-multitrack.mov", ["-f", "lavfi", "-i", "testsrc=s=1280x720:r=25:d=6"]
+                        + [220, 330, 440, 550].flatMap { ["-f", "lavfi", "-i", "sine=frequency=\($0):sample_rate=48000:duration=6"] }
+                        + ["-map", "0:v"] + (1...4).flatMap { ["-map", "\($0):a"] }
+                        + ["-c:v", "prores_ks", "-profile:v", "0", "-c:a", "pcm_s24le", "-shortest"]),
                 ]
                 var generated: [URL] = []
                 for (name, arguments) in fixtures {

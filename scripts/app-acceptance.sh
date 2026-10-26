@@ -43,8 +43,15 @@ probe() {
 }
 first_media="$1"
 probe launch
-# The export probe places the first media file; generated fixtures exist only inside the run.
-[[ "$first_media" == generate ]] || { probe export; probe export-complete; }
+# The export probes place the first media file. With generated fixtures, the bundled
+# FFmpeg makes a short clip in the run folder for them.
+if [[ "$first_media" == generate ]]; then
+  "$app/Contents/Resources/Helpers/ffmpeg" -v error -f lavfi -i 'testsrc2=s=640x360:r=25:d=2' \
+    -f lavfi -i 'sine=frequency=440:sample_rate=48000:duration=2' -c:v prores_ks -profile:v 0 \
+    -c:a pcm_s16le -ac 2 -shortest "$out/probe.mov"
+  first_media="$out/probe.mov"
+fi
+probe export; probe export-complete
 python3 - "$out/acceptance.json" <<'PY'
 import json, sys
 steps = {}
