@@ -94,6 +94,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             return false
         }
         var layers: [Int: AVMutableVideoCompositionLayerInstruction] = [:]
+        var placements: [Int: (track: CMPersistentTrackID, transform: CGAffineTransform)] = [:]
         var mixes: [AVAudioMixInputParameters] = []
         var assets: [URL: AVURLAsset] = [:]
         defer {
@@ -277,6 +278,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 layer.setTransform(transform, at: .zero)
                 try applyOpacityFades(component, to: layer)
                 layers[componentIndex] = layer
+                placements[componentIndex] = (track.trackID, transform)
             } else {
                 if component.gain > 1 {
                     addQualificationNotice("Gain above 0 dB plays at 0 dB in preview; export applies the full gain.")
@@ -346,6 +348,22 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 }
                 return instruction
             }
+            // Colour correction needs per-layer filters, which only a custom compositor can apply.
+            if plan.components.contains(where: { !$0.color.isNeutral }) {
+                let canvas = videoComposition.renderSize
+                videoComposition.customVideoCompositorClass = CoreImageCompositor.self
+                videoComposition.instructions = try picturePlan.instructions.map { segment in
+                    try CoreImageInstruction(
+                        timeRange: CMTimeRange(start: time(segment.timeRange.start), duration: time(segment.timeRange.duration)),
+                        layers: segment.componentIndices.map { index in
+                            guard let placement = placements[index] else { throw Self.unsupported("Missing sequence preview layer.") }
+                            let component = plan.components[index]
+                            return .init(trackID: placement.track, transform: placement.transform,
+                                         opacity: Self.opacityCurve(component), brightness: component.color.brightness,
+                                         contrast: component.color.contrast, saturation: component.color.saturation)
+                        }, canvas: canvas)
+                }
+            }
             item.videoComposition = videoComposition
         }
         try Task.checkCancellation()
@@ -355,6 +373,19 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
 
     /// Linear opacity ramps for picture fades and dissolves, matching the export's alpha fades.
     /// Overlapping fade in and fade out multiply; that product is followed with short segments.
+    /// Opacity at a sequence time in seconds: fades times the clip's own opacity.
+    static func opacityCurve(_ component: TimelineRenderPlan.Component) -> @Sendable (Double) -> Double {
+        let fadeIn = component.fadeIn.duration.seconds, fadeOut = component.fadeOut.duration.seconds
+        let start = component.timelineRange.start.seconds, duration = component.timelineRange.duration.seconds
+        let level = component.transform.opacity
+        return { time in
+            let t = time - start
+            let rising = fadeIn > 0 ? min(1, max(0, t / fadeIn)) : 1
+            let falling = fadeOut > 0 ? min(1, max(0, (duration - t) / fadeOut)) : 1
+            return rising * falling * level
+        }
+    }
+
     private func applyOpacityFades(_ component: TimelineRenderPlan.Component, to layer: AVMutableVideoCompositionLayerInstruction) throws {
         let fadeIn = component.fadeIn.duration.seconds, fadeOut = component.fadeOut.duration.seconds
         let level = component.transform.opacity

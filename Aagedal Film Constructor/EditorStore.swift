@@ -781,6 +781,11 @@ final class EditorStore: ObservableObject {
             statusMessage = "Updated the title."
         } catch { errorMessage = audioEditErrorMessage(error) }
     }
+    func setSelectedClipColor(_ color: ColorAdjustment) {
+        guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
+        edit(.setColor(clipID: clip.id, color: color))
+        if errorMessage == nil { statusMessage = color.isNeutral ? "Reset the picture's colour." : "Updated the picture's colour." }
+    }
     /// Percentages: scale, position as a share of the frame (right/down positive) and opacity.
     func setSelectedClipTransform(scale: String, x: String, y: String, opacity: String) {
         guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }

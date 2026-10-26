@@ -201,6 +201,12 @@ public enum FFmpegRenderCompiler {
                     : transformed ? "\(squarePixels),format=yuva444p,\(scaling),setsar=1"
                     : "\(squarePixels),\(scaling),setsar=1,format=\(fades.isEmpty ? "yuv444p" : "yuva444p")"
                 var arrangement = ""
+                if !component.color.isNeutral {
+                    // 8-bit video range: luma 16–235 about mid grey, chroma about 128.
+                    let c = component.color
+                    arrangement += ",lutyuv=y='clip(16+219*(((val-16)/219-0.5)*\(c.contrast)+0.5+(\(c.brightness))),16,235)'"
+                        + ":u='clip(128+(val-128)*\(c.contrast * c.saturation),16,240)':v='clip(128+(val-128)*\(c.contrast * c.saturation),16,240)'"
+                }
                 if transformed {
                     let t = component.transform
                     if t.scale != 1 { arrangement += ",scale=w='max(1,round(iw*\(t.scale)))':h='max(1,round(ih*\(t.scale)))'" }

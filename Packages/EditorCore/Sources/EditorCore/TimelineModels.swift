@@ -94,6 +94,25 @@ public struct AudioSourceSelection: Hashable, Codable, Sendable {
 }
 public enum ClipSelection: Hashable, Codable, Sendable { case video(streamIndex: Int), audio(AudioSourceSelection), still }
 public enum ScalingMode: String, Codable, Sendable { case fit, fill, none }
+/// Basic colour correction in the picture's encoded (gamma) values: brightness is added,
+/// contrast scales about mid grey and saturation scales colour away from grey.
+public struct ColorAdjustment: Equatable, Codable, Sendable {
+    public var brightness: Double
+    public var contrast: Double
+    public var saturation: Double
+    public init(brightness: Double = 0, contrast: Double = 1, saturation: Double = 1) {
+        self.brightness = brightness; self.contrast = contrast; self.saturation = saturation
+    }
+    public static let neutral = ColorAdjustment()
+    public var isNeutral: Bool { self == .neutral }
+    public func validate() throws {
+        guard [brightness, contrast, saturation].allSatisfy(\.isFinite), (-1...1).contains(brightness),
+              (0...3).contains(contrast), (0...3).contains(saturation) else {
+            throw EditorCoreError.invalidModel("Brightness must be −100 to +100, contrast and saturation 0–300%")
+        }
+    }
+}
+
 /// Placement of a picture after its scaling mode: a uniform scale about the frame centre,
 /// an offset in fractions of the frame size (positive x right, positive y down) and opacity.
 public struct PictureTransform: Equatable, Codable, Sendable {
@@ -145,11 +164,13 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
     public var transform: PictureTransform
     /// Audio volume automation in source time, multiplied with gain and fades.
     public var volumeKeyframes: [VolumeKeyframe]
-    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1, transform: PictureTransform = .identity, volumeKeyframes: [VolumeKeyframe] = []) {
+    /// Picture colour correction; neutral for audio.
+    public var color: ColorAdjustment
+    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1, transform: PictureTransform = .identity, volumeKeyframes: [VolumeKeyframe] = [], color: ColorAdjustment = .neutral) {
         self.id = id; self.assetID = assetID; self.sourceRange = sourceRange; self.timelineStart = timelineStart; self.selection = selection; self.scalingMode = scalingMode; self.linkGroupID = linkGroupID; self.fadeIn = fadeIn; self.fadeOut = fadeOut
-        self.gain = gain; self.transform = transform; self.volumeKeyframes = volumeKeyframes
+        self.gain = gain; self.transform = transform; self.volumeKeyframes = volumeKeyframes; self.color = color
     }
-    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain, transform, volumeKeyframes }
+    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain, transform, volumeKeyframes, color }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.init(id: try c.decode(UUID.self, forKey: .id), assetID: try c.decode(UUID.self, forKey: .assetID),
@@ -160,7 +181,8 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
                   fadeOut: try c.decodeIfPresent(AudioFade.self, forKey: .fadeOut) ?? .init(),
                   gain: try c.decodeIfPresent(Double.self, forKey: .gain) ?? 1,
                   transform: try c.decodeIfPresent(PictureTransform.self, forKey: .transform) ?? .identity,
-                  volumeKeyframes: try c.decodeIfPresent([VolumeKeyframe].self, forKey: .volumeKeyframes) ?? [])
+                  volumeKeyframes: try c.decodeIfPresent([VolumeKeyframe].self, forKey: .volumeKeyframes) ?? [],
+                  color: try c.decodeIfPresent(ColorAdjustment.self, forKey: .color) ?? .neutral)
     }
     public var requiredTrackKind: TrackKind { if case .audio = selection { return .audio }; return .video }
     public var requiredAudioLayout: ChannelLayout? { if case .audio(let selection) = selection { return selection.layout }; return nil }

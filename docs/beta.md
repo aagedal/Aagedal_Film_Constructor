@@ -94,6 +94,13 @@ Y down). The picture-in-picture button shrinks the clip to a third in the lower 
 corner, and reset restores it. Layers below show around and through a transformed
 picture. Interchange exports refuse transformed clips.
 
+## Colour
+
+Select a picture clip and drag **Brightness**, **Contrast** or **Saturation** under
+**Colour** in the inspector; each release is one undoable change, and the reset
+button restores the original. Sequences with colour correction preview through a
+CoreImage compositor; preview colours are within a few percent of the export.
+
 ## Titles
 
 Press ⌃T (or the **T** button in the timeline toolbar) to add a five-second title at
@@ -185,7 +192,7 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Effects (colour correction, blur), title animation, transitions other than dissolves and crossfades, keyframes for picture
+- Effects beyond basic colour correction (curves, blur, keying), title animation, transitions other than dissolves and crossfades, keyframes for picture
   (transforms are static per clip) and a mixer are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.

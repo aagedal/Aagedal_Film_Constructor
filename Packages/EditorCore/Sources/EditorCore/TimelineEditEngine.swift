@@ -23,6 +23,8 @@ public enum EditCommand: Sendable {
     case setGain(clipIDs: [UUID], gain: Double)
     /// Replace the volume automation of the listed audio components.
     case setVolumeKeyframes(clipIDs: [UUID], keyframes: [VolumeKeyframe])
+    /// Colour-correct one picture component.
+    case setColor(clipID: UUID, color: ColorAdjustment)
     /// Place one picture component; linked components keep their own transforms.
     case setTransform(clipID: UUID, transform: PictureTransform)
     /// Replace one audio component with explicitly mapped components, preserving linked picture/timing.
@@ -417,6 +419,11 @@ public struct TimelineEditEngine: Sendable {
                 guard project.tracks[t].clips[c].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
                 project.tracks[t].clips[c].volumeKeyframes = keyframes
             }
+        case .setColor(let clipID, let color):
+            guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
+                  let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
+            guard project.tracks[t].clips[c].requiredTrackKind == .video else { throw TimelineEditError.incompatibleTrack }
+            project.tracks[t].clips[c].color = color
         case .setTransform(let clipID, let transform):
             guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
                   let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }

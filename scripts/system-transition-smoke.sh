@@ -16,6 +16,7 @@ swiftc -swift-version 6 -default-isolation MainActor -module-cache-path "$smoke_
 swiftc -swift-version 6 -default-isolation MainActor -module-cache-path "$smoke_root/module-cache" \
   -parse-as-library -I "$smoke_root" -L "$smoke_root" -lEditorCore \
   "$repo_root/Aagedal Film Constructor/AVFoundationSequenceBackend.swift" \
+  "$repo_root/Aagedal Film Constructor/CoreImageCompositor.swift" \
   "$repo_root/Aagedal Film Constructor/SystemStillPreview.swift" \
   "$repo_root/Aagedal Film Constructor/SequencePlaybackController.swift" \
   "$repo_root/scripts/system-transition-smoke.swift" -o "$smoke_root/smoke"

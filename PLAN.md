@@ -52,6 +52,12 @@ express it.
   pictures reveal lower layers in render and preview; split, copy and save keep it;
   interchange and stream copy refuse it. `PictureTransformTests` checks decoded export
   pixels; `scripts/system-transition-smoke.sh` compares preview and export.
+- [x] Colour correction: per-picture brightness, contrast and saturation on encoded values
+  (export: `lutyuv` in video range; preview: a CoreImage custom compositor without colour
+  management, used only when a sequence has colour, which also reproduces transforms,
+  opacity, fades and dissolves). Export pixels are checked in `ColorAdjustmentTests`;
+  preview matches export within ~16 levels (`system-transition-smoke.sh`), and real-window
+  acceptance plays and exports a colour-corrected timeline.
 - [x] Volume keyframes: audio clips carry source-anchored volume points (linear between
   points, held outside), multiplied with clip volume and fades. Trims and splits keep
   them on the same sound. The inspector adds a keyframe at the playhead with the volume

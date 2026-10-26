@@ -80,6 +80,7 @@ checks = [
     ('. overwrote the sequence at the playhead', tools.get('overwrite', {}).get('clipsAfter', 0) > 0 and not tools.get('overwrite', {}).get('error')),
     ('⌘C/⌘V pasted, ⌘D duplicated and ⇧⌘⌫ ripple deleted', tools.get('clipboard', {}).get('copiedAndPasted') and tools.get('clipboard', {}).get('duplicated') and tools.get('clipboard', {}).get('rippleDeleted')),
     ('picture-in-picture transform applied (33%, 80% opacity)', tools.get('transform', {}).get('scale') == 0.33 and tools.get('transform', {}).get('opacity') == 0.8),
+    ('colour correction applied (preview uses the CoreImage compositor)', tools.get('color', {}).get('applied')),
     ('two volume keyframes added at the playhead', tools.get('keyframes', {}).get('count') == 2),
     ('muting a track removes it from the render plan and unmuting restores it', tools.get('mute', {}).get('fewerComponentsWhileMuted') and tools.get('mute', {}).get('restored')),
     ('remapped Play / Pause shortcut works and was restored', shortcut.get('remapped') and shortcut.get('plays') and shortcut.get('pauses') and shortcut.get('restored')),

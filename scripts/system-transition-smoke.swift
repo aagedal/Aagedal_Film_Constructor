@@ -113,6 +113,40 @@ import EditorCore
         await pipBackend.close()
         print("PASS picture in picture preview matches export")
 
+        // Colour correction switches the preview to the CoreImage compositor: repeat the dissolve
+        // and fades with a brighter, half-saturated first shot, and a greyed picture in picture.
+        var coloured = engine.project
+        coloured.tracks[0].clips[coloured.tracks[0].clips.firstIndex { $0.id == a.id }!].color = ColorAdjustment(brightness: 0.1, saturation: 0.5)
+        var colouredPip = pip
+        colouredPip.tracks[0].clips[0].color = ColorAdjustment(brightness: 0.2, contrast: 1.2, saturation: 0)
+        for (name, candidate, frames, points) in [("dissolve", coloured, [0, 6, 12, 30, 36, 42, 60, 71], [(40, 24)]),
+                                                  ("pip", colouredPip, [12], [(60, 36), (10, 10), (78, 46)])] {
+            let colourOutput = directory.appendingPathComponent("colour-\(name).mov")
+            _ = try run(ffmpeg, try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: candidate), outputURL: colourOutput).arguments)
+            let colourBackend = try AVFoundationSequenceBackend(project: candidate, videoProxies: [:])
+            colourBackend.display = { displayed, _ in image = displayed }
+            for frame in frames {
+                try await colourBackend.seek(toFrame: Int64(frame))
+                for (x, y) in points {
+                    let data = try run(ffmpeg, ["-hide_banner", "-i", colourOutput.path, "-vf", "select=eq(n\\,\(frame)),crop=2:2:\(x):\(y)",
+                                                "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
+                    let expected = data.prefix(3).map(Int.init)
+                    var bytes = [UInt8](repeating: 0, count: 4)
+                    bytes.withUnsafeMutableBytes { pointer in
+                        let context = CGContext(data: pointer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                        context.interpolationQuality = .none
+                        context.draw(image!, in: CGRect(x: -x, y: -(image!.height - 1 - y), width: image!.width, height: image!.height))
+                    }
+                    let actual = bytes.prefix(3).map(Int.init)
+                    print("colour \(name) frame \(frame) (\(x),\(y)): export \(expected) preview \(actual)")
+                    try require(zip(expected, actual).allSatisfy { abs($0 - $1) <= 24 }, "Colour preview differs: \(name) frame \(frame)")
+                }
+            }
+            await colourBackend.close()
+        }
+        print("PASS colour correction preview matches export")
+
         // Volume keyframes: full level until source 1 s, then down to a quarter by source 2 s.
         let tone = directory.appendingPathComponent("tone.mov")
         _ = try run(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000:duration=4",

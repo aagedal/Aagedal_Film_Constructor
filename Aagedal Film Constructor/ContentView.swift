@@ -507,14 +507,15 @@ private struct ProjectInspector: View {
                             Text(store.project.assets.first(where: { $0.id == clip.assetID })?.name ?? "Media").font(.subheadline.bold())
                             numericField("Timeline start (s)", text: $timelineStart)
                             Button("Move clip", systemImage: "arrow.right") {
-                                guard let value = Double(timelineStart), value.isFinite, value >= 0 else { store.errorMessage = "Enter a valid timeline start in seconds."; return }
+                                guard let value = entered(timelineStart, current: clip.timelineStart.seconds), value.isFinite, value >= 0 else { store.errorMessage = "Enter a valid timeline start in seconds."; return }
                                 store.moveSelectedClip(to: value)
                             }.labelStyle(.iconOnly).help("Move clip to the entered timeline start")
                             Divider()
                             numericField("Source in (s)", text: $sourceStart)
                             numericField("Duration (s)", text: $clipDuration)
                             Button("Apply trim", systemImage: "scissors") {
-                                guard let start = Double(sourceStart), let duration = Double(clipDuration), start.isFinite, duration.isFinite, start >= 0, duration > 0 else { store.errorMessage = "Enter a nonnegative source in and a positive duration in seconds."; return }
+                                guard let start = entered(sourceStart, current: clip.sourceRange.start.seconds),
+                                      let duration = entered(clipDuration, current: clip.sourceRange.duration.seconds), start.isFinite, duration.isFinite, start >= 0, duration > 0 else { store.errorMessage = "Enter a nonnegative source in and a positive duration in seconds."; return }
                                 store.trimSelectedClip(start: start, duration: duration)
                             }.labelStyle(.iconOnly).help("Apply source in and duration")
                             let isPicture = clip.requiredTrackKind == .video
@@ -546,6 +547,7 @@ private struct ProjectInspector: View {
                                 }
                                 Text("Position is a share of the frame: positive X moves right, positive Y down. Layers below show around and through the picture.")
                                     .font(.caption).foregroundStyle(.secondary)
+                                ColorControls(color: clip.color) { store.setSelectedClipColor($0) }.id(clip.id)
                             } else {
                                 Button("Audio source channels…", systemImage: "waveform") { editingAudio = true }
                                     .labelStyle(.iconOnly).help("Edit audio source channels and output routing")
@@ -685,6 +687,18 @@ private struct ProjectInspector: View {
         }
     }
 
+    /// Seconds shown to the microsecond, without trailing zeros.
+    private func display(_ seconds: Double) -> String {
+        var text = String(format: "%.6f", seconds)
+        while text.hasSuffix("0") { text.removeLast() }
+        if text.hasSuffix(".") { text.removeLast() }
+        return text
+    }
+    /// An untouched field returns the exact stored value, so rounding for display never edits.
+    private func entered(_ text: String, current: Double?) -> Double? {
+        if let current, text == display(current) { return current }
+        return Double(text)
+    }
     private func numericField(_ label: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(label).font(.caption).foregroundStyle(.secondary)
@@ -698,7 +712,8 @@ private struct ProjectInspector: View {
         }
     }
     private func applyFades(_ clip: TimelineClip) {
-        guard let fadeIn = Double(fadeInDuration), let fadeOut = Double(fadeOutDuration),
+        guard let fadeIn = entered(fadeInDuration, current: clip.fadeIn.duration.seconds),
+              let fadeOut = entered(fadeOutDuration, current: clip.fadeOut.duration.seconds),
               fadeIn.isFinite, fadeOut.isFinite, fadeIn >= 0, fadeOut >= 0, let expected = fadeDraftClip else {
             store.errorMessage = "Enter nonnegative fade durations in seconds."
             return
@@ -723,11 +738,11 @@ private struct ProjectInspector: View {
         }
         .onChange(of: crossfadeTargetID) { _, id in
             if let existing = store.project.audioCrossfades.first(where: { $0.outgoingClipID == clip.id && $0.incomingClipID == id }) {
-                crossfadeDuration = String(existing.duration.seconds)
+                crossfadeDuration = display(existing.duration.seconds)
                 crossfadeCurve = existing.curve
             } else if let target = targets.first(where: { $0.id == id }) {
                 let overlap = clip.timelineStart.seconds + clip.sourceRange.duration.seconds - target.timelineStart.seconds
-                crossfadeDuration = String(overlap > 0 ? overlap : isPicture ? 1 : 0.5)
+                crossfadeDuration = display(overlap > 0 ? overlap : isPicture ? 1 : 0.5)
                 crossfadeCurve = isPicture ? .linear : .equalPower
             }
             crossfadeDraftProject = store.project
@@ -735,7 +750,9 @@ private struct ProjectInspector: View {
         numericField(isPicture ? "Dissolve duration (s)" : "Crossfade duration (s)", text: $crossfadeDuration)
         if !isPicture { fadeCurvePicker("Crossfade curve", selection: $crossfadeCurve) }
         Button(isPicture ? "Apply dissolve" : "Apply crossfade", systemImage: "checkmark") {
-            guard let target = crossfadeTargetID, let seconds = Double(crossfadeDuration), let baseline = crossfadeDraftProject else {
+            guard let target = crossfadeTargetID,
+                  let seconds = entered(crossfadeDuration, current: store.project.audioCrossfades.first { $0.outgoingClipID == clip.id && $0.incomingClipID == crossfadeTargetID }?.duration.seconds),
+                  let baseline = crossfadeDraftProject else {
                 store.errorMessage = isPicture ? "Select the incoming clip and enter a positive dissolve duration in seconds."
                     : "Select incoming audio and enter a positive crossfade duration in seconds."
                 return
@@ -771,7 +788,7 @@ private struct ProjectInspector: View {
         guard let clip = store.selectedClip else { crossfadeTargetID = nil; return }
         if let existing = store.project.audioCrossfades.first(where: { $0.outgoingClipID == clip.id }) {
             crossfadeTargetID = existing.incomingClipID
-            crossfadeDuration = String(existing.duration.seconds)
+            crossfadeDuration = display(existing.duration.seconds)
             crossfadeCurve = existing.curve
         } else {
             crossfadeTargetID = nil
@@ -781,11 +798,11 @@ private struct ProjectInspector: View {
     }
     private func refreshClip() {
         guard let clip = store.selectedClip else { return }
-        sourceStart = String(clip.sourceRange.start.seconds)
-        clipDuration = String(clip.sourceRange.duration.seconds)
-        timelineStart = String(clip.timelineStart.seconds)
-        fadeInDuration = String(clip.fadeIn.duration.seconds)
-        fadeOutDuration = String(clip.fadeOut.duration.seconds)
+        sourceStart = display(clip.sourceRange.start.seconds)
+        clipDuration = display(clip.sourceRange.duration.seconds)
+        timelineStart = display(clip.timelineStart.seconds)
+        fadeInDuration = display(clip.fadeIn.duration.seconds)
+        fadeOutDuration = display(clip.fadeOut.duration.seconds)
         fadeInCurve = clip.fadeIn.curve
         fadeOutCurve = clip.fadeOut.curve
         fadeDraftClip = clip
@@ -813,6 +830,38 @@ private struct ProjectInspector: View {
         audioSampleRate = String(store.project.settings.audioSampleRate)
         audioLayout = store.project.settings.audioLayout
         startTimecode = (try? store.project.settings.startTimecode.formatted(rate: store.project.settings.frameRate)) ?? "00:00:00:00"
+    }
+}
+
+/// Brightness, contrast and saturation; each slider commits one undoable change on release.
+private struct ColorControls: View {
+    let color: ColorAdjustment
+    let apply: (ColorAdjustment) -> Void
+    @State private var draft: ColorAdjustment
+    init(color: ColorAdjustment, apply: @escaping (ColorAdjustment) -> Void) {
+        self.color = color; self.apply = apply
+        _draft = State(initialValue: color)
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Colour").font(.subheadline.bold())
+                Spacer()
+                Button("Reset colour", systemImage: "arrow.counterclockwise") { draft = .neutral; apply(.neutral) }
+                    .labelStyle(.iconOnly).help("Reset brightness, contrast and saturation").disabled(color.isNeutral)
+            }
+            slider("Brightness", value: $draft.brightness, range: -1...1, label: String(format: "%+.0f", draft.brightness * 100))
+            slider("Contrast", value: $draft.contrast, range: 0...2, label: String(format: "%.0f%%", draft.contrast * 100))
+            slider("Saturation", value: $draft.saturation, range: 0...2, label: String(format: "%.0f%%", draft.saturation * 100))
+        }
+        .onChange(of: color) { _, value in draft = value }
+    }
+    private func slider(_ title: String, value: Binding<Double>, range: ClosedRange<Double>, label: String) -> some View {
+        HStack {
+            Text(title).font(.caption).frame(width: 64, alignment: .leading)
+            Slider(value: value, in: range) { editing in if !editing && draft != color { apply(draft) } }
+            Text(label).font(.caption.monospacedDigit()).frame(width: 40, alignment: .trailing)
+        }
     }
 }
 
