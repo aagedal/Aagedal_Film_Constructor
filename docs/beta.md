@@ -64,6 +64,16 @@ and Gatekeeper assesses it as "Notarized Developer ID".
 - FCPXML, OTIO and EDL exports refuse sequences with fades or transitions rather
   than dropping them.
 
+## Titles
+
+Press ⌃T (or the **T** button in the timeline toolbar) to add a five-second title at
+the playhead. It goes on a **Titles** track in front of the picture. Select it to
+edit the text, size, position, colour, weight and an optional background band in
+the inspector, then click **Apply title**. Trim, move, fade and dissolve titles
+like any other clip. Titles are drawn as transparent images in the app's
+Application Support "Titles" folder and redrawn if missing. Interchange exports
+reference those images as stills.
+
 ## Volume
 
 Select a clip and enter **Clip volume (dB)** in the inspector (up to +24 dB; −inf
@@ -135,8 +145,9 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Effects, titles, transitions other than cross dissolves and audio crossfades,
-  keyframes and a mixer are not part of this version.
+- Effects, title animation and fonts other than the system font, transitions other
+  than cross dissolves and audio crossfades, keyframes and a mixer are not part of
+  this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
 - 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed

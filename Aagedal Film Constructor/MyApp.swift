@@ -265,6 +265,7 @@ private struct EditorCommands: Commands {
             command(.appendSource)
             command(.splitClip)
             command(.addTransition)
+            command(.addTitle)
             command(.rippleTrimStart)
             command(.rippleTrimEnd)
             command(.zoomTimelineToFit)

@@ -487,6 +487,12 @@ private struct ProjectInspector: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Inspector").font(.headline)
+                if let clip = store.selectedClip, let asset = store.asset(id: clip.assetID), let title = asset.title {
+                    GroupBox("Title") {
+                        TitleEditor(title: title) { store.updateTitle(assetID: asset.id, to: $0) }
+                            .id(asset.id).padding(5)
+                    }
+                }
                 if let clip = store.selectedClip {
                     GroupBox("Selected clip") {
                         VStack(alignment: .leading, spacing: 10) {
@@ -749,6 +755,58 @@ private struct ProjectInspector: View {
         audioSampleRate = String(store.project.settings.audioSampleRate)
         audioLayout = store.project.settings.audioLayout
         startTimecode = (try? store.project.settings.startTimecode.formatted(rate: store.project.settings.frameRate)) ?? "00:00:00:00"
+    }
+}
+
+/// Edits a draft of the title; Apply commits it as one undoable change.
+private struct TitleEditor: View {
+    let title: TitleDefinition
+    let apply: (TitleDefinition) -> Void
+    @State private var draft: TitleDefinition
+    init(title: TitleDefinition, apply: @escaping (TitleDefinition) -> Void) {
+        self.title = title; self.apply = apply
+        _draft = State(initialValue: title)
+    }
+    private var color: Binding<Color> {
+        Binding(get: {
+            let c = draft.rgba ?? (1, 1, 1, 1)
+            return Color(.sRGB, red: c.red, green: c.green, blue: c.blue, opacity: c.alpha)
+        }, set: { value in
+            guard let c = NSColor(value).usingColorSpace(.sRGB) else { return }
+            func byte(_ v: CGFloat) -> Int { Int((min(1, max(0, v)) * 255).rounded()) }
+            draft.color = String(format: "#%02X%02X%02X%02X", byte(c.redComponent), byte(c.greenComponent), byte(c.blueComponent), byte(c.alphaComponent))
+        })
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Text").font(.caption).foregroundStyle(.secondary)
+            TextEditor(text: $draft.text)
+                .font(.body).frame(minHeight: 54, maxHeight: 120)
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.3)))
+            HStack {
+                Text("Size").font(.caption).foregroundStyle(.secondary)
+                Slider(value: $draft.fontSize, in: 0.02...0.3)
+                Text("\(Int((draft.fontSize * 100).rounded()))%").font(.caption.monospacedDigit()).frame(width: 34, alignment: .trailing)
+            }
+            Picker("Position", selection: $draft.position) {
+                Text("Top").tag(TitlePosition.top)
+                Text("Centre").tag(TitlePosition.center)
+                Text("Lower third").tag(TitlePosition.lowerThird)
+                Text("Bottom").tag(TitlePosition.bottom)
+            }
+            ColorPicker("Colour", selection: color, supportsOpacity: true)
+            Toggle("Bold", isOn: $draft.bold)
+            Toggle("Background band", isOn: $draft.background)
+            HStack {
+                Button("Apply title", systemImage: "checkmark") { apply(draft) }
+                    .disabled(draft == title)
+                Button("Revert", systemImage: "arrow.uturn.backward") { draft = title }
+                    .labelStyle(.iconOnly).help("Discard title changes").disabled(draft == title)
+            }
+            Text("Drag the clip's edges to change how long the title shows, and use ⌘T or the fade handles to fade it.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .onChange(of: title) { _, value in draft = value }
     }
 }
 

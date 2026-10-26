@@ -45,6 +45,8 @@ struct TimelineView: View {
                 Button { store.addTransitionAtPlayhead() } label: { Label("Add transition", systemImage: "square.2.layers.3d.top.filled") }
                     .labelStyle(.iconOnly).help("Dissolve or crossfade the selected clip's edit nearest the playhead, or fade a free edge (⌘T)")
                     .disabled(store.selectedClip == nil)
+                Button(action: store.addTitle) { Label("New title", systemImage: "textformat") }
+                    .labelStyle(.iconOnly).help("Add a title at the playhead (⌃T)")
                 Button(action: store.deleteSelectedClip) { Label("Delete clip", systemImage: "trash") }
                     .labelStyle(.iconOnly).help("Delete selected clip").disabled(store.selectedClip == nil)
                 Toggle(isOn: $store.snappingEnabled) { Image(systemName: "magnet") }

@@ -28,6 +28,10 @@ public struct Project: Equatable, Codable, Sendable {
         try validateAudioCrossfades()
         for asset in assets {
             guard asset.duration.numerator > 0, Set(asset.streams.map(\.index)).count == asset.streams.count else { throw EditorCoreError.invalidModel("Invalid asset duration or stream identities") }
+            if let title = asset.title {
+                try title.validate()
+                guard asset.streams.isEmpty else { throw EditorCoreError.invalidModel("A title has no media streams") }
+            }
             if let proxy = asset.proxy {
                 try proxy.validate()
                 guard asset.streams.contains(where: { $0.index == proxy.videoStreamIndex && $0.kind == .video }) else {

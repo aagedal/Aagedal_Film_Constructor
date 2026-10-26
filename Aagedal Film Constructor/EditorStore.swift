@@ -138,6 +138,12 @@ final class EditorStore: ObservableObject {
                     if stale { mediaBookmarks[id] = try url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) }
                 } catch { statusMessage = "Some media needs relinking. Select it in the bin and choose Relink." }
             }
+            // Title images are derived; redraw any that are missing (for example on another Mac).
+            if let title = project.assets[index].title,
+               project.assets[index].originalURL.map({ !FileManager.default.fileExists(atPath: $0.path) }) ?? true,
+               let url = try? TitleRenderer.render(title, width: project.settings.width, height: project.settings.height, assetID: id) {
+                project.assets[index].originalURL = url
+            }
         }
         refreshSourcePreview()
     }
@@ -672,6 +678,30 @@ final class EditorStore: ObservableObject {
         let gain = value <= -96 ? 0 : pow(10, value / 20)
         edit(.setGain(clipIDs: clips.map(\.id), gain: gain))
         if errorMessage == nil { statusMessage = "Set clip volume to \(gain == 0 ? "silence" : String(format: "%+.1f dB", value))." }
+    }
+    /// Adds a title at the playhead on the front Titles track and selects it.
+    func addTitle() {
+        do {
+            let assetID = UUID()
+            let title = TitleDefinition()
+            let url = try TitleRenderer.render(title, width: project.settings.width, height: project.settings.height, assetID: assetID)
+            let frames = (playheadSeconds * project.settings.frameRate.value.seconds).rounded()
+            let start = try project.settings.frameRate.time(forFrames: Int64(max(0, frames)))
+            var clipID: UUID?
+            try change { clipID = try $0.addTitle(title, imageURL: url, at: start, assetID: assetID) }
+            selectedClipID = clipID
+            focusSequenceViewer()
+            statusMessage = "Added a title. Edit its text in the inspector."
+        } catch { report(error) }
+    }
+    func updateTitle(assetID: UUID, to title: TitleDefinition) {
+        do {
+            try title.validate()
+            let url = try TitleRenderer.render(title, width: project.settings.width, height: project.settings.height, assetID: assetID)
+            try change { try $0.updateTitle(assetID: assetID, to: title, imageURL: url) }
+            mediaPreviewRevision = UUID()
+            statusMessage = "Updated the title."
+        } catch { errorMessage = audioEditErrorMessage(error) }
     }
     func deleteSelectedClip() {
         guard let id = selectedClipID else { return }

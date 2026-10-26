@@ -76,6 +76,7 @@ final class EditorCommandRegistry: ObservableObject {
         case .clearSourceMarks: store.clearSourceMarks()
         case .splitClip: store.splitSelectedClip()
         case .addTransition: store.addTransitionAtPlayhead()
+        case .addTitle: store.addTitle()
         case .previousFrame: store.stepPlayhead(frames: -1)
         case .nextFrame: store.stepPlayhead(frames: 1)
         case .deleteClip: store.deleteSelectedClip()
@@ -106,7 +107,7 @@ final class EditorCommandRegistry: ObservableObject {
         case .markSourceIn, .markSourceOut: return store.sourcePlayback != nil || store.pendingSourceTransport != nil
         case .clearSourceMarks: return store.selectedAssetID.map { store.sourceRanges[$0] != nil } ?? false
         case .splitClip, .deleteClip, .addTransition: return store.selectedClip != nil
-        case .previousFrame, .nextFrame: return true
+        case .previousFrame, .nextFrame, .addTitle: return true
         case .playReverse: return store.sequencePlayback == nil && store.sourcePlayback != nil
         case .togglePlayback:
             if let sequence = store.sequencePlayback { return sequence.available && (sequence.isPlaying || (!sequence.isPreparing && store.duration > 0)) }

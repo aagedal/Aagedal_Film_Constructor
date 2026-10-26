@@ -14,6 +14,11 @@ python3 -m unittest discover -s "$repo_root/scripts" -p 'test_*.py'
 "$repo_root/scripts/launch-workspace-smoke.sh"
 "$repo_root/scripts/timeline-visibility-smoke.sh"
 "$repo_root/scripts/project-save-protection-smoke.sh"
+# Decoded-pixel checks of transitions and titles need an FFmpeg for fixtures.
+if [[ -n "${AFC_FFMPEG:-}" ]]; then
+  "$repo_root/scripts/system-transition-smoke.sh" "$AFC_FFMPEG"
+  "$repo_root/scripts/title-smoke.sh" "$AFC_FFMPEG"
+fi
 swift test --package-path "$repo_root/Packages/EditorCore" \
   --scratch-path "$build_root/editor-core" --cache-path "$build_root/package-cache" --disable-sandbox
 xcodebuild -project "$repo_root/Aagedal Film Constructor.xcodeproj" \

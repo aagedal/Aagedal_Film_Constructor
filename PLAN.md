@@ -31,7 +31,12 @@ express it.
   dissolve/crossfade (or edge fades) to the selected clip and its linked
   components. Decoded-pixel checks: `VideoTransitionRenderTests` (export, with
   `AFC_FFMPEG`) and `scripts/system-transition-smoke.sh` (preview vs export).
-- [ ] Titles: text clips with font, size, colour and position.
+- [x] Titles: ⌃T adds a title at the playhead on a Titles track in front of all
+  pictures. The asset stores its text and style (size, colour, position, weight,
+  background band); the app draws it to a transparent PNG at the sequence raster,
+  so render, preview, thumbnails, fades and interchange treat it as a still.
+  Missing images are redrawn on open. `scripts/title-smoke.sh` checks export and
+  preview composite the text.
 - [x] Per-clip audio volume in dB (up to +24, or silence), multiplied with track
   gain in render and preview. Selecting a picture sets its linked audio. Split,
   trim and save keep it; consolidation requires equal volumes; FCPXML, OTIO and
