@@ -827,6 +827,15 @@ private struct TitleEditor: View {
                 Text("Lower third").tag(TitlePosition.lowerThird)
                 Text("Bottom").tag(TitlePosition.bottom)
             }
+            Picker("Font", selection: $draft.fontFamily) {
+                Text("System").tag(nil as String?)
+                ForEach(TitleRenderer.fontFamilies, id: \.self) { Text($0).tag(Optional($0)) }
+            }
+            Picker("Alignment", selection: Binding(get: { draft.alignment ?? .center }, set: { draft.alignment = $0 == .center ? nil : $0 })) {
+                Text("Left").tag(TitleAlignment.left)
+                Text("Centre").tag(TitleAlignment.center)
+                Text("Right").tag(TitleAlignment.right)
+            }.pickerStyle(.segmented)
             ColorPicker("Colour", selection: color, supportsOpacity: true)
             Toggle("Bold", isOn: $draft.bold)
             Toggle("Background band", isOn: $draft.background)

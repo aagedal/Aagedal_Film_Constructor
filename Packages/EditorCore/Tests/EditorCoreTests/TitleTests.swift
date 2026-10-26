@@ -41,11 +41,15 @@ final class TitleTests: XCTestCase {
         var project = try DemoProjectFactory.musicCollision()
         let id = try project.addTitle(TitleDefinition(text: "One"), imageURL: image, at: .zero)
         let assetID = try XCTUnwrap(project.tracks.flatMap(\.clips).first { $0.id == id }?.assetID)
-        let updated = TitleDefinition(text: "Two\nLines", fontSize: 0.1, color: "#FF000080", position: .top, bold: false, background: true)
+        let updated = TitleDefinition(text: "Two\nLines", fontSize: 0.1, color: "#FF000080", position: .top, bold: false, background: true,
+                                      fontFamily: "Helvetica Neue", alignment: .left)
         let other = URL(fileURLWithPath: "/private/tmp/title-b.png")
         try project.updateTitle(assetID: assetID, to: updated, imageURL: other)
         let asset = try XCTUnwrap(project.assets.first { $0.id == assetID })
         XCTAssertEqual(asset.title, updated)
+        XCTAssertEqual(try JSONDecoder().decode(TitleDefinition.self, from: JSONEncoder().encode(updated)), updated)
+        XCTAssertNil(try JSONDecoder().decode(TitleDefinition.self, from: Data(##"{"text":"Old","fontSize":0.07,"color":"#FFFFFF","position":"top","bold":true,"background":false}"##.utf8)).fontFamily,
+                     "Titles saved before fonts open with the system font")
         XCTAssertEqual(asset.originalURL, other)
         XCTAssertEqual(asset.name, "Title: Two")
         XCTAssertEqual(updated.rgba?.alpha ?? 0, 128.0 / 255, accuracy: 1e-9)

@@ -32,13 +32,14 @@ enum TitleRenderer {
                                       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
         let canvas = CGSize(width: width, height: height)
         let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = .center
+        let alignment = title.alignment ?? .center
+        paragraph.alignment = alignment == .left ? .left : alignment == .right ? .right : .center
         let shadow = NSShadow()
         shadow.shadowColor = NSColor.black.withAlphaComponent(title.background ? 0 : 0.6)
         shadow.shadowBlurRadius = canvas.height * 0.006
         shadow.shadowOffset = NSSize(width: 0, height: -canvas.height * 0.002)
         let text = NSAttributedString(string: title.text, attributes: [
-            .font: NSFont.systemFont(ofSize: canvas.height * title.fontSize, weight: title.bold ? .bold : .regular),
+            .font: font(title, size: canvas.height * title.fontSize),
             .foregroundColor: NSColor(srgbRed: rgba.red, green: rgba.green, blue: rgba.blue, alpha: rgba.alpha),
             .paragraphStyle: paragraph,
             .shadow: shadow,
@@ -61,7 +62,8 @@ enum TitleRenderer {
         if title.background {
             let padding = canvas.height * title.fontSize * 0.35
             let textWidth = min(measured.width, available.width)
-            let band = CGRect(x: (canvas.width - textWidth) / 2 - padding, y: frame.minY - padding,
+            let bandX: CGFloat = alignment == .left ? frame.minX : alignment == .right ? frame.maxX - textWidth : (canvas.width - textWidth) / 2
+            let band = CGRect(x: bandX - padding, y: frame.minY - padding,
                               width: textWidth + padding * 2, height: textHeight + padding * 2)
             context.setFillColor(NSColor.black.withAlphaComponent(0.55).cgColor)
             context.fill(band)
@@ -69,4 +71,14 @@ enum TitleRenderer {
         text.draw(with: frame, options: [.usesLineFragmentOrigin, .usesFontLeading])
         return context.makeImage()
     }
+
+    /// The chosen family at the requested weight, or the system font when it isn't installed.
+    static func font(_ title: TitleDefinition, size: CGFloat) -> NSFont {
+        let system = NSFont.systemFont(ofSize: size, weight: title.bold ? .bold : .regular)
+        guard let family = title.fontFamily,
+              let regular = NSFontManager.shared.font(withFamily: family, traits: [], weight: 5, size: size) else { return system }
+        return title.bold ? NSFontManager.shared.convert(regular, toHaveTrait: .boldFontMask) : regular
+    }
+
+    static var fontFamilies: [String] { NSFontManager.shared.availableFontFamilies.sorted() }
 }

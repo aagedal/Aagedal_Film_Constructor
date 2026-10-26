@@ -98,7 +98,7 @@ picture. Interchange exports refuse transformed clips.
 
 Press ⌃T (or the **T** button in the timeline toolbar) to add a five-second title at
 the playhead. It goes on a **Titles** track in front of the picture. Select it to
-edit the text, size, position, colour, weight and an optional background band in
+edit the text, font, alignment, size, position, colour, weight and an optional background band in
 the inspector, then click **Apply title**. Trim, move, fade and dissolve titles
 like any other clip. Titles are drawn as transparent images in the app's
 Application Support "Titles" folder and redrawn if missing. Interchange exports
@@ -175,8 +175,7 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Effects (colour correction, blur), title animation and fonts other than the
-  system font, transitions other than dissolves and crossfades, keyframes (transforms
+- Effects (colour correction, blur), title animation, transitions other than dissolves and crossfades, keyframes (transforms
   and volume are static per clip) and a mixer are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.

@@ -35,8 +35,9 @@ express it.
   pictures. The asset stores its text and style (size, colour, position, weight,
   background band); the app draws it to a transparent PNG at the sequence raster,
   so render, preview, thumbnails, fades and interchange treat it as a still.
-  Missing images are redrawn on open. `scripts/title-smoke.sh` checks export and
-  preview composite the text.
+  Missing images are redrawn on open. Any installed font family (missing fonts fall
+  back to the system font) and left/centre/right alignment. `scripts/title-smoke.sh`
+  checks export and preview composite the text, fonts and alignment.
 - [x] Per-clip audio volume in dB (up to +24, or silence), multiplied with track
   gain in render and preview. Selecting a picture sets its linked audio. Split,
   trim and save keep it; consolidation requires equal volumes; FCPXML, OTIO and

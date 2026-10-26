@@ -8,6 +8,10 @@ import UniformTypeIdentifiers
     static func require(_ condition: @autoclosure () -> Bool, _ message: String) throws {
         if !condition() { throw NSError(domain: "TitleSmoke", code: 1, userInfo: [NSLocalizedDescriptionKey: message]) }
     }
+    static func require<T>(_ value: T?) throws -> T {
+        guard let value else { throw NSError(domain: "TitleSmoke", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing value"]) }
+        return value
+    }
     static func run(_ executable: String, _ arguments: [String]) throws -> Data {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
@@ -96,5 +100,24 @@ import UniformTypeIdentifiers
         }
         await backend.close()
         print("PASS title export and preview")
+
+        let serif = TitleDefinition(text: "Left aligned\nGeorgia title", fontSize: 0.09, position: .top, bold: false, fontFamily: "Georgia", alignment: .left)
+        try require(TitleRenderer.font(serif, size: 40).familyName == "Georgia", "The chosen font family is used")
+        var missing = serif; missing.fontFamily = "No Such Font Family"
+        try require(TitleRenderer.font(missing, size: 40).familyName == NSFont.systemFont(ofSize: 40).familyName, "A missing font falls back to the system font")
+        let drawn = try require(TitleRenderer.image(serif, width: 640, height: 360))
+        // Left aligned text sits in the left half of the frame.
+        func coverage(_ image: CGImage, columns: Range<Int>) -> Int {
+            var bytes = [UInt8](repeating: 0, count: image.width * image.height * 4)
+            bytes.withUnsafeMutableBytes { pointer in
+                CGContext(data: pointer.baseAddress, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: image.width * 4,
+                          space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                    .draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+            }
+            return (0..<image.height).reduce(0) { sum, y in sum + columns.filter { bytes[(y * image.width + $0) * 4 + 3] > 128 }.count }
+        }
+        try require(coverage(drawn, columns: 0..<320) > 20 * coverage(drawn, columns: 480..<640), "Left alignment keeps text on the left")
+        if let keep { save(drawn, keep.appendingPathComponent("title-georgia.png")) }
+        print("PASS title fonts and alignment")
     }
 }

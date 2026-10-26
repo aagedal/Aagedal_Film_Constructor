@@ -4,6 +4,10 @@ public enum TitlePosition: String, Codable, CaseIterable, Sendable {
     case top, center, lowerThird, bottom
 }
 
+public enum TitleAlignment: String, Codable, CaseIterable, Sendable {
+    case left, center, right
+}
+
 /// Text drawn over the picture. The app renders it to a transparent PNG at the sequence
 /// raster and references that image as the title asset's original, so render, preview,
 /// thumbnails and interchange treat a title like any other still.
@@ -17,10 +21,16 @@ public struct TitleDefinition: Equatable, Codable, Sendable {
     public var bold: Bool
     /// A translucent black band behind the text for legibility.
     public var background: Bool
+    /// A font family name; nil uses the system font. Missing fonts fall back to the system font.
+    public var fontFamily: String?
+    /// Line alignment within the title-safe area; nil is centred.
+    public var alignment: TitleAlignment?
     public init(text: String = "Title", fontSize: Double = 0.07, color: String = "#FFFFFF",
-                position: TitlePosition = .lowerThird, bold: Bool = true, background: Bool = false) {
+                position: TitlePosition = .lowerThird, bold: Bool = true, background: Bool = false,
+                fontFamily: String? = nil, alignment: TitleAlignment? = nil) {
         self.text = text; self.fontSize = fontSize; self.color = color
         self.position = position; self.bold = bold; self.background = background
+        self.fontFamily = fontFamily; self.alignment = alignment
     }
     public func validate() throws {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, text.count <= 2000,
