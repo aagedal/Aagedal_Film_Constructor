@@ -940,13 +940,15 @@ final class EditorStore: ObservableObject {
         guard let clip = selectedClip else { return }
         do {
             let at = try time(playheadSeconds), duration = try time(seconds)
-            var count = 0
+            var result = TransitionResult()
             try change {
                 var engine = try TimelineEditEngine(project: $0)
-                count = try engine.addTransition(clipID: clip.id, near: at, duration: duration)
+                result = try engine.addTransition(clipID: clip.id, near: at, duration: duration)
                 $0 = engine.project
             }
-            statusMessage = count == 1 ? "Added a transition." : "Added \(count) transitions."
+            statusMessage = result.dips > 0
+                ? "No media lies beyond this cut, so the clips dip through black and silence. Trim the clips to leave handles for a dissolve."
+                : result.total == 1 ? "Added a transition." : "Added \(result.total) transitions."
         } catch TimelineEditError.invalidAudioCrossfade {
             errorMessage = "No transition fits at this edit point. Existing transitions are kept, and joining clips need source beyond the cut."
         } catch { report(error) }

@@ -228,7 +228,8 @@ private struct EditorCommands: Commands {
     }
 
     private func pasteboard(_ textAction: Selector, clips: (EditorStore) -> Void) {
-        if let store, !(NSApp.keyWindow?.firstResponder is NSText) { clips(store) }
+        if let store = store ?? EditorKeyboardRouter.shared.store(for: NSApp.keyWindow),
+           !(NSApp.keyWindow?.firstResponder is NSText) { clips(store) }
         else { NSApp.sendAction(textAction, to: nil, from: nil) }
     }
 
@@ -245,8 +246,8 @@ private struct EditorCommands: Commands {
                 .keyboardShortcut("c")
             Button("Paste") { pasteboard(#selector(NSText.paste(_:))) { $0.pasteAtPlayhead() } }
                 .keyboardShortcut("v")
-            Button("Duplicate Clip") { store?.duplicateSelectedClip() }
-                .keyboardShortcut("d").disabled(store?.selectedClip == nil)
+            Button("Duplicate Clip") { (store ?? EditorKeyboardRouter.shared.store(for: NSApp.keyWindow))?.duplicateSelectedClip() }
+                .keyboardShortcut("d")
             Button("Select All") { NSApp.sendAction(#selector(NSResponder.selectAll(_:)), to: nil, from: nil) }
                 .keyboardShortcut("a")
         }

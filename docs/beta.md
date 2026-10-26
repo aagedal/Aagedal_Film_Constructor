@@ -72,9 +72,11 @@ occupied time stacks the copy on a new sibling track rather than overwriting.
   one undoable edit. It uses the clip edge nearest the playhead. Where another clip
   meets that edge on the same track, picture gets a one-second cross dissolve and
   sound an equal-power crossfade. A dissolve centres on the cut and uses source
-  beyond it, shrinking to fit the source that is available. An edge with no
-  neighbour fades the picture from or to black (or the layers below) and fades
-  the sound.
+  beyond it, shrinking to fit the source that is available. When no media lies
+  beyond the cut (whole clips placed end to end), the clips dip through black and
+  silence instead. An edge with no neighbour fades the picture from or to black
+  (or the layers below) and fades the sound. Edges that already have a
+  transition are left as they are.
 - Picture clips have fade handles like audio clips: drag the yellow handle inward
   to fade, or drop it onto the neighbouring clip to dissolve. The inspector sets
   exact fade and dissolve durations and removes dissolves.

@@ -188,6 +188,23 @@ final class EditorKeyboardRouter {
         }
     }
     func register(window: NSWindow, store: EditorStore) { stores.setObject(store, forKey: window) }
+    func store(for window: NSWindow?) -> EditorStore? { window.flatMap { stores.object(forKey: $0) } }
+
+    /// ⌘X/⌘C/⌘V/⌘D act on timeline clips unless text has focus. Handled here rather than
+    /// only by the menu, whose enablement and focused store can be stale.
+    private func handleClipboard(_ pressed: ShortcutBinding, store: EditorStore, window: NSWindow) -> Bool {
+        guard pressed.command, !pressed.option, !pressed.control, !pressed.shift,
+              !(window.firstResponder is NSText) else { return false }
+        switch pressed.key {
+        case "c" where store.selectedClip != nil: store.copySelectedClip()
+        case "x" where store.selectedClip != nil: store.cutSelectedClip()
+        case "d" where store.selectedClip != nil && !EditorCommandID.allCases.contains(where: { registry?.binding(for: $0) == pressed }):
+            store.duplicateSelectedClip()
+        case "v" where store.clipboard != nil: store.pasteAtPlayhead()
+        default: return false
+        }
+        return true
+    }
 
     static func binding(for event: NSEvent) -> ShortcutBinding? {
         let named: [UInt16: String] = [49: "space", 48: "tab", 51: "delete", 117: "delete", 123: "left", 124: "right",
@@ -201,8 +218,9 @@ final class EditorKeyboardRouter {
     /// Commands that a focused text field needs are left to the text system.
     private func handle(_ event: NSEvent) -> Bool {
         guard let registry, let window = event.window, let store = stores.object(forKey: window),
-              window.attachedSheet == nil, let pressed = Self.binding(for: event),
-              let command = EditorCommandID.allCases.first(where: { registry.binding(for: $0) == pressed && !registry.binding(for: $0).isEmpty })
+              window.attachedSheet == nil, let pressed = Self.binding(for: event) else { return false }
+        if handleClipboard(pressed, store: store, window: window) { return true }
+        guard let command = EditorCommandID.allCases.first(where: { registry.binding(for: $0) == pressed && !registry.binding(for: $0).isEmpty })
         else { return false }
         if event.isARepeat && command == .togglePlayback { return true }
         // Source-only commands follow the visible viewer; everything else is document-wide.

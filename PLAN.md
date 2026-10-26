@@ -46,6 +46,13 @@ express it.
   splits clips at the playhead and pushes later clips; overwrite (.) trims, splits or
   removes what lies on the destination tracks. Both use the source marks, keep
   transitions whose clips still meet, and leave the playhead after the new clip.
+- [x] Real-window acceptance (2026-10-26, `scripts/app-acceptance.sh … generate`): ⌘T,
+  ⌃T and title editing, clip volume, insert, overwrite, ⌘C/⌘V, ⌘D and ⇧⌘⌫ pass
+  alongside the beta steps; H.264 and ProRes renders of the edited timeline verify.
+  It found and fixed: ⌘T failing whole-clip cuts (now a dip through black when no
+  media lies beyond the cut), ⌘T refusing everything when one linked edge already had
+  a transition (that edge is now left alone), and clipboard keys depending on stale
+  menu focus (now routed by the keyboard router).
 - [x] Cut, copy and paste (⌘X/⌘C/⌘V) and Duplicate Clip (⌘D) act on the selected clip
   and its linked components when no text field has focus. Pastes go to the original
   tracks at the playhead with new identities, stacking on siblings over occupied time.

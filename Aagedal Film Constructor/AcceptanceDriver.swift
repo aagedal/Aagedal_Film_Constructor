@@ -186,7 +186,8 @@ enum AcceptanceDriver {
                     }
                 } else {
                     dispatchPaths.append("\(command.rawValue):registry")
-                    let scope: EditorCommandScope = store.showSequenceMonitor ? .timeline : .source
+                    // The scope EditorKeyboardRouter uses for a key press.
+                    let scope: EditorCommandScope = command.scope == .source && store.showSequenceMonitor ? .timeline : .document
                     if registry.isEnabled(command, store: store, scope: scope) {
                         registry.perform(command, store: store, scope: scope)
                     } else { dispatchPaths.append("\(command.rawValue):disabled") }
@@ -370,7 +371,9 @@ enum AcceptanceDriver {
                 let before = (dissolves(), edgeFades())
                 press(.addTransition, "t", keyCode: 17, modifiers: [.command])
                 _ = await wait(3) { (dissolves(), edgeFades()) != before }
-                features["transition"] = ["dissolves": dissolves(), "fadedPictures": edgeFades(), "changed": (dissolves(), edgeFades()) != before]
+                features["transition"] = ["dissolves": dissolves(), "fadedPictures": edgeFades(), "changed": (dissolves(), edgeFades()) != before,
+                                          "status": store.statusMessage, "error": store.errorMessage ?? "",
+                                          "selected": store.selectedClipID == picture.id, "playhead": store.playheadSeconds]
             }
             store.seek(to: 0.5)
             let titleAssets = store.project.assets.filter { $0.title != nil }.count
@@ -389,36 +392,44 @@ enum AcceptanceDriver {
             if let source = store.project.assets.first(where: { $0.title == nil && $0.streams.contains { $0.kind == .video } }) {
                 store.selectAsset(source.id)
                 store.clearSourceMarks()
-                store.seek(to: 2)
+                // At zero nothing crosses the playhead, so every clip moves later.
+                store.seek(to: 0)
                 let durationBefore = store.duration
                 press(.insertSource, ",", keyCode: 43)
                 _ = await wait(3) { store.duration > durationBefore + 0.5 }
                 let inserted = store.duration - durationBefore
+                let insertError = store.errorMessage ?? ""
                 store.selectAsset(source.id)
                 store.seek(to: 1)
                 let clipsBeforeOverwrite = clips().count
                 press(.overwriteSource, ".", keyCode: 47)
                 _ = await wait(3) { clips().count != clipsBeforeOverwrite }
-                features["insert"] = ["secondsAdded": inserted]
+                features["insert"] = ["secondsAdded": inserted, "error": insertError]
                 features["overwrite"] = ["clipsBefore": clipsBeforeOverwrite, "clipsAfter": clips().count, "error": store.errorMessage ?? ""]
             }
             if let picture = clips().first(where: { $0.requiredTrackKind == .video && store.asset(id: $0.assetID)?.title == nil }) {
                 store.selectTimelineClip(picture.id)
                 let before = clips().count
-                pressKey("c", keyCode: 8, modifiers: [.command])
+                // Menu key equivalents need the key window; otherwise run the menu items' actions.
+                let keyed = workspaceWindow()?.isKeyWindow == true && NSApp.isActive
+                @MainActor func menuKey(_ characters: String, _ keyCode: UInt16, _ action: () -> Void) {
+                    if keyed { pressKey(characters, keyCode: keyCode, modifiers: [.command]) } else { action() }
+                }
+                menuKey("c", 8) { store.copySelectedClip() }
                 store.seek(to: store.duration)
-                pressKey("v", keyCode: 9, modifiers: [.command])
+                menuKey("v", 9) { store.pasteAtPlayhead() }
                 let pasted = await wait(3) { clips().count > before }
                 let afterPaste = clips().count
-                pressKey("d", keyCode: 2, modifiers: [.command])
+                menuKey("d", 2) { store.duplicateSelectedClip() }
                 let duplicated = await wait(3) { clips().count > afterPaste }
                 let afterDuplicate = clips().count, durationBefore = store.duration
                 press(.rippleDelete, "\u{7f}", keyCode: 51, modifiers: [.command, .shift])
                 let rippled = await wait(3) { clips().count < afterDuplicate && store.duration < durationBefore }
-                features["clipboard"] = ["copiedAndPasted": pasted, "duplicated": duplicated, "rippleDeleted": rippled,
+                features["clipboard"] = ["menuKeys": keyed, "copiedAndPasted": pasted, "duplicated": duplicated, "rippleDeleted": rippled,
                                          "clipboardEntries": store.clipboard?.entries.count ?? 0, "error": store.errorMessage ?? ""]
             }
             features["undoAvailable"] = store.canUndo
+            store.seek(to: 0)
             record("finishing_tools", features)
             try? await Task.sleep(for: .seconds(1))
             snapshot("02b-finishing-tools", window: workspaceWindow())

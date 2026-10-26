@@ -143,7 +143,7 @@ final class VideoTransitionTests: XCTestCase {
         let (project, clips) = try linkedFixture()
         var engine = try TimelineEditEngine(project: project)
         // The playhead near the end of the first shot picks the cut at 5 s.
-        XCTAssertEqual(try engine.addTransition(clipID: clips[0].id, near: RationalTime(4), duration: RationalTime(1)), 2)
+        XCTAssertEqual(try engine.addTransition(clipID: clips[0].id, near: RationalTime(4), duration: RationalTime(1)).joined, 2)
         let relations = Dictionary(uniqueKeysWithValues: engine.project.audioCrossfades.map { ($0.outgoingClipID, $0) })
         XCTAssertEqual(relations[clips[0].id]?.incomingClipID, clips[1].id)
         XCTAssertEqual(relations[clips[0].id]?.curve, .linear)
@@ -159,7 +159,7 @@ final class VideoTransitionTests: XCTestCase {
         let (project, clips) = try linkedFixture()
         var engine = try TimelineEditEngine(project: project)
         // The first shot's start has no neighbour: picture fades from black, sound fades in.
-        XCTAssertEqual(try engine.addTransition(clipID: clips[0].id, near: RationalTime(1), duration: RationalTime(2)), 2)
+        XCTAssertEqual(try engine.addTransition(clipID: clips[0].id, near: RationalTime(1), duration: RationalTime(2)).fades, 2)
         XCTAssertEqual(engine.project.tracks[0].clips[0].fadeIn, AudioFade(duration: try RationalTime(2), curve: .linear))
         XCTAssertEqual(engine.project.tracks[1].clips[0].fadeIn, AudioFade(duration: try RationalTime(2), curve: .equalPower))
         // The incoming source starts at 10 s, the outgoing has 13 s left: 30 s fits as 20 s at most.
@@ -167,6 +167,39 @@ final class VideoTransitionTests: XCTestCase {
         let dissolve = try XCTUnwrap(engine.project.audioCrossfades.first { $0.outgoingClipID == clips[0].id })
         XCTAssertLessThanOrEqual(dissolve.duration.seconds, 10)
         XCTAssertNoThrow(try engine.project.audioCrossfadeGeometry(for: dissolve))
+    }
+
+    func testAddTransitionDipsThroughBlackWhenNoMediaLiesBeyondTheCut() throws {
+        var (project, clips) = try linkedFixture()
+        // Whole-file clips: the outgoing ends at its media end, the incoming starts at zero.
+        project.assets[0].duration = try RationalTime(17, 2)
+        for t in project.tracks.indices {
+            project.tracks[t].clips[0].sourceRange = try TimeRange(start: RationalTime(7, 2), duration: RationalTime(5))
+            project.tracks[t].clips[1].sourceRange = try TimeRange(start: .zero, duration: RationalTime(5))
+        }
+        var engine = try TimelineEditEngine(project: project)
+        let result = try engine.addTransition(clipID: clips[0].id, near: RationalTime(4), duration: RationalTime(1))
+        XCTAssertEqual(result, TransitionResult(joined: 0, dips: 2, fades: 0))
+        XCTAssertTrue(engine.project.audioCrossfades.isEmpty)
+        XCTAssertEqual(engine.project.tracks[0].clips[0].fadeOut, AudioFade(duration: try RationalTime(12, 25), curve: .linear), "Half a second floors to whole frames")
+        XCTAssertEqual(engine.project.tracks[0].clips[1].fadeIn, AudioFade(duration: try RationalTime(12, 25), curve: .linear), "Half a second floors to whole frames")
+        XCTAssertEqual(engine.project.tracks[1].clips[1].fadeIn.curve, .equalPower)
+        _ = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: engine.project), outputURL: output)
+    }
+
+    func testAddTransitionLeavesEdgesAlreadyJoinedElsewhere() throws {
+        var (project, clips) = try linkedFixture()
+        // The first shot's sound already crossfades into an overlapping sound on another track.
+        let template = project.tracks[1].template
+        var other = clips[3]; other.id = UUID(); other.linkGroupID = nil
+        other.timelineStart = try RationalTime(4); other.sourceRange.start = try RationalTime(9)
+        project.tracks.append(TimelineTrack(familyID: project.tracks[1].familyID, template: template, clips: [other]))
+        var engine = try TimelineEditEngine(project: project)
+        try engine.apply(.setAudioCrossfade(outgoingClipID: clips[2].id, incomingClipID: other.id, duration: RationalTime(1)))
+        let result = try engine.addTransition(clipID: clips[0].id, near: RationalTime(4), duration: RationalTime(1))
+        XCTAssertEqual(result.joined, 1, "Only the pictures dissolve")
+        XCTAssertEqual(engine.project.audioCrossfades.count, 2)
+        XCTAssertTrue(engine.project.audioCrossfades.contains { $0.outgoingClipID == clips[2].id && $0.incomingClipID == other.id })
     }
 
     func testEditsDissolveInvalidRelationsAndSplitRefusesInsideTheDissolve() throws {
