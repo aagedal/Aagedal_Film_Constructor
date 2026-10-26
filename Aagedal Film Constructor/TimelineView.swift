@@ -365,6 +365,7 @@ private struct TimelineClipView: View {
             }
             .overlay { RoundedRectangle(cornerRadius: 5).strokeBorder(crossfadeHighlighted ? Color.yellow : selected ? Color.orange : Color.white.opacity(0.15), lineWidth: crossfadeHighlighted || selected ? 2 : 1) }
             .overlay { fadeEnvelope.allowsHitTesting(false) }
+            .overlay { volumeAutomation.allowsHitTesting(false) }
             .overlay(alignment: .bottomTrailing) {
                 if let crossfade = project.audioCrossfades.first(where: { $0.outgoingClipID == clip.id || $0.incomingClipID == clip.id }) {
                     Label("\(crossfade.duration.seconds, specifier: "%.2f") s", systemImage: clip.requiredTrackKind == .video ? "square.2.layers.3d.top.filled" : "link")
@@ -439,6 +440,27 @@ private struct TimelineClipView: View {
             .help(clip.requiredTrackKind == .audio
                 ? "Drag to move; drag side handles to trim; drag yellow handles to fade this audio component"
                 : "Drag to move; drag the edge handles to trim linked clips; drag yellow handles to fade the picture or onto the next clip to dissolve")
+    }
+
+    /// Volume keyframes as an orange line; full height is +6 dB, the bottom is silence.
+    @ViewBuilder private var volumeAutomation: some View {
+        if !clip.volumeKeyframes.isEmpty {
+            Canvas { context, size in
+                let start = clip.sourceRange.start.seconds + leadingDelta
+                func y(_ gain: Double) -> CGFloat { size.height * (1 - min(1, gain / 2)) }
+                func x(_ source: Double) -> CGFloat { (source - start) * pixelsPerSecond }
+                var path = Path()
+                path.move(to: CGPoint(x: 0, y: y(VolumeEnvelope.gain(atSourceSeconds: start, keyframes: clip.volumeKeyframes))))
+                for keyframe in clip.volumeKeyframes { path.addLine(to: CGPoint(x: x(keyframe.time.seconds), y: y(keyframe.gain))) }
+                path.addLine(to: CGPoint(x: size.width, y: y(VolumeEnvelope.gain(atSourceSeconds: start + clipDuration, keyframes: clip.volumeKeyframes))))
+                context.stroke(path, with: .color(.orange), lineWidth: 1.5)
+                for keyframe in clip.volumeKeyframes {
+                    let point = CGPoint(x: x(keyframe.time.seconds), y: y(keyframe.gain))
+                    context.fill(Path(ellipseIn: CGRect(x: point.x - 3, y: point.y - 3, width: 6, height: 6)), with: .color(.orange))
+                }
+            }
+            .accessibilityHidden(true)
+        }
     }
 
     private var fadeEnvelope: some View {

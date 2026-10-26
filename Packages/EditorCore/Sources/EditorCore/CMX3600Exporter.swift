@@ -90,6 +90,7 @@ public enum CMX3600Exporter {
             let priorReasonCount = reasons.count
             if clip.fadeIn.duration != .zero || clip.fadeOut.duration != .zero { reasons.append("\(label): fades are not supported.") }
             if clip.gain != 1 { reasons.append("\(label): clip volume must be unity.") }
+            if !clip.volumeKeyframes.isEmpty { reasons.append("\(label): volume keyframes are not supported.") }
             if !clip.transform.isIdentity { reasons.append("\(label): scale, position and opacity are not supported.") }
             if !lineText(asset.name) { reasons.append("\(label): the clip name must be nonempty printable ASCII on one line.") }
             guard let timing = sourceTiming[asset.id] else {

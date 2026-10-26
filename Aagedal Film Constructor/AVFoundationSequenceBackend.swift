@@ -293,10 +293,30 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 if ramps.isNonlinear {
                     addQualificationNotice("Curved or overlapping audio fades are approximate in system preview.")
                 }
+                // Volume keyframes multiply the fade ramps at their own times.
+                var points = ramps.points.map { (seconds: $0.seconds, volume: $0.volume) }
+                if !component.volumeKeyframes.isEmpty {
+                    let sourceStart = component.sourceRange.start.seconds, length = component.timelineRange.duration.seconds
+                    func fade(at t: Double) -> Double {
+                        guard let next = points.firstIndex(where: { $0.seconds >= t }) else { return points.last?.volume ?? 1 }
+                        guard next > 0 else { return points[0].volume }
+                        let a = points[next - 1], b = points[next]
+                        return b.seconds > a.seconds ? a.volume + (b.volume - a.volume) * (t - a.seconds) / (b.seconds - a.seconds) : b.volume
+                    }
+                    let times = Set(points.map(\.seconds) + component.volumeKeyframes.map { $0.time.seconds - sourceStart }
+                        .filter { $0 > 0 && $0 < length }).sorted()
+                    points = times.map { t in
+                        let automation = VolumeEnvelope.gain(atSourceSeconds: sourceStart + t, keyframes: component.volumeKeyframes)
+                        if automation * min(component.gain, 1) > 1 {
+                            addQualificationNotice("Gain above 0 dB plays at 0 dB in preview; export applies the full gain.")
+                        }
+                        return (t, min(1, fade(at: t) * automation))
+                    }
+                }
                 // Establish initial gain before delayed media begins; otherwise the
                 // system can smooth from its default unity volume at the cut.
-                parameters.setVolume(Float(ramps.points[0].volume), at: .zero)
-                for (a, b) in zip(ramps.points, ramps.points.dropFirst()) {
+                parameters.setVolume(Float(points[0].volume), at: .zero)
+                for (a, b) in zip(points, points.dropFirst()) {
                     let rampStart = rampTime(start + a.seconds)
                     let rampEnd = rampTime(start + b.seconds)
                     guard rampStart.isNumeric, rampEnd.isNumeric, CMTimeCompare(rampEnd, rampStart) > 0 else {

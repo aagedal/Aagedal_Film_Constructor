@@ -42,6 +42,9 @@ probe() {
     -ApplePersistenceIgnoreState YES 2>&1 | grep 'AFC_PANEL_PROBE' > "$out/panel-$1.log" || true
 }
 first_media="$1"
+# The extra launches open real system panels. An unsigned build can be refused by the panel
+# service, which leaves an alert for the user to dismiss, so they only run on request.
+if [[ "${AFC_ACCEPTANCE_PANEL_PROBES:-0}" == 1 ]]; then
 probe launch
 # The export probes place the first media file. With generated fixtures, the bundled
 # FFmpeg makes a short clip in the run folder for them.
@@ -52,6 +55,7 @@ if [[ "$first_media" == generate ]]; then
   first_media="$out/probe.mov"
 fi
 probe export; probe export-complete
+fi
 python3 - "$out/acceptance.json" <<'PY'
 import json, sys
 steps = {}
@@ -76,6 +80,8 @@ checks = [
     ('. overwrote the sequence at the playhead', tools.get('overwrite', {}).get('clipsAfter', 0) > 0 and not tools.get('overwrite', {}).get('error')),
     ('⌘C/⌘V pasted, ⌘D duplicated and ⇧⌘⌫ ripple deleted', tools.get('clipboard', {}).get('copiedAndPasted') and tools.get('clipboard', {}).get('duplicated') and tools.get('clipboard', {}).get('rippleDeleted')),
     ('picture-in-picture transform applied (33%, 80% opacity)', tools.get('transform', {}).get('scale') == 0.33 and tools.get('transform', {}).get('opacity') == 0.8),
+    ('two volume keyframes added at the playhead', tools.get('keyframes', {}).get('count') == 2),
+    ('muting a track removes it from the render plan and unmuting restores it', tools.get('mute', {}).get('fewerComponentsWhileMuted') and tools.get('mute', {}).get('restored')),
     ('remapped Play / Pause shortcut works and was restored', shortcut.get('remapped') and shortcut.get('plays') and shortcut.get('pauses') and shortcut.get('restored')),
     ('Tab switched to a prepared Sequence viewer', seq.get('tabSwitchedToSequence') and seq.get('prepared')),
     ('Space started playback and the playhead advanced', space.get('startedPlaying') and space.get('playheadWhilePlaying', 0) > 0.5),
@@ -97,7 +103,7 @@ if os.path.exists(round):
 for name, label in [('launch', 'Import panel opens as a real system panel'), ('export', 'Return in Render Sequence opens the real folder panel')]:
     path = os.path.join(os.path.dirname(sys.argv[1]), f'panel-{name}.log')
     text = open(path).read() if os.path.exists(path) else ''
-    if name == 'export' and not os.path.exists(path):
+    if not os.path.exists(path):
         checks.append((label, 'skip')); continue
     checks.append((label, 'modal=NSOpenPanel' in text and 'alert=false' in text))
 for label, ok in checks: print(('SKIP ' if ok == 'skip' else 'PASS ' if ok else 'FAIL ') + label)

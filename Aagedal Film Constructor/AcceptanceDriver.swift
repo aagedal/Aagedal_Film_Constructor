@@ -439,6 +439,19 @@ enum AcceptanceDriver {
                 let transform = clips().first { $0.id == picture.id }?.transform
                 features["transform"] = ["scale": transform?.scale ?? 0, "opacity": transform?.opacity ?? 0]
             }
+            if let sound = clips().filter({ $0.requiredTrackKind == .audio && $0.sourceRange.duration.seconds > 2 }).max(by: { $0.timelineStart.seconds < $1.timelineStart.seconds }) {
+                store.selectTimelineClip(sound.id)
+                store.seek(to: sound.timelineStart.seconds + 0.5); store.addVolumeKeyframeAtPlayhead(decibels: "0")
+                store.seek(to: sound.timelineStart.seconds + 1.5); store.addVolumeKeyframeAtPlayhead(decibels: "-12")
+                features["keyframes"] = ["count": clips().first { $0.id == sound.id }?.volumeKeyframes.count ?? 0, "error": store.errorMessage ?? ""]
+            }
+            if let track = store.project.tracks.first(where: { $0.kind == .audio }) {
+                let before = (try? TimelineRenderPlan(project: store.project).components.count) ?? 0
+                store.setTrackMuted(track.id, muted: true)
+                let muted = (try? TimelineRenderPlan(project: store.project).components.count) ?? 0
+                store.setTrackMuted(track.id, muted: false)
+                features["mute"] = ["fewerComponentsWhileMuted": muted < before, "restored": ((try? TimelineRenderPlan(project: store.project).components.count) ?? 0) == before]
+            }
             features["undoAvailable"] = store.canUndo
             store.seek(to: 0)
             record("finishing_tools", features)

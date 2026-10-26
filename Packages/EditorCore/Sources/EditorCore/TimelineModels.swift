@@ -143,11 +143,13 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
     public var gain: Double
     /// Picture placement after scaling; identity for audio.
     public var transform: PictureTransform
-    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1, transform: PictureTransform = .identity) {
+    /// Audio volume automation in source time, multiplied with gain and fades.
+    public var volumeKeyframes: [VolumeKeyframe]
+    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1, transform: PictureTransform = .identity, volumeKeyframes: [VolumeKeyframe] = []) {
         self.id = id; self.assetID = assetID; self.sourceRange = sourceRange; self.timelineStart = timelineStart; self.selection = selection; self.scalingMode = scalingMode; self.linkGroupID = linkGroupID; self.fadeIn = fadeIn; self.fadeOut = fadeOut
-        self.gain = gain; self.transform = transform
+        self.gain = gain; self.transform = transform; self.volumeKeyframes = volumeKeyframes
     }
-    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain, transform }
+    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain, transform, volumeKeyframes }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.init(id: try c.decode(UUID.self, forKey: .id), assetID: try c.decode(UUID.self, forKey: .assetID),
@@ -157,7 +159,8 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
                   fadeIn: try c.decodeIfPresent(AudioFade.self, forKey: .fadeIn) ?? .init(),
                   fadeOut: try c.decodeIfPresent(AudioFade.self, forKey: .fadeOut) ?? .init(),
                   gain: try c.decodeIfPresent(Double.self, forKey: .gain) ?? 1,
-                  transform: try c.decodeIfPresent(PictureTransform.self, forKey: .transform) ?? .identity)
+                  transform: try c.decodeIfPresent(PictureTransform.self, forKey: .transform) ?? .identity,
+                  volumeKeyframes: try c.decodeIfPresent([VolumeKeyframe].self, forKey: .volumeKeyframes) ?? [])
     }
     public var requiredTrackKind: TrackKind { if case .audio = selection { return .audio }; return .video }
     public var requiredAudioLayout: ChannelLayout? { if case .audio(let selection) = selection { return selection.layout }; return nil }

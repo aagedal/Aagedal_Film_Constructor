@@ -19,6 +19,34 @@ public struct AudioFade: Equatable, Codable, Sendable {
     }
 }
 
+/// A volume point anchored to the clip's source time, so trims and splits keep it on the
+/// same sound. Gain is linear amplitude; values are interpolated linearly between points
+/// and held before the first and after the last.
+public struct VolumeKeyframe: Equatable, Codable, Sendable {
+    public var time: RationalTime
+    public var gain: Double
+    public init(time: RationalTime, gain: Double) { self.time = time; self.gain = gain }
+}
+
+public enum VolumeEnvelope {
+    public static func validate(_ keyframes: [VolumeKeyframe]) throws {
+        guard keyframes.count <= 1000, keyframes.allSatisfy({ $0.gain.isFinite && (0...16).contains($0.gain) && $0.time.numerator >= 0 }),
+              try zip(keyframes, keyframes.dropFirst()).allSatisfy({ try $0.time.compared(to: $1.time) == .orderedAscending }) else {
+            throw EditorCoreError.invalidModel("Volume keyframes need increasing times and volumes up to +24 dB")
+        }
+    }
+    /// Envelope gain at a source time in seconds; 1 without keyframes.
+    public static func gain(atSourceSeconds t: Double, keyframes: [VolumeKeyframe]) -> Double {
+        guard let first = keyframes.first, let last = keyframes.last else { return 1 }
+        if t <= first.time.seconds { return first.gain }
+        if t >= last.time.seconds { return last.gain }
+        let next = keyframes.firstIndex { $0.time.seconds > t }!
+        let a = keyframes[next - 1], b = keyframes[next]
+        let span = b.time.seconds - a.time.seconds
+        return span > 0 ? a.gain + (b.gain - a.gain) * (t - a.time.seconds) / span : b.gain
+    }
+}
+
 /// Shared sample-timed envelope. Each edge is independent; overlapping fades multiply.
 public enum AudioFadeEnvelope {
     public static func gain(at time: RationalTime, duration: RationalTime, fadeIn: AudioFade, fadeOut: AudioFade) throws -> Double {

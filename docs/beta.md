@@ -104,7 +104,13 @@ like any other clip. Titles are drawn as transparent images in the app's
 Application Support "Titles" folder and redrawn if missing. Interchange exports
 reference those images as stills.
 
-## Volume, mute and solo
+## Volume, keyframes, mute and solo
+
+To ride a level (for example ducking music under speech), select the clip, move the
+playhead to where the change starts, enter a volume and click the diamond to add a
+keyframe; add another where it should end. Volume ramps linearly between keyframes
+and holds before the first and after the last. The orange line on the clip shows it;
+the inspector lists keyframes to jump to or remove.
 
 Each track header has quick controls: the eye hides a video track, **M** mutes an
 audio track and **S** solos it (while any track is soloed, only soloed audio
@@ -179,8 +185,8 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Effects (colour correction, blur), title animation, transitions other than dissolves and crossfades, keyframes (transforms
-  and volume are static per clip) and a mixer are not part of this version.
+- Effects (colour correction, blur), title animation, transitions other than dissolves and crossfades, keyframes for picture
+  (transforms are static per clip) and a mixer are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
 - 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed
@@ -221,11 +227,12 @@ with Space, and opens Render Sequence with ⇧⌘E. Finally it renders H.264 and
 ProRes 422 HQ, then saves, closes and reopens the project. It prints PASS/FAIL
 for each step and keeps window snapshots, renders and the project in the printed
 folder. Use media outside Desktop, Documents and Downloads, or macOS asks for
-folder access. Short extra launches check that ⌘I opens the real Import panel and
+folder access. With `AFC_ACCEPTANCE_PANEL_PROBES=1`, short extra launches check that ⌘I opens the real Import panel and
 that Return in Render Sequence opens the real folder panel. They also check that
 the folder panel round-trips: it navigates, confirms, returns the destination to
 the app (export starts) and cancels cleanly. The main run exports and saves
-through the same calls the panels make.
+through the same calls the panels make. The probes are off by default: an unsigned build can be refused by the
+system panel service, which leaves an "open file operation failed" alert to dismiss.
 
 ## Reporting problems
 

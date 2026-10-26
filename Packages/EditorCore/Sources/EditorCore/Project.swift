@@ -64,6 +64,8 @@ public struct Project: Equatable, Codable, Sendable {
                     throw EditorCoreError.invalidModel("Invalid clip volume")
                 }
                 try clip.transform.validate()
+                try VolumeEnvelope.validate(clip.volumeKeyframes)
+                guard clip.requiredTrackKind == .audio || clip.volumeKeyframes.isEmpty else { throw EditorCoreError.invalidModel("Pictures have no volume") }
                 guard clip.requiredTrackKind == .video || clip.transform.isIdentity else { throw EditorCoreError.invalidModel("Audio has no picture transform") }
                 // Picture fades are linear opacity ramps over lower layers or black.
                 guard clip.requiredTrackKind == .audio || (clip.fadeIn.curve == .linear && clip.fadeOut.curve == .linear) else {
@@ -131,6 +133,7 @@ public struct TimelineRenderPlan: Equatable, Sendable {
         public var fadeIn: AudioFade = .init()
         public var fadeOut: AudioFade = .init()
         public var transform: PictureTransform = .identity
+        public var volumeKeyframes: [VolumeKeyframe] = []
         /// Front-to-back picture order. Upper tracks are in front; within one track only a
         /// dissolve overlaps, and its incoming (later) picture is in front.
         public static func isInFront(_ a: Self, of b: Self) -> Bool {
@@ -191,7 +194,7 @@ public struct TimelineRenderPlan: Equatable, Sendable {
                     // A dissolve keeps the outgoing picture opaque beneath the incoming one.
                     if clip.requiredTrackKind == .audio { fadeOut = AudioFade(duration: outgoing.duration, curve: outgoing.curve) }
                 }
-                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain * clip.gain, fadeIn: fadeIn, fadeOut: fadeOut, transform: clip.transform))
+                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain * clip.gain, fadeIn: fadeIn, fadeOut: fadeOut, transform: clip.transform, volumeKeyframes: clip.volumeKeyframes))
             }
         }
         components = result; duration = end

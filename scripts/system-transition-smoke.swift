@@ -112,5 +112,45 @@ import EditorCore
         }
         await pipBackend.close()
         print("PASS picture in picture preview matches export")
+
+        // Volume keyframes: full level until source 1 s, then down to a quarter by source 2 s.
+        let tone = directory.appendingPathComponent("tone.mov")
+        _ = try run(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000:duration=4",
+                             "-ac", "2", "-c:a", "pcm_s24le", tone.path])
+        let toneTracks = try await AVURLAsset(url: tone).load(.tracks)
+        let ai = toneTracks.firstIndex { $0.mediaType == .audio }!
+        let toneAsset = MediaAsset(name: "Tone", originalURL: tone, duration: try RationalTime(4), streams: [MediaStream(index: ai, kind: .audio, audioLayout: .stereo)])
+        let audioTemplate = TrackTemplate(kind: .audio, audioLayout: .stereo)
+        let audioFamily = TrackFamily(baseName: "Audio", template: audioTemplate)
+        let sound = TimelineClip(assetID: toneAsset.id, sourceRange: try TimeRange(start: RationalTime(1, 2), duration: RationalTime(3)),
+                                 selection: .audio(.init(channels: [.init(streamIndex: ai, channelIndex: 0), .init(streamIndex: ai, channelIndex: 1)], layout: .stereo)),
+                                 volumeKeyframes: [VolumeKeyframe(time: try RationalTime(1), gain: 1), VolumeKeyframe(time: try RationalTime(2), gain: 0.25)])
+        let automated = Project(settings: base.settings, assets: [toneAsset], families: [audioFamily],
+                                tracks: [TimelineTrack(familyID: audioFamily.id, template: audioTemplate, clips: [sound])])
+        let audioBackend = try AVFoundationSequenceBackend(project: automated, videoProxies: [:])
+        let item = try await audioBackend.makePlayerItem()
+        let reader = try AVAssetReader(asset: item.asset)
+        let mixOutput = AVAssetReaderAudioMixOutput(audioTracks: try await item.asset.loadTracks(withMediaType: .audio),
+            audioSettings: [AVFormatIDKey: kAudioFormatLinearPCM, AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true,
+                            AVLinearPCMIsNonInterleaved: false, AVSampleRateKey: 48000, AVNumberOfChannelsKey: 2])
+        mixOutput.audioMix = item.audioMix
+        reader.add(mixOutput); reader.startReading()
+        var mixed: [Float] = []
+        while let buffer = mixOutput.copyNextSampleBuffer(), let block = CMSampleBufferGetDataBuffer(buffer) {
+            var length = 0; var pointer: UnsafeMutablePointer<CChar>?
+            CMBlockBufferGetDataPointer(block, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &length, dataPointerOut: &pointer)
+            pointer!.withMemoryRebound(to: Float.self, capacity: length / 4) { mixed += UnsafeBufferPointer(start: $0, count: length / 4) }
+        }
+        func level(_ seconds: Double) -> Double {
+            let start = (Int(seconds * 48000) - 480) * 2
+            let window = mixed[start..<(start + 1920)]
+            return (window.reduce(0) { $0 + Double($1 * $1) } / Double(window.count)).squareRoot()
+        }
+        let reference = level(0.2)
+        print("automation levels: \(level(0.2)) \(level(1.0)) \(level(2.2))")
+        try require(abs(level(1.0) / reference - 0.625) < 0.03 && abs(level(2.2) / reference - 0.25) < 0.03,
+                    "Preview follows volume keyframes")
+        await audioBackend.close()
+        print("PASS volume keyframes in preview")
     }
 }

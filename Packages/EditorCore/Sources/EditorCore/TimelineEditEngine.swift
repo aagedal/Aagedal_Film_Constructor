@@ -21,6 +21,8 @@ public enum EditCommand: Sendable {
     case setFades(clipID: UUID, fadeIn: AudioFade, fadeOut: AudioFade)
     /// Set the linear volume of the listed audio components; other kinds are refused.
     case setGain(clipIDs: [UUID], gain: Double)
+    /// Replace the volume automation of the listed audio components.
+    case setVolumeKeyframes(clipIDs: [UUID], keyframes: [VolumeKeyframe])
     /// Place one picture component; linked components keep their own transforms.
     case setTransform(clipID: UUID, transform: PictureTransform)
     /// Replace one audio component with explicitly mapped components, preserving linked picture/timing.
@@ -406,6 +408,14 @@ public struct TimelineEditEngine: Sendable {
                       let c = project.tracks[t].clips.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingClip }
                 guard project.tracks[t].clips[c].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
                 project.tracks[t].clips[c].gain = gain
+            }
+        case .setVolumeKeyframes(let clipIDs, let keyframes):
+            guard !clipIDs.isEmpty else { throw TimelineEditError.missingClip }
+            for id in clipIDs {
+                guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == id } }),
+                      let c = project.tracks[t].clips.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingClip }
+                guard project.tracks[t].clips[c].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
+                project.tracks[t].clips[c].volumeKeyframes = keyframes
             }
         case .setTransform(let clipID, let transform):
             guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),

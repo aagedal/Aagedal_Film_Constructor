@@ -555,8 +555,33 @@ private struct ProjectInspector: View {
                             if !store.selectedVolumeClips.isEmpty {
                                 Divider()
                                 numericField(isPicture ? "Linked audio volume (dB)" : "Clip volume (dB)", text: $clipVolume)
-                                Button("Apply volume", systemImage: "speaker.wave.2") { store.setSelectedClipVolume(decibels: clipVolume) }
-                                    .labelStyle(.iconOnly).help("Apply clip volume; track gain applies on top")
+                                HStack {
+                                    Button("Apply volume", systemImage: "speaker.wave.2") { store.setSelectedClipVolume(decibels: clipVolume) }
+                                        .labelStyle(.iconOnly).help("Apply clip volume; track gain applies on top")
+                                    Button("Add keyframe at playhead", systemImage: "diamond") { store.addVolumeKeyframeAtPlayhead(decibels: clipVolume) }
+                                        .labelStyle(.iconOnly).help("Add a volume keyframe at the playhead with this volume; volume ramps between keyframes")
+                                }
+                                if let automation = store.selectedVolumeClips.first, !automation.volumeKeyframes.isEmpty {
+                                    let keyframes = automation.volumeKeyframes
+                                    ForEach(keyframes.indices, id: \.self) { index in
+                                        let keyframe = keyframes[index]
+                                        HStack {
+                                            let at = automation.timelineStart.seconds + keyframe.time.seconds - automation.sourceRange.start.seconds
+                                            Image(systemName: "diamond.fill").foregroundStyle(.orange)
+                                            Text(String(format: "%.2f s · %@", at, keyframe.gain == 0 ? "−∞ dB" : String(format: "%+.1f dB", 20 * log10(keyframe.gain))))
+                                                .font(.caption.monospacedDigit())
+                                            Spacer()
+                                            Button("Go to keyframe", systemImage: "arrow.right.to.line") { store.seek(to: max(0, at)) }
+                                                .labelStyle(.iconOnly).help("Move the playhead to this keyframe")
+                                            Button("Remove keyframe", systemImage: "xmark") {
+                                                var remaining = keyframes; remaining.remove(at: index)
+                                                store.setSelectedVolumeKeyframes(remaining)
+                                            }.labelStyle(.iconOnly).help("Remove this keyframe")
+                                        }
+                                    }
+                                    Button("Clear keyframes", systemImage: "trash") { store.setSelectedVolumeKeyframes([]) }
+                                        .help("Remove all volume keyframes")
+                                }
                             }
                             Divider()
                             numericField("Fade in (s)", text: $fadeInDuration)

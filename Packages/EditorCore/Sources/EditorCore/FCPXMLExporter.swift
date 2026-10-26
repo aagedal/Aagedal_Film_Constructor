@@ -56,6 +56,7 @@ public enum FCPXMLExporter {
             let asset = assets.first { $0.id == component.assetID }!
             let label = "Clip \(component.clipID.uuidString) (\(asset.name))"
             if component.fadeIn.duration != .zero || component.fadeOut.duration != .zero { reasons.append("\(label): fades are not supported.") }
+            if !component.volumeKeyframes.isEmpty { reasons.append("\(label): volume keyframes are not supported.") }
             if !component.transform.isIdentity { reasons.append("\(label): scale, position and opacity are not supported.") }
             if component.gain != 1 { reasons.append("\(label): track gain and clip volume must be unity.") }
             switch component.selection {

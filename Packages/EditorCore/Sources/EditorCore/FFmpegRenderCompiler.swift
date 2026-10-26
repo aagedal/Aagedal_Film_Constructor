@@ -228,7 +228,8 @@ public enum FFmpegRenderCompiler {
                 let delay = try nearest(component.timelineRange.start.multiplied(by: Int64(settings.audioSampleRate)))
                 let end = try start + nearest(component.timelineRange.end().multiplied(by: Int64(settings.audioSampleRate))) - delay
                 guard end > start else { continue }
-                let envelope = try audioEnvelope(component, sampleCount: end - start, sampleRate: settings.audioSampleRate, layout: layout)
+                let envelope = try audioEnvelope(component, sampleCount: end - start, sourceStartSample: start,
+                                                 sampleRate: settings.audioSampleRate, layout: layout)
                 for (channel, sourceChannel) in selection.channels.enumerated() {
                     guard let stream = component.sourceStreams.first(where: { $0.index == sourceChannel.streamIndex }), let sourceLayout = stream.audioLayout,
                           sourceLayout.channels.indices.contains(sourceChannel.channelIndex) else { throw EditorCoreError.invalidModel("Invalid source channel") }
@@ -272,7 +273,7 @@ public enum FFmpegRenderCompiler {
     }
     /// aeval's n begins at zero after trim, before timeline delay. The rational
     /// denominators retain sub-sample fade durations without rounding either edge.
-    private static func audioEnvelope(_ component: TimelineRenderPlan.Component, sampleCount: Int64,
+    private static func audioEnvelope(_ component: TimelineRenderPlan.Component, sampleCount: Int64, sourceStartSample: Int64,
                                       sampleRate: Int, layout: String) throws -> String {
         func edge(_ fade: AudioFade, position: String) throws -> String? {
             guard fade.duration != .zero else { return nil }
@@ -283,8 +284,22 @@ public enum FFmpegRenderCompiler {
             case .equalPower: return "sin(PI/2*(\(progress)))"
             }
         }
+        // Keyframes become a piecewise-linear expression in the clip's sample index.
+        func automation() throws -> String? {
+            let points = try component.volumeKeyframes.map { keyframe -> (Double, Double) in
+                let sample = try keyframe.time.multiplied(by: Int64(sampleRate))
+                return (Double(sample.numerator) / Double(sample.denominator) - Double(sourceStartSample), keyframe.gain)
+            }
+            guard let first = points.first, let last = points.last else { return nil }
+            var expression = "\(last.1)"
+            for (a, b) in zip(points, points.dropFirst()).reversed() {
+                let slope = b.0 > a.0 ? (b.1 - a.1) / (b.0 - a.0) : 0
+                expression = "if(lt(n,\(b.0)),\(a.1)+(\(slope))*(n-(\(a.0))),\(expression))"
+            }
+            return "if(lt(n,\(first.0)),\(first.1),\(expression))"
+        }
         let edges = try [edge(component.fadeIn, position: "n"),
-                         edge(component.fadeOut, position: "\(sampleCount)-n")].compactMap { $0 }
+                         edge(component.fadeOut, position: "\(sampleCount)-n"), automation()].compactMap { $0 }
         guard !edges.isEmpty else { return "" }
         let expression = edges.joined(separator: "*")
         let channels = layout == "mono" ? 1 : layout == "stereo" ? 2 : 6

@@ -52,6 +52,12 @@ express it.
   pictures reveal lower layers in render and preview; split, copy and save keep it;
   interchange and stream copy refuse it. `PictureTransformTests` checks decoded export
   pixels; `scripts/system-transition-smoke.sh` compares preview and export.
+- [x] Volume keyframes: audio clips carry source-anchored volume points (linear between
+  points, held outside), multiplied with clip volume and fades. Trims and splits keep
+  them on the same sound. The inspector adds a keyframe at the playhead with the volume
+  field and lists, jumps to and removes them; the timeline draws the envelope. Export
+  levels (`VolumeKeyframeTests`) and preview levels (`system-transition-smoke.sh`)
+  measure 1 : 0.625 : 0.25 at the expected points.
 - [x] Track mute/solo: the eye hides a video track; M mutes and S solos audio tracks.
   The render plan (preview and every export) leaves them out; collision siblings
   inherit the state.

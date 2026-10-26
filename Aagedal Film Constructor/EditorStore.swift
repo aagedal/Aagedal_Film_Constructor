@@ -796,6 +796,34 @@ final class EditorStore: ObservableObject {
         edit(.setTransform(clipID: clip.id, transform: transform))
         if errorMessage == nil { statusMessage = transform.isIdentity ? "Reset the picture's transform." : "Updated the picture's scale, position and opacity." }
     }
+    /// Adds (or replaces) a volume keyframe at the playhead on the selected audio, or a
+    /// picture's linked audio. The playhead must be inside the clip.
+    func addVolumeKeyframeAtPlayhead(decibels: String) {
+        let clips = selectedVolumeClips
+        guard let clip = clips.first else { return }
+        guard let value = Double(decibels.replacingOccurrences(of: "−", with: "-")), !value.isNaN, value <= 24 else {
+            errorMessage = "Enter a keyframe volume of +24 dB or less."
+            return
+        }
+        let offset = playheadSeconds - clip.timelineStart.seconds
+        guard offset >= 0, offset <= clip.sourceRange.duration.seconds else {
+            errorMessage = "Move the playhead inside the clip to add a volume keyframe."
+            return
+        }
+        do {
+            let at = try clip.sourceRange.start.adding(time(offset))
+            var keyframes = clip.volumeKeyframes.filter { abs($0.time.seconds - at.seconds) > 0.0005 }
+            keyframes.append(VolumeKeyframe(time: at, gain: value <= -96 ? 0 : pow(10, value / 20)))
+            keyframes.sort { $0.time.seconds < $1.time.seconds }
+            edit(.setVolumeKeyframes(clipIDs: clips.map(\.id), keyframes: keyframes))
+            if errorMessage == nil { statusMessage = "Added a volume keyframe. Add another to ramp between them." }
+        } catch { report(error) }
+    }
+    func setSelectedVolumeKeyframes(_ keyframes: [VolumeKeyframe]) {
+        let clips = selectedVolumeClips
+        guard !clips.isEmpty else { return }
+        edit(.setVolumeKeyframes(clipIDs: clips.map(\.id), keyframes: keyframes))
+    }
     func deleteSelectedClip() {
         guard let id = selectedClipID else { return }
         edit(.delete(clipID: id)); reconcileSelection()

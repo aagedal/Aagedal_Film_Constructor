@@ -127,7 +127,7 @@ public struct StreamCopyAssessment: Equatable, Sendable {
                     (!component.routing.outputChannels.isEmpty && component.routing.outputChannels != Array(whole.indices)) {
                     reject(.channelRemapping)
                 }
-                if component.gain != 1 || component.fadeIn.duration != .zero || component.fadeOut.duration != .zero {
+                if component.gain != 1 || component.fadeIn.duration != .zero || component.fadeOut.duration != .zero || !component.volumeKeyframes.isEmpty {
                     reject(.audioProcessing)
                 }
             }
