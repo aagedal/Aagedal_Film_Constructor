@@ -653,7 +653,7 @@ struct AppFileSmoke {
         try check(controller.isPreparing, "Sequence play enters priming")
         try check(registry.isEnabled(.pausePlayback, store: store, scope: .timeline), "K remains enabled while sequence primes")
         try check(!registry.isEnabled(.playForward, store: store, scope: .timeline), "L is disabled while sequence primes")
-        try check(!registry.isEnabled(.playReverse, store: store, scope: .timeline), "Sequence mode cannot play source backwards")
+        try check(!registry.isEnabled(.playReverse, store: store, scope: .timeline), "J is disabled while sequence primes")
         registry.perform(.pausePlayback, store: store, scope: .timeline)
         try await Task.sleep(for: .milliseconds(200))
         try check(!backend.isPlaying && !controller.isPlaying, "K rejects delayed sequence play")

@@ -25,6 +25,9 @@ final class EditorStore: ObservableObject {
     @Published var showProxyQueue = false
     @Published var showSequenceMonitor = false
     @Published var selectedMediaBinID: UUID?
+    /// What the inspector shows: the last clicked clip, sequence or bin media.
+    enum InspectorFocus { case clip, sequence, asset }
+    @Published var inspectorFocus = InspectorFocus.clip
     @Published var selectedAssetIDs: Set<UUID> = []
     @Published var proxyCreationDraft: ProxyCreationDraft?
     @Published var playbackRepresentation: PlaybackRepresentation = .original
@@ -108,6 +111,7 @@ final class EditorStore: ObservableObject {
         isImporting = false
         undoHistory = []; redoHistory = []
         selectedMediaBinID = nil
+        inspectorFocus = .clip
         sourceRanges = [:]
         selectedAssetIDs = []; selectedAssetID = nil; selectedClipID = nil; playheadSeconds = 0
         previewImage = nil
@@ -355,6 +359,55 @@ final class EditorStore: ObservableObject {
         } catch { report(error) }
     }
 
+    var visibleBinSequences: [Project.SequenceSummary] {
+        project.sequenceSummaries.filter { $0.binID == selectedMediaBinID }
+    }
+
+    /// Opens a sequence on the timeline and shows its settings in the inspector.
+    func selectSequence(_ id: UUID) {
+        if id != project.sequenceID {
+            do { try change { try $0.openSequence(id: id) } } catch { report(error); return }
+            sequenceOpened()
+        }
+        selectedAssetIDs = []
+        inspectorFocus = .sequence
+        focusSequenceViewer()
+    }
+
+    /// A new, empty sequence with the open one's settings, in the selected bin.
+    func createSequence() {
+        do {
+            try change { try $0.createSequence(name: $0.nextSequenceName, settings: $0.settings, binID: selectedMediaBinID) }
+            sequenceOpened()
+            selectedAssetIDs = []
+            inspectorFocus = .sequence
+            focusSequenceViewer()
+            statusMessage = "Created \(project.sequenceName). Set its format in the inspector."
+        } catch { report(error) }
+    }
+
+    func renameSequence(_ id: UUID, name: String) {
+        do { try change { try $0.renameSequence(id: id, name: name) } } catch { report(error) }
+    }
+
+    func removeSequence(_ id: UUID) {
+        let wasOpen = id == project.sequenceID
+        do {
+            try change { try $0.removeSequence(id: id) }
+            if wasOpen { sequenceOpened() }
+        } catch { report(error) }
+    }
+
+    func moveSequences(_ ids: Set<UUID>, to binID: UUID?) {
+        do { try change { try $0.moveSequences(ids, toMediaBin: binID) } } catch { report(error) }
+    }
+
+    private func sequenceOpened() {
+        sequencePlayback?.pause()
+        selectedClipID = nil
+        playheadSeconds = 0
+    }
+
     func moveBinAssets(_ ids: Set<UUID>, to binID: UUID?) {
         do {
             try change { try $0.moveAssets(ids, toMediaBin: binID) }
@@ -367,10 +420,12 @@ final class EditorStore: ObservableObject {
     func toggleViewer() { showSequenceMonitor.toggle() }
     func selectTimelineClip(_ id: UUID) {
         focusSequenceViewer()
+        inspectorFocus = .clip
         if selectedClipID != id { selectedClipID = id }
     }
 
     func selectAsset(_ id: UUID) {
+        inspectorFocus = .asset
         selectedMediaBinID = project.assetBinAssignments[id]
         selectedAssetID = id
         selectedAssetIDs = [id]
@@ -379,6 +434,7 @@ final class EditorStore: ObservableObject {
 
     func selectAssets(_ ids: Set<UUID>) {
         let added = ids.subtracting(selectedAssetIDs)
+        if !ids.isEmpty { inspectorFocus = .asset }
         selectedAssetIDs = ids
         if let id = project.assets.first(where: { added.contains($0.id) })?.id ?? selectedAssetID.flatMap({ ids.contains($0) ? $0 : nil }) ?? project.assets.first(where: { ids.contains($0.id) })?.id {
             if id != selectedAssetID { selectedAssetID = id; refreshSourcePreview() }
@@ -1033,9 +1089,28 @@ final class EditorStore: ObservableObject {
             seek(to: edge == .leading ? clip.timelineStart.seconds : at.seconds)
         } catch { report(error) }
     }
-    func moveSelectedClip(to seconds: Double) {
-        guard let id = selectedClipID, let track = project.tracks.first(where: { $0.clips.contains { $0.id == id } }) else { return }
-        do { edit(.move(clipID: id, trackID: track.id, start: try editTime(max(0, seconds)))) } catch { report(error) }
+    func moveSelectedClip(to seconds: Double) { moveSelectedClip(to: seconds, rowOffset: 0) }
+    /// Moves the selected clip in time and by `rowOffset` track rows; linked components keep
+    /// their tracks. One row past the first or last track makes a new track of the clip's family there.
+    func moveSelectedClip(to seconds: Double, rowOffset: Int) {
+        guard let id = selectedClipID, let current = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == id } }) else { return }
+        do {
+            let start = try editTime(max(0, seconds))
+            try change { project in
+                let target = current + rowOffset
+                let trackID: UUID
+                if project.tracks.indices.contains(target) { trackID = project.tracks[target].id }
+                else {
+                    let source = project.tracks[current]
+                    let track = TimelineTrack(familyID: source.familyID, template: source.template)
+                    project.tracks.insert(track, at: target < 0 ? 0 : project.tracks.count)
+                    trackID = track.id
+                }
+                var engine = try TimelineEditEngine(project: project)
+                try engine.apply(.move(clipID: id, trackID: trackID, start: start))
+                project = engine.project
+            }
+        } catch { report(error) }
     }
     private func gestureQuantum(for clip: TimelineClip, alone: Bool = false) -> Double {
         TimelineGesture.components(of: clip, in: project, alone: alone).contains { $0.requiredTrackKind == .video }

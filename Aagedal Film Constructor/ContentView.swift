@@ -13,6 +13,8 @@ struct ContentView: View {
     @State private var binName = ""
     @State private var creatingBin = false
     @State private var renamingBin = false
+    @State private var renamingSequenceID: UUID?
+    @State private var sequenceName = ""
     @StateObject private var sequencePlayback = SequencePlaybackController(proxyResolver: EditorStore.resolveSequenceProxies)
 
     var body: some View {
@@ -151,8 +153,9 @@ struct ContentView: View {
                         .font(.headline).lineLimit(1)
                 }
                 Spacer()
-                Text("\(store.visibleBinAssets.count)").foregroundStyle(.secondary)
+                Text("\(store.visibleBinAssets.count + store.visibleBinSequences.count)").foregroundStyle(.secondary)
                 Menu {
+                    Button("New sequence", action: store.createSequence)
                     Button("New sub-bin…") { binName = ""; creatingBin = true }
                     if let bin = store.project.mediaBins.first(where: { $0.id == store.selectedMediaBinID }) {
                         Button("Rename bin…") { binName = bin.name; renamingBin = true }
@@ -184,7 +187,7 @@ struct ContentView: View {
                 }.frame(maxHeight: 120)
                 Divider()
             }
-            if store.visibleBinAssets.isEmpty {
+            if store.visibleBinAssets.isEmpty && store.visibleBinSequences.isEmpty {
                 ContentUnavailableView {
                     Label(store.selectedMediaBinID == nil ? "Import your media" : "Empty bin", systemImage: "folder.badge.plus")
                 } description: {
@@ -195,10 +198,42 @@ struct ContentView: View {
                 }
                 .frame(maxHeight: .infinity)
             } else {
-                List(selection: Binding(get: { store.selectedAssetIDs }, set: { ids in
-                    store.focusSourceViewer()
-                    store.selectAssets(ids)
+                List(selection: Binding(get: {
+                    store.inspectorFocus == .sequence ? store.selectedAssetIDs.union([store.project.sequenceID]) : store.selectedAssetIDs
+                }, set: { ids in
+                    let sequences = Set(store.project.sequenceSummaries.map(\.id))
+                    if let sequence = ids.subtracting(store.selectedAssetIDs).first(where: sequences.contains) {
+                        store.selectSequence(sequence)
+                        // The bin's own tap switches to the source viewer; switch back after it.
+                        DispatchQueue.main.async { store.focusSequenceViewer() }
+                    } else {
+                        store.focusSourceViewer()
+                        store.selectAssets(ids.subtracting(sequences))
+                    }
                 })) {
+                    ForEach(store.visibleBinSequences) { sequence in
+                        HStack(alignment: .top, spacing: 9) {
+                            Image(systemName: "film.stack").foregroundStyle(sequence.isOpen ? Color.accentColor : .secondary).frame(width: 20)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(sequence.name).lineLimit(2)
+                                Text(sequence.isOpen ? "Sequence · open" : "Sequence").font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4).tag(sequence.id)
+                        .contextMenu {
+                            Button("Open") { store.selectSequence(sequence.id) }.disabled(sequence.isOpen)
+                            Button("Rename…") { sequenceName = sequence.name; renamingSequenceID = sequence.id }
+                            Menu("Move to bin") {
+                                Button("Media") { store.moveSequences([sequence.id], to: nil) }
+                                ForEach(store.project.mediaBins) { bin in
+                                    Button(store.project.mediaBinPath(id: bin.id)) { store.moveSequences([sequence.id], to: bin.id) }
+                                }
+                            }
+                            Divider()
+                            Button("Delete sequence") { store.removeSequence(sequence.id) }
+                                .disabled(store.project.storedSequences.isEmpty)
+                        }
+                    }
                     ForEach(store.visibleBinAssets) { asset in
                         HStack(alignment: .top, spacing: 9) {
                             Image(systemName: assetIcon(asset)).foregroundStyle(.secondary).frame(width: 20)
@@ -282,6 +317,12 @@ struct ContentView: View {
                 .disabled(binName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             Button("Cancel", role: .cancel) {}
         }
+        .alert("Rename sequence", isPresented: Binding(get: { renamingSequenceID != nil }, set: { if !$0 { renamingSequenceID = nil } })) {
+            TextField("Name", text: $sequenceName)
+            Button("Rename") { if let id = renamingSequenceID { store.renameSequence(id, name: sequenceName) } }
+                .disabled(sequenceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            Button("Cancel", role: .cancel) {}
+        }
         .alert("Rename bin", isPresented: $renamingBin) {
             TextField("Name", text: $binName)
             Button("Rename") { store.renameSelectedMediaBin(name: binName) }
@@ -341,6 +382,10 @@ struct ContentView: View {
                     representationToggle
                     Button { store.stepPlayhead(frames: -1) } label: { Image(systemName: "backward.end.fill") }
                         .accessibilityLabel("Previous sequence frame")
+                    Button(action: sequencePlayback.playReverse) { Image(systemName: "backward.fill") }
+                        .accessibilityLabel("Play sequence backwards")
+                        .help("Play backwards, silent (J); press again for 2×, 4× or 8×")
+                        .disabled(!sequencePlayback.available || sequencePlayback.isPreparing || store.duration <= 0)
                     Button(action: sequencePlayback.pause) { Image(systemName: "pause.fill") }
                         .accessibilityLabel("Pause sequence")
                     Button(action: sequencePlayback.play) { Image(systemName: "play.fill") }
@@ -350,7 +395,7 @@ struct ContentView: View {
                         .accessibilityLabel("Next sequence frame")
                     if sequencePlayback.isPreparing { ProgressView().controlSize(.small) }
                     Spacer()
-                    Text(sequencePlayback.isPlaying ? "Playing" : "Paused").font(.caption)
+                    Text(sequencePlayback.reverseSpeed.map { String(format: "Reverse %g×", $0) } ?? (sequencePlayback.isPlaying ? "Playing" : "Paused")).font(.caption)
                 }
                 Text(sequencePlayback.message).font(.caption).foregroundStyle(.secondary)
             }.padding(10)
@@ -498,269 +543,376 @@ private struct ProjectInspector: View {
     @State private var transitionStyle = TransitionStyle.dissolve
     @State private var crossfadeDraftProject: Project?
 
+    private enum Tab: Hashable { case video, audio }
+    @State private var tab = Tab.video
+    @State private var sequenceName = ""
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Inspector").font(.headline)
-                if let clip = store.selectedClip, let asset = store.asset(id: clip.assetID), let title = asset.title {
-                    GroupBox("Title") {
-                        TitleEditor(title: title) { store.updateTitle(assetID: asset.id, to: $0) }
-                            .id(asset.id).padding(5)
-                    }
-                }
-                if let clip = store.selectedClip {
-                    GroupBox("Selected clip") {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(store.project.assets.first(where: { $0.id == clip.assetID })?.name ?? "Media").font(.subheadline.bold())
-                            numericField("Timeline start (s)", text: $timelineStart)
-                            Button("Move clip", systemImage: "arrow.right") {
-                                guard let value = entered(timelineStart, current: clip.timelineStart.seconds), value.isFinite, value >= 0 else { store.errorMessage = "Enter a valid timeline start in seconds."; return }
-                                store.moveSelectedClip(to: value)
-                            }.labelStyle(.iconOnly).help("Move clip to the entered timeline start")
-                            Divider()
-                            numericField("Source in (s)", text: $sourceStart)
-                            numericField("Duration (s)", text: $clipDuration)
-                            Button("Apply trim", systemImage: "scissors") {
-                                guard let start = entered(sourceStart, current: clip.sourceRange.start.seconds),
-                                      let duration = entered(clipDuration, current: clip.sourceRange.duration.seconds), start.isFinite, duration.isFinite, start >= 0, duration > 0 else { store.errorMessage = "Enter a nonnegative source in and a positive duration in seconds."; return }
-                                store.trimSelectedClip(start: start, duration: duration)
-                            }.labelStyle(.iconOnly).help("Apply source in and duration")
-                            let isPicture = clip.requiredTrackKind == .video
-                            if isPicture {
-                                Picker("Scaling", selection: Binding(get: { clip.scalingMode }, set: store.setScalingMode)) {
-                                    Text("Fit").tag(ScalingMode.fit)
-                                    Text("Fill").tag(ScalingMode.fill)
-                                    Text("Native size").tag(ScalingMode.none)
-                                }
-                                Text("Transform").font(.subheadline.bold())
-                                HStack {
-                                    numericField("Scale (%)", text: $transformScale)
-                                    numericField("Opacity (%)", text: $transformOpacity)
-                                }
-                                HStack {
-                                    numericField("Position X (%)", text: $transformX)
-                                    numericField("Position Y (%)", text: $transformY)
-                                }
-                                HStack {
-                                    Button("Apply transform", systemImage: "checkmark") {
-                                        store.setSelectedClipTransform(scale: transformScale, x: transformX, y: transformY, opacity: transformOpacity)
-                                    }.labelStyle(.iconOnly).help("Apply scale, position and opacity")
-                                    Button("Picture in picture", systemImage: "pip") {
-                                        store.setSelectedClipTransform(scale: "33", x: "30", y: "30", opacity: "100")
-                                    }.labelStyle(.iconOnly).help("Shrink to a third in the lower right corner")
-                                    Menu {
-                                        ForEach(EditorStore.MotionPreset.allCases) { preset in
-                                            Button(preset.rawValue) { store.applyMotionPreset(preset) }
-                                        }
-                                    } label: { Label("Motion presets", systemImage: "wand.and.rays") }
-                                    .labelStyle(.iconOnly).help("Animate this picture or title with a common move").fixedSize()
-                                    Button("Add position keyframe at playhead", systemImage: "diamond") {
-                                        store.addTransformKeyframeAtPlayhead(scale: transformScale, x: transformX, y: transformY, opacity: transformOpacity)
-                                    }.labelStyle(.iconOnly).help("Keyframe this scale, position and opacity at the playhead; the picture changes between keyframes")
-                                    Button("Reset transform", systemImage: "arrow.counterclockwise") {
-                                        store.setSelectedClipTransform(scale: "100", x: "0", y: "0", opacity: "100")
-                                    }.labelStyle(.iconOnly).help("Reset scale, position and opacity").disabled(clip.transform.isIdentity)
-                                }
-                                Text("Position is a share of the frame: positive X moves right, positive Y down. Layers below show around and through the picture.")
-                                    .font(.caption).foregroundStyle(.secondary)
-                                if !clip.transformKeyframes.isEmpty {
-                                    ForEach(clip.transformKeyframes.indices, id: \.self) { index in
-                                        let keyframe = clip.transformKeyframes[index]
-                                        let at = clip.timelineStart.seconds + (keyframe.time.seconds - clip.sourceRange.start.seconds) / clip.speed.seconds
-                                        HStack {
-                                            Image(systemName: "diamond.fill").foregroundStyle(.cyan)
-                                            Text(String(format: "%.2f s · %g%% · %g, %g · %g%%", at, keyframe.scale * 100, keyframe.offsetX * 100,
-                                                        keyframe.offsetY * 100, keyframe.opacity * 100))
-                                                .font(.caption.monospacedDigit())
-                                            Spacer()
-                                            Button("Go to keyframe", systemImage: "arrow.right.to.line") { store.seek(to: max(0, at)) }
-                                                .labelStyle(.iconOnly).help("Move the playhead to this keyframe")
-                                            Button("Remove keyframe", systemImage: "xmark") {
-                                                var remaining = clip.transformKeyframes; remaining.remove(at: index)
-                                                store.setSelectedTransformKeyframes(remaining)
-                                            }.labelStyle(.iconOnly).help("Remove this keyframe")
-                                        }
-                                    }
-                                    Button("Clear position keyframes", systemImage: "trash") { store.setSelectedTransformKeyframes([]) }
-                                    Text("Scale, position and opacity change between keyframes; keyframe opacity multiplies the static opacity.")
-                                        .font(.caption).foregroundStyle(.secondary)
-                                }
-                                ColorControls(color: clip.color) { store.setSelectedClipColor($0) }.id(clip.id)
-                                KeyControls(key: clip.key) { store.setSelectedClipKey($0) }.id(clip.id)
-                                if case .video = clip.selection {
-                                    HStack {
-                                        Button(store.isStabilising ? "Stabilising…" : "Stabilise", systemImage: "camera.metering.center.weighted") {
-                                            store.stabiliseSelectedClip()
-                                        }.disabled(store.isStabilising)
-                                        if store.isStabilising { ProgressView().controlSize(.small) }
-                                    }
-                                    Text("Smooths camera shake by making a stabilised copy of this shot's media (plus a second each side for trims). Undo returns to the original.")
-                                        .font(.caption).foregroundStyle(.secondary)
-                                }
-                            } else {
-                                Button("Audio source channels…", systemImage: "waveform") { editingAudio = true }
-                                    .labelStyle(.iconOnly).help("Edit audio source channels and output routing")
-                                Text("\(clip.requiredAudioLayout?.channels.count ?? 0) selected channels")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                            if !store.selectedVolumeClips.isEmpty {
-                                Divider()
-                                numericField(isPicture ? "Linked audio volume (dB)" : "Clip volume (dB)", text: $clipVolume)
-                                HStack {
-                                    Button("Apply volume", systemImage: "speaker.wave.2") { store.setSelectedClipVolume(decibels: clipVolume) }
-                                        .labelStyle(.iconOnly).help("Apply clip volume; track gain applies on top")
-                                    Button("Add keyframe at playhead", systemImage: "diamond") { store.addVolumeKeyframeAtPlayhead(decibels: clipVolume) }
-                                        .labelStyle(.iconOnly).help("Add a volume keyframe at the playhead with this volume; volume ramps between keyframes")
-                                }
-                                if let sound = store.selectedVolumeClips.first {
-                                    EQControls(eq: sound.eq) { store.setSelectedEQ($0) }.id(sound.id)
-                                    DynamicsControls(dynamics: sound.dynamics) { store.setSelectedDynamics($0) }.id(sound.id)
-                                    HStack {
-                                        Button(store.isReducingNoise ? "Reducing noise…" : "Reduce noise", systemImage: "waveform.badge.minus") {
-                                            store.reduceNoiseOnSelectedAudio()
-                                        }.disabled(store.isReducingNoise)
-                                        if store.isReducingNoise { ProgressView().controlSize(.small) }
-                                    }
-                                    Text("Makes a noise-reduced copy (12 dB) of this sound, plus a second each side for trims. Undo returns to the original.")
-                                        .font(.caption).foregroundStyle(.secondary)
-                                }
-                                if let automation = store.selectedVolumeClips.first, !automation.volumeKeyframes.isEmpty {
-                                    let keyframes = automation.volumeKeyframes
-                                    ForEach(keyframes.indices, id: \.self) { index in
-                                        let keyframe = keyframes[index]
-                                        HStack {
-                                            let at = automation.timelineStart.seconds + keyframe.time.seconds - automation.sourceRange.start.seconds
-                                            Image(systemName: "diamond.fill").foregroundStyle(.orange)
-                                            Text(String(format: "%.2f s · %@", at, keyframe.gain == 0 ? "−∞ dB" : String(format: "%+.1f dB", 20 * log10(keyframe.gain))))
-                                                .font(.caption.monospacedDigit())
-                                            Spacer()
-                                            Button("Go to keyframe", systemImage: "arrow.right.to.line") { store.seek(to: max(0, at)) }
-                                                .labelStyle(.iconOnly).help("Move the playhead to this keyframe")
-                                            Button("Remove keyframe", systemImage: "xmark") {
-                                                var remaining = keyframes; remaining.remove(at: index)
-                                                store.setSelectedVolumeKeyframes(remaining)
-                                            }.labelStyle(.iconOnly).help("Remove this keyframe")
-                                        }
-                                    }
-                                    Button("Clear keyframes", systemImage: "trash") { store.setSelectedVolumeKeyframes([]) }
-                                        .help("Remove all volume keyframes")
-                                }
-                            }
-                            if clip.selection != .still {
-                                Divider()
-                                HStack(alignment: .bottom) {
-                                    numericField("Speed (%)", text: $speedPercent)
-                                    Button("Apply speed", systemImage: "gauge.with.dots.needle.67percent") { store.setSelectedClipSpeed(percent: speedPercent) }
-                                        .labelStyle(.iconOnly).help("Apply speed to this clip and its linked components")
-                                    Menu {
-                                        ForEach(["25", "50", "100", "200", "400"], id: \.self) { preset in
-                                            Button("\(preset)%") { speedPercent = preset; store.setSelectedClipSpeed(percent: preset) }
-                                        }
-                                    } label: { Label("Speed presets", systemImage: "list.bullet") }
-                                    .labelStyle(.iconOnly).help("Speed presets").fixedSize()
-                                }
-                                Text("Keeps the source in and the media it plays; the clip gets longer or shorter. Sound keeps its pitch.")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                            Divider()
-                            numericField("Fade in (s)", text: $fadeInDuration)
-                            if !isPicture { fadeCurvePicker("Fade in curve", selection: $fadeInCurve) }
-                            numericField("Fade out (s)", text: $fadeOutDuration)
-                            if !isPicture { fadeCurvePicker("Fade out curve", selection: $fadeOutCurve) }
-                            Button("Apply fades", systemImage: "checkmark") { applyFades(clip) }
-                                .labelStyle(.iconOnly).help(isPicture ? "Apply picture fades" : "Apply audio fades")
-                            Text(isPicture ? "The picture fades from and to the layers below it, or black. Linked audio keeps its own fades; ⌘T fades both."
-                                 : "Fades apply to this audio component. Durations may overlap.")
-                                .font(.caption).foregroundStyle(.secondary)
-                            Divider()
-                            crossfadeControls(clip)
-                        }.padding(5)
-                    }
+            VStack(alignment: .leading, spacing: 14) {
+                if store.inspectorFocus == .sequence {
+                    sequenceInspector
+                } else if store.inspectorFocus == .clip, let clip = store.selectedClip {
+                    clipInspector(clip)
+                } else if store.inspectorFocus == .asset, let asset = store.selectedAsset {
+                    assetInspector(asset)
                 } else {
-                    Text("Select a timeline clip to edit its timing.").font(.callout).foregroundStyle(.secondary)
-                }
-                GroupBox("Sequence") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        numericField("Width", text: $width)
-                        if store.project.tracks.allSatisfy({ $0.clips.isEmpty }), let asset = store.selectedAsset {
-                            ForEach(asset.streams.filter { $0.kind == .video && $0.videoFormat != nil }, id: \.index) { stream in
-                                if let format = stream.videoFormat {
-                                    HStack {
-                                        Text("\(format.width) × \(format.height) · \(format.frameRate.editableText) fps")
-                                            .font(.caption).foregroundStyle(.secondary)
-                                        Spacer()
-                                        Button("Match sequence to \(stream.label ?? "video")", systemImage: "arrow.down.left.and.arrow.up.right") {
-                                            store.matchSequenceToSelectedSource(streamIndex: stream.index)
-                                        }.labelStyle(.iconOnly).help("Match sequence to \(stream.label ?? "video"): \(format.width) × \(format.height), \(format.frameRate.editableText) fps")
-                                    }
-                                }
-                            }
-                            if asset.streams.contains(where: { $0.kind == .video }) && !asset.streams.contains(where: { $0.videoFormat != nil }) {
-                                Text("Source matching needs verified constant frame timing and square-pixel, unrotated picture. Set sequence settings manually for this source.")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                        }
-                        numericField("Height", text: $height)
-                        numericField("Frames / second", text: $frameRate)
-                        Menu {
-                            ForEach(["24", "25", "30", "50", "60", "24000/1001", "30000/1001", "60000/1001"], id: \.self) { rate in
-                                Button(rate) { frameRate = rate }
-                            }
-                        } label: { Label("Frame rate presets", systemImage: "list.bullet") }
-                        .labelStyle(.iconOnly).help("Frame rate presets")
-                        Text("Enter an exact fraction, integer or decimal. Use 30000/1001 for 29.97 fps drop frame.")
-                            .font(.caption).foregroundStyle(.secondary)
-                        numericField("Audio sample rate (Hz)", text: $audioSampleRate)
-                        Picker("Output layout", selection: $audioLayout) {
-                            Text("Mono").tag(ChannelLayout.mono)
-                            Text("Stereo").tag(ChannelLayout.stereo)
-                            Text("5.1 surround").tag(ChannelLayout.surround51)
-                            if ![ChannelLayout.mono, .stereo, .surround51].contains(audioLayout) {
-                                Text("Saved layout (\(audioLayout.channels.count) channels)").tag(audioLayout)
-                            }
-                        }
-                        if audioLayout != .mono && audioLayout != .stereo {
-                            Text("This output layout can be saved, but sequence playback and rendered export currently require mono or stereo.")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                        numericField("Start timecode", text: $startTimecode)
-                        Text("Use HH:MM:SS:FF, or HH:MM:SS;FF for drop frame. Existing audio output maps must remain compatible.")
-                            .font(.caption).foregroundStyle(.secondary)
-                        Button("Apply settings", systemImage: "checkmark") { applySequenceSettings() }
-                            .labelStyle(.iconOnly).help("Apply sequence settings")
-                    }.padding(5)
-                }
-                GroupBox("Editing") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Toggle("Remove empty tracks after edits", isOn: Binding(
-                            get: { store.project.preferences.automaticallyRemoveEmptyTracks },
-                            set: store.setAutomaticTrackCleanup
-                        ))
-                        Toggle("Confirm audio track layout changes", isOn: Binding(
-                            get: { store.project.preferences.askBeforeAudioTrackLayoutChanges },
-                            set: store.setAudioLayoutConfirmation
-                        ))
-                    }.font(.callout).padding(5)
-                }
-                if let asset = store.selectedAsset {
-                    GroupBox("Source file") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(asset.originalURL?.path ?? "No file reference").font(.caption).textSelection(.enabled)
-                            Button("Relink media…", systemImage: "link", action: store.relinkSelectedAsset)
-                                .labelStyle(.iconOnly).help("Relink source media")
-                        }.frame(maxWidth: .infinity, alignment: .leading).padding(5)
-                    }
+                    Text("Inspector").font(.headline)
+                    Text("Select a timeline clip, a sequence or media in the bin to inspect it.").font(.callout).foregroundStyle(.secondary)
                 }
             }.padding(12)
         }
         .onAppear { refreshClip(); refreshSettings() }
         .onChange(of: store.selectedClip) { _, _ in refreshClip() }
+        .onChange(of: store.selectedClipID) { _, _ in
+            if let clip = store.selectedClip { tab = clip.requiredTrackKind == .video ? .video : .audio }
+        }
         .onChange(of: store.project.settings) { _, _ in refreshSettings() }
+        .onChange(of: store.project.sequenceName) { _, _ in refreshSettings() }
         .onChange(of: store.project.audioCrossfades) { _, _ in refreshCrossfade() }
         .sheet(isPresented: $editingAudio) {
             if let clip = store.selectedClip, clip.requiredTrackKind == .audio {
                 AudioSourceEditor(store: store, clip: clip)
             }
+        }
+    }
+
+    /// The selected clip's linked component of the other kind, if any.
+    private func linkedComponent(of clip: TimelineClip, kind: TrackKind) -> TimelineClip? {
+        TimelineGesture.components(of: clip, in: store.project).first { $0.id != clip.id && $0.requiredTrackKind == kind }
+    }
+
+    @ViewBuilder private func clipInspector(_ clip: TimelineClip) -> some View {
+        let isPicture = clip.requiredTrackKind == .video
+        Text(store.asset(id: clip.assetID)?.name ?? "Clip").font(.headline).lineLimit(2)
+        GroupBox("Timing") {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .bottom) {
+                    numericField("Timeline start (s)", text: $timelineStart)
+                    Button("Move clip", systemImage: "arrow.right") {
+                        guard let value = entered(timelineStart, current: clip.timelineStart.seconds), value.isFinite, value >= 0 else { store.errorMessage = "Enter a valid timeline start in seconds."; return }
+                        store.moveSelectedClip(to: value)
+                    }.labelStyle(.iconOnly).help("Move clip to the entered timeline start")
+                }
+                HStack(alignment: .bottom) {
+                    numericField("Source in (s)", text: $sourceStart)
+                    numericField("Duration (s)", text: $clipDuration)
+                    Button("Apply trim", systemImage: "scissors") {
+                        guard let start = entered(sourceStart, current: clip.sourceRange.start.seconds),
+                              let duration = entered(clipDuration, current: clip.sourceRange.duration.seconds), start.isFinite, duration.isFinite, start >= 0, duration > 0 else { store.errorMessage = "Enter a nonnegative source in and a positive duration in seconds."; return }
+                        store.trimSelectedClip(start: start, duration: duration)
+                    }.labelStyle(.iconOnly).help("Apply source in and duration")
+                }
+                if clip.selection != .still {
+                    HStack(alignment: .bottom) {
+                        numericField("Speed (%)", text: $speedPercent)
+                        Button("Apply speed", systemImage: "gauge.with.dots.needle.67percent") { store.setSelectedClipSpeed(percent: speedPercent) }
+                            .labelStyle(.iconOnly).help("Apply speed to this clip and its linked components. Keeps the source in; the clip gets longer or shorter and sound keeps its pitch.")
+                        Menu {
+                            ForEach(["25", "50", "100", "200", "400"], id: \.self) { preset in
+                                Button("\(preset)%") { speedPercent = preset; store.setSelectedClipSpeed(percent: preset) }
+                            }
+                        } label: { Label("Speed presets", systemImage: "list.bullet") }
+                        .labelStyle(.iconOnly).help("Speed presets").fixedSize()
+                    }
+                }
+            }.padding(5)
+        }
+        Picker("Section", selection: $tab) {
+            Label("Video", systemImage: "film").tag(Tab.video)
+            Label("Audio", systemImage: "waveform").tag(Tab.audio)
+        }
+        .pickerStyle(.segmented).labelsHidden()
+        if tab == .video {
+            if isPicture { videoSections(clip) }
+            else {
+                Text("This clip is sound only.").font(.callout).foregroundStyle(.secondary)
+                if let picture = linkedComponent(of: clip, kind: .video) {
+                    Button("Select linked picture", systemImage: "film") { store.selectTimelineClip(picture.id) }
+                }
+            }
+        } else {
+            audioSections(clip)
+        }
+    }
+
+    @ViewBuilder private func videoSections(_ clip: TimelineClip) -> some View {
+        if let asset = store.asset(id: clip.assetID), let title = asset.title {
+            GroupBox("Title") {
+                TitleEditor(title: title) { store.updateTitle(assetID: asset.id, to: $0) }
+                    .id(asset.id).padding(5)
+            }
+        }
+        GroupBox("Transform") {
+            VStack(alignment: .leading, spacing: 8) {
+                Picker("Scaling", selection: Binding(get: { clip.scalingMode }, set: store.setScalingMode)) {
+                    Text("Fit").tag(ScalingMode.fit)
+                    Text("Fill").tag(ScalingMode.fill)
+                    Text("Native size").tag(ScalingMode.none)
+                }
+                HStack {
+                    numericField("Scale (%)", text: $transformScale)
+                    numericField("Opacity (%)", text: $transformOpacity)
+                }
+                HStack {
+                    numericField("Position X (%)", text: $transformX)
+                    numericField("Position Y (%)", text: $transformY)
+                }
+                HStack {
+                    Button("Apply transform", systemImage: "checkmark") {
+                        store.setSelectedClipTransform(scale: transformScale, x: transformX, y: transformY, opacity: transformOpacity)
+                    }.labelStyle(.iconOnly).help("Apply scale, position and opacity")
+                    Button("Picture in picture", systemImage: "pip") {
+                        store.setSelectedClipTransform(scale: "33", x: "30", y: "30", opacity: "100")
+                    }.labelStyle(.iconOnly).help("Shrink to a third in the lower right corner")
+                    Menu {
+                        ForEach(EditorStore.MotionPreset.allCases) { preset in
+                            Button(preset.rawValue) { store.applyMotionPreset(preset) }
+                        }
+                    } label: { Label("Motion presets", systemImage: "wand.and.rays") }
+                    .labelStyle(.iconOnly).help("Animate this picture or title with a common move").fixedSize()
+                    Button("Add position keyframe at playhead", systemImage: "diamond") {
+                        store.addTransformKeyframeAtPlayhead(scale: transformScale, x: transformX, y: transformY, opacity: transformOpacity)
+                    }.labelStyle(.iconOnly).help("Keyframe this scale, position and opacity at the playhead; the picture changes between keyframes")
+                    Button("Reset transform", systemImage: "arrow.counterclockwise") {
+                        store.setSelectedClipTransform(scale: "100", x: "0", y: "0", opacity: "100")
+                    }.labelStyle(.iconOnly).help("Reset scale, position and opacity").disabled(clip.transform.isIdentity)
+                }
+                Text("Position is a share of the frame: positive X moves right, positive Y down. Layers below show around and through the picture.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if !clip.transformKeyframes.isEmpty {
+                    ForEach(clip.transformKeyframes.indices, id: \.self) { index in
+                        let keyframe = clip.transformKeyframes[index]
+                        let at = clip.timelineStart.seconds + (keyframe.time.seconds - clip.sourceRange.start.seconds) / clip.speed.seconds
+                        HStack {
+                            Image(systemName: "diamond.fill").foregroundStyle(.cyan)
+                            Text(String(format: "%.2f s · %g%% · %g, %g · %g%%", at, keyframe.scale * 100, keyframe.offsetX * 100,
+                                        keyframe.offsetY * 100, keyframe.opacity * 100))
+                                .font(.caption.monospacedDigit())
+                            Spacer()
+                            Button("Go to keyframe", systemImage: "arrow.right.to.line") { store.seek(to: max(0, at)) }
+                                .labelStyle(.iconOnly).help("Move the playhead to this keyframe")
+                            Button("Remove keyframe", systemImage: "xmark") {
+                                var remaining = clip.transformKeyframes; remaining.remove(at: index)
+                                store.setSelectedTransformKeyframes(remaining)
+                            }.labelStyle(.iconOnly).help("Remove this keyframe")
+                        }
+                    }
+                    Button("Clear position keyframes", systemImage: "trash") { store.setSelectedTransformKeyframes([]) }
+                    Text("Scale, position and opacity change between keyframes; keyframe opacity multiplies the static opacity.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }.padding(5)
+        }
+        GroupBox {
+            ColorControls(color: clip.color) { store.setSelectedClipColor($0) }.id(clip.id).padding(5)
+        }
+        GroupBox {
+            KeyControls(key: clip.key) { store.setSelectedClipKey($0) }.id(clip.id).padding(5)
+        }
+        if case .video = clip.selection {
+            GroupBox("Stabilise") {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Button(store.isStabilising ? "Stabilising…" : "Stabilise", systemImage: "camera.metering.center.weighted") {
+                            store.stabiliseSelectedClip()
+                        }.disabled(store.isStabilising)
+                        if store.isStabilising { ProgressView().controlSize(.small) }
+                    }
+                    Text("Smooths camera shake by making a stabilised copy of this shot's media (plus a second each side for trims). Undo returns to the original.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity, alignment: .leading).padding(5)
+            }
+        }
+        GroupBox("Fades") { fadeControls(clip).padding(5) }
+        GroupBox { VStack(alignment: .leading, spacing: 8) { crossfadeControls(clip) }.padding(5) }
+    }
+
+    @ViewBuilder private func audioSections(_ clip: TimelineClip) -> some View {
+        let isPicture = clip.requiredTrackKind == .video
+        if !isPicture {
+            GroupBox("Channels") {
+                HStack {
+                    Text("\(clip.requiredAudioLayout?.channels.count ?? 0) selected channels").font(.callout)
+                    Spacer()
+                    Button("Audio source channels…", systemImage: "waveform") { editingAudio = true }
+                        .labelStyle(.iconOnly).help("Edit audio source channels and output routing")
+                }.padding(5)
+            }
+        }
+        if store.selectedVolumeClips.isEmpty {
+            Text("This clip has no sound.").font(.callout).foregroundStyle(.secondary)
+        } else {
+            GroupBox("Volume") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .bottom) {
+                        numericField(isPicture ? "Linked audio volume (dB)" : "Clip volume (dB)", text: $clipVolume)
+                        Button("Apply volume", systemImage: "speaker.wave.2") { store.setSelectedClipVolume(decibels: clipVolume) }
+                            .labelStyle(.iconOnly).help("Apply clip volume; track gain applies on top")
+                        Button("Add keyframe at playhead", systemImage: "diamond") { store.addVolumeKeyframeAtPlayhead(decibels: clipVolume) }
+                            .labelStyle(.iconOnly).help("Add a volume keyframe at the playhead with this volume; volume ramps between keyframes")
+                    }
+                    if let automation = store.selectedVolumeClips.first, !automation.volumeKeyframes.isEmpty {
+                        let keyframes = automation.volumeKeyframes
+                        ForEach(keyframes.indices, id: \.self) { index in
+                            let keyframe = keyframes[index]
+                            HStack {
+                                let at = automation.timelineStart.seconds + keyframe.time.seconds - automation.sourceRange.start.seconds
+                                Image(systemName: "diamond.fill").foregroundStyle(.orange)
+                                Text(String(format: "%.2f s · %@", at, keyframe.gain == 0 ? "−∞ dB" : String(format: "%+.1f dB", 20 * log10(keyframe.gain))))
+                                    .font(.caption.monospacedDigit())
+                                Spacer()
+                                Button("Go to keyframe", systemImage: "arrow.right.to.line") { store.seek(to: max(0, at)) }
+                                    .labelStyle(.iconOnly).help("Move the playhead to this keyframe")
+                                Button("Remove keyframe", systemImage: "xmark") {
+                                    var remaining = keyframes; remaining.remove(at: index)
+                                    store.setSelectedVolumeKeyframes(remaining)
+                                }.labelStyle(.iconOnly).help("Remove this keyframe")
+                            }
+                        }
+                        Button("Clear keyframes", systemImage: "trash") { store.setSelectedVolumeKeyframes([]) }
+                            .help("Remove all volume keyframes")
+                    }
+                }.padding(5)
+            }
+            if let sound = store.selectedVolumeClips.first {
+                GroupBox { EQControls(eq: sound.eq) { store.setSelectedEQ($0) }.id(sound.id).padding(5) }
+                GroupBox { DynamicsControls(dynamics: sound.dynamics) { store.setSelectedDynamics($0) }.id(sound.id).padding(5) }
+                GroupBox("Noise reduction") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Button(store.isReducingNoise ? "Reducing noise…" : "Reduce noise", systemImage: "waveform.badge.minus") {
+                                store.reduceNoiseOnSelectedAudio()
+                            }.disabled(store.isReducingNoise)
+                            if store.isReducingNoise { ProgressView().controlSize(.small) }
+                        }
+                        Text("Makes a noise-reduced copy (12 dB) of this sound, plus a second each side for trims. Undo returns to the original.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }.frame(maxWidth: .infinity, alignment: .leading).padding(5)
+                }
+            }
+        }
+        if !isPicture {
+            GroupBox("Fades") { fadeControls(clip).padding(5) }
+            GroupBox { VStack(alignment: .leading, spacing: 8) { crossfadeControls(clip) }.padding(5) }
+        } else if let sound = linkedComponent(of: clip, kind: .audio) {
+            Button("Select linked sound for fades and crossfades", systemImage: "waveform") { store.selectTimelineClip(sound.id) }
+        }
+    }
+
+    @ViewBuilder private func fadeControls(_ clip: TimelineClip) -> some View {
+        let isPicture = clip.requiredTrackKind == .video
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                numericField("Fade in (s)", text: $fadeInDuration)
+                numericField("Fade out (s)", text: $fadeOutDuration)
+            }
+            if !isPicture {
+                fadeCurvePicker("Fade in curve", selection: $fadeInCurve)
+                fadeCurvePicker("Fade out curve", selection: $fadeOutCurve)
+            }
+            Button("Apply fades", systemImage: "checkmark") { applyFades(clip) }
+                .labelStyle(.iconOnly).help(isPicture ? "Apply picture fades" : "Apply audio fades")
+            Text(isPicture ? "The picture fades from and to the layers below it, or black. Linked audio keeps its own fades; ⌘T fades both."
+                 : "Fades apply to this audio component. Durations may overlap.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder private var sequenceInspector: some View {
+        Text(store.project.sequenceName).font(.headline)
+        GroupBox("Sequence") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Name").font(.caption).foregroundStyle(.secondary)
+                        TextField("Name", text: $sequenceName).textFieldStyle(.roundedBorder)
+                            .onSubmit { store.renameSequence(store.project.sequenceID, name: sequenceName) }
+                    }
+                    Button("Rename sequence", systemImage: "checkmark") { store.renameSequence(store.project.sequenceID, name: sequenceName) }
+                        .labelStyle(.iconOnly).help("Rename sequence").disabled(sequenceName == store.project.sequenceName)
+                }
+                HStack {
+                    numericField("Width", text: $width)
+                    numericField("Height", text: $height)
+                }
+                if store.project.tracks.allSatisfy({ $0.clips.isEmpty }), let asset = store.selectedAsset { matchButtons(asset) }
+                HStack(alignment: .bottom) {
+                    numericField("Frames / second", text: $frameRate)
+                    Menu {
+                        ForEach(["24", "25", "30", "50", "60", "24000/1001", "30000/1001", "60000/1001"], id: \.self) { rate in
+                            Button(rate) { frameRate = rate }
+                        }
+                    } label: { Label("Frame rate presets", systemImage: "list.bullet") }
+                    .labelStyle(.iconOnly).help("Frame rate presets").fixedSize()
+                }
+                Text("Enter an exact fraction, integer or decimal. Use 30000/1001 for 29.97 fps drop frame.")
+                    .font(.caption).foregroundStyle(.secondary)
+                numericField("Audio sample rate (Hz)", text: $audioSampleRate)
+                Picker("Output layout", selection: $audioLayout) {
+                    Text("Mono").tag(ChannelLayout.mono)
+                    Text("Stereo").tag(ChannelLayout.stereo)
+                    Text("5.1 surround").tag(ChannelLayout.surround51)
+                    if ![ChannelLayout.mono, .stereo, .surround51].contains(audioLayout) {
+                        Text("Saved layout (\(audioLayout.channels.count) channels)").tag(audioLayout)
+                    }
+                }
+                numericField("Start timecode", text: $startTimecode)
+                Text("Use HH:MM:SS:FF, or HH:MM:SS;FF for drop frame. Existing audio output maps must remain compatible.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button("Apply settings", systemImage: "checkmark") { applySequenceSettings() }
+                    .labelStyle(.iconOnly).help("Apply sequence settings")
+            }.padding(5)
+        }
+        GroupBox("Editing") {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("Remove empty tracks after edits", isOn: Binding(
+                    get: { store.project.preferences.automaticallyRemoveEmptyTracks },
+                    set: store.setAutomaticTrackCleanup
+                ))
+                Toggle("Confirm audio track layout changes", isOn: Binding(
+                    get: { store.project.preferences.askBeforeAudioTrackLayoutChanges },
+                    set: store.setAudioLayoutConfirmation
+                ))
+            }.font(.callout).frame(maxWidth: .infinity, alignment: .leading).padding(5)
+        }
+    }
+
+    @ViewBuilder private func matchButtons(_ asset: MediaAsset) -> some View {
+        ForEach(asset.streams.filter { $0.kind == .video && $0.videoFormat != nil }, id: \.index) { stream in
+            if let format = stream.videoFormat {
+                HStack {
+                    Text("\(format.width) × \(format.height) · \(format.frameRate.editableText) fps")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Match sequence to \(stream.label ?? "video")", systemImage: "arrow.down.left.and.arrow.up.right") {
+                        store.matchSequenceToSelectedSource(streamIndex: stream.index)
+                    }.labelStyle(.iconOnly).help("Match the open sequence to \(stream.label ?? "video"): \(format.width) × \(format.height), \(format.frameRate.editableText) fps")
+                }
+            }
+        }
+        if asset.streams.contains(where: { $0.kind == .video }) && !asset.streams.contains(where: { $0.videoFormat != nil }) {
+            Text("Source matching needs verified constant frame timing and square-pixel, unrotated picture. Set sequence settings manually for this source.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder private func assetInspector(_ asset: MediaAsset) -> some View {
+        Text(asset.name).font(.headline).lineLimit(2)
+        GroupBox("Source file") {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(asset.originalURL?.path ?? "No file reference").font(.caption).textSelection(.enabled)
+                Text(asset.isStill ? "Still image" : String(format: "%.2f s", asset.duration.seconds)).font(.caption).foregroundStyle(.secondary)
+                ForEach(asset.streams, id: \.index) { stream in
+                    Text("\(stream.kind == .video ? "Video" : "Audio") \(stream.index)\(stream.label.map { " · " + $0 } ?? "")\(stream.audioLayout.map { " · \($0.channels.count) ch" } ?? "")\(stream.videoFormat.map { " · \($0.width) × \($0.height)" } ?? "")")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Button("Relink media…", systemImage: "link", action: store.relinkSelectedAsset)
+                    .labelStyle(.iconOnly).help("Relink source media")
+            }.frame(maxWidth: .infinity, alignment: .leading).padding(5)
+        }
+        if store.project.tracks.allSatisfy({ $0.clips.isEmpty }) {
+            GroupBox("Open sequence") { VStack(alignment: .leading, spacing: 6) { matchButtons(asset) }.padding(5) }
         }
     }
 
@@ -915,6 +1067,7 @@ private struct ProjectInspector: View {
         audioSampleRate = String(store.project.settings.audioSampleRate)
         audioLayout = store.project.settings.audioLayout
         startTimecode = (try? store.project.settings.startTimecode.formatted(rate: store.project.settings.frameRate)) ?? "00:00:00:00"
+        sequenceName = store.project.sequenceName
     }
 }
 

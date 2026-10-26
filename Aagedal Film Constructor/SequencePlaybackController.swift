@@ -63,6 +63,8 @@ final class SequencePlaybackController: ObservableObject {
     @Published private(set) var image: NSImage?
     @Published private(set) var displayedFrameIndex: Int64?
     @Published private(set) var isPlaying = false
+    /// Silent reverse play: the playhead steps back by seeking, at 1×, 2×, 4× or 8×.
+    @Published private(set) var reverseSpeed: Double?
     @Published private(set) var isPreparing = false
     @Published private(set) var message = "Select Sequence to monitor the timeline."
     var positionChanged: ((Double) -> Void)?
@@ -86,6 +88,7 @@ final class SequencePlaybackController: ObservableObject {
     private var polling: Task<Void, Never>?
     private var scopes: Set<URL> = []
     private var enabled = false
+    private var reversing: Task<Void, Never>?
 
     init(factory: Factory? = nil, useNativeDefault: Bool = true,
          representationFactory: RepresentationFactory? = nil, proxyResolver: ProxyResolver? = nil) {
@@ -113,6 +116,10 @@ final class SequencePlaybackController: ObservableObject {
         var playbackProject = project
         playbackProject.mediaBins = []
         playbackProject.assetBinAssignments = [:]
+        // Other sequences and the open one's name don't play.
+        playbackProject.storedSequences = []
+        playbackProject.sequenceName = Project.defaultSequenceName
+        playbackProject.sequenceBinAssignments = [:]
         for index in playbackProject.families.indices {
             playbackProject.families[index].baseName = "Track"
         }
@@ -128,6 +135,7 @@ final class SequencePlaybackController: ObservableObject {
         desiredSeconds = max(0, seconds)
         guard enabled, available else { return }
         if changed {
+            stopReverse()
             verification?.cancel()
             backend?.pause(); isPlaying = false; image = nil; displayedFrameIndex = nil
             revision = UUID()
@@ -148,12 +156,14 @@ final class SequencePlaybackController: ObservableObject {
     }
 
     func pause() {
+        stopReverse()
         revision = UUID()
         backend?.pause(); isPlaying = false
         publishPosition()
     }
 
     func play() {
+        stopReverse()
         guard enabled, available, worker == nil, let backend else { return }
         let token = revision
         isPreparing = true
@@ -171,7 +181,40 @@ final class SequencePlaybackController: ObservableObject {
         }
     }
 
+    /// Plays backwards without sound by seeking the playhead back in wall-clock time; each
+    /// further call doubles the speed, up to 8×. Pause, play or an edit stops it.
+    func playReverse() {
+        guard enabled, available else { return }
+        let speed = min(8, (reverseSpeed ?? 0.5) * 2)
+        let wasReversing = reversing != nil
+        reversing?.cancel()
+        if !wasReversing {
+            revision = UUID()
+            backend?.pause(); isPlaying = false
+        }
+        reverseSpeed = speed
+        var position = desiredSeconds
+        reversing = Task { [weak self] in
+            var last = ProcessInfo.processInfo.systemUptime
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(40)) } catch { return }
+                guard let self, self.enabled, !Task.isCancelled else { return }
+                let now = ProcessInfo.processInfo.systemUptime
+                position = max(0, position - (now - last) * speed)
+                last = now
+                // Published like a scrub, so the playhead moves and the monitor seeks.
+                self.positionChanged?(position)
+                if position <= 0 { self.reversing = nil; self.reverseSpeed = nil; return }
+            }
+        }
+    }
+
+    private func stopReverse() {
+        reversing?.cancel(); reversing = nil; reverseSpeed = nil
+    }
+
     func deactivate() {
+        stopReverse()
         enabled = false; revision = UUID()
         verification?.cancel()
         backend?.pause(); isPlaying = false; image = nil; displayedFrameIndex = nil

@@ -26,7 +26,11 @@ struct TimelineView: View {
     @State private var isDropTargeted = false
     @State private var dropCanvasFrame = CGRect.zero
     @State private var dropViewport = CGRect.zero
+    /// Horizontal scroll, so track headers stay at the left edge while lanes scroll.
+    @State private var scrollX: CGFloat = 0
     private let labelWidth: CGFloat = 145
+    /// A track row and the spacing below it.
+    private let rowHeight: CGFloat = 65
     private var visibleDuration: Double { max(20, store.duration + 5) }
     private var canvasWidth: CGFloat { max(1, viewport.width - labelWidth, visibleDuration * pixelsPerSecond) }
     private var fittedZoom: Double { max(0.000001, min(100, (viewport.width - labelWidth - 12) / visibleDuration)) }
@@ -47,7 +51,7 @@ struct TimelineView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Text("Timeline").font(.headline)
+                Text(store.project.sequenceName).font(.headline).lineLimit(1).help("The open sequence; open another from the media bin")
                 Button(action: store.undo) { Image(systemName: "arrow.uturn.backward") }.help("Undo").accessibilityLabel("Undo").disabled(!store.canUndo)
                 Button(action: store.redo) { Image(systemName: "arrow.uturn.forward") }.help("Redo").accessibilityLabel("Redo").disabled(!store.canRedo)
                 Divider().frame(height: 18)
@@ -94,7 +98,9 @@ struct TimelineView: View {
                     LazyVStack(alignment: .leading, spacing: 1) {
                         HStack(spacing: 0) {
                             Text("Tracks").font(.caption.bold()).foregroundStyle(.secondary)
-                                .frame(width: labelWidth, height: 30, alignment: .leading)
+                                .padding(.horizontal, 10).frame(width: labelWidth, height: 30, alignment: .leading)
+                                .background(Color(nsColor: .controlBackgroundColor))
+                                .offset(x: scrollX).zIndex(2)
                             ruler
                         }
                         if store.project.tracks.isEmpty {
@@ -109,8 +115,11 @@ struct TimelineView: View {
                                 TimelineTrackHeader(store: store, track: track)
                                     .padding(.horizontal, 10).frame(width: labelWidth, height: 64, alignment: .leading)
                                     .background(Color(nsColor: .controlBackgroundColor))
+                                    .offset(x: scrollX).zIndex(2)
                                 trackLane(track)
                             }
+                            // A clip dragged to another track draws over the rows it crosses.
+                            .zIndex(track.clips.contains { interactingClipIDs.contains($0.id) } ? 1 : 0)
                         }
                     }
                     .id("timelineStart")
@@ -120,6 +129,7 @@ struct TimelineView: View {
                     .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("timelineDrop")) } action: { dropCanvasFrame = $0 }
                 }
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { viewport = $0 }
+                .onScrollGeometryChange(for: CGFloat.self) { max(0, $0.contentOffset.x) } action: { _, x in scrollX = x }
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("timelineDrop")) } action: { dropViewport = $0 }
                 .onChange(of: store.timelineFitRequest) {
                     toggleZoomToFit()
@@ -177,6 +187,7 @@ struct TimelineView: View {
                 .font(.caption).foregroundStyle(.secondary)
                 .padding(.horizontal, 10).frame(width: labelWidth, height: 64, alignment: .leading)
                 .background(Color(nsColor: .controlBackgroundColor))
+                .offset(x: scrollX).zIndex(2)
             ZStack(alignment: .topLeading) {
                 Color(nsColor: .textBackgroundColor)
                 tint.opacity(0.035)
@@ -233,11 +244,13 @@ struct TimelineView: View {
                         else { interactingClipIDs.remove(clip.id) }
                     },
                     proposedMove: { store.proposedMove(clip: clip, to: $0, tolerance: 8 / pixelsPerSecond) },
-                    move: { seconds in
+                    proposedRow: { dragRow(for: clip, height: $0) },
+                    rowHeight: rowHeight,
+                    move: { seconds, rows in
                         // Linked clips stop following before the edit lands, so they never show it twice.
                         linkedDrag = nil
                         store.selectTimelineClip(clip.id)
-                        store.moveSelectedClip(to: seconds)
+                        store.moveSelectedClip(to: seconds, rowOffset: rows)
                     },
                     proposedTrim: { store.proposedTrimDelta(clip: clip, edge: $0, delta: $1, tolerance: 8 / pixelsPerSecond, alone: $2) },
                     trim: { edge, delta, alone in
@@ -293,9 +306,92 @@ struct TimelineView: View {
                         } catch { store.errorMessage = store.audioEditErrorMessage(error) }
                     })
                 .offset(x: clip.timelineStart.seconds * pixelsPerSecond, y: 6)
+                .contextMenu { clipMenu(clip) }
             }
             playhead(height: 64).allowsHitTesting(false)
         }.frame(width: canvasWidth, height: 64)
+    }
+
+    private func compatible(_ clip: TimelineClip, _ track: TimelineTrack) -> Bool {
+        clip.requiredTrackKind == track.kind && clip.requiredAudioLayout == track.audioLayout
+    }
+
+    /// The row offset a vertical drag of `height` points lands on: the farthest compatible
+    /// track it reaches, or one row past the outermost track for a new track (pictures above
+    /// the top, sound below the bottom). 0 keeps the clip on its track.
+    private func dragRow(for clip: TimelineClip, height: CGFloat) -> Int {
+        let tracks = store.project.tracks
+        guard let current = tracks.firstIndex(where: { $0.clips.contains { $0.id == clip.id } }) else { return 0 }
+        let wanted = Int((height / rowHeight).rounded())
+        let step = wanted > 0 ? 1 : -1
+        var best = 0, index = current
+        for _ in 0..<abs(wanted) {
+            index += step
+            if tracks.indices.contains(index) {
+                if compatible(clip, tracks[index]) { best = index - current }
+            } else {
+                if (index < 0 && clip.requiredTrackKind == .video) || (index >= tracks.count && clip.requiredTrackKind == .audio) {
+                    best = index - current
+                }
+                break
+            }
+        }
+        return best
+    }
+
+    /// Right-click actions on a clip; each selects the clip first.
+    @ViewBuilder private func clipMenu(_ clip: TimelineClip) -> some View {
+        let act = { (action: @escaping () -> Void) in { store.selectTimelineClip(clip.id); action() } }
+        let end = clip.timelineStart.seconds + clip.sourceRange.duration.seconds
+        let isPicture = clip.requiredTrackKind == .video
+        let tracks = store.project.tracks
+        let current = tracks.firstIndex { $0.clips.contains { $0.id == clip.id } }
+        Button("Cut", action: act(store.cutSelectedClip))
+        Button("Copy", action: act(store.copySelectedClip))
+        Button("Paste at Playhead", action: act(store.pasteAtPlayhead)).disabled(store.clipboard == nil)
+        Button("Duplicate", action: act(store.duplicateSelectedClip))
+        Divider()
+        Button("Split at Playhead", action: act(store.splitSelectedClip))
+            .disabled(store.playheadSeconds <= clip.timelineStart.seconds || store.playheadSeconds >= end)
+        Button("Add Transition", action: act { store.addTransitionAtPlayhead() })
+        Button("Move Playhead to Clip Start", action: act { store.seek(to: clip.timelineStart.seconds) })
+        Button("Move Playhead to Clip End", action: act { store.seek(to: end) })
+        Divider()
+        Menu("Move to Track") {
+            ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
+                if compatible(clip, track) {
+                    Button(track.displayName(in: store.project), action: act { store.moveSelectedClip(to: clip.timelineStart.seconds, rowOffset: index - (current ?? index)) })
+                        .disabled(index == current)
+                }
+            }
+            Divider()
+            Button("New Track", action: act {
+                guard let current else { return }
+                store.moveSelectedClip(to: clip.timelineStart.seconds, rowOffset: isPicture ? -current - 1 : tracks.count - current)
+            })
+        }
+        Menu("Speed") {
+            ForEach(["25", "50", "100", "200", "400"], id: \.self) { preset in
+                Button("\(preset)%", action: act { store.setSelectedClipSpeed(percent: preset) })
+            }
+        }.disabled(clip.selection == .still)
+        if isPicture {
+            Menu("Scaling") {
+                Button("Fit", action: act { store.setScalingMode(.fit) })
+                Button("Fill", action: act { store.setScalingMode(.fill) })
+                Button("Native Size", action: act { store.setScalingMode(.none) })
+            }
+            Button("Reset Transform", action: act { store.setSelectedClipTransform(scale: "100", x: "0", y: "0", opacity: "100") })
+                .disabled(clip.transform.isIdentity)
+        }
+        Divider()
+        Button("Reveal in Media Bin", action: act { store.selectAsset(clip.assetID) })
+        if let url = store.asset(id: clip.assetID)?.originalURL {
+            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+        }
+        Divider()
+        Button("Delete", action: act(store.deleteSelectedClip))
+        Button("Ripple Delete", action: act(store.rippleDeleteSelectedClip))
     }
 
     private func crossfadeDrop(clip: TimelineClip, edge: TimelineTrimEdge, point: CGPoint, seconds: Double)
@@ -334,7 +430,10 @@ private struct TimelineClipView: View {
     let select: () -> Void
     let interactionChanged: (Bool) -> Void
     let proposedMove: (Double) -> Double
-    let move: (Double) -> Void
+    /// The track row offset a vertical drag reaches (0 stays on this track).
+    let proposedRow: (CGFloat) -> Int
+    let rowHeight: CGFloat
+    let move: (Double, Int) -> Void
     /// The Bool is true for an Option-drag, which trims this component alone.
     let proposedTrim: (TimelineTrimEdge, Double, Bool) -> Double
     let trim: (TimelineTrimEdge, Double, Bool) -> Void
@@ -350,6 +449,7 @@ private struct TimelineClipView: View {
     let setFade: (TimelineTrimEdge, Double, TimelineClip) -> Void
     @GestureState private var interactionActive = false
     @GestureState private var ownOffset: CGFloat = 0
+    @GestureState private var ownRow = 0
     @GestureState private var ownLeading = 0.0
     @GestureState private var ownTrailing = 0.0
     @GestureState private var trimAlone = false
@@ -457,8 +557,11 @@ private struct TimelineClipView: View {
                 .updating($ownOffset) { value, state, _ in
                     state = (proposedMove(clip.timelineStart.seconds + value.translation.width / pixelsPerSecond) - clip.timelineStart.seconds) * pixelsPerSecond
                 }
+                .updating($ownRow) { value, state, _ in state = proposedRow(value.translation.height) }
                 .onChanged { _ in select() }
-                .onEnded { value in move(proposedMove(clip.timelineStart.seconds + value.translation.width / pixelsPerSecond)) })
+                .onEnded { value in
+                    move(proposedMove(clip.timelineStart.seconds + value.translation.width / pixelsPerSecond), proposedRow(value.translation.height))
+                })
             .overlay(alignment: .leading) { trimHandle(.leading) }
             .overlay(alignment: .trailing) { trimHandle(.trailing) }
             .overlay(alignment: .topLeading) {
@@ -471,10 +574,10 @@ private struct TimelineClipView: View {
             .onChange(of: fadeOutPreview) { _, value in
                 if value == nil && fadeInPreview == nil { fadeGestureClip = nil; fadeGestureProject = nil; hoverFade(.leading, nil, 0) }
             }
-            .offset(x: dragOffset + leadingDelta * pixelsPerSecond)
+            .offset(x: dragOffset + leadingDelta * pixelsPerSecond, y: CGFloat(ownRow) * rowHeight)
             .help(clip.requiredTrackKind == .audio
-                ? "Drag to move; drag side handles to trim linked clips (Option-drag trims this clip alone); drag yellow handles to fade this audio component"
-                : "Drag to move; drag the edge handles to trim linked clips (Option-drag trims this clip alone); drag yellow handles to fade the picture or onto the next clip to dissolve")
+                ? "Drag to move, also up or down to another track; drag side handles to trim linked clips (Option-drag trims this clip alone); drag yellow handles to fade this audio component"
+                : "Drag to move, also up or down to another track; drag the edge handles to trim linked clips (Option-drag trims this clip alone); drag yellow handles to fade the picture or onto the next clip to dissolve")
     }
 
     /// Volume keyframes as an orange line; full height is +6 dB, the bottom is silence.

@@ -4,12 +4,27 @@ import MediaToolbox
 import os
 import EditorCore
 
-/// Peak level of one preview audio track, written on the audio thread and read on the main thread.
+/// Peak levels per channel of one preview audio track, written on the audio thread and read
+/// on the main thread.
 nonisolated final class MeterReading: @unchecked Sendable {
-    private let lock = OSAllocatedUnfairLock(initialState: Float(0))
-    func record(_ peak: Float) { lock.withLock { $0 = max($0, peak) } }
-    /// Returns the peak since the last read and resets it.
-    func take() -> Float { lock.withLock { value in defer { value = 0 }; return value } }
+    static let maxChannels = 8
+    private let lock = OSAllocatedUnfairLock(initialState: [Float](repeating: 0, count: MeterReading.maxChannels + 1))
+    /// The last slot holds how many channels have been delivered.
+    func record(_ peaks: UnsafeBufferPointer<Float>) {
+        // Unchecked: the buffer is only read inside the lock, on the calling thread.
+        lock.withLockUnchecked { state in
+            for (channel, peak) in peaks.prefix(Self.maxChannels).enumerated() { state[channel] = max(state[channel], peak) }
+            state[Self.maxChannels] = max(state[Self.maxChannels], Float(min(peaks.count, Self.maxChannels)))
+        }
+    }
+    /// Returns each channel's peak since the last read and resets them.
+    func take() -> [Float] {
+        lock.withLock { state in
+            let peaks = Array(state.prefix(Int(state[Self.maxChannels])))
+            for channel in 0..<Self.maxChannels { state[channel] = 0 }
+            return peaks
+        }
+    }
 }
 
 /// One selected source channel and the output channel it plays on.
@@ -44,6 +59,7 @@ nonisolated final class TapContext: @unchecked Sendable {
     private var scratch: [[Float]] = []
     /// Where each delivered channel lives; reused so the audio thread does not allocate.
     private var lanes: [(data: UnsafeMutablePointer<Float>, stride: Int, frames: Int)] = []
+    private var peaks = [Float](repeating: 0, count: MeterReading.maxChannels)
     init(reading: MeterReading, eq: AudioEQ, dynamics: AudioDynamics?, makeup: Double = 1, routes: [TapRoute]? = nil) {
         self.reading = reading; self.eq = eq; self.dynamics = dynamics; self.makeup = makeup; requestedRoutes = routes
     }
@@ -103,11 +119,13 @@ nonisolated final class TapContext: @unchecked Sendable {
                 }
             }
         }
-        var peak: Float = 0
-        for lane in lanes {
+        let channels = min(lanes.count, peaks.count)
+        for (channel, lane) in lanes.prefix(channels).enumerated() {
+            var peak: Float = 0
             for frame in 0..<lane.frames { peak = max(peak, abs(lane.data[frame * lane.stride]) * Float(levelScale)) }
+            peaks[channel] = peak
         }
-        reading.record(peak)
+        peaks.withUnsafeBufferPointer { reading.record(UnsafeBufferPointer(rebasing: $0.prefix(channels))) }
     }
 }
 
@@ -142,33 +160,51 @@ nonisolated enum MeterTap {
     }
 }
 
-/// Levels per editorial audio track for the mixer, in dBFS with a falling peak hold.
+/// Levels per editorial audio track and per channel for the mixer, in dBFS with a falling
+/// peak hold.
 @MainActor
 final class AudioMeters: ObservableObject {
     static let shared = AudioMeters()
+    /// The loudest channel of each track.
     @Published private(set) var levels: [UUID: Float] = [:]
+    /// Each channel the track plays on, in output order.
+    @Published private(set) var channelLevels: [UUID: [Float]] = [:]
     private var readings: [UUID: [MeterReading]] = [:]
     private var timer: Timer?
 
     /// Replaces the readings for a newly prepared preview.
     func attach(_ readings: [UUID: [MeterReading]]) {
         self.readings = readings
-        levels = [:]
+        levels = [:]; channelLevels = [:]
         guard timer == nil else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
             MainActor.assumeIsolated { AudioMeters.shared.poll() }
         }
     }
-    func detach() { readings = [:]; levels = [:] }
+    func detach() { readings = [:]; levels = [:]; channelLevels = [:] }
 
     func poll() {
-        var next = levels
+        var next = channelLevels
         for (track, sources) in readings {
-            let peak = sources.map { $0.take() }.max() ?? 0
-            let decibels = peak > 0 ? 20 * log10(peak) : -120
-            // Fall back by 1.5 dB per poll (30 dB per second) unless the new peak is higher.
-            next[track] = max(decibels, (levels[track] ?? -120) - 1.5)
+            // A track's clips each have their own tap; a channel shows the loudest of them.
+            var peaks: [Float] = []
+            for source in sources {
+                for (channel, peak) in source.take().enumerated() {
+                    if channel < peaks.count { peaks[channel] = max(peaks[channel], peak) } else { peaks.append(peak) }
+                }
+            }
+            let previous = channelLevels[track] ?? []
+            let count = max(peaks.count, previous.count)
+            next[track] = (0..<count).map { channel in
+                let peak = channel < peaks.count ? peaks[channel] : 0
+                let decibels: Float = peak > 0 ? 20 * log10(peak) : -120
+                // Fall back by 1.5 dB per poll (30 dB per second) unless the new peak is higher.
+                return max(decibels, (channel < previous.count ? previous[channel] : -120) - 1.5)
+            }
         }
-        if next != levels { levels = next }
+        if next != channelLevels {
+            channelLevels = next
+            levels = next.mapValues { $0.max() ?? -120 }
+        }
     }
 }

@@ -369,7 +369,7 @@ enum AcceptanceDriver {
                                "clips": clips().count, "error": store.errorMessage ?? ""])
 
             // Finishing tools through real key events: ⌘T, ⌃T, volume, insert (,), overwrite (.),
-            // ⌘C/⌘V, ⌘D and ⇧⌘⌫. Each is one undoable edit; counts confirm each took effect.
+            // ⌘C/⌘V, ⌘D and ⌫. Each is one undoable edit; counts confirm each took effect.
             @MainActor func dissolves() -> Int {
                 store.project.audioCrossfades.filter { relation in clips().first { $0.id == relation.outgoingClipID }?.requiredTrackKind == .video }.count
             }
@@ -455,7 +455,7 @@ enum AcceptanceDriver {
                 menuKey("d", 2) { store.duplicateSelectedClip() }
                 let duplicated = await wait(3) { clips().count > afterPaste }
                 let afterDuplicate = clips().count, durationBefore = store.duration
-                press(.rippleDelete, "\u{7f}", keyCode: 51, modifiers: [.command, .shift])
+                press(.rippleDelete, "\u{7f}", keyCode: 51, modifiers: [])
                 let rippled = await wait(3) { clips().count < afterDuplicate && store.duration < durationBefore }
                 features["clipboard"] = ["menuKeys": keyed, "copiedAndPasted": pasted, "duplicated": duplicated, "rippleDeleted": rippled,
                                          "clipboardEntries": store.clipboard?.entries.count ?? 0, "error": store.errorMessage ?? ""]

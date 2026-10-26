@@ -61,7 +61,7 @@ final class EditorCommandRegistry: ObservableObject {
         switch command {
         case .togglePlayback:
             if let sequence = store.sequencePlayback {
-                if sequence.isPlaying { sequence.pause() } else { sequence.play() }
+                if sequence.isPlaying || sequence.reverseSpeed != nil { sequence.pause() } else { sequence.play() }
             } else { store.toggleSourcePlayback() }
         case .zoomTimelineToFit: store.timelineFitRequest = UUID()
         case .rippleTrimStart: store.rippleTrimSelectedClip(edge: .leading)
@@ -84,7 +84,7 @@ final class EditorCommandRegistry: ObservableObject {
         case .nextFrame: store.stepPlayhead(frames: 1)
         case .deleteClip: store.deleteSelectedClip()
         case .playReverse:
-            if store.sequencePlayback == nil { store.playSourceBackwards() }
+            if let sequence = store.sequencePlayback { sequence.playReverse() } else { store.playSourceBackwards() }
         case .pausePlayback:
             if let sequence = store.sequencePlayback { sequence.pause() } else { store.pauseSource() }
         case .playForward:
@@ -112,9 +112,11 @@ final class EditorCommandRegistry: ObservableObject {
         case .splitClip, .deleteClip, .addTransition, .rippleDelete: return store.selectedClip != nil
         case .insertSource, .overwriteSource: return store.selectedAsset != nil && !store.isImporting
         case .previousFrame, .nextFrame, .addTitle: return true
-        case .playReverse: return store.sequencePlayback == nil && store.sourcePlayback != nil
+        case .playReverse:
+            if let sequence = store.sequencePlayback { return sequence.available && !sequence.isPreparing && store.duration > 0 }
+            return store.sourcePlayback != nil
         case .togglePlayback:
-            if let sequence = store.sequencePlayback { return sequence.available && (sequence.isPlaying || (!sequence.isPreparing && store.duration > 0)) }
+            if let sequence = store.sequencePlayback { return sequence.available && (sequence.isPlaying || sequence.reverseSpeed != nil || (!sequence.isPreparing && store.duration > 0)) }
             return store.canControlSourceTransport
         case .pausePlayback:
             if let sequence = store.sequencePlayback { return sequence.available }

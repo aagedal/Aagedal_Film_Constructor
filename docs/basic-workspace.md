@@ -201,7 +201,7 @@ select Sequence automatically and expose edited-sequence controls.
 An [opt-in development build](sequence-monitor.md) enables the native runtime;
 default builds explain that it is unavailable. Sequence mode uses originals,
 pauses on edits, follows timeline scrubs and frame steps, and routes K/L to
-pause/forward play. Reverse sequence playback is unavailable. Device/display
+pause/forward play, and J to silent reverse play. Device/display
 synchronization and runtime distribution still need qualification.
 
 Current limits: AVFoundation-supported source formats. Proxies, sequence

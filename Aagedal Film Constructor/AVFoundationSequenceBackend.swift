@@ -284,7 +284,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     : component.transformKeyframes.map {
                         .init(time: component.timelineSeconds(ofSource: $0.time), scale: $0.scale, offsetX: $0.offsetX, offsetY: $0.offsetY)
                     }
-                let placement = LayerPlacement(base: fit, canvas: canvas, points: points)
+                let placement = LayerPlacement(base: fit, canvas: canvas, presentation: size, points: points)
                 let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
                 let start = component.timelineRange.start.seconds, end = try component.timelineRange.end().seconds
                 layer.setTransform(placement.transform(at: start), at: .zero)

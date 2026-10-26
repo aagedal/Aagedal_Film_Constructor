@@ -7,6 +7,10 @@ nonisolated struct LayerPlacement: Sendable {
     struct Point: Sendable { let time: Double, scale: Double, offsetX: Double, offsetY: Double }
     let base: CGAffineTransform
     let canvas: CGSize
+    /// The track's natural size, which applies pixel aspect; `base` maps from it. Decoded
+    /// frames arrive at their stored size (1440 wide for anamorphic 1080), so they are
+    /// stretched to this first.
+    let presentation: CGSize
     /// Sorted by time; empty means no placement beyond the fit.
     let points: [Point]
 
@@ -87,6 +91,10 @@ final class CoreImageCompositor: NSObject, AVVideoCompositing, @unchecked Sendab
         for layer in instruction.layers.reversed() {
             guard let frame = request.sourceFrame(byTrackID: layer.trackID) else { continue }
             var source = CIImage(cvPixelBuffer: frame)
+            let stored = source.extent.size, shown = layer.placement.presentation
+            if stored.width > 0, stored.height > 0, shown.width > 0, shown.height > 0, stored != shown {
+                source = source.transformed(by: CGAffineTransform(scaleX: shown.width / stored.width, y: shown.height / stored.height))
+            }
             if let cube = layer.keyCube {
                 source = source.applyingFilter("CIColorCube", parameters: ["inputCubeDimension": cube.size, "inputCubeData": cube.data])
             }
