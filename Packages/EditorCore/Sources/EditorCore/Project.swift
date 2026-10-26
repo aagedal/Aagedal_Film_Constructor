@@ -145,8 +145,16 @@ public struct TimelineRenderPlan: Equatable, Sendable {
         /// Source seconds per timeline second; `sourceRange.duration` stays in timeline time.
         public var speed: RationalTime = .one
         public var transformKeyframes: [TransformKeyframe] = []
+        /// A wipe that uncovers this picture over the timeline interval, from the left edge
+        /// rightwards (or from the right edge leftwards).
+        public struct Reveal: Equatable, Sendable {
+            public let start: RationalTime
+            public let duration: RationalTime
+            public let fromLeft: Bool
+        }
+        public var reveal: Reveal?
         /// Whether the picture is scaled, moved, animated or translucent rather than filling the frame as is.
-        public var hasPlacement: Bool { !transform.isIdentity || !transformKeyframes.isEmpty }
+        public var hasPlacement: Bool { !transform.isIdentity || !transformKeyframes.isEmpty || reveal != nil }
         /// Keyframe times on the sequence timeline, in seconds.
         public func timelineSeconds(ofSource time: RationalTime) -> Double {
             timelineRange.start.seconds + (time.seconds - sourceRange.start.seconds) / speed.seconds
@@ -200,11 +208,14 @@ public struct TimelineRenderPlan: Equatable, Sendable {
                 var renderRange = range
                 var fadeIn = clip.fadeIn, fadeOut = clip.fadeOut
                 var transformKeyframes = clip.transformKeyframes
+                var reveal: Component.Reveal?
                 if let incoming = incomingByClip[clip.id] {
                     let geometry = geometries[incoming.id]!
                     sourceRange = geometry.incomingSourceRange
                     renderRange = geometry.incomingTimelineRange
-                    if clip.requiredTrackKind == .video, let style = incoming.style {
+                    if clip.requiredTrackKind == .video, let style = incoming.style, style.isWipe {
+                        reveal = .init(start: renderRange.start, duration: incoming.duration, fromLeft: style == .wipeRight)
+                    } else if clip.requiredTrackKind == .video, let style = incoming.style {
                         // The incoming picture moves in across the transition instead of fading.
                         let start = sourceRange.start
                         transformKeyframes = [TransformKeyframe(time: start, offsetX: style.incomingFrom),
@@ -227,7 +238,7 @@ public struct TimelineRenderPlan: Equatable, Sendable {
                                                TransformKeyframe(time: end, offsetX: target)]
                     }
                 }
-                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain * clip.gain, fadeIn: fadeIn, fadeOut: fadeOut, transform: clip.transform, volumeKeyframes: clip.volumeKeyframes, color: clip.color, speed: clip.speed, transformKeyframes: transformKeyframes))
+                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain * clip.gain, fadeIn: fadeIn, fadeOut: fadeOut, transform: clip.transform, volumeKeyframes: clip.volumeKeyframes, color: clip.color, speed: clip.speed, transformKeyframes: transformKeyframes, reveal: reveal))
             }
         }
         components = result; duration = end

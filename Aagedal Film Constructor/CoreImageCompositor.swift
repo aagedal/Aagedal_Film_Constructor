@@ -43,6 +43,8 @@ final class CoreImageInstruction: NSObject, AVVideoCompositionInstructionProtoco
         let brightness: Double, contrast: Double, saturation: Double
         /// Blur standard deviation in canvas pixels before placement scaling.
         let blur: Double
+        /// A wipe uncovering the picture: start and length in seconds, from the left or right edge.
+        let reveal: (start: Double, duration: Double, fromLeft: Bool)?
         var isNeutral: Bool { brightness == 0 && contrast == 1 && saturation == 1 }
     }
     let timeRange: CMTimeRange
@@ -93,6 +95,10 @@ final class CoreImageCompositor: NSObject, AVVideoCompositing, @unchecked Sendab
                     .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: layer.blur]).cropped(to: bounds)
             }
             picture = picture.transformed(by: flipCanvas.concatenating(layer.placement.placement(at: seconds)).concatenating(flipCanvas))
+            if let reveal = layer.reveal {
+                let shown = bounds.width * min(1, max(0, (seconds - reveal.start) / reveal.duration))
+                picture = picture.cropped(to: CGRect(x: reveal.fromLeft ? 0 : bounds.width - shown, y: 0, width: shown, height: bounds.height))
+            }
             if !layer.isNeutral {
                 picture = picture.applyingFilter("CIColorControls", parameters: [
                     kCIInputBrightnessKey: layer.brightness, kCIInputContrastKey: layer.contrast,

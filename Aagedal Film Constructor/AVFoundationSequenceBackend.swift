@@ -287,6 +287,14 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     layer.setTransformRamp(fromStart: placement.transform(at: a), toEnd: placement.transform(at: b),
                                            timeRange: CMTimeRange(start: rampTime(a), end: rampTime(b)))
                 }
+                if let reveal = component.reveal {
+                    // Wipe: the crop (in the source's own coordinates) widens from one edge.
+                    let start = rampTime(reveal.start.seconds), finish = rampTime(try reveal.start.adding(reveal.duration).seconds)
+                    let hidden = CGRect(x: reveal.fromLeft ? 0 : size.width, y: 0, width: 0, height: size.height)
+                    layer.setCropRectangle(hidden, at: .zero)
+                    layer.setCropRectangleRamp(fromStartCropRectangle: hidden, toEndCropRectangle: CGRect(origin: .zero, size: size),
+                                               timeRange: CMTimeRange(start: start, end: finish))
+                }
                 try applyOpacityFades(component, to: layer)
                 layers[componentIndex] = layer
                 placements[componentIndex] = (track.trackID, placement)
@@ -382,7 +390,8 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                             return .init(trackID: placement.track, placement: placement.placement,
                                          opacity: Self.opacityCurve(component), brightness: component.color.brightness,
                                          contrast: component.color.contrast, saturation: component.color.saturation,
-                                         blur: component.color.blur * Double(plan.settings.height))
+                                         blur: component.color.blur * Double(plan.settings.height),
+                                         reveal: component.reveal.map { ($0.start.seconds, $0.duration.seconds, $0.fromLeft) })
                         }, canvas: canvas)
                 }
             }

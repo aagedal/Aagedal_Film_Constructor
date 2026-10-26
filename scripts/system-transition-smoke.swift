@@ -285,6 +285,36 @@ import EditorCore
         await pushBackend.close()
         print("PASS push transition preview matches export")
 
+        // A wipe from the left, through the system compositor and (with colour) the CoreImage one.
+        var wipeEngine = try TimelineEditEngine(project: base)
+        try wipeEngine.apply(.setAudioCrossfade(outgoingClipID: a.id, incomingClipID: b.id, duration: RationalTime(1), curve: .linear, style: .wipeRight))
+        var wipeColour = wipeEngine.project
+        wipeColour.tracks[0].clips[wipeColour.tracks[0].clips.firstIndex { $0.id == a.id }!].color = ColorAdjustment(brightness: 0.01)
+        for (name, wiped) in [("system", wipeEngine.project), ("coreimage", wipeColour)] {
+            let wipeOutput = directory.appendingPathComponent("wipe-\(name).mov")
+            _ = try run(ffmpeg, try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: wiped), outputURL: wipeOutput).arguments)
+            let wipeBackend = try AVFoundationSequenceBackend(project: wiped, videoProxies: [:])
+            wipeBackend.display = { displayed, _ in image = displayed }
+            func blueShare(_ row: [(Int, Int, Int)]) -> Double { Double(row.filter { $0.2 > 128 && $0.0 < 128 }.count) / Double(row.count) }
+            for frame in [30, 36, 42] {
+                let data = try run(ffmpeg, ["-hide_banner", "-i", wipeOutput.path, "-vf", "select=eq(n\\,\(frame)),crop=80:1:0:24",
+                                            "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
+                let exported = blueShare(stride(from: 0, to: data.count, by: 3).map { (Int(data[$0]), Int(data[$0 + 1]), Int(data[$0 + 2])) })
+                try await wipeBackend.seek(toFrame: Int64(frame))
+                var bytes = [UInt8](repeating: 0, count: 80 * 4)
+                bytes.withUnsafeMutableBytes { pointer in
+                    let context = CGContext(data: pointer.baseAddress, width: 80, height: 1, bitsPerComponent: 8, bytesPerRow: 80 * 4,
+                        space: image!.colorSpace ?? CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                    context.draw(image!, in: CGRect(x: 0, y: -23, width: image!.width, height: image!.height))
+                }
+                let previewed = blueShare(stride(from: 0, to: bytes.count, by: 4).map { (Int(bytes[$0]), Int(bytes[$0 + 1]), Int(bytes[$0 + 2])) })
+                print("wipe \(name) frame \(frame): blue share export \(exported) preview \(previewed)")
+                try require(abs(exported - previewed) < 0.05, "Wipe preview differs at \(frame)")
+            }
+            await wipeBackend.close()
+        }
+        print("PASS wipe transition preview matches export")
+
         // Volume keyframes: full level until source 1 s, then down to a quarter by source 2 s.
         let tone = directory.appendingPathComponent("tone.mov")
         _ = try run(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000:duration=4",

@@ -229,6 +229,18 @@ public enum FFmpegRenderCompiler {
                     if t.opacity != 1 { arrangement += ",lut=a='val*\(t.opacity)'" }
                 }
                 graph.append("\(source)\(timing),\(geometry)\(arrangement)\(fades)[v\(index)]")
+                var layerLabel = "v\(index)"
+                if let reveal = component.reveal {
+                    // A white bar slides over black across the wipe; its luma becomes the picture's alpha.
+                    let progress = "clip((t-\(reveal.start.seconds))/\(reveal.duration.seconds),0,1)"
+                    let x = reveal.fromLeft ? "-main_w+main_w*\(progress)" : "main_w-main_w*\(progress)"
+                    let frames = "r=\(rate),trim=end_frame=\(count),setpts=PTS-STARTPTS+\(placement)"
+                    graph.append("color=c=black:s=\(w)x\(h):\(frames)[mb\(index)]")
+                    graph.append("color=c=white:s=\(w)x\(h):\(frames)[mw\(index)]")
+                    graph.append("[mb\(index)][mw\(index)]overlay=x='\(x)':eval=frame,format=gray[m\(index)]")
+                    graph.append("[v\(index)][m\(index)]alphamerge[vr\(index)]")
+                    layerLabel = "vr\(index)"
+                }
                 // Explicit half-open visibility also prevents framesync holding a layer past its cut.
                 let visibleEnd = try RationalTime(placement).adding(RationalTime(count)).numerator
                 let enabled = "gte(n,\(placement))*lt(n,\(visibleEnd))"
@@ -237,7 +249,7 @@ public enum FFmpegRenderCompiler {
                 let offsetY = component.transformKeyframes.isEmpty ? "\(component.transform.offsetY)" : "(\(animation(component, \.offsetY)))"
                 let position = transformed
                     ? ":x='(main_w-overlay_w)/2+\(offsetX)*main_w':y='(main_h-overlay_h)/2+\(offsetY)*main_h':eval=frame" : ""
-                graph.append("[\(videoLabel)][v\(index)]overlay=eof_action=repeat:repeatlast=1:format=yuv444\(position):enable='\(enabled)'[layer\(index)]")
+                graph.append("[\(videoLabel)][\(layerLabel)]overlay=eof_action=repeat:repeatlast=1:format=yuv444\(position):enable='\(enabled)'[layer\(index)]")
                 videoLabel = "layer\(index)"
             case .audio(let selection):
                 try selection.layout.validate()

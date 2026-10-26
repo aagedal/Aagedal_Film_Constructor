@@ -62,6 +62,10 @@ express it.
   plan turns it into keyframes on the incoming (and, for pushes, outgoing) picture, so
   export and both preview compositors animate it. Decoded export and preview agree on
   the picture split at 25%, 50% and 75% of a push.
+- [x] Wipes: the incoming picture carries a reveal; export builds a sliding white-on-black
+  mask and `alphamerge`s it, the system preview ramps the layer crop rectangle and the
+  CoreImage compositor crops the placed picture. Export and both previews agree exactly
+  at 25%, 50% and 75%.
 - [x] Clip speed (10–1000%): `sourceRange.duration` stays timeline time and the clip plays
   `duration × speed` of source; splits, trims, overwrite, transition handles, volume
   keyframes and thumbnails map through the speed. Export retimes picture in a fine

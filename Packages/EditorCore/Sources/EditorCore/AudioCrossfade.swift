@@ -22,7 +22,7 @@ public struct AudioCrossfade: Identifiable, Equatable, Codable, Sendable {
 /// Picture transitions. Slides move the incoming picture in over the outgoing one; pushes
 /// also move the outgoing picture out. Both need full-frame pictures without their own transform.
 public enum TransitionStyle: String, Codable, CaseIterable, Sendable {
-    case dissolve, slideFromRight, slideFromLeft, pushLeft, pushRight
+    case dissolve, slideFromRight, slideFromLeft, pushLeft, pushRight, wipeRight, wipeLeft
     public var displayName: String {
         switch self {
         case .dissolve: "Cross dissolve"
@@ -30,8 +30,11 @@ public enum TransitionStyle: String, Codable, CaseIterable, Sendable {
         case .slideFromLeft: "Slide in from left"
         case .pushLeft: "Push left"
         case .pushRight: "Push right"
+        case .wipeRight: "Wipe left to right"
+        case .wipeLeft: "Wipe right to left"
         }
     }
+    var isWipe: Bool { self == .wipeRight || self == .wipeLeft }
     /// Horizontal start offset of the incoming picture and end offset of the outgoing one.
     var incomingFrom: Double { self == .slideFromLeft || self == .pushRight ? -1 : 1 }
     var outgoingTo: Double? { self == .pushLeft ? -1 : self == .pushRight ? 1 : nil }
