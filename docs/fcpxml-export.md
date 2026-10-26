@@ -28,8 +28,10 @@ keyframes are written as Final Cut adjustments: `adjust-volume` (dB, with `fadeI
 height with y up, uniform scale, keyframed `position` and `scale` params) and
 `adjust-blend` (opacity, with fades and opacity keyframes). Keyframe times are in the
 clip's source time. Equal-power fades are written as ease fades. These elements validate
-against Apple's FCPXML 1.10 DTD (bundled with Final Cut Pro); how Final Cut Pro and
-Resolve interpret them has not yet been checked by importing.
+against Apple's FCPXML 1.10 DTD (bundled with Final Cut Pro). A first import into Final
+Cut Pro (2026-10-26) imported the file but ignored every keyframed param because the
+keyframes carried `interp`; keyframes now carry only `curve="linear"`. Re-import of the
+corrected file and Resolve's interpretation are still to be checked.
 
 ## Validation and remaining qualification
 

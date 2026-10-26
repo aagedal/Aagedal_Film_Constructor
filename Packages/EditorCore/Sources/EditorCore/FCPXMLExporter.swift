@@ -175,13 +175,14 @@ public enum FCPXMLExporter {
         return result
     }
     /// A param element with optional fades and linear keyframes (times in the clip's source time).
+    /// Final Cut Pro ignores a param whose keyframes carry `interp`, so only `curve` is written.
     private static func param(_ name: String, fades: [String], keyframes: [(RationalTime, String)], origin: RationalTime) throws -> [String] {
         guard !fades.isEmpty || !keyframes.isEmpty else { return [] }
         var lines = ["                  <param name=\"\(name)\">"] + fades.map { "                    \($0)" }
         if !keyframes.isEmpty {
             lines.append("                    <keyframeAnimation>")
             for (at, value) in keyframes {
-                lines.append("                      <keyframe time=\"\(time(try at.adding(origin)))\" value=\"\(value)\" interp=\"linear\" curve=\"linear\"/>")
+                lines.append("                      <keyframe time=\"\(time(try at.adding(origin)))\" value=\"\(value)\" curve=\"linear\"/>")
             }
             lines.append("                    </keyframeAnimation>")
         }
@@ -195,8 +196,9 @@ public enum FCPXMLExporter {
         var lines: [String] = []
         if !t.isIdentity || !keys.isEmpty {
             let first = keys.first.map { (s: $0.scale, x: $0.offsetX, y: $0.offsetY) } ?? (s: t.scale, x: t.offsetX, y: t.offsetY)
-            let inner = (try? param("position", fades: [], keyframes: keys.map { ($0.time, position($0.offsetX, $0.offsetY)) }, origin: origin)) ?? []
-                + ((try? param("scale", fades: [], keyframes: keys.map { ($0.time, "\(decimal($0.scale)) \(decimal($0.scale))") }, origin: origin)) ?? [])
+            let positions = (try? param("position", fades: [], keyframes: keys.map { ($0.time, position($0.offsetX, $0.offsetY)) }, origin: origin)) ?? []
+            let scales = (try? param("scale", fades: [], keyframes: keys.map { ($0.time, "\(decimal($0.scale)) \(decimal($0.scale))") }, origin: origin)) ?? []
+            let inner = positions + scales
             let open = "                <adjust-transform position=\"\(position(first.x, first.y))\" scale=\"\(decimal(first.s)) \(decimal(first.s))\""
             lines += inner.isEmpty ? [open + "/>"] : [open + ">"] + inner.map { String($0.dropFirst(2)) } + ["                </adjust-transform>"]
         }

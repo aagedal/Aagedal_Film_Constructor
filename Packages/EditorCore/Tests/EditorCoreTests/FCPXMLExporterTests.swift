@@ -133,6 +133,8 @@ final class FCPXMLExporterTests: XCTestCase {
         XCTAssertTrue(xml.contains("value=\"-18.0618dB\""))
         XCTAssertTrue(xml.contains("<adjust-transform position=\"44.4444 -25\" scale=\"0.5 0.5\">"), "Position in percent of frame height, y up")
         XCTAssertTrue(xml.contains("<param name=\"position\">"))
+        XCTAssertTrue(xml.contains("<param name=\"scale\">"), "Scale keyframes are written alongside position")
+        XCTAssertFalse(xml.contains("interp="), "Final Cut Pro ignores keyframed params that carry interp")
         XCTAssertTrue(xml.contains("<adjust-blend amount=\"0.8\">"))
         XCTAssertTrue(xml.contains("<fadeOut type=\"linear\" duration=\"1/2s\"/>"))
         var audio = try DemoProjectFactory.musicCollision()
