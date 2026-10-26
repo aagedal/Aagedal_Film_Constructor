@@ -269,8 +269,8 @@ public enum FFmpegRenderCompiler {
             case .audio(let selection):
                 try selection.layout.validate()
                 guard selection.channels.count == selection.layout.channels.count else { throw EditorCoreError.invalidModel("Incomplete audio selection") }
-                let routing = component.routing.outputChannels.isEmpty ? Array(selection.channels.indices) : component.routing.outputChannels
-                guard routing.count == selection.channels.count, routing.allSatisfy({ settings.audioLayout.channels.indices.contains($0) }),
+                let routing = component.routing.outputs(inputCount: selection.channels.count)
+                guard component.routing.fits(inputCount: selection.channels.count, outputCount: settings.audioLayout.channels.count),
                       !component.routing.outputChannels.isEmpty || selection.layout == settings.audioLayout else {
                     throw EditorCoreError.invalidModel("Invalid audio output map")
                 }
@@ -305,7 +305,7 @@ public enum FFmpegRenderCompiler {
                     let offsetSamples = Int64((Double(shift.numerator) / Double(shift.denominator)).rounded())
                     let pad = offsetSamples > 0 ? "adelay=\(offsetSamples)S:all=1," : ""
                     let skip = max(0, -offsetSamples)
-                    let map = settings.audioLayout.channels.indices.map { "c\($0)=\($0 == routing[channel] ? "c\(sourceChannel.channelIndex)" : "0*c\(sourceChannel.channelIndex)")" }.joined(separator: "|")
+                    let map = settings.audioLayout.channels.indices.map { "c\($0)=\(routing[channel].contains($0) ? "c\(sourceChannel.channelIndex)" : "0*c\(sourceChannel.channelIndex)")" }.joined(separator: "|")
                     let label = "a\(index)c\(channel)"
                     graph.append("\(source)aresample=\(settings.audioSampleRate),\(pad)atrim=start_sample=\(start + skip):end_sample=\(sourceEnd + skip),asetpts=PTS-STARTPTS,\(tempo)\(equaliser)pan=\(layout)|\(map),aformat=sample_fmts=flt,volume=\(component.gain):precision=float\(envelope)\(dynamics),adelay=\(delay)S:all=1[\(label)]")
                     audioLabels.append(label)

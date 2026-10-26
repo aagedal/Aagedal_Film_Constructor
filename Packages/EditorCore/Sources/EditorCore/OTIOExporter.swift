@@ -77,7 +77,7 @@ public enum OTIOExporter {
                     if layout != settings.audioLayout { reasons.append("\(label): source audio layout must match the sequence layout.") }
                     if stream.timeOffset != .zero { reasons.append("\(label): source stream offsets are not supported.") }
                 } else { reasons.append("\(label): exactly one complete audio stream is required.") }
-                if !component.routing.outputChannels.isEmpty && component.routing.outputChannels != Array(selection.channels.indices) {
+                if !component.routing.isDefaultPlacement(of: selection.layout, in: plan.settings.audioLayout) {
                     reasons.append("\(label): nonidentity output channel routing is not supported.")
                 }
             }

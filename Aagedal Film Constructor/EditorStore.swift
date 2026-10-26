@@ -25,6 +25,9 @@ final class EditorStore: ObservableObject {
     @Published var showProxyQueue = false
     @Published var showSequenceMonitor = false
     @Published var selectedMediaBinID: UUID?
+    /// What the inspector shows: the last clicked clip, sequence or bin media.
+    enum InspectorFocus { case clip, sequence, asset }
+    @Published var inspectorFocus = InspectorFocus.clip
     @Published var selectedAssetIDs: Set<UUID> = []
     @Published var proxyCreationDraft: ProxyCreationDraft?
     @Published var playbackRepresentation: PlaybackRepresentation = .original
@@ -108,6 +111,7 @@ final class EditorStore: ObservableObject {
         isImporting = false
         undoHistory = []; redoHistory = []
         selectedMediaBinID = nil
+        inspectorFocus = .clip
         sourceRanges = [:]
         selectedAssetIDs = []; selectedAssetID = nil; selectedClipID = nil; playheadSeconds = 0
         previewImage = nil
@@ -355,6 +359,55 @@ final class EditorStore: ObservableObject {
         } catch { report(error) }
     }
 
+    var visibleBinSequences: [Project.SequenceSummary] {
+        project.sequenceSummaries.filter { $0.binID == selectedMediaBinID }
+    }
+
+    /// Opens a sequence on the timeline and shows its settings in the inspector.
+    func selectSequence(_ id: UUID) {
+        if id != project.sequenceID {
+            do { try change { try $0.openSequence(id: id) } } catch { report(error); return }
+            sequenceOpened()
+        }
+        selectedAssetIDs = []
+        inspectorFocus = .sequence
+        focusSequenceViewer()
+    }
+
+    /// A new, empty sequence with the open one's settings, in the selected bin.
+    func createSequence() {
+        do {
+            try change { try $0.createSequence(name: $0.nextSequenceName, settings: $0.settings, binID: selectedMediaBinID) }
+            sequenceOpened()
+            selectedAssetIDs = []
+            inspectorFocus = .sequence
+            focusSequenceViewer()
+            statusMessage = "Created \(project.sequenceName). Set its format in the inspector."
+        } catch { report(error) }
+    }
+
+    func renameSequence(_ id: UUID, name: String) {
+        do { try change { try $0.renameSequence(id: id, name: name) } } catch { report(error) }
+    }
+
+    func removeSequence(_ id: UUID) {
+        let wasOpen = id == project.sequenceID
+        do {
+            try change { try $0.removeSequence(id: id) }
+            if wasOpen { sequenceOpened() }
+        } catch { report(error) }
+    }
+
+    func moveSequences(_ ids: Set<UUID>, to binID: UUID?) {
+        do { try change { try $0.moveSequences(ids, toMediaBin: binID) } } catch { report(error) }
+    }
+
+    private func sequenceOpened() {
+        sequencePlayback?.pause()
+        selectedClipID = nil
+        playheadSeconds = 0
+    }
+
     func moveBinAssets(_ ids: Set<UUID>, to binID: UUID?) {
         do {
             try change { try $0.moveAssets(ids, toMediaBin: binID) }
@@ -367,10 +420,12 @@ final class EditorStore: ObservableObject {
     func toggleViewer() { showSequenceMonitor.toggle() }
     func selectTimelineClip(_ id: UUID) {
         focusSequenceViewer()
+        inspectorFocus = .clip
         if selectedClipID != id { selectedClipID = id }
     }
 
     func selectAsset(_ id: UUID) {
+        inspectorFocus = .asset
         selectedMediaBinID = project.assetBinAssignments[id]
         selectedAssetID = id
         selectedAssetIDs = [id]
@@ -379,6 +434,7 @@ final class EditorStore: ObservableObject {
 
     func selectAssets(_ ids: Set<UUID>) {
         let added = ids.subtracting(selectedAssetIDs)
+        if !ids.isEmpty { inspectorFocus = .asset }
         selectedAssetIDs = ids
         if let id = project.assets.first(where: { added.contains($0.id) })?.id ?? selectedAssetID.flatMap({ ids.contains($0) ? $0 : nil }) ?? project.assets.first(where: { ids.contains($0.id) })?.id {
             if id != selectedAssetID { selectedAssetID = id; refreshSourcePreview() }
@@ -797,6 +853,108 @@ final class EditorStore: ObservableObject {
             }
         } catch { report(error) }
     }
+    // MARK: Retime and frame-rate interpretation
+
+    /// ⌘R: the selected clip and its linked components show speed controls, and their end
+    /// handle changes speed instead of trimming.
+    @Published var retimeMode = false
+    func toggleRetimeMode() {
+        retimeMode.toggle()
+        statusMessage = retimeMode ? "Retime: drag the selected clip's end handle to change its speed, or pick a speed on the clip. ⌘R to finish." : "Retime controls hidden."
+    }
+
+    /// Timeline length units for a speed change: frames when picture is linked, else samples.
+    private func retimeGrid(for clip: TimelineClip) -> Double {
+        TimelineGesture.components(of: clip, in: project).contains { $0.requiredTrackKind == .video }
+            ? project.settings.frameRate.value.seconds : Double(project.settings.audioSampleRate)
+    }
+
+    /// A drag of the end handle by `delta` seconds, kept to whole units and to 10–1000% speed.
+    func proposedRetimeDelta(clip: TimelineClip, delta: Double) -> Double {
+        guard let extent = try? clip.sourceExtent().seconds, delta.isFinite else { return 0 }
+        let grid = retimeGrid(for: clip), duration = clip.sourceRange.duration.seconds
+        let shortest = ceil(extent / 10 * grid) / grid, longest = floor(extent / 0.1 * grid) / grid
+        let proposed = min(longest, max(shortest, ((duration + delta) * grid).rounded() / grid))
+        return proposed - duration
+    }
+
+    /// Lengthens or shortens the selected clip by changing its speed; it keeps its source in and the media it plays.
+    func retimeSelectedClip(durationDelta: Double) {
+        guard let clip = selectedClip, let extent = try? clip.sourceExtent().seconds else { return }
+        let duration = clip.sourceRange.duration.seconds + proposedRetimeDelta(clip: clip, delta: durationDelta)
+        guard duration > 0 else { return }
+        setSelectedClipSpeed(percent: String(format: "%.2f", min(1000, max(10, extent / duration * 100))))
+    }
+
+    /// Conform: play a clip recorded at one frame rate at another, frame for frame (120 fps
+    /// shot at 24 fps plays every frame at 20% speed). Linked sound slows with it, keeping pitch.
+    func interpretSelectedClip(recorded recordedText: String, playAt playText: String) {
+        guard let clip = selectedClip else { return }
+        do {
+            let recorded = try FrameRate(parsing: recordedText), play = try FrameRate(parsing: playText)
+            let speed = try play.value.divided(by: recorded.value)
+            guard try speed.compared(to: RationalTime(1, 10)) != .orderedAscending, try speed.compared(to: RationalTime(10)) != .orderedDescending else {
+                errorMessage = "Playing \(recorded.editableText) fps material at \(play.editableText) fps needs \(String(format: "%g", speed.seconds * 100))% speed; speeds from 10% to 1000% are supported."
+                return
+            }
+            edit(.setSpeed(clipID: clip.id, speed: speed))
+            if errorMessage == nil {
+                statusMessage = "Playing \(recorded.editableText) fps at \(play.editableText) fps (\(String(format: "%g", speed.seconds * 100))% speed)."
+            }
+        } catch { errorMessage = "Enter frame rates such as 120, 59.94 or 24000/1001." }
+    }
+
+    // MARK: Audio configuration
+
+    /// Sound components linked to the selected clip (or the selected sound itself).
+    var selectedAudioComponents: [TimelineClip] {
+        guard let clip = selectedClip else { return [] }
+        return TimelineGesture.components(of: clip, in: project).filter { $0.requiredTrackKind == .audio }
+    }
+
+    /// Replaces the selected clip's linked sound with these components on matching tracks.
+    func configureSelectedAudio(_ plans: [AudioComponentPlan]) {
+        guard let clip = selectedClip else { return }
+        let picture = TimelineGesture.components(of: clip, in: project).first { $0.requiredTrackKind == .video }
+        guard !plans.isEmpty || picture != nil else {
+            errorMessage = "Keep at least one audio component, or delete the clip."
+            return
+        }
+        edit(.configureAudio(clipID: picture?.id ?? clip.id, selections: plans.map(\.selection), routing: plans.map(\.routing)))
+        if selectedClip == nil {
+            // The selected sound was replaced: select its picture, or the first new component.
+            selectedClipID = picture?.id ?? project.tracks.flatMap(\.clips).first {
+                $0.assetID == clip.assetID && $0.timelineStart == clip.timelineStart && $0.requiredTrackKind == .audio
+            }?.id
+        }
+    }
+
+    /// Sets how new placements of this media split their sound, and reconfigures every use
+    /// of it in the open sequence the same way.
+    func setDefaultAudioConfiguration(_ configuration: AudioConfiguration, assetID: UUID) {
+        guard let index = project.assets.firstIndex(where: { $0.id == assetID }) else { return }
+        let plans = project.assets[index].audioComponents(configuration, sequence: project.settings.audioLayout)
+        guard !plans.isEmpty else { return }
+        do {
+            var count = 0
+            try change { project in
+                project.assets[index].audioConfiguration = configuration
+                var handled: Set<UUID> = []
+                for clip in project.tracks.flatMap(\.clips) where clip.assetID == assetID && clip.selection != .still {
+                    let key = clip.linkGroupID ?? clip.id
+                    guard handled.insert(key).inserted else { continue }
+                    let representative = TimelineGesture.components(of: clip, in: project).first { $0.requiredTrackKind == .video } ?? clip
+                    var engine = try TimelineEditEngine(project: project)
+                    try engine.apply(.configureAudio(clipID: representative.id, selections: plans.map(\.selection), routing: plans.map(\.routing)))
+                    project = engine.project
+                    count += 1
+                }
+            }
+            if selectedClip == nil { selectedClipID = nil }
+            statusMessage = "\(configuration.displayName) is now the default for this media" + (count > 0 ? "; updated \(count) clip\(count == 1 ? "" : "s") in this sequence." : ".")
+        } catch { report(error) }
+    }
+
     /// Keyframes the selected picture's scale and position (percent) at the playhead.
     func addTransformKeyframeAtPlayhead(scale: String, x: String, y: String, opacity: String = "100") {
         guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
@@ -1033,9 +1191,28 @@ final class EditorStore: ObservableObject {
             seek(to: edge == .leading ? clip.timelineStart.seconds : at.seconds)
         } catch { report(error) }
     }
-    func moveSelectedClip(to seconds: Double) {
-        guard let id = selectedClipID, let track = project.tracks.first(where: { $0.clips.contains { $0.id == id } }) else { return }
-        do { edit(.move(clipID: id, trackID: track.id, start: try editTime(max(0, seconds)))) } catch { report(error) }
+    func moveSelectedClip(to seconds: Double) { moveSelectedClip(to: seconds, rowOffset: 0) }
+    /// Moves the selected clip in time and by `rowOffset` track rows; linked components keep
+    /// their tracks. One row past the first or last track makes a new track of the clip's family there.
+    func moveSelectedClip(to seconds: Double, rowOffset: Int) {
+        guard let id = selectedClipID, let current = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == id } }) else { return }
+        do {
+            let start = try editTime(max(0, seconds))
+            try change { project in
+                let target = current + rowOffset
+                let trackID: UUID
+                if project.tracks.indices.contains(target) { trackID = project.tracks[target].id }
+                else {
+                    let source = project.tracks[current]
+                    let track = TimelineTrack(familyID: source.familyID, template: source.template)
+                    project.tracks.insert(track, at: target < 0 ? 0 : project.tracks.count)
+                    trackID = track.id
+                }
+                var engine = try TimelineEditEngine(project: project)
+                try engine.apply(.move(clipID: id, trackID: trackID, start: start))
+                project = engine.project
+            }
+        } catch { report(error) }
     }
     private func gestureQuantum(for clip: TimelineClip, alone: Bool = false) -> Double {
         TimelineGesture.components(of: clip, in: project, alone: alone).contains { $0.requiredTrackKind == .video }

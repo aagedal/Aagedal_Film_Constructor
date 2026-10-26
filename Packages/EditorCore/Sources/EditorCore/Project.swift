@@ -11,8 +11,17 @@ public struct Project: Equatable, Codable, Sendable {
     public var tracks: [TimelineTrack]
     public var audioCrossfades: [AudioCrossfade]
     public var preferences: EditorPreferences
-    public init(settings: SequenceSettings, assets: [MediaAsset] = [], families: [TrackFamily] = [], tracks: [TimelineTrack] = [], preferences: EditorPreferences = .init(), audioCrossfades: [AudioCrossfade] = [], mediaBins: [MediaBin] = [], assetBinAssignments: [UUID: UUID] = [:]) {
+    /// The open sequence is `settings`, `families`, `tracks` and `audioCrossfades`; the
+    /// project's other sequences are stored whole and swapped in when opened.
+    public var sequenceID: UUID
+    public var sequenceName: String
+    public var storedSequences: [StoredSequence]
+    /// Sequences without an assignment live at the root of the media browser.
+    public var sequenceBinAssignments: [UUID: UUID]
+    public init(settings: SequenceSettings, assets: [MediaAsset] = [], families: [TrackFamily] = [], tracks: [TimelineTrack] = [], preferences: EditorPreferences = .init(), audioCrossfades: [AudioCrossfade] = [], mediaBins: [MediaBin] = [], assetBinAssignments: [UUID: UUID] = [:],
+                sequenceID: UUID = Project.defaultSequenceID, sequenceName: String = Project.defaultSequenceName, storedSequences: [StoredSequence] = [], sequenceBinAssignments: [UUID: UUID] = [:]) {
         self.mediaBins = mediaBins; self.assetBinAssignments = assetBinAssignments
+        self.sequenceID = sequenceID; self.sequenceName = sequenceName; self.storedSequences = storedSequences; self.sequenceBinAssignments = sequenceBinAssignments
         self.settings = settings; self.assets = assets; self.families = families; self.tracks = tracks; self.preferences = preferences; self.audioCrossfades = audioCrossfades
     }
     /// Validate at document decoding/edit commit boundaries; mutable value models can represent an in-progress edit.
@@ -25,6 +34,7 @@ public struct Project: Equatable, Codable, Sendable {
         let assetsByID = Dictionary(uniqueKeysWithValues: assets.map { ($0.id, $0) })
         let familiesByID = Dictionary(uniqueKeysWithValues: families.map { ($0.id, $0) })
         try validateMediaBins()
+        try validateSequences()
         try validateAudioCrossfades()
         for asset in assets {
             guard asset.duration.numerator > 0, Set(asset.streams.map(\.index)).count == asset.streams.count else { throw EditorCoreError.invalidModel("Invalid asset duration or stream identities") }
@@ -116,15 +126,19 @@ public struct Project: Equatable, Codable, Sendable {
         if template.kind == .video {
             guard template.routing.outputChannels.isEmpty else { throw EditorCoreError.invalidModel("Video track has audio routing") }
         } else if !template.routing.outputChannels.isEmpty {
-            guard template.routing.outputChannels.count == template.audioLayout?.channels.count, template.routing.outputChannels.allSatisfy({ $0 >= 0 && $0 < settings.audioLayout.channels.count }) else { throw EditorCoreError.invalidModel("Invalid output channel map") }
+            guard template.routing.fits(inputCount: template.audioLayout?.channels.count ?? 0, outputCount: settings.audioLayout.channels.count) else { throw EditorCoreError.invalidModel("Invalid output channel map") }
         } else {
             guard template.audioLayout == settings.audioLayout else { throw EditorCoreError.invalidModel("An explicit output map is required for differing layouts") }
         }
     }
-    private enum CodingKeys: String, CodingKey { case settings, assets, families, tracks, preferences, audioCrossfades, mediaBins, assetBinAssignments }
+    private enum CodingKeys: String, CodingKey { case settings, assets, families, tracks, preferences, audioCrossfades, mediaBins, assetBinAssignments, sequenceID, sequenceName, storedSequences, sequenceBinAssignments }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.init(settings: try c.decode(SequenceSettings.self, forKey: .settings), assets: try c.decode([MediaAsset].self, forKey: .assets), families: try c.decode([TrackFamily].self, forKey: .families), tracks: try c.decode([TimelineTrack].self, forKey: .tracks), preferences: try c.decode(EditorPreferences.self, forKey: .preferences), audioCrossfades: try c.decodeIfPresent([AudioCrossfade].self, forKey: .audioCrossfades) ?? [], mediaBins: try c.decodeIfPresent([MediaBin].self, forKey: .mediaBins) ?? [], assetBinAssignments: try c.decodeIfPresent([UUID: UUID].self, forKey: .assetBinAssignments) ?? [:])
+        self.init(settings: try c.decode(SequenceSettings.self, forKey: .settings), assets: try c.decode([MediaAsset].self, forKey: .assets), families: try c.decode([TrackFamily].self, forKey: .families), tracks: try c.decode([TimelineTrack].self, forKey: .tracks), preferences: try c.decode(EditorPreferences.self, forKey: .preferences), audioCrossfades: try c.decodeIfPresent([AudioCrossfade].self, forKey: .audioCrossfades) ?? [], mediaBins: try c.decodeIfPresent([MediaBin].self, forKey: .mediaBins) ?? [], assetBinAssignments: try c.decodeIfPresent([UUID: UUID].self, forKey: .assetBinAssignments) ?? [:],
+                  sequenceID: try c.decodeIfPresent(UUID.self, forKey: .sequenceID) ?? Self.defaultSequenceID,
+                  sequenceName: try c.decodeIfPresent(String.self, forKey: .sequenceName) ?? Self.defaultSequenceName,
+                  storedSequences: try c.decodeIfPresent([StoredSequence].self, forKey: .storedSequences) ?? [],
+                  sequenceBinAssignments: try c.decodeIfPresent([UUID: UUID].self, forKey: .sequenceBinAssignments) ?? [:])
         try validate()
     }
 }

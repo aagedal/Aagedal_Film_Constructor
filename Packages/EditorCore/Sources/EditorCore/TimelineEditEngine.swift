@@ -17,6 +17,11 @@ public enum EditCommand: Sendable {
     /// across every track. Unrelated clips intersecting that interval reject the edit.
     case rippleTrim(clipID: UUID, edge: TimelineTrimEdge, at: RationalTime)
     case delete(clipID: UUID)
+    /// Replace every audio component linked to the clip (picture or sound) with these
+    /// components. A component whose selection already exists keeps its clip and settings;
+    /// new ones copy the first existing sound component, or start plain beside a picture.
+    /// Each lands on a track of its own layout and routing, created as needed.
+    case configureAudio(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting])
     /// Change only the selected audio component, preserving linked components.
     case setAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, duration: RationalTime, curve: AudioFadeCurve = .equalPower, style: TransitionStyle? = nil)
     case removeAudioCrossfade(crossfadeID: UUID)
@@ -248,8 +253,7 @@ public struct TimelineEditEngine: Sendable {
             if route.outputChannels.isEmpty {
                 guard selection.layout == project.settings.audioLayout else { throw TimelineEditError.incompatibleAudioRouting }
             } else {
-                guard route.outputChannels.count == selection.channels.count,
-                      route.outputChannels.allSatisfy({ $0 >= 0 && $0 < project.settings.audioLayout.channels.count }) else {
+                guard route.fits(inputCount: selection.channels.count, outputCount: project.settings.audioLayout.channels.count) else {
                     throw TimelineEditError.incompatibleAudioRouting
                 }
             }
@@ -286,6 +290,81 @@ public struct TimelineEditEngine: Sendable {
             }
         }
         return ids
+    }
+
+    private static func configureAudio(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], in project: inout Project) throws {
+        guard selections.count == routing.count else { throw TimelineEditError.invalidAudioSelection }
+        let components = try linked(to: clipID, in: project)
+        let sounds = components.filter { $0.clip.requiredTrackKind == .audio }
+        guard let base = sounds.first ?? components.first,
+              let asset = project.assets.first(where: { $0.id == base.clip.assetID }) else { throw TimelineEditError.missingClip }
+        guard base.clip.selection != .still else { throw TimelineEditError.invalidAudioSelection }
+        let outputs = project.settings.audioLayout.channels.count
+        for (selection, route) in zip(selections, routing) {
+            try selection.layout.validate()
+            guard selection.channels.count == selection.layout.channels.count,
+                  selection.channels.allSatisfy({ channel in
+                      asset.streams.contains { $0.index == channel.streamIndex && $0.kind == .audio && ($0.audioLayout?.channels.indices.contains(channel.channelIndex) ?? false) }
+                  }) else { throw TimelineEditError.invalidAudioSelection }
+            guard route.fits(inputCount: selection.channels.count, outputCount: outputs),
+                  !route.outputChannels.isEmpty || selection.layout == project.settings.audioLayout else {
+                throw TimelineEditError.incompatibleAudioRouting
+            }
+        }
+        let originTrack = sounds.first.flatMap { sound in project.tracks.first { $0.id == sound.trackID } }
+        remove(Set(sounds.map(\.clip.id)), from: &project)
+        let pictures = components.count - sounds.count
+        var group = base.clip.linkGroupID
+        if group == nil && pictures + selections.count > 1 {
+            group = UUID()
+            for component in components where component.clip.requiredTrackKind == .video {
+                for t in project.tracks.indices {
+                    if let c = project.tracks[t].clips.firstIndex(where: { $0.id == component.clip.id }) { project.tracks[t].clips[c].linkGroupID = group }
+                }
+            }
+        }
+        var reused: Set<UUID> = []
+        for (selection, route) in zip(selections, routing) {
+            var clip: TimelineClip
+            if let existing = sounds.first(where: { $0.clip.selection == .audio(selection) && !reused.contains($0.clip.id) })?.clip {
+                clip = existing
+            } else if var first = sounds.first?.clip {
+                first.id = UUID()
+                clip = first
+            } else {
+                clip = TimelineClip(assetID: base.clip.assetID, sourceRange: base.clip.sourceRange, timelineStart: base.clip.timelineStart,
+                                    selection: .audio(selection), linkGroupID: group)
+                clip.speed = base.clip.speed
+            }
+            reused.insert(clip.id)
+            clip.selection = .audio(selection)
+            clip.linkGroupID = group
+            var template = originTrack?.template ?? TrackTemplate(kind: .audio)
+            template.audioLayout = selection.layout
+            template.routing = route
+            let trackID = audioTrack(for: template, preferringFamily: originTrack?.familyID, in: &project)
+            try place(clip, on: trackID, in: &project)
+        }
+    }
+
+    /// A track for this audio template: one in the preferred family, then any family made
+    /// for it, else a new track (in the preferred family, after its last track).
+    private static func audioTrack(for template: TrackTemplate, preferringFamily familyID: UUID?, in project: inout Project) -> UUID {
+        if let familyID, let track = project.tracks.first(where: { $0.familyID == familyID && $0.template == template }) { return track.id }
+        if let family = project.families.first(where: { $0.template == template }),
+           let track = project.tracks.first(where: { $0.familyID == family.id && $0.template == template }) { return track.id }
+        let family: UUID
+        if let familyID, project.families.contains(where: { $0.id == familyID }) { family = familyID }
+        else if let existing = project.families.first(where: { $0.template == template }) { family = existing.id }
+        else {
+            let created = TrackFamily(baseName: "Audio", template: template)
+            project.families.append(created)
+            family = created.id
+        }
+        let track = TimelineTrack(familyID: family, template: template)
+        let insertion = (project.tracks.lastIndex { $0.familyID == family }).map { $0 + 1 } ?? project.tracks.count
+        project.tracks.insert(track, at: insertion)
+        return track.id
     }
 
     private static func perform(_ command: EditCommand, in project: inout Project) throws {
@@ -331,6 +410,8 @@ public struct TimelineEditEngine: Sendable {
                 if try clip.fadeOut.duration.compared(to: clip.sourceRange.duration) == .orderedDescending { clip.fadeOut.duration = clip.sourceRange.duration }
                 try place(clip, on: component.trackID, in: &project)
             }
+        case .configureAudio(let clipID, let selections, let routing):
+            try configureAudio(clipID: clipID, selections: selections, routing: routing, in: &project)
         case .rippleTrim(let clipID, let edge, let at):
             let components = try linked(to: clipID, in: project)
             let selected = components.first { $0.clip.id == clipID }!.clip

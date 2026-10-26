@@ -81,6 +81,9 @@ public extension Project {
         for assetID in assetBinAssignments.keys where assetBinAssignments[assetID] == id {
             candidate.assetBinAssignments[assetID] = bin.parentID
         }
+        for sequenceID in sequenceBinAssignments.keys where sequenceBinAssignments[sequenceID] == id {
+            candidate.sequenceBinAssignments[sequenceID] = bin.parentID
+        }
         try candidate.validate()
         self = candidate
     }

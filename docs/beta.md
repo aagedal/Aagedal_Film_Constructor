@@ -32,8 +32,12 @@ and Gatekeeper assesses it as "Notarized Developer ID".
 3. Select a bin item to view it in the Source monitor. Mark In/Out with I/O and
    press **Append** (⌘E) to add it to the timeline.
 4. Click the timeline to switch the viewer to Sequence. Space plays and pauses;
-   J/K/L also work. Drag clips to move them, drag edges to trim, use ⌘B to split
-   and ⌘⌫ to delete. Linked picture and sound move and trim together while you
+   J/K/L also work (J plays backwards without sound; press it again for 2×, 4× or 8×).
+   Drag clips to move them, also up or down onto another track of the same kind.
+   Dragging a picture above the top track, or sound below the bottom one, makes a
+   new track. Drag edges to trim, use ⌘B to split
+   and ⌫ to ripple delete (⇧⌫ leaves a gap). Right-click a clip for copy, paste, split, speed, scaling,
+   moving to a track and more. Linked picture and sound move and trim together while you
    drag. Option-drag an edge to trim only that clip (for J and L cuts); it stays
    linked, and later trims and moves keep the offset. Undo and redo with ⌘Z and ⇧⌘Z. Every shortcut can be
    remapped in Settings.
@@ -41,11 +45,18 @@ and Gatekeeper assesses it as "Notarized Developer ID".
    playhead: picture cross dissolves and sound crossfades into the next clip on
    the same track, or a free edge fades from or to black and silence. See
    [Transitions](#transitions).
-6. Set the sequence resolution, frame rate, audio rate and start timecode in the
-   inspector. The first picture you add can match the sequence to its source.
-7. Choose **File → Render Sequence…** (⇧⌘E), pick a format, check any warnings,
+6. Select the sequence in the media bin to set its name, resolution, frame rate,
+   audio rate and start timecode in the inspector. The first picture you add can
+   match the sequence to its source. The inspector shows whatever you clicked last:
+   a timeline clip (with **Video** and **Audio** tabs), a sequence or bin media.
+   Clip timing lives on the timeline: drag to move and trim.
+7. A project can hold several sequences. Choose **New sequence** from the bin's
+   folder menu; it starts empty with the open sequence's settings. Click a sequence
+   in the bin to open it on the timeline, and right-click it to rename, move or
+   delete it. Sequences share the project's media.
+8. Choose **File → Render Sequence…** (⇧⌘E), pick a format, check any warnings,
    then choose a folder.
-8. Save with ⌘S. Projects reference your media; they don't copy it.
+9. Save with ⌘S. Projects reference your media; they don't copy it.
 
 [Basic workspace testing](basic-workspace.md) describes every editing control.
 
@@ -57,8 +68,8 @@ and Gatekeeper assesses it as "Notarized Developer ID".
 | , | Insert the source at the playhead, pushing later clips on every track |
 | . | Overwrite the sequence at the playhead on the source's tracks |
 | ⌘B | Split the selected clip at the playhead |
-| ⌘⌫ | Delete the selected clip, leaving a gap |
-| ⇧⌘⌫ | Ripple delete: remove the clip and close the gap on every track |
+| ⇧⌫ | Delete the selected clip, leaving a gap |
+| ⌫ | Ripple delete: remove the clip and close the gap on every track |
 | Q / W | Ripple trim the clip start or end to the playhead |
 | ⌘C ⌘X ⌘V | Copy, cut, and paste at the playhead (clip and linked components) |
 | ⌘D | Duplicate the selected clip after itself |
@@ -110,9 +121,18 @@ inspector lists keyframes to jump to or remove.
 
 ## Speed
 
-Select a clip and enter **Speed (%)** in the inspector (10–1000%), or pick a preset.
-The clip keeps its source in and plays the same media faster or slower, so it gets
-shorter or longer; linked sound changes with it and keeps its pitch. A longer clip
+Select a clip and press ⌘R (**Retime Controls**). The clip and its linked
+components show their speed in an orange bar, and their end handle turns orange:
+drag it out to slow the clip down or in to speed it up (10–1000%). Click the speed
+in the bar for common speeds. Press ⌘R again to hide the controls. The clip keeps
+its source in and plays the same media faster or slower, so it gets shorter or
+longer; linked sound changes with it and keeps its pitch.
+
+For smooth slow motion, interpret the frame rate instead: in the inspector's
+**Video** tab, under **Frame rate**, enter what the clip was **Recorded at** (filled
+in when the importer could verify it; type it for variable-rate phone footage) and
+the rate to **Play at**, then click the tick. 120 fps played at 24 fps shows every
+recorded frame at exactly 20% speed. A longer clip
 never overwrites the next one; it moves to a track above. Interchange exports
 refuse speed changes.
 
@@ -166,8 +186,9 @@ preview and the export run the same filters.
 ## Volume, keyframes, mute and solo
 
 Choose **Panels → Mixer** (or View → Show Mixer) for a mixer beside the inspector:
-each audio track has mute, solo, a gain fader and a meter that shows its post-fader
-peak while the sequence plays.
+each audio track has mute, solo, a gain fader and a meter for each channel it plays
+on (L and R in a stereo sequence) that shows its post-fader peak while the sequence
+plays.
 
 To ride a level (for example ducking music under speech), select the clip, move the
 playhead to where the change starts, enter a volume and click the diamond to add a
@@ -183,6 +204,27 @@ Select a clip and enter **Clip volume (dB)** in the inspector (up to +24 dB; −
 silences it). With a picture selected, the field sets its linked audio. Clip
 volume multiplies the track gain set in the track header. The preview plays gain
 above 0 dB at 0 dB; the export applies it in full.
+
+## Audio configuration
+
+A clip's **Audio** tab starts with **Audio configuration**: how the source's
+channels split into timeline components, as in Final Cut Pro.
+
+- **As recorded**: each audio stream as it is (a stereo stream stays stereo).
+- **Stereo**: the first two channels as one stereo component.
+- **Stereo pairs**: channels 1–2, 3–4 and so on as stereo components.
+- **Multi-mono**: every channel its own mono component, in the centre of the mix.
+- **5.1 surround**: the first six channels as one 5.1 component (5.1 sequences).
+
+The change lands on the timeline at once. Each component gets a track of its own
+layout, so mono components sit on mono tracks, and new tracks are added as needed;
+emptied tracks go away (if **Remove empty tracks** is on). The components stay
+linked to the picture. Turn single components off and on with their switches;
+components you keep keep their volume, EQ and fades. **Custom channels and
+routing…** still picks channels and outputs by hand.
+
+Select media in the bin to set its default **Audio configuration**: new placements
+use it, and every use in the open sequence changes with it.
 
 ## Media support
 
@@ -246,7 +288,7 @@ notice appears under the viewer, but playback continues:
 - AAC and MP3 cut points, fade curves and audio at a different sample rate are
   close approximations. The export is exact.
 - In stereo sequences, gain above 0 dB and custom routing of a stereo stream's
-  channels (swaps, dual mono, one channel to one side) play as exported. Routing
+  channels (swaps, dual mono, one channel to one side, centred mono) play as exported. Routing
   in 5.1 sequences, or of channels from several streams, is silent in preview. It
   is still exported.
 
@@ -258,7 +300,7 @@ notice appears under the viewer, but playback continues:
 - 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed
   on front left/right and mono on centre by default, and the inspector can route
   any channel. The preview plays the system's stereo downmix.
-- Reverse sequence playback is unavailable. J plays the source backwards silently.
+- Reverse playback (J) is silent and steps by seeking, so it can skip frames on long-GOP media.
 - Stream-copy (no re-encode) export is not available in the app yet.
 - Apple Silicon only.
 

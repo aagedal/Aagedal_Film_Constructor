@@ -82,8 +82,7 @@ public enum FCPXMLExporter {
                         reasons.append("\(label): nonzero source stream offsets are not supported."); break
                     }
                 }
-                let identity = Array(0..<selection.channels.count)
-                if !component.routing.outputChannels.isEmpty && component.routing.outputChannels != identity { reasons.append("\(label): nonidentity output channel routing is not supported.") }
+                if !component.routing.isDefaultPlacement(of: selection.layout, in: settings.audioLayout) { reasons.append("\(label): nonidentity output channel routing is not supported.") }
             }
         }
         if try !frameAligned(plan.duration, rate: settings.frameRate) { reasons.append("The sequence end must fall on a sequence frame boundary; export does not round or pad it.") }

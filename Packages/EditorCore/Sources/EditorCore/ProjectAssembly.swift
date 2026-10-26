@@ -17,6 +17,12 @@ public extension Project {
         guard let asset = assets.first(where: { $0.id == assetID }) else {
             throw EditorCoreError.invalidModel("Missing media asset")
         }
+        if let configuration = asset.audioConfiguration {
+            let plan = asset.audioComponents(configuration, sequence: settings.audioLayout)
+            if !plan.isEmpty {
+                return try appendAsset(assetID, at: time, sourceRange: sourceRange, audioSelections: plan.map(\.selection), routing: plan.map(\.routing))
+            }
+        }
         var audioSelections: [AudioSourceSelection] = []
         var routes: [AudioRouting] = []
         if let audio = asset.streams.first(where: { $0.kind == .audio }), let layout = audio.audioLayout,
@@ -74,8 +80,7 @@ public extension Project {
                     throw EditorCoreError.invalidModel("An explicit output map is required for differing layouts")
                 }
             } else {
-                guard route.outputChannels.count == selection.channels.count,
-                      route.outputChannels.allSatisfy({ $0 >= 0 && $0 < settings.audioLayout.channels.count }) else {
+                guard route.fits(inputCount: selection.channels.count, outputCount: settings.audioLayout.channels.count) else {
                     throw EditorCoreError.invalidModel("Invalid output channel map")
                 }
             }

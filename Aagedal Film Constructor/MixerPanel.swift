@@ -1,8 +1,8 @@
 import EditorCore
 import SwiftUI
 
-/// Audio tracks as mixer strips: mute, solo, a gain fader and a post-fader level meter
-/// that moves while the sequence plays.
+/// Audio tracks as mixer strips: mute, solo, a gain fader and post-fader level meters, one
+/// per channel the track plays on, that move while the sequence plays.
 struct MixerPanel: View {
     @ObservedObject var store: EditorStore
     @ObservedObject private var meters = AudioMeters.shared
@@ -22,7 +22,7 @@ struct MixerPanel: View {
             ScrollView {
                 VStack(spacing: 10) {
                     ForEach(tracks) { track in
-                        MixerStrip(store: store, track: track, level: meters.levels[track.id] ?? -120)
+                        MixerStrip(store: store, track: track, levels: meters.channelLevels[track.id] ?? [])
                     }
                 }.padding(12)
             }
@@ -33,7 +33,8 @@ struct MixerPanel: View {
 private struct MixerStrip: View {
     @ObservedObject var store: EditorStore
     let track: TimelineTrack
-    let level: Float
+    /// One post-fader peak per channel the preview plays.
+    let levels: [Float]
     @State private var draft: Double?
     private var decibels: Double { track.template.gain > 0 ? max(-60, 20 * log10(track.template.gain)) : -60 }
 
@@ -57,24 +58,41 @@ private struct MixerStrip: View {
                 Text((draft ?? decibels) <= -60 ? "−∞" : String(format: "%+.1f", draft ?? decibels))
                     .font(.caption.monospacedDigit()).frame(width: 40, alignment: .trailing)
             }
-            meter
+            if levels.isEmpty { meter(-120, label: "") }
+            ForEach(levels.indices, id: \.self) { channel in
+                meter(levels[channel], label: Self.channelLabel(channel, of: levels.count))
+            }
         }
         .padding(8)
         .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.08)))
     }
 
-    /// −60 to 0 dBFS; green, amber above −12 and red above −3.
-    private var meter: some View {
-        GeometryReader { geometry in
-            let fill = CGFloat(max(0, min(1, (Double(level) + 60) / 60)))
-            ZStack(alignment: .leading) {
-                Capsule().fill(Color.secondary.opacity(0.2))
-                Capsule().fill(level > -3 ? Color.red : level > -12 ? Color.orange : Color.green)
-                    .frame(width: geometry.size.width * fill)
-            }
+    static func channelLabel(_ channel: Int, of count: Int) -> String {
+        let names: [String] = switch count {
+        case 1: ["M"]
+        case 2: ["L", "R"]
+        case 6: ["L", "R", "C", "LFE", "Ls", "Rs"]
+        default: []
         }
-        .frame(height: 6)
-        .accessibilityLabel("Level \(Int(level)) dB")
-        .help(level > -120 ? String(format: "Peak %.1f dBFS", level) : "Silent")
+        return channel < names.count ? names[channel] : "\(channel + 1)"
+    }
+
+    /// −60 to 0 dBFS; green, amber above −12 and red above −3.
+    private func meter(_ level: Float, label: String) -> some View {
+        HStack(spacing: 6) {
+            Text(label).font(.caption2.monospaced()).foregroundStyle(.secondary).frame(width: 24, alignment: .leading)
+            GeometryReader { geometry in
+                let fill = CGFloat(max(0, min(1, (Double(level) + 60) / 60)))
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.secondary.opacity(0.2))
+                    Capsule().fill(level > -3 ? Color.red : level > -12 ? Color.orange : Color.green)
+                        .frame(width: geometry.size.width * fill)
+                }
+            }
+            .frame(height: 6)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label.isEmpty ? "Level" : label + " level") \(Int(level)) dB")
+        .help(level > -120 ? String(format: "%@ peak %.1f dBFS", label, level) : "Silent")
     }
 }
