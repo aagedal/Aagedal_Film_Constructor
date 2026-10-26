@@ -103,6 +103,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             if closed { try? FileManager.default.removeItem(at: stillDirectory) }
         }
         var sourceTracks: [URL: [AVAssetTrack]] = [:]
+        var tapRoutes: [Int: [TapRoute]] = [:]
         for componentIndex in componentIndices {
             try Task.checkCancellation()
             let component = plan.components[componentIndex]
@@ -141,10 +142,9 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 let frontRoute = plan.settings.audioLayout == .surround51
                     && ((selection.layout == .stereo && component.routing.outputChannels == [0, 1])
                         || (selection.layout == .mono && component.routing.outputChannels == [2]))
+                let routing = component.routing.outputChannels.isEmpty ? Array(selection.channels.indices) : component.routing.outputChannels
                 guard let first = selection.channels.first,
                       selection.channels.allSatisfy({ $0.streamIndex == first.streamIndex }),
-                      frontRoute || selection.layout == plan.settings.audioLayout,
-                      frontRoute || component.routing.outputChannels.isEmpty || component.routing.outputChannels == Array(selection.channels.indices),
                       let stream = component.sourceStreams.first(where: { $0.index == first.streamIndex }) else {
                     // Keep the rest of the sequence playable; export still renders this routing.
                     addQualificationNotice("Audio with custom channel routing is silent in preview; export includes it.")
@@ -153,7 +153,14 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 let wholeStream = selection.channels.map(\.channelIndex) == Array(selection.channels.indices) && stream.audioLayout == selection.layout
                 // The system mixer plays a mono track on every output channel, matching dual mono.
                 let dualMono = stream.audioLayout?.channels.count == 1 && selection.channels.allSatisfy { $0.channelIndex == 0 }
-                guard wholeStream || dualMono else {
+                let identity = frontRoute || (selection.layout == plan.settings.audioLayout && routing == Array(selection.channels.indices))
+                if identity && (wholeStream || dualMono) {
+                    // The system mixer plays the stream as selected.
+                } else if plan.settings.audioLayout == .stereo, stream.audioLayout?.channels.count == 2, routing.count == selection.channels.count {
+                    // The tap sees the stream's two channels and maps them onto the two outputs,
+                    // as export's pan does: any channel choice, swap, dual mono or one side.
+                    tapRoutes[componentIndex] = zip(selection.channels, routing).map { TapRoute(input: $0.channelIndex, output: $1) }
+                } else {
                     addQualificationNotice("Audio with custom channel routing is silent in preview; export includes it.")
                     continue
                 }
@@ -299,19 +306,10 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 layers[componentIndex] = layer
                 placements[componentIndex] = (track.trackID, placement)
             } else {
-                if component.gain > 1 {
-                    addQualificationNotice("Gain above 0 dB plays at 0 dB in preview; export applies the full gain.")
-                }
                 let parameters = AVMutableAudioMixInputParameters(track: track)
-                // A post-fader tap feeds the mixer's meter for this editorial track.
-                let reading = MeterReading()
-                if let tap = MeterTap.make(for: reading, eq: component.eq, dynamics: component.dynamics) {
-                    parameters.audioTapProcessor = tap
-                    meterReadings[component.trackID, default: []].append(reading)
-                }
                 let start = component.timelineRange.start.seconds
                 let ramps = try AudioFadeRampPlan(duration: component.timelineRange.duration,
-                    fadeIn: component.fadeIn, fadeOut: component.fadeOut, gain: min(component.gain, 1))
+                    fadeIn: component.fadeIn, fadeOut: component.fadeOut, gain: component.gain)
                 if component.gain > 0 && [component.fadeIn, component.fadeOut].contains(where: {
                     $0.duration.numerator > 0 && $0.duration.seconds <= 0.005
                 }) {
@@ -334,12 +332,25 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     let times = Set(points.map(\.seconds) + component.volumeKeyframes.map { ($0.time.seconds - sourceStart) / speed }
                         .filter { $0 > 0 && $0 < length }).sorted()
                     points = times.map { t in
-                        let automation = VolumeEnvelope.gain(atSourceSeconds: sourceStart + t * speed, keyframes: component.volumeKeyframes)
-                        if automation * min(component.gain, 1) > 1 {
-                            addQualificationNotice("Gain above 0 dB plays at 0 dB in preview; export applies the full gain.")
-                        }
-                        return (t, min(1, fade(at: t) * automation))
+                        (t, fade(at: t) * VolumeEnvelope.gain(atSourceSeconds: sourceStart + t * speed, keyframes: component.volumeKeyframes))
                     }
+                }
+                // System volume stops at unity. Ramps scaled by the loudest point stay linear, and
+                // the tap restores that factor before EQ and dynamics, where export applies volume.
+                let makeup = max(1, points.map(\.volume).max() ?? 1)
+                // A post-fader tap feeds the mixer's meter for this editorial track.
+                let reading = MeterReading()
+                if let tap = MeterTap.make(for: reading, eq: component.eq, dynamics: component.dynamics,
+                                           makeup: makeup, routes: tapRoutes[componentIndex]) {
+                    parameters.audioTapProcessor = tap
+                    meterReadings[component.trackID, default: []].append(reading)
+                    points = points.map { ($0.seconds, $0.volume / makeup) }
+                } else if tapRoutes[componentIndex] != nil {
+                    addQualificationNotice("Audio with custom channel routing is silent in preview; export includes it.")
+                    points = points.map { ($0.seconds, 0) }
+                } else if makeup > 1 {
+                    addQualificationNotice("Gain above 0 dB plays at 0 dB in preview; export applies the full gain.")
+                    points = points.map { ($0.seconds, min(1, $0.volume)) }
                 }
                 // Establish initial gain before delayed media begins; otherwise the
                 // system can smooth from its default unity volume at the cut.

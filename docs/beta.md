@@ -243,8 +243,10 @@ notice appears under the viewer, but playback continues:
 
 - AAC and MP3 cut points, fade curves and audio at a different sample rate are
   close approximations. The export is exact.
-- Gain above 0 dB plays at 0 dB.
-- Audio with custom channel routing is silent in preview. It is still exported.
+- In stereo sequences, gain above 0 dB and custom routing of a stereo stream's
+  channels (swaps, dual mono, one channel to one side) play as exported. Routing
+  in 5.1 sequences, or of channels from several streams, is silent in preview. It
+  is still exported.
 
 ## Known limitations
 

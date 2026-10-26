@@ -502,5 +502,58 @@ import EditorCore
         print("compression of the loud step: preview \(reduction) dB, model \(modelReduction) dB")
         try require(abs(reduction - modelReduction) < 0.5, "Preview compression differs from the export model")
         print("PASS compressor in preview")
+
+        // Gain above unity and custom routing play through the tap as export renders them:
+        // a tone on the left channel only, boosted 12 dB, swapped, doubled and sent right.
+        let sided = directory.appendingPathComponent("sided.mov")
+        _ = try run(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "aevalsrc='0.05*sin(2*PI*1000*t)|0':c=stereo:s=48000:d=2", "-c:a", "pcm_s24le", sided.path])
+        let sidedIndex = try await AVURLAsset(url: sided).load(.tracks).firstIndex { $0.mediaType == .audio }!
+        let sidedAsset = MediaAsset(name: "Sided", originalURL: sided, duration: try RationalTime(2), streams: [MediaStream(index: sidedIndex, kind: .audio, audioLayout: .stereo)])
+        func channelLevels(_ channels: [Int], layout: ChannelLayout, routing: [Int] = [], gain: Double = 1) async throws -> (left: Double, right: Double, notice: String?) {
+            let template = TrackTemplate(kind: .audio, audioLayout: layout, routing: AudioRouting(outputChannels: routing), gain: gain)
+            let family = TrackFamily(baseName: "Audio", template: template)
+            let clip = TimelineClip(assetID: sidedAsset.id, sourceRange: try TimeRange(start: .zero, duration: RationalTime(2)),
+                                    selection: .audio(.init(channels: channels.map { .init(streamIndex: sidedIndex, channelIndex: $0) }, layout: layout)))
+            let project = Project(settings: base.settings, assets: [sidedAsset], families: [family],
+                                  tracks: [TimelineTrack(familyID: family.id, template: template, clips: [clip])])
+            let backend = try AVFoundationSequenceBackend(project: project, videoProxies: [:])
+            let item = try await backend.makePlayerItem()
+            let reader = try AVAssetReader(asset: item.asset)
+            let output = AVAssetReaderAudioMixOutput(audioTracks: try await item.asset.loadTracks(withMediaType: .audio),
+                audioSettings: [AVFormatIDKey: kAudioFormatLinearPCM, AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true,
+                                AVLinearPCMIsNonInterleaved: false, AVSampleRateKey: 48000, AVNumberOfChannelsKey: 2])
+            output.audioMix = item.audioMix
+            reader.add(output); reader.startReading()
+            var samples: [Float] = []
+            while let buffer = output.copyNextSampleBuffer(), let block = CMSampleBufferGetDataBuffer(buffer) {
+                var length = 0; var pointer: UnsafeMutablePointer<CChar>?
+                CMBlockBufferGetDataPointer(block, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &length, dataPointerOut: &pointer)
+                pointer!.withMemoryRebound(to: Float.self, capacity: length / 4) { samples += UnsafeBufferPointer(start: $0, count: length / 4) }
+            }
+            let notice = backend.previewQualificationNotice
+            await backend.close()
+            let middle = Array(samples[(samples.count / 4)..<(samples.count * 3 / 4)])
+            func rms(_ lane: Int) -> Double {
+                let values = stride(from: lane, to: middle.count, by: 2).map { Double(middle[$0]) }
+                return (values.reduce(0) { $0 + $1 * $1 } / Double(values.count)).squareRoot()
+            }
+            return (rms(0), rms(1), notice)
+        }
+        let plain = try await channelLevels([0, 1], layout: .stereo)
+        let boosted = try await channelLevels([0, 1], layout: .stereo, gain: pow(10, 12.0 / 20))
+        let swapped = try await channelLevels([0, 1], layout: .stereo, routing: [1, 0])
+        let doubled = try await channelLevels([0, 0], layout: .stereo)
+        let sentRight = try await channelLevels([0], layout: .mono, routing: [1])
+        for (name, levels) in [("plain", plain), ("+12 dB", boosted), ("swapped", swapped), ("dual mono", doubled), ("left to right", sentRight)] {
+            print("\(name): left \(20 * log10(max(levels.left, 1e-9) / plain.left)) dB, right \(20 * log10(max(levels.right, 1e-9) / plain.left)) dB, notice \(levels.notice ?? "none")")
+        }
+        func near(_ value: Double, _ decibels: Double) -> Bool { abs(20 * log10(max(value, 1e-9) / plain.left) - decibels) < 0.1 }
+        func silent(_ value: Double) -> Bool { value < plain.left / 1000 }
+        try require(plain.left > 0 && silent(plain.right), "The fixture tone is on the left only")
+        try require(near(boosted.left, 12) && silent(boosted.right) && boosted.notice == nil, "Preview applies gain above 0 dB")
+        try require(silent(swapped.left) && near(swapped.right, 0) && swapped.notice == nil, "Preview swaps channels")
+        try require(near(doubled.left, 0) && near(doubled.right, 0) && doubled.notice == nil, "Preview plays one channel on both sides")
+        try require(silent(sentRight.left) && near(sentRight.right, 0) && sentRight.notice == nil, "Preview routes a mono channel to the right")
+        print("PASS gain above 0 dB and channel routing in preview")
     }
 }

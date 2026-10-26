@@ -122,6 +122,11 @@ express it.
   to within 1e-4 per sample (`AudioDynamicsTests`). The tap restores the 3 dB the system
   mixer takes from stereo before compressing and metering, so preview compression matches
   the model exactly and meters read true levels.
+- [x] Preview gain and routing: the preview tap restores gain above 0 dB (volume ramps are
+  scaled by the loudest point and the tap multiplies it back before EQ and dynamics) and
+  maps a stereo stream's selected channels onto the stereo outputs as export's `pan` does,
+  each selected channel with its own EQ and compressor. `system-transition-smoke.sh`
+  measures +12 dB, a swap, dual mono and one channel sent right exactly.
 - [x] Noise reduction: a noise-reduced copy of the component's channels (afftdn, 12 dB, noise
   floor from the quietest half second) replaces its media in one undoable edit. The smoke
   measures about 10 dB less hiss with the tone unchanged.

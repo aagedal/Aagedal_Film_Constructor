@@ -127,10 +127,20 @@ import EditorCore
         try require(tinyFadeBackend.previewQualificationNotice?.contains("Very short audio fades") == true,
             "Sub-5-ms fades must disclose the measured system rendering limitation")
         await tinyFadeBackend.close()
+        var swapped = project
+        swapped.tracks[2].template.routing.outputChannels = [1, 0]
+        let swapping = try AVFoundationSequenceBackend(project: swapped, videoProxies: [:])
+        // The preview tap swaps the stream's channels itself, so stereo routing plays.
+        try await swapping.seek(toFrame: 0)
+        try require(swapping.previewQualificationNotice?.contains("custom channel routing") != true,
+            "Stereo channel routing must play in preview")
+        await swapping.close()
         var unsupported = project
-        unsupported.tracks[2].template.routing.outputChannels = [1, 0]
+        unsupported.settings.audioLayout = .surround51
+        unsupported.tracks[2].template.routing.outputChannels = [4, 5]
+        unsupported.families[1].template.routing.outputChannels = [4, 5]
         let muted = try AVFoundationSequenceBackend(project: unsupported, videoProxies: [:])
-        // Custom routing must not block the sequence: it plays muted with a visible notice.
+        // Surround routing must not block the sequence: it plays muted with a visible notice.
         try await muted.seek(toFrame: 0)
         try require(muted.previewQualificationNotice?.contains("custom channel routing is silent") == true,
             "Unsupported channel mapping must be disclosed while the rest of the sequence plays")
