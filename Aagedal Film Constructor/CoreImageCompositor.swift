@@ -43,6 +43,8 @@ final class CoreImageInstruction: NSObject, AVVideoCompositionInstructionProtoco
         let brightness: Double, contrast: Double, saturation: Double
         /// Blur standard deviation in canvas pixels before placement scaling.
         let blur: Double
+        /// A chroma key as a premultiplied RGBA colour cube, applied to the source picture.
+        let keyCube: (data: Data, size: Int)?
         /// Levels: input black and white points and gamma on each RGB channel.
         let levels: (black: Double, white: Double, gamma: Double)?
         /// A wipe uncovering the picture: start and length in seconds, from the left or right edge.
@@ -84,7 +86,10 @@ final class CoreImageCompositor: NSObject, AVVideoCompositing, @unchecked Sendab
         var image = CIImage(color: .black).cropped(to: bounds)
         for layer in instruction.layers.reversed() {
             guard let frame = request.sourceFrame(byTrackID: layer.trackID) else { continue }
-            let source = CIImage(cvPixelBuffer: frame)
+            var source = CIImage(cvPixelBuffer: frame)
+            if let cube = layer.keyCube {
+                source = source.applyingFilter("CIColorCube", parameters: ["inputCubeDimension": cube.size, "inputCubeData": cube.data])
+            }
             let height = source.extent.height
             // CoreImage has a lower-left origin: flip into the layer transform's space and back.
             let flipCanvas = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: instruction.canvas.height)

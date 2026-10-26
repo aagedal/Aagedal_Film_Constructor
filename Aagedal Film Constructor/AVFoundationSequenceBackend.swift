@@ -378,7 +378,9 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 return instruction
             }
             // Colour correction needs per-layer filters, which only a custom compositor can apply.
-            if plan.components.contains(where: { !$0.color.isNeutral }) {
+            if plan.components.contains(where: { !$0.color.isNeutral || $0.key != nil }) {
+                var cubes: [ChromaKey: (data: Data, size: Int)] = [:]
+                for key in Set(plan.components.compactMap(\.key)) { cubes[key] = Self.keyCube(key) }
                 let canvas = videoComposition.renderSize
                 videoComposition.customVideoCompositorClass = CoreImageCompositor.self
                 videoComposition.instructions = try picturePlan.instructions.map { segment in
@@ -391,6 +393,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                                          opacity: Self.opacityCurve(component), brightness: component.color.brightness,
                                          contrast: component.color.contrast, saturation: component.color.saturation,
                                          blur: component.color.blur * Double(plan.settings.height),
+                                         keyCube: component.key.flatMap { cubes[$0] },
                                          levels: component.color.hasLevels ? (component.color.blackPoint, component.color.whitePoint, component.color.gamma) : nil,
                                          reveal: component.reveal.map { ($0.start.seconds, $0.duration.seconds, $0.fromLeft) })
                         }, canvas: canvas)
@@ -405,7 +408,20 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
 
     /// Linear opacity ramps for picture fades and dissolves, matching the export's alpha fades.
     /// Overlapping fade in and fade out multiply; that product is followed with short segments.
-    /// Opacity at a sequence time in seconds: fades times the clip's own opacity.
+    /// A 32³ premultiplied colour cube giving the key's alpha for each encoded RGB colour.
+    static func keyCube(_ key: ChromaKey) -> (data: Data, size: Int) {
+        let size = 32
+        var values = [Float](repeating: 0, count: size * size * size * 4)
+        for b in 0..<size { for g in 0..<size { for r in 0..<size {
+            let red = Double(r) / Double(size - 1), green = Double(g) / Double(size - 1), blue = Double(b) / Double(size - 1)
+            let alpha = key.alpha(red: red, green: green, blue: blue)
+            let index = ((b * size + g) * size + r) * 4
+            values[index] = Float(red * alpha); values[index + 1] = Float(green * alpha)
+            values[index + 2] = Float(blue * alpha); values[index + 3] = Float(alpha)
+        } } }
+        return (values.withUnsafeBufferPointer { Data(buffer: $0) }, size)
+    }
+
     /// Opacity at a sequence time in seconds: fades times the clip's static opacity times any
     /// keyframed opacity (interpolated in timeline time).
     static func opacityCurve(_ component: TimelineRenderPlan.Component) -> @Sendable (Double) -> Double {

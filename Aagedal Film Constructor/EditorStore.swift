@@ -851,6 +851,11 @@ final class EditorStore: ObservableObject {
         guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
         edit(.setTransformKeyframes(clipID: clip.id, keyframes: keyframes))
     }
+    func setSelectedClipKey(_ key: ChromaKey?) {
+        guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
+        edit(.setKey(clipID: clip.id, key: key))
+        if errorMessage == nil { statusMessage = key == nil ? "Removed the key." : "Updated the key; layers below show through." }
+    }
     func setSelectedClipColor(_ color: ColorAdjustment) {
         guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
         edit(.setColor(clipID: clip.id, color: color))

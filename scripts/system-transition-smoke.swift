@@ -344,6 +344,39 @@ import EditorCore
         }
         print("PASS wipe transition preview matches export")
 
+        // Chroma key: a green screen with a red square, keyed over the blue lower layer.
+        let screen = directory.appendingPathComponent("screen.mov")
+        _ = try run(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "color=0x00FF00:s=80x48:r=24:d=2", "-f", "lavfi", "-i", "color=red:s=20x20:r=24:d=2",
+                             "-filter_complex", "[0][1]overlay=x=30:y=14,scale=out_color_matrix=bt709,setparams=range=tv:colorspace=bt709:color_primaries=bt709:color_trc=bt709",
+                             "-c:v", "prores_ks", "-colorspace", "bt709", screen.path])
+        let screenTracks = try await AVURLAsset(url: screen).load(.tracks)
+        let screenAsset = MediaAsset(name: "Screen", originalURL: screen, duration: try RationalTime(2),
+                                     streams: [MediaStream(index: screenTracks.firstIndex { $0.mediaType == .video }!, kind: .video)])
+        var keyed = pip
+        keyed.assets.append(screenAsset)
+        keyed.tracks[0].clips[0] = TimelineClip(assetID: screenAsset.id, sourceRange: try TimeRange(start: .zero, duration: RationalTime(1)),
+                                                selection: .video(streamIndex: screenAsset.streams[0].index), key: ChromaKey())
+        let keyOutput = directory.appendingPathComponent("keyed.mov")
+        _ = try run(ffmpeg, try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: keyed), outputURL: keyOutput).arguments)
+        let keyBackend = try AVFoundationSequenceBackend(project: keyed, videoProxies: [:])
+        keyBackend.display = { displayed, _ in image = displayed }
+        try await keyBackend.seek(toFrame: 12)
+        for (x, y) in [(10, 10), (40, 24), (70, 40)] {
+            let expected = try run(ffmpeg, ["-hide_banner", "-i", keyOutput.path, "-vf", "select=eq(n\\,12),crop=2:2:\(x):\(y)",
+                                            "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]).prefix(3).map(Int.init)
+            var bytes = [UInt8](repeating: 0, count: 4)
+            bytes.withUnsafeMutableBytes { pointer in
+                let context = CGContext(data: pointer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                    space: image!.colorSpace ?? CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                context.draw(image!, in: CGRect(x: -x, y: -(image!.height - 1 - y), width: image!.width, height: image!.height))
+            }
+            let actual = bytes.prefix(3).map(Int.init)
+            print("key (\(x),\(y)): export \(expected) preview \(actual)")
+            try require(zip(expected, actual).allSatisfy { abs($0 - $1) <= 12 }, "Keyed preview differs at (\(x),\(y))")
+        }
+        await keyBackend.close()
+        print("PASS chroma key preview matches export")
+
         // Volume keyframes: full level until source 1 s, then down to a quarter by source 2 s.
         let tone = directory.appendingPathComponent("tone.mov")
         _ = try run(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000:duration=4",

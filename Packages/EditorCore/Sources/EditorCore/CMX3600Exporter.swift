@@ -90,6 +90,7 @@ public enum CMX3600Exporter {
             let priorReasonCount = reasons.count
             if clip.fadeIn.duration != .zero || clip.fadeOut.duration != .zero { reasons.append("\(label): fades are not supported.") }
             if clip.gain != 1 { reasons.append("\(label): clip volume must be unity.") }
+            if clip.key != nil { reasons.append("\(label): keying is not supported.") }
             if !clip.eq.isFlat { reasons.append("\(label): EQ is not supported.") }
             if !clip.volumeKeyframes.isEmpty { reasons.append("\(label): volume keyframes are not supported.") }
             if clip.speed != .one { reasons.append("\(label): speed changes are not supported.") }

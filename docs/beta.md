@@ -122,6 +122,12 @@ blur** in the inspector; each release is one undoable change, and the reset
 button restores the original. Sequences with colour correction preview through a
 CoreImage compositor; preview colours are within a few levels of the export.
 
+## Chroma key
+
+Put a green- or blue-screen clip on a track above the background, select it and turn on
+**Chroma key** in the inspector. Pick the screen colour, raise **Similarity** until the
+background clears and use **Blend** to soften edges. Preview and export key the same way.
+
 ## Titles
 
 Press ⌃T (or the **T** button in the timeline toolbar) to add a five-second title at
@@ -225,7 +231,7 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Effects beyond basic colour correction and blur (curves, keying, stabilisation; levels cover black/white points and gamma), title animation beyond position, scale and opacity, transitions other than dissolves, slides, pushes, wipes, dips and crossfades, and audio effects beyond the three-band EQ (compression, noise reduction) are not part of this version.
+- Effects beyond basic colour correction and blur (curves, stabilisation; levels cover black/white points and gamma, chroma key covers keying), title animation beyond position, scale and opacity, transitions other than dissolves, slides, pushes, wipes, dips and crossfades, and audio effects beyond the three-band EQ (compression, noise reduction) are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
 - 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed

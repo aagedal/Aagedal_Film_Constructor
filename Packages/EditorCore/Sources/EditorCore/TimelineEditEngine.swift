@@ -30,6 +30,8 @@ public enum EditCommand: Sendable {
     case setSpeed(clipID: UUID, speed: RationalTime)
     /// Replace the scale and position animation of one picture component.
     case setTransformKeyframes(clipID: UUID, keyframes: [TransformKeyframe])
+    /// Key a colour out of one picture component, or remove its key.
+    case setKey(clipID: UUID, key: ChromaKey?)
     /// Colour-correct one picture component.
     case setColor(clipID: UUID, color: ColorAdjustment)
     /// Place one picture component; linked components keep their own transforms.
@@ -459,6 +461,11 @@ public struct TimelineEditEngine: Sendable {
                   let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
             guard project.tracks[t].clips[c].requiredTrackKind == .video else { throw TimelineEditError.incompatibleTrack }
             project.tracks[t].clips[c].transformKeyframes = keyframes
+        case .setKey(let clipID, let key):
+            guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
+                  let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
+            guard project.tracks[t].clips[c].requiredTrackKind == .video else { throw TimelineEditError.incompatibleTrack }
+            project.tracks[t].clips[c].key = key
         case .setColor(let clipID, let color):
             guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
                   let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }

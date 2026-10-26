@@ -586,6 +586,7 @@ private struct ProjectInspector: View {
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
                                 ColorControls(color: clip.color) { store.setSelectedClipColor($0) }.id(clip.id)
+                                KeyControls(key: clip.key) { store.setSelectedClipKey($0) }.id(clip.id)
                             } else {
                                 Button("Audio source channels…", systemImage: "waveform") { editingAudio = true }
                                     .labelStyle(.iconOnly).help("Edit audio source channels and output routing")
@@ -895,6 +896,48 @@ private struct ProjectInspector: View {
         audioSampleRate = String(store.project.settings.audioSampleRate)
         audioLayout = store.project.settings.audioLayout
         startTimecode = (try? store.project.settings.startTimecode.formatted(rate: store.project.settings.frameRate)) ?? "00:00:00:00"
+    }
+}
+
+/// Chroma key: on/off, key colour, similarity and blend (sliders commit on release).
+private struct KeyControls: View {
+    let key: ChromaKey?
+    let apply: (ChromaKey?) -> Void
+    @State private var draft: ChromaKey
+    init(key: ChromaKey?, apply: @escaping (ChromaKey?) -> Void) {
+        self.key = key; self.apply = apply
+        _draft = State(initialValue: key ?? ChromaKey())
+    }
+    private var color: Binding<Color> {
+        Binding(get: {
+            let c = draft.rgb ?? (0, 255, 0)
+            return Color(.sRGB, red: Double(c.red) / 255, green: Double(c.green) / 255, blue: Double(c.blue) / 255)
+        }, set: { value in
+            guard let c = NSColor(value).usingColorSpace(.sRGB) else { return }
+            func byte(_ v: CGFloat) -> Int { Int((min(1, max(0, v)) * 255).rounded()) }
+            draft.color = String(format: "#%02X%02X%02X", byte(c.redComponent), byte(c.greenComponent), byte(c.blueComponent))
+            if key != nil { apply(draft) }
+        })
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle("Chroma key", isOn: Binding(get: { key != nil }, set: { apply($0 ? draft : nil) })).font(.subheadline.bold())
+            if key != nil {
+                ColorPicker("Key colour", selection: color, supportsOpacity: false)
+                slider("Similarity", value: $draft.similarity, range: 0.01...0.5)
+                slider("Blend", value: $draft.blend, range: 0...0.5)
+                Text("Pick the screen colour; raise similarity until the background clears, then blend to soften edges.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .onChange(of: key) { _, value in if let value { draft = value } }
+    }
+    private func slider(_ title: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        HStack {
+            Text(title).font(.caption).frame(width: 64, alignment: .leading)
+            Slider(value: value, in: range) { editing in if !editing && key != nil && draft != key { apply(draft) } }
+            Text(String(format: "%.0f%%", value.wrappedValue * 100)).font(.caption.monospacedDigit()).frame(width: 40, alignment: .trailing)
+        }
     }
 }
 

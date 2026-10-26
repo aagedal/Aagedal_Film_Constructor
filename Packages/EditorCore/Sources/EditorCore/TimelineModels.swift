@@ -139,6 +139,40 @@ public enum PictureAnimation {
     }
 }
 
+/// Keys out a colour (typically green or blue screen) so lower layers show through.
+/// Similarity is the chroma distance keyed fully; blend softens the edge beyond it.
+nonisolated public struct ChromaKey: Hashable, Codable, Sendable {
+    public var color: String
+    public var similarity: Double
+    public var blend: Double
+    public init(color: String = "#00FF00", similarity: Double = 0.12, blend: Double = 0.08) {
+        self.color = color; self.similarity = similarity; self.blend = blend
+    }
+    public func validate() throws {
+        guard rgb != nil, similarity.isFinite, blend.isFinite, (0.01...0.5).contains(similarity), (0...0.5).contains(blend) else {
+            throw EditorCoreError.invalidModel("A key needs a #RRGGBB colour, similarity 1–50% and blend 0–50%")
+        }
+    }
+    /// 0–255 components of the key colour.
+    public var rgb: (red: Int, green: Int, blue: Int)? {
+        let hex = color.hasPrefix("#") ? String(color.dropFirst()) : color
+        guard hex.count == 6, let value = Int(hex, radix: 16) else { return nil }
+        return (value >> 16 & 0xFF, value >> 8 & 0xFF, value & 0xFF)
+    }
+    /// Alpha for an encoded RGB colour (0–1), as FFmpeg's chromakey computes it on the
+    /// picture's Rec. 709 video-range chroma against the key's BT.601 chroma.
+    public func alpha(red: Double, green: Double, blue: Double) -> Double {
+        guard let key = rgb else { return 1 }
+        let u = 128 + 224 * (-0.1146 * red - 0.3854 * green + 0.5 * blue)
+        let v = 128 + 224 * (0.5 * red - 0.4542 * green - 0.0458 * blue)
+        let ku = Double(((-38 * key.red - 74 * key.green + 112 * key.blue + 128) >> 8) + 128)
+        let kv = Double(((112 * key.red - 94 * key.green - 18 * key.blue + 128) >> 8) + 128)
+        let difference = (((u - ku) * (u - ku) + (v - kv) * (v - kv)) / (255.0 * 255.0 * 2)).squareRoot()
+        if blend > 0.0001 { return min(1, max(0, (difference - similarity) / blend)) }
+        return difference > similarity ? 1 : 0
+    }
+}
+
 /// Basic colour correction in the picture's encoded (gamma) values: brightness is added,
 /// contrast scales about mid grey and saturation scales colour away from grey.
 public struct ColorAdjustment: Equatable, Codable, Sendable {
@@ -237,6 +271,8 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
     public var transformKeyframes: [TransformKeyframe]
     /// Three-band EQ for audio components; flat for pictures.
     public var eq: AudioEQ
+    /// Chroma key for pictures.
+    public var key: ChromaKey?
     /// Playback speed: the clip plays `sourceRange.duration × speed` of source in
     /// `sourceRange.duration` of timeline. `sourceRange.start` is in source time.
     public var speed: RationalTime
@@ -245,11 +281,11 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
     public func sourceEnd() throws -> RationalTime { try sourceRange.start.adding(sourceExtent()) }
     /// Source time reached `timelineOffset` into the clip.
     public func sourceTime(atTimelineOffset offset: RationalTime) throws -> RationalTime { try sourceRange.start.adding(offset.multiplied(by: speed)) }
-    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1, transform: PictureTransform = .identity, volumeKeyframes: [VolumeKeyframe] = [], color: ColorAdjustment = .neutral, speed: RationalTime = RationalTime.one, transformKeyframes: [TransformKeyframe] = [], eq: AudioEQ = .flat) {
+    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1, transform: PictureTransform = .identity, volumeKeyframes: [VolumeKeyframe] = [], color: ColorAdjustment = .neutral, speed: RationalTime = RationalTime.one, transformKeyframes: [TransformKeyframe] = [], eq: AudioEQ = .flat, key: ChromaKey? = nil) {
         self.id = id; self.assetID = assetID; self.sourceRange = sourceRange; self.timelineStart = timelineStart; self.selection = selection; self.scalingMode = scalingMode; self.linkGroupID = linkGroupID; self.fadeIn = fadeIn; self.fadeOut = fadeOut
-        self.gain = gain; self.transform = transform; self.volumeKeyframes = volumeKeyframes; self.color = color; self.speed = speed; self.transformKeyframes = transformKeyframes; self.eq = eq
+        self.gain = gain; self.transform = transform; self.volumeKeyframes = volumeKeyframes; self.color = color; self.speed = speed; self.transformKeyframes = transformKeyframes; self.eq = eq; self.key = key
     }
-    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain, transform, volumeKeyframes, color, speed, transformKeyframes, eq }
+    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain, transform, volumeKeyframes, color, speed, transformKeyframes, eq, key }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.init(id: try c.decode(UUID.self, forKey: .id), assetID: try c.decode(UUID.self, forKey: .assetID),
@@ -264,7 +300,8 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
                   color: try c.decodeIfPresent(ColorAdjustment.self, forKey: .color) ?? .neutral,
                   speed: try c.decodeIfPresent(RationalTime.self, forKey: .speed) ?? RationalTime.one,
                   transformKeyframes: try c.decodeIfPresent([TransformKeyframe].self, forKey: .transformKeyframes) ?? [],
-                  eq: try c.decodeIfPresent(AudioEQ.self, forKey: .eq) ?? .flat)
+                  eq: try c.decodeIfPresent(AudioEQ.self, forKey: .eq) ?? .flat,
+                  key: try c.decodeIfPresent(ChromaKey.self, forKey: .key))
     }
     public var requiredTrackKind: TrackKind { if case .audio = selection { return .audio }; return .video }
     public var requiredAudioLayout: ChannelLayout? { if case .audio(let selection) = selection { return selection.layout }; return nil }

@@ -56,6 +56,7 @@ public enum FCPXMLExporter {
             let asset = assets.first { $0.id == component.assetID }!
             let label = "Clip \(component.clipID.uuidString) (\(asset.name))"
             // Fades, volume, scale, position, opacity and their keyframes are written as Final Cut adjustments.
+            if component.key != nil { reasons.append("\(label): keying is not supported.") }
             if !component.eq.isFlat { reasons.append("\(label): EQ is not supported.") }
             if component.speed != .one { reasons.append("\(label): speed changes are not supported.") }
             if !component.color.isNeutral { reasons.append("\(label): colour correction and blur are not supported.") }

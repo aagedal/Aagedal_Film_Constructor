@@ -101,6 +101,11 @@ express it.
   field and lists, jumps to and removes them; the timeline draws the envelope. Export
   levels (`VolumeKeyframeTests`) and preview levels (`system-transition-smoke.sh`)
   measure 1 : 0.625 : 0.25 at the expected points.
+- [x] Chroma key: per-picture key colour, similarity and blend. Export runs FFmpeg
+  `chromakey` on the picture's chroma before padding; the preview applies a 32³ colour cube
+  built from the same formula (Rec. 709 chroma of the picture against FFmpeg's BT.601 key
+  chroma) in the CoreImage compositor. `ChromaKeyTests` checks a keyed composite; preview
+  matches export within 3 levels.
 - [x] Levels: black point, white point and gamma per picture on RGB (export `lutrgb` between
   `gbrap` conversions; preview `CIColorMatrix`, clamp and `CIGammaAdjust`). Export greys are
   checked in `LevelsTests`; preview matches export within 4 levels.

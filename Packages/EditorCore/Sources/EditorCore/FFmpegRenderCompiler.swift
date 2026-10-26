@@ -206,8 +206,12 @@ public enum FFmpegRenderCompiler {
                 // Anamorphic movies are widened to square pixels first; square sources keep their exact width.
                 let squarePixels = "scale=w='if(eq(sar,1),iw,trunc(iw*sar/2)*2)':h=ih:out_range=tv,setsar=1"
                 let fades = try pictureFades(component, placement: placement, count: count, rate: settings.frameRate.value)
-                let geometry = isStill ? "format=yuva444p,\(scaling),setsar=1"
-                    : transformed ? "\(squarePixels),format=yuva444p,\(scaling),setsar=1"
+                // A key works on the picture's own chroma, before fitting adds transparent padding.
+                let keying = component.key.flatMap { key in key.rgb.map {
+                    ",chromakey=color=\(String(format: "0x%02X%02X%02X", $0.red, $0.green, $0.blue)):similarity=\(key.similarity):blend=\(key.blend)"
+                } } ?? ""
+                let geometry = isStill ? "format=yuva444p\(keying),\(scaling),setsar=1"
+                    : transformed ? "\(squarePixels),format=yuva444p\(keying),\(scaling),setsar=1"
                     : "\(squarePixels),\(scaling),setsar=1,format=\(fades.isEmpty ? "yuv444p" : "yuva444p")"
                 var arrangement = ""
                 if component.color.blur > 0 {
