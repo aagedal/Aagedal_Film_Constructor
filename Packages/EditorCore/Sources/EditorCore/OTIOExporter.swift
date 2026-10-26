@@ -50,6 +50,7 @@ public enum OTIOExporter {
             }
             if component.gain != 1 { reasons.append("\(label): track gain and clip volume must be unity.") }
             if component.fadeIn.duration != .zero || component.fadeOut.duration != .zero { reasons.append("\(label): fades are not supported.") }
+            if component.dynamics != nil { reasons.append("\(label): compression is not supported.") }
             if component.key != nil { reasons.append("\(label): keying is not supported.") }
             if !component.eq.isFlat { reasons.append("\(label): EQ is not supported.") }
             if !component.volumeKeyframes.isEmpty { reasons.append("\(label): volume keyframes are not supported.") }

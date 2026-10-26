@@ -146,6 +146,15 @@ like any other clip. Titles are drawn as transparent images in the app's
 Application Support "Titles" folder and redrawn if missing. Interchange exports
 reference those images as stills.
 
+## Compressor, limiter and noise reduction
+
+Select an audio clip (or a picture with linked sound) and turn on **Compressor** in the
+inspector: set **Threshold**, **Ratio** and **Makeup**, and optionally a **Limiter**
+ceiling. The preview runs the same compressor as the export, sample for sample.
+**Reduce noise** makes a noise-reduced copy of the clip's sound (about 10 dB less steady
+hiss, using its quietest half second as the noise floor) and points the clip at it;
+undo returns to the original.
+
 ## EQ
 
 Select an audio clip (or a picture with linked sound) and drag **Low** (120 Hz shelf),
@@ -239,7 +248,7 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Full curves and tracking-based stabilisation (levels, chroma key and deshake stabilisation are included), title animation beyond position, scale and opacity, transitions other than dissolves, slides, pushes, wipes, dips and crossfades, and audio effects beyond the three-band EQ (compression, noise reduction) are not part of this version.
+- Full curves and tracking-based stabilisation (levels, chroma key and deshake stabilisation are included), title animation beyond position, scale and opacity, transitions other than dissolves, slides, pushes, wipes, dips and crossfades, and audio effects beyond EQ, compression, limiting and noise reduction are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
 - 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed

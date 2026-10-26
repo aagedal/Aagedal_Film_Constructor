@@ -892,6 +892,54 @@ final class EditorStore: ObservableObject {
             }
         } catch { report(error) }
     }
+    @Published private(set) var isReducingNoise = false
+    /// Replaces the selected sound (or a picture's linked sound) with noise-reduced copies of
+    /// its channels, plus a second of margin for trims, in one undoable edit.
+    func reduceNoiseOnSelectedAudio(amount: Double = 12) {
+        let clips = selectedVolumeClips
+        guard !isReducingNoise, !clips.isEmpty else { return }
+        guard let ffmpeg = Bundle.main.resourceURL?.appendingPathComponent("Helpers/ffmpeg"),
+              FileManager.default.isExecutableFile(atPath: ffmpeg.path) else {
+            errorMessage = "Noise reduction needs the bundled FFmpeg helper."
+            return
+        }
+        isReducingNoise = true
+        statusMessage = "Reducing noise…"
+        let epoch = mediaEpoch
+        Task {
+            defer { isReducingNoise = false }
+            do {
+                var results: [(clipID: UUID, imported: ImportedMedia, stream: Int, offset: RationalTime)] = []
+                for clip in clips {
+                    guard case .audio(let selection) = clip.selection, let asset = asset(id: clip.assetID), let original = asset.originalURL else { continue }
+                    let margin = try RationalTime(1)
+                    let start = try clip.sourceRange.start.compared(to: margin) == .orderedDescending ? clip.sourceRange.start.subtracting(margin) : .zero
+                    let end = try clip.sourceEnd().adding(margin)
+                    let stop = try end.compared(to: asset.duration) == .orderedDescending ? asset.duration : end
+                    let url = try await NoiseReductionService.reduce(source: original, channels: selection.channels.map { ($0.streamIndex, $0.channelIndex) },
+                        amount: amount, start: start.seconds, duration: try stop.subtracting(start).seconds,
+                        ffmpeg: ffmpeg, into: NoiseReductionService.directory())
+                    let imported = try await MediaImporter.inspect(url: url, displayName: asset.name + " (noise reduced)")
+                    guard let stream = imported.asset.streams.first(where: { $0.kind == .audio }) else { throw EditorCoreError.invalidModel("The cleaned copy has no sound") }
+                    results.append((clip.id, imported, stream.index, start))
+                }
+                guard epoch == mediaEpoch, !results.isEmpty else { return }
+                try change(bookmarkUpdates: Dictionary(uniqueKeysWithValues: results.map { ($0.imported.asset.id, $0.imported.bookmark) })) { project in
+                    var engine = try TimelineEditEngine(project: project)
+                    for result in results {
+                        var candidate = engine.project
+                        try candidate.addAsset(result.imported.asset)
+                        engine = try TimelineEditEngine(project: candidate)
+                        try engine.apply(.replaceAudioMedia(clipID: result.clipID, assetID: result.imported.asset.id,
+                                                            streamIndex: result.stream, sourceOffset: result.offset))
+                    }
+                    project = engine.project
+                }
+                mediaPreviewRevision = UUID()
+                statusMessage = "Reduced noise. Undo returns to the original sound."
+            } catch { errorMessage = "Could not reduce noise: \(audioEditErrorMessage(error))" }
+        }
+    }
     func setSelectedClipKey(_ key: ChromaKey?) {
         guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
         edit(.setKey(clipID: clip.id, key: key))
@@ -939,6 +987,12 @@ final class EditorStore: ObservableObject {
             edit(.setVolumeKeyframes(clipIDs: clips.map(\.id), keyframes: keyframes))
             if errorMessage == nil { statusMessage = "Added a volume keyframe. Add another to ramp between them." }
         } catch { report(error) }
+    }
+    func setSelectedDynamics(_ dynamics: AudioDynamics?) {
+        let clips = selectedVolumeClips
+        guard !clips.isEmpty else { return }
+        edit(.setDynamics(clipIDs: clips.map(\.id), dynamics: dynamics))
+        if errorMessage == nil { statusMessage = dynamics == nil ? "Removed compression." : "Updated compression." }
     }
     /// EQ for the selected audio, or a picture's linked audio.
     func setSelectedEQ(_ eq: AudioEQ) {

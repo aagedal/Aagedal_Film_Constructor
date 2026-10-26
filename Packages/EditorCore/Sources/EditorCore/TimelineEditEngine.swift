@@ -21,6 +21,8 @@ public enum EditCommand: Sendable {
     case setFades(clipID: UUID, fadeIn: AudioFade, fadeOut: AudioFade)
     /// Set the linear volume of the listed audio components; other kinds are refused.
     case setGain(clipIDs: [UUID], gain: Double)
+    /// Set (or remove) the compressor and limiter of the listed audio components.
+    case setDynamics(clipIDs: [UUID], dynamics: AudioDynamics?)
     /// Set the EQ of the listed audio components.
     case setEQ(clipIDs: [UUID], eq: AudioEQ)
     /// Replace the volume automation of the listed audio components.
@@ -33,6 +35,10 @@ public enum EditCommand: Sendable {
     /// Point one picture component at other media covering the same moments (for example a
     /// stabilised copy that starts `sourceOffset` into the original), keeping timeline timing.
     case replacePictureMedia(clipID: UUID, assetID: UUID, streamIndex: Int, sourceOffset: RationalTime)
+    /// Point one audio component at a processed copy (for example noise-reduced) whose
+    /// `streamIndex` holds the component's selected channels in order, starting `sourceOffset`
+    /// into the original. Timing, fades, volume and links are kept.
+    case replaceAudioMedia(clipID: UUID, assetID: UUID, streamIndex: Int, sourceOffset: RationalTime)
     /// Key a colour out of one picture component, or remove its key.
     case setKey(clipID: UUID, key: ChromaKey?)
     /// Colour-correct one picture component.
@@ -88,7 +94,7 @@ public struct TimelineEditEngine: Sendable {
         switch command {
         case .setAudioCrossfade, .removeAudioCrossfade: break
         // Swapping a picture's media (stabilising) keeps transitions the new media still supports.
-        case .replacePictureMedia: Self.dissolveInvalidCrossfades(in: &candidate, previous: project, keepingMediaChanges: true)
+        case .replacePictureMedia, .replaceAudioMedia: Self.dissolveInvalidCrossfades(in: &candidate, previous: project, keepingMediaChanges: true)
         default: Self.dissolveInvalidCrossfades(in: &candidate, previous: project)
         }
         try commit(candidate)
@@ -426,6 +432,14 @@ public struct TimelineEditEngine: Sendable {
                 guard project.tracks[t].clips[c].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
                 project.tracks[t].clips[c].gain = gain
             }
+        case .setDynamics(let clipIDs, let dynamics):
+            guard !clipIDs.isEmpty else { throw TimelineEditError.missingClip }
+            for id in clipIDs {
+                guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == id } }),
+                      let c = project.tracks[t].clips.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingClip }
+                guard project.tracks[t].clips[c].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
+                project.tracks[t].clips[c].dynamics = dynamics
+            }
         case .setEQ(let clipIDs, let eq):
             guard !clipIDs.isEmpty else { throw TimelineEditError.missingClip }
             for id in clipIDs {
@@ -478,6 +492,19 @@ public struct TimelineEditEngine: Sendable {
             clip.sourceRange.start = try clip.sourceRange.start.subtracting(offset)
             // Keyframes are anchored to source time, so they move with the media.
             clip.transformKeyframes = try clip.transformKeyframes.map { var k = $0; k.time = try k.time.subtracting(offset); return k }
+            project.tracks[t].clips[c] = clip
+        case .replaceAudioMedia(let clipID, let assetID, let streamIndex, let offset):
+            guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
+                  let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
+            guard case .audio(let selection) = project.tracks[t].clips[c].selection,
+                  let stream = project.assets.first(where: { $0.id == assetID })?.streams.first(where: { $0.index == streamIndex && $0.kind == .audio }),
+                  stream.audioLayout?.channels.count == selection.channels.count else { throw TimelineEditError.invalidAudioSelection }
+            var clip = project.tracks[t].clips[c]
+            clip.assetID = assetID
+            clip.selection = .audio(AudioSourceSelection(channels: selection.channels.indices.map { SourceChannel(streamIndex: streamIndex, channelIndex: $0) },
+                                                         layout: selection.layout))
+            clip.sourceRange.start = try clip.sourceRange.start.subtracting(offset)
+            clip.volumeKeyframes = try clip.volumeKeyframes.map { var k = $0; k.time = try k.time.subtracting(offset); return k }
             project.tracks[t].clips[c] = clip
         case .setKey(let clipID, let key):
             guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),

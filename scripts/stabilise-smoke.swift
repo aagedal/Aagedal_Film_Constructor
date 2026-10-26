@@ -29,5 +29,28 @@ import Foundation
         print(String(format: "mean frame difference: shaky %.2f (%d frames), stabilised %.2f (%d frames)", before.0, before.1, after.0, after.1))
         guard after.1 == before.1, after.0 < before.0 * 0.6 else { throw NSError(domain: "StabiliseSmoke", code: 1) }
         print("PASS stabilised copy covers the range and moves less")
+
+        // Noise reduction on 30 s (beyond the runner's 2 MB output cap): hiss alone, a tone over
+        // the hiss, then hiss alone again.
+        let noisy = directory.appendingPathComponent("noisy.mov")
+        let mix = Process(); mix.executableURL = ffmpeg
+        mix.arguments = ["-v", "error", "-f", "lavfi", "-i", "anoisesrc=color=white:amplitude=0.02:sample_rate=48000:duration=30",
+                         "-f", "lavfi", "-i", "aevalsrc='if(between(t,1,3),0.3*sin(2*PI*440*t),0)':s=48000:d=30",
+                         "-filter_complex", "[0][1]amix=inputs=2:normalize=0", "-c:a", "pcm_s24le", noisy.path]
+        try mix.run(); mix.waitUntilExit()
+        let clean = try await NoiseReductionService.reduce(source: noisy, channels: [(0, 0)], amount: 12, start: 0, duration: 30, ffmpeg: ffmpeg, into: directory)
+        func level(_ url: URL, from start: Double, length: Double) throws -> Double {
+            let decode = Process(); decode.executableURL = ffmpeg
+            decode.arguments = ["-v", "error", "-i", url.path, "-ss", String(start), "-t", String(length), "-f", "f32le", "-ac", "1", "-"]
+            let pipe = Pipe(); decode.standardOutput = pipe
+            try decode.run(); let data = pipe.fileHandleForReading.readDataToEndOfFile(); decode.waitUntilExit()
+            let samples = data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+            return 10 * log10(samples.reduce(0) { $0 + Double($1 * $1) } / Double(max(1, samples.count)))
+        }
+        let hissBefore = try level(noisy, from: 3.2, length: 0.6), hissAfter = try level(clean, from: 3.2, length: 0.6)
+        let toneBefore = try level(noisy, from: 1.5, length: 1), toneAfter = try level(clean, from: 1.5, length: 1)
+        print(String(format: "hiss %.1f → %.1f dB, tone section %.1f → %.1f dB", hissBefore, hissAfter, toneBefore, toneAfter))
+        guard hissAfter < hissBefore - 6, abs(toneAfter - toneBefore) < 1.5 else { throw NSError(domain: "NoiseSmoke", code: 1) }
+        print("PASS noise-reduced copy lowers hiss and keeps the tone")
     }
 }

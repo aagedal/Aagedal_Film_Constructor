@@ -614,6 +614,15 @@ private struct ProjectInspector: View {
                                 }
                                 if let sound = store.selectedVolumeClips.first {
                                     EQControls(eq: sound.eq) { store.setSelectedEQ($0) }.id(sound.id)
+                                    DynamicsControls(dynamics: sound.dynamics) { store.setSelectedDynamics($0) }.id(sound.id)
+                                    HStack {
+                                        Button(store.isReducingNoise ? "Reducing noise…" : "Reduce noise", systemImage: "waveform.badge.minus") {
+                                            store.reduceNoiseOnSelectedAudio()
+                                        }.disabled(store.isReducingNoise)
+                                        if store.isReducingNoise { ProgressView().controlSize(.small) }
+                                    }
+                                    Text("Makes a noise-reduced copy (12 dB) of this sound, plus a second each side for trims. Undo returns to the original.")
+                                        .font(.caption).foregroundStyle(.secondary)
                                 }
                                 if let automation = store.selectedVolumeClips.first, !automation.volumeKeyframes.isEmpty {
                                     let keyframes = automation.volumeKeyframes
@@ -947,6 +956,42 @@ private struct KeyControls: View {
             Text(title).font(.caption).frame(width: 64, alignment: .leading)
             Slider(value: value, in: range) { editing in if !editing && key != nil && draft != key { apply(draft) } }
             Text(String(format: "%.0f%%", value.wrappedValue * 100)).font(.caption.monospacedDigit()).frame(width: 40, alignment: .trailing)
+        }
+    }
+}
+
+/// Compressor (threshold, ratio, makeup) and optional limiter; sliders commit on release.
+private struct DynamicsControls: View {
+    let dynamics: AudioDynamics?
+    let apply: (AudioDynamics?) -> Void
+    @State private var draft: AudioDynamics
+    init(dynamics: AudioDynamics?, apply: @escaping (AudioDynamics?) -> Void) {
+        self.dynamics = dynamics; self.apply = apply
+        _draft = State(initialValue: dynamics ?? AudioDynamics())
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle("Compressor", isOn: Binding(get: { dynamics != nil }, set: { apply($0 ? draft : nil) })).font(.subheadline.bold())
+            if dynamics != nil {
+                slider("Threshold", value: $draft.threshold, range: -60...0, label: String(format: "%.0f dB", draft.threshold))
+                slider("Ratio", value: $draft.ratio, range: 1...20, label: String(format: "%.1f:1", draft.ratio))
+                slider("Makeup", value: $draft.makeup, range: 0...24, label: String(format: "+%.0f dB", draft.makeup))
+                Toggle("Limiter", isOn: Binding(get: { draft.limiterCeiling != nil }, set: {
+                    draft.limiterCeiling = $0 ? -1 : nil; apply(draft)
+                }))
+                if draft.limiterCeiling != nil {
+                    slider("Ceiling", value: Binding(get: { draft.limiterCeiling ?? -1 }, set: { draft.limiterCeiling = $0 }), range: -30...0,
+                           label: String(format: "%.1f dB", draft.limiterCeiling ?? -1))
+                }
+            }
+        }
+        .onChange(of: dynamics) { _, value in if let value { draft = value } }
+    }
+    private func slider(_ title: String, value: Binding<Double>, range: ClosedRange<Double>, label: String) -> some View {
+        HStack {
+            Text(title).font(.caption).frame(width: 64, alignment: .leading)
+            Slider(value: value, in: range) { editing in if !editing && dynamics != nil && draft != dynamics { apply(draft) } }
+            Text(label).font(.caption.monospacedDigit()).frame(width: 56, alignment: .trailing)
         }
     }
 }

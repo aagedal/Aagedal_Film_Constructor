@@ -147,4 +147,21 @@ final class ReplacePictureMediaTests: XCTestCase {
         XCTAssertEqual(engine.project.audioCrossfades.count, 1)
         XCTAssertNoThrow(try TimelineRenderPlan(project: engine.project))
     }
+
+    func testAudioMovesToAProcessedCopyOfItsSelectedChannels() throws {
+        let movie = MediaAsset(name: "Interview", originalURL: URL(fileURLWithPath: "/private/tmp/interview.mov"), duration: try RationalTime(30),
+                               streams: [.init(index: 0, kind: .video), .init(index: 1, kind: .audio, audioLayout: .mono), .init(index: 2, kind: .audio, audioLayout: .mono)])
+        let clean = MediaAsset(name: "Interview (noise reduced)", originalURL: URL(fileURLWithPath: "/private/tmp/clean.wav"), duration: try RationalTime(8),
+                               streams: [.init(index: 0, kind: .audio, audioLayout: .stereo)])
+        var project = Project(settings: try SequenceSettings(frameRate: FrameRate(25)), assets: [movie, clean])
+        let selection = AudioSourceSelection(channels: [.init(streamIndex: 2, channelIndex: 0), .init(streamIndex: 1, channelIndex: 0)], layout: .stereo)
+        let ids = try project.appendAsset(movie.id, at: .zero, sourceRange: TimeRange(start: RationalTime(11), duration: RationalTime(6)),
+                                          audioSelections: [selection], routing: [AudioRouting()])
+        var engine = try TimelineEditEngine(project: project)
+        try engine.apply(.replaceAudioMedia(clipID: ids[1], assetID: clean.id, streamIndex: 0, sourceOffset: RationalTime(10)))
+        let sound = try XCTUnwrap(engine.project.tracks.flatMap(\.clips).first { $0.id == ids[1] })
+        XCTAssertEqual(sound.selection, .audio(.init(channels: [.init(streamIndex: 0, channelIndex: 0), .init(streamIndex: 0, channelIndex: 1)], layout: .stereo)))
+        XCTAssertEqual(sound.sourceRange.start, try RationalTime(1))
+        XCTAssertEqual(engine.project.tracks.flatMap(\.clips).first { $0.id == ids[0] }?.assetID, movie.id, "Linked picture stays on the original")
+    }
 }

@@ -418,7 +418,7 @@ import EditorCore
         AudioMeters.shared.poll()
         let meter = AudioMeters.shared.levels[automated.tracks[0].id] ?? -120
         print("meter level: \(meter) dBFS")
-        try require(meter > -30 && meter < -10, "The track meter reports the tone")
+        try require(abs(meter - (-18.06)) < 1, "The track meter reports the tone at its true level")
         await audioBackend.close()
         print("PASS volume keyframes in preview and track meter")
 
@@ -457,5 +457,50 @@ import EditorCore
         print("EQ change at 60 Hz: preview \(change) dB, computed \(expected) dB")
         try require(abs(change - expected) < 1, "Preview EQ differs from the computed response")
         print("PASS EQ in preview")
+
+        // Compression in the preview tap: a tone stepping from quiet to loud is held down by the
+        // same amount as the Swift compressor (which matches FFmpeg's acompressor) predicts.
+        let steps = directory.appendingPathComponent("steps.mov")
+        _ = try run(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "aevalsrc='if(lt(t,1),0.05,0.8)*sin(2*PI*440*t)':s=48000:d=3", "-ac", "2", "-c:a", "pcm_s24le", steps.path])
+        let stepTracks = try await AVURLAsset(url: steps).load(.tracks)
+        let si = stepTracks.firstIndex { $0.mediaType == .audio }!
+        let stepAsset = MediaAsset(name: "Steps", originalURL: steps, duration: try RationalTime(3), streams: [MediaStream(index: si, kind: .audio, audioLayout: .stereo)])
+        let dynamics = AudioDynamics(threshold: -20, ratio: 4, makeup: 0)
+        func compressedLevel(_ dynamics: AudioDynamics?) async throws -> Double {
+            let clip = TimelineClip(assetID: stepAsset.id, sourceRange: try TimeRange(start: .zero, duration: RationalTime(3)),
+                                    selection: .audio(.init(channels: [.init(streamIndex: si, channelIndex: 0), .init(streamIndex: si, channelIndex: 1)], layout: .stereo)),
+                                    dynamics: dynamics)
+            let project = Project(settings: base.settings, assets: [stepAsset], families: [audioFamily],
+                                  tracks: [TimelineTrack(familyID: audioFamily.id, template: audioTemplate, clips: [clip])])
+            let backend = try AVFoundationSequenceBackend(project: project, videoProxies: [:])
+            let item = try await backend.makePlayerItem()
+            let reader = try AVAssetReader(asset: item.asset)
+            let output = AVAssetReaderAudioMixOutput(audioTracks: try await item.asset.loadTracks(withMediaType: .audio),
+                audioSettings: [AVFormatIDKey: kAudioFormatLinearPCM, AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true,
+                                AVLinearPCMIsNonInterleaved: false, AVSampleRateKey: 48000, AVNumberOfChannelsKey: 2])
+            output.audioMix = item.audioMix
+            reader.add(output); reader.startReading()
+            var samples: [Float] = []
+            while let buffer = output.copyNextSampleBuffer(), let block = CMSampleBufferGetDataBuffer(buffer) {
+                var length = 0; var pointer: UnsafeMutablePointer<CChar>?
+                CMBlockBufferGetDataPointer(block, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &length, dataPointerOut: &pointer)
+                pointer!.withMemoryRebound(to: Float.self, capacity: length / 4) { samples += UnsafeBufferPointer(start: $0, count: length / 4) }
+            }
+            await backend.close()
+            let loud = samples[(2 * 48000 * 2)..<(Int(2.5 * 48000) * 2)]
+            return 10 * log10(loud.reduce(0) { $0 + Double($1 * $1) } / Double(loud.count))
+        }
+        let reduction = try await compressedLevel(dynamics) - compressedLevel(nil)
+        var model = Compressor(dynamics.stages[0], sampleRate: 48000)
+        var modelSquares = 0.0, plainSquares = 0.0
+        for n in 0..<(Int(2.5 * 48000)) {
+            let t = Double(n) / 48000, x = (t < 1 ? 0.05 : 0.8) * sin(2 * .pi * 440 * t)
+            let y = model.process(x)
+            if n >= 2 * 48000 { modelSquares += y * y; plainSquares += x * x }
+        }
+        let modelReduction = 10 * log10(modelSquares / plainSquares)
+        print("compression of the loud step: preview \(reduction) dB, model \(modelReduction) dB")
+        try require(abs(reduction - modelReduction) < 0.5, "Preview compression differs from the export model")
+        print("PASS compressor in preview")
     }
 }

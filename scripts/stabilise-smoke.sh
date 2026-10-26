@@ -13,5 +13,6 @@ swiftc -swift-version 6 -default-isolation MainActor -module-cache-path "$smoke_
   -parse-as-library -I "$smoke_root" -L "$smoke_root" -lEditorCore \
   "$repo_root/Aagedal Film Constructor/SequenceExportService.swift" \
   "$repo_root/Aagedal Film Constructor/StabilisationService.swift" \
+  "$repo_root/Aagedal Film Constructor/NoiseReductionService.swift" \
   "$repo_root/scripts/stabilise-smoke.swift" -o "$smoke_root/smoke"
 NSUnbufferedIO=YES DYLD_LIBRARY_PATH="$smoke_root" "$smoke_root/smoke" "$ffmpeg_path" "$smoke_root"

@@ -117,6 +117,14 @@ express it.
 - [x] Blur: a Gaussian blur on the fitted, frame-sized picture before placement (export
   `gblur`, preview `CIGaussianBlur` on the same canvas). Export pixels are checked in
   `BlurTests`; preview and export edge profiles agree within 18 levels.
+- [x] Compressor and limiter per audio component: export runs FFmpeg `acompressor` (peak,
+  hard knee, linked) after volume; the preview tap runs a Swift port that matches FFmpeg
+  to within 1e-4 per sample (`AudioDynamicsTests`). The tap restores the 3 dB the system
+  mixer takes from stereo before compressing and metering, so preview compression matches
+  the model exactly and meters read true levels.
+- [x] Noise reduction: a noise-reduced copy of the component's channels (afftdn, 12 dB, noise
+  floor from the quietest half second) replaces its media in one undoable edit. The smoke
+  measures about 10 dB less hiss with the tone unchanged.
 - [x] Three-band EQ per audio component (120 Hz low shelf, 1 kHz peak, 8 kHz high shelf,
   ±24 dB): EditorCore computes RBJ biquads; export runs them with FFmpeg `biquad`, the
   preview tap runs them per channel. Decoded export changes match the computed response

@@ -305,7 +305,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 let parameters = AVMutableAudioMixInputParameters(track: track)
                 // A post-fader tap feeds the mixer's meter for this editorial track.
                 let reading = MeterReading()
-                if let tap = MeterTap.make(for: reading, eq: component.eq) {
+                if let tap = MeterTap.make(for: reading, eq: component.eq, dynamics: component.dynamics) {
                     parameters.audioTapProcessor = tap
                     meterReadings[component.trackID, default: []].append(reading)
                 }

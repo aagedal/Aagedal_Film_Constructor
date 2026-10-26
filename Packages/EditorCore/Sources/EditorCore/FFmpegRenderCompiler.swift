@@ -282,6 +282,8 @@ public enum FFmpegRenderCompiler {
                 // Retimed sound keeps its pitch (atempo works from 0.5× up, so chain below that)
                 // and is padded or cut to the exact timeline sample count.
                 let sourceEnd = component.speed == .one ? end : try start + nearest(RationalTime(end - start).multiplied(by: component.speed))
+                // After volume and fades, as the preview tap applies them.
+                let dynamics = component.dynamics.map { "," + $0.ffmpegFilters } ?? ""
                 // The same biquads the preview tap runs, at the sequence rate.
                 let equaliser = component.eq.biquads(sampleRate: Double(settings.audioSampleRate)).map {
                     "biquad=b0=\($0.b0):b1=\($0.b1):b2=\($0.b2):a0=1:a1=\($0.a1):a2=\($0.a2),"
@@ -305,7 +307,7 @@ public enum FFmpegRenderCompiler {
                     let skip = max(0, -offsetSamples)
                     let map = settings.audioLayout.channels.indices.map { "c\($0)=\($0 == routing[channel] ? "c\(sourceChannel.channelIndex)" : "0*c\(sourceChannel.channelIndex)")" }.joined(separator: "|")
                     let label = "a\(index)c\(channel)"
-                    graph.append("\(source)aresample=\(settings.audioSampleRate),\(pad)atrim=start_sample=\(start + skip):end_sample=\(sourceEnd + skip),asetpts=PTS-STARTPTS,\(tempo)\(equaliser)pan=\(layout)|\(map),aformat=sample_fmts=flt,volume=\(component.gain):precision=float\(envelope),adelay=\(delay)S:all=1[\(label)]")
+                    graph.append("\(source)aresample=\(settings.audioSampleRate),\(pad)atrim=start_sample=\(start + skip):end_sample=\(sourceEnd + skip),asetpts=PTS-STARTPTS,\(tempo)\(equaliser)pan=\(layout)|\(map),aformat=sample_fmts=flt,volume=\(component.gain):precision=float\(envelope)\(dynamics),adelay=\(delay)S:all=1[\(label)]")
                     audioLabels.append(label)
                 }
             }

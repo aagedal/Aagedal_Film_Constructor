@@ -114,6 +114,14 @@ enum StoryDriver {
                 store.seek(to: end - 0.1); store.addTransitionAtPlayhead(seconds: 3)
                 store.seek(to: 6); store.addVolumeKeyframeAtPlayhead(decibels: "0")
                 store.seek(to: 7); store.addVolumeKeyframeAtPlayhead(decibels: "-10")
+                // Compress and clean the bed as an editor would with a voice-over.
+                store.selectTimelineClip(bed.id)
+                store.setSelectedDynamics(AudioDynamics(threshold: -24, ratio: 3, makeup: 3, limiterCeiling: -1))
+                store.reduceNoiseOnSelectedAudio()
+                _ = await wait(300) { !store.isReducingNoise }
+                let cleaned = clips().first { $0.id == bed.id }
+                record("audioFinishing", ["compressed": cleaned?.dynamics != nil,
+                                          "noiseReduced": cleaned.flatMap { store.asset(id: $0.assetID) }?.name ?? "", "error": store.errorMessage ?? ""])
                 record("music", ["fadeIn": clips().first { $0.id == bed.id }?.fadeIn.duration.seconds ?? 0,
                                  "keyframes": clips().first { $0.id == bed.id }?.volumeKeyframes.count ?? 0])
             }

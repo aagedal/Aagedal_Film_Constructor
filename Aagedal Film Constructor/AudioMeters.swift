@@ -5,35 +5,47 @@ import os
 import EditorCore
 
 /// Peak level of one preview audio track, written on the audio thread and read on the main thread.
-final class MeterReading: @unchecked Sendable {
+nonisolated final class MeterReading: @unchecked Sendable {
     private let lock = OSAllocatedUnfairLock(initialState: Float(0))
     func record(_ peak: Float) { lock.withLock { $0 = max($0, peak) } }
     /// Returns the peak since the last read and resets it.
     func take() -> Float { lock.withLock { value in defer { value = 0 }; return value } }
 }
 
-/// What a preview audio tap does: optional EQ, then metering of the result.
-final class TapContext: @unchecked Sendable {
+/// What a preview audio tap does: optional EQ and dynamics, then metering of the result.
+nonisolated final class TapContext: @unchecked Sendable {
     let reading: MeterReading
     let eq: AudioEQ
+    let dynamics: AudioDynamics?
+    /// Per channel, the compressor stages in order.
+    private var compressors: [[Compressor]] = []
+    /// The system mixer hands taps stereo audio 3 dB down (measured: a known tone meters
+    /// 3.01 dB low). Compressors and meters work on the restored level so thresholds and
+    /// readings match the export.
+    private var levelScale = 1.0
     private var filters: [Biquad] = []
     /// Per channel, per band: the last two inputs and outputs.
     private var state: [[(x1: Double, x2: Double, y1: Double, y2: Double)]] = []
-    init(reading: MeterReading, eq: AudioEQ) { self.reading = reading; self.eq = eq }
+    init(reading: MeterReading, eq: AudioEQ, dynamics: AudioDynamics?) { self.reading = reading; self.eq = eq; self.dynamics = dynamics }
 
     func prepare(sampleRate: Double, channels: Int) {
         filters = eq.biquads(sampleRate: sampleRate)
         state = Array(repeating: Array(repeating: (0, 0, 0, 0), count: filters.count), count: max(1, channels))
+        levelScale = channels == 2 ? 2.0.squareRoot() : 1
+        let stages = dynamics?.stages ?? []
+        compressors = Array(repeating: stages.map { Compressor($0, sampleRate: sampleRate) }, count: max(1, channels))
     }
 
-    func process(_ buffers: UnsafeMutablePointer<AudioBufferList>) {
+    /// `frames` is the count the tap delivered; buffers may be larger.
+    func process(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames delivered: Int) {
         var peak: Float = 0
         var channel = 0
+        let processing = !filters.isEmpty || compressors.contains { !$0.isEmpty }
         for buffer in UnsafeMutableAudioBufferListPointer(buffers) {
             guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
             let interleaved = max(1, Int(buffer.mNumberChannels))
-            let frames = Int(buffer.mDataByteSize) / MemoryLayout<Float>.size / interleaved
-            for lane in 0..<interleaved where !filters.isEmpty {
+            let frames = min(delivered, Int(buffer.mDataByteSize) / MemoryLayout<Float>.size / interleaved)
+            for lane in 0..<interleaved where processing {
                 let index = min(channel + lane, state.count - 1)
                 for frame in 0..<frames {
                     var sample = Double(data[frame * interleaved + lane])
@@ -43,10 +55,16 @@ final class TapContext: @unchecked Sendable {
                         state[index][band] = (sample, s.x1, output, s.y1)
                         sample = output
                     }
+                    // Each channel is compressed on its own, as each export channel chain is.
+                    if compressors.indices.contains(index), !compressors[index].isEmpty {
+                        sample *= levelScale
+                        for stage in compressors[index].indices { sample = compressors[index][stage].process(sample) }
+                        sample /= levelScale
+                    }
                     data[frame * interleaved + lane] = Float(sample)
                 }
             }
-            for index in 0..<(frames * interleaved) { peak = max(peak, abs(data[index])) }
+            for index in 0..<(frames * interleaved) { peak = max(peak, abs(data[index]) * Float(levelScale)) }
             channel += interleaved
         }
         reading.record(peak)
@@ -55,9 +73,9 @@ final class TapContext: @unchecked Sendable {
 
 /// Post-fader taps on preview audio tracks. Each tap applies the clip's EQ and measures
 /// the samples the mix plays, after volume ramps, for the mixer's meter.
-enum MeterTap {
-    static func make(for reading: MeterReading, eq: AudioEQ = .flat) -> MTAudioProcessingTap? {
-        let context = TapContext(reading: reading, eq: eq)
+nonisolated enum MeterTap {
+    static func make(for reading: MeterReading, eq: AudioEQ = .flat, dynamics: AudioDynamics? = nil) -> MTAudioProcessingTap? {
+        let context = TapContext(reading: reading, eq: eq, dynamics: dynamics)
         var callbacks = MTAudioProcessingTapCallbacks(
             version: kMTAudioProcessingTapCallbacksVersion_0,
             clientInfo: UnsafeMutableRawPointer(Unmanaged.passRetained(context).toOpaque()),
@@ -70,7 +88,7 @@ enum MeterTap {
             unprepare: nil,
             process: { tap, frames, _, buffers, framesOut, flagsOut in
                 guard MTAudioProcessingTapGetSourceAudio(tap, frames, buffers, flagsOut, nil, framesOut) == noErr else { return }
-                Unmanaged<TapContext>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue().process(buffers)
+                Unmanaged<TapContext>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue().process(buffers, frames: Int(framesOut.pointee))
             })
         var tap: MTAudioProcessingTap?
         guard MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PostEffects, &tap) == noErr else {
