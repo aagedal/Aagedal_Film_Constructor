@@ -199,21 +199,35 @@ public struct TimelineRenderPlan: Equatable, Sendable {
                 var sourceRange = clip.sourceRange
                 var renderRange = range
                 var fadeIn = clip.fadeIn, fadeOut = clip.fadeOut
+                var transformKeyframes = clip.transformKeyframes
                 if let incoming = incomingByClip[clip.id] {
                     let geometry = geometries[incoming.id]!
                     sourceRange = geometry.incomingSourceRange
                     renderRange = geometry.incomingTimelineRange
-                    fadeIn = AudioFade(duration: incoming.duration, curve: incoming.curve)
+                    if clip.requiredTrackKind == .video, let style = incoming.style {
+                        // The incoming picture moves in across the transition instead of fading.
+                        let start = sourceRange.start
+                        transformKeyframes = [TransformKeyframe(time: start, offsetX: style.incomingFrom),
+                                              TransformKeyframe(time: try start.adding(incoming.duration.multiplied(by: clip.speed)))]
+                    } else {
+                        fadeIn = AudioFade(duration: incoming.duration, curve: incoming.curve)
+                    }
                 }
                 if let outgoing = outgoingByClip[clip.id] {
                     let geometry = geometries[outgoing.id]!
                     let extensionDuration = try geometry.outgoingSourceRange.duration.subtracting(clip.sourceRange.duration)
                     sourceRange.duration = try sourceRange.duration.adding(extensionDuration)
                     renderRange.duration = try renderRange.duration.adding(extensionDuration)
-                    // A dissolve keeps the outgoing picture opaque beneath the incoming one.
+                    // A dissolve keeps the outgoing picture opaque beneath the incoming one; a push moves it out.
                     if clip.requiredTrackKind == .audio { fadeOut = AudioFade(duration: outgoing.duration, curve: outgoing.curve) }
+                    else if let target = outgoing.style?.outgoingTo {
+                        let end = try sourceRange.start.adding(sourceRange.duration.multiplied(by: clip.speed))
+                        // A clip moved in by one transition and out by the next keeps both moves.
+                        transformKeyframes += [TransformKeyframe(time: try end.subtracting(outgoing.duration.multiplied(by: clip.speed))),
+                                               TransformKeyframe(time: end, offsetX: target)]
+                    }
                 }
-                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain * clip.gain, fadeIn: fadeIn, fadeOut: fadeOut, transform: clip.transform, volumeKeyframes: clip.volumeKeyframes, color: clip.color, speed: clip.speed, transformKeyframes: clip.transformKeyframes))
+                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain * clip.gain, fadeIn: fadeIn, fadeOut: fadeOut, transform: clip.transform, volumeKeyframes: clip.volumeKeyframes, color: clip.color, speed: clip.speed, transformKeyframes: transformKeyframes))
             }
         }
         components = result; duration = end

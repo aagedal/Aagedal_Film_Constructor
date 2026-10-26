@@ -284,3 +284,50 @@ final class VideoTransitionRenderTests: XCTestCase {
         XCTAssertLessThan(last.2, 24)
     }
 }
+
+final class TransitionStyleTests: XCTestCase {
+    func testPushMovesBothPicturesAndDecodesSideBySide() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("push-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let family = TrackFamily(baseName: "Video", template: .init(kind: .video))
+        let red = MediaAsset(name: "red", originalURL: directory.appendingPathComponent("red.mov"), duration: try RationalTime(10), streams: [.init(index: 0, kind: .video)])
+        let blue = MediaAsset(name: "blue", originalURL: directory.appendingPathComponent("blue.mov"), duration: try RationalTime(10), streams: [.init(index: 0, kind: .video)])
+        let a = TimelineClip(assetID: red.id, sourceRange: try TimeRange(start: RationalTime(2), duration: RationalTime(4)), selection: .video(streamIndex: 0))
+        let b = TimelineClip(assetID: blue.id, sourceRange: try TimeRange(start: RationalTime(2), duration: RationalTime(4)),
+                             timelineStart: try RationalTime(4), selection: .video(streamIndex: 0))
+        let project = Project(settings: try SequenceSettings(width: 160, height: 90, frameRate: FrameRate(25)), assets: [red, blue], families: [family],
+                              tracks: [TimelineTrack(familyID: family.id, template: family.template, clips: [a, b])])
+        var engine = try TimelineEditEngine(project: project)
+        XCTAssertThrowsError(try engine.apply(.setAudioCrossfade(outgoingClipID: a.id, incomingClipID: b.id, duration: RationalTime(2), curve: .equalPower, style: .pushLeft)))
+        try engine.apply(.setAudioCrossfade(outgoingClipID: a.id, incomingClipID: b.id, duration: RationalTime(2), curve: .linear, style: .pushLeft))
+        let plan = try TimelineRenderPlan(project: engine.project)
+        let incoming = try XCTUnwrap(plan.components.first { $0.clipID == b.id })
+        let outgoing = try XCTUnwrap(plan.components.first { $0.clipID == a.id })
+        XCTAssertEqual(incoming.fadeIn, .init(), "Pushes move instead of fading")
+        XCTAssertEqual(incoming.transformKeyframes.map(\.offsetX), [1, 0])
+        XCTAssertEqual(incoming.transformKeyframes.map { incoming.timelineSeconds(ofSource: $0.time) }, [3, 5])
+        XCTAssertEqual(outgoing.transformKeyframes.map(\.offsetX), [0, -1])
+        XCTAssertEqual(outgoing.transformKeyframes.map { outgoing.timelineSeconds(ofSource: $0.time) }, [3, 5])
+        XCTAssertEqual(try JSONDecoder().decode(Project.self, from: JSONEncoder().encode(engine.project)), engine.project)
+
+        guard let ffmpeg = ProcessInfo.processInfo.environment["AFC_FFMPEG"] else { throw XCTSkip("Set AFC_FFMPEG to render a push") }
+        func run(_ arguments: [String]) throws -> Data {
+            let process = Process(); process.executableURL = URL(fileURLWithPath: ffmpeg); process.arguments = arguments
+            let pipe = Pipe(); process.standardOutput = pipe; process.standardError = FileHandle.nullDevice
+            try process.run(); let data = pipe.fileHandleForReading.readDataToEndOfFile(); process.waitUntilExit()
+            XCTAssertEqual(process.terminationStatus, 0); return data
+        }
+        for color in ["red", "blue"] {
+            _ = try run(["-v", "error", "-f", "lavfi", "-i", "color=\(color):s=160x90:r=25:d=10", "-c:v", "prores_ks", directory.appendingPathComponent("\(color).mov").path])
+        }
+        let output = directory.appendingPathComponent("push.mov")
+        _ = try run(try FFmpegRenderCompiler.compile(plan, outputURL: output).arguments)
+        // Halfway (4 s): red occupies the left half, blue the right half.
+        let row = try run(["-v", "error", "-i", output.path, "-vf", "select=eq(n\\,100),crop=160:1:0:45", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
+        let redColumns = stride(from: 0, to: 160, by: 1).filter { row[$0 * 3] > 128 && row[$0 * 3 + 2] < 128 }
+        XCTAssertEqual(Double(redColumns.count), 80, accuracy: 3)
+        XCTAssertEqual(redColumns.first, 0)
+        XCTAssertGreaterThan(row[150 * 3 + 2], 200, "Blue on the right")
+    }
+}

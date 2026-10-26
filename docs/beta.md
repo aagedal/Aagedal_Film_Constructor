@@ -77,6 +77,10 @@ occupied time stacks the copy on a new sibling track rather than overwriting.
   silence instead. An edge with no neighbour fades the picture from or to black
   (or the layers below) and fades the sound. Edges that already have a
   transition are left as they are.
+- In the inspector's **Transition to next clip**, choose a **Style**: cross dissolve,
+  slide in from the right or left, or push left or right. Slides move the next clip
+  in over this one; pushes move both. They need full-frame clips without their own
+  scale, position or keyframes.
 - Picture clips have fade handles like audio clips: drag the yellow handle inward
   to fade, or drop it onto the neighbouring clip to dissolve. The inspector sets
   exact fade and dissolve durations and removes dissolves.
@@ -207,7 +211,7 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Effects beyond basic colour correction (curves, blur, keying), title animation beyond position and scale, transitions other than dissolves and crossfades, opacity keyframes (use fades) and a mixer are not part of this version.
+- Effects beyond basic colour correction (curves, blur, keying), title animation beyond position and scale, transitions other than dissolves, slides, pushes, dips and crossfades (no wipes), opacity keyframes (use fades) and a mixer are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
 - 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed

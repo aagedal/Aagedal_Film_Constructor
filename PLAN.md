@@ -58,6 +58,10 @@ express it.
   expressions; the system preview uses transform ramps and the CoreImage compositor
   evaluates the same placement per frame. `TransformKeyframeTests` measures the decoded
   inset's position and size; the preview matches export at the keyframes and between.
+- [x] Slide and push transitions: an optional style on the transition relation; the render
+  plan turns it into keyframes on the incoming (and, for pushes, outgoing) picture, so
+  export and both preview compositors animate it. Decoded export and preview agree on
+  the picture split at 25%, 50% and 75% of a push.
 - [x] Clip speed (10–1000%): `sourceRange.duration` stays timeline time and the clip plays
   `duration × speed` of source; splits, trims, overwrite, transition handles, volume
   keyframes and thumbnails map through the speed. Export retimes picture in a fine

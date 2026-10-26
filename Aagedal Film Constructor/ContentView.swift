@@ -490,6 +490,7 @@ private struct ProjectInspector: View {
     @State private var crossfadeTargetID: UUID?
     @State private var crossfadeDuration = "0.5"
     @State private var crossfadeCurve = AudioFadeCurve.equalPower
+    @State private var transitionStyle = TransitionStyle.dissolve
     @State private var crossfadeDraftProject: Project?
 
     var body: some View {
@@ -774,7 +775,7 @@ private struct ProjectInspector: View {
     @ViewBuilder
     private func crossfadeControls(_ clip: TimelineClip) -> some View {
         let isPicture = clip.requiredTrackKind == .video
-        Text(isPicture ? "Cross dissolve" : "Linked crossfade").font(.subheadline.bold())
+        Text(isPicture ? "Transition to next clip" : "Linked crossfade").font(.subheadline.bold())
         let targets = store.audioCrossfadeTargets(for: clip)
         Picker(isPicture ? "Incoming clip" : "Incoming audio", selection: $crossfadeTargetID) {
             Text("Select a clip").tag(nil as UUID?)
@@ -787,6 +788,7 @@ private struct ProjectInspector: View {
             if let existing = store.project.audioCrossfades.first(where: { $0.outgoingClipID == clip.id && $0.incomingClipID == id }) {
                 crossfadeDuration = display(existing.duration.seconds)
                 crossfadeCurve = existing.curve
+                transitionStyle = existing.style ?? .dissolve
             } else if let target = targets.first(where: { $0.id == id }) {
                 let overlap = clip.timelineStart.seconds + clip.sourceRange.duration.seconds - target.timelineStart.seconds
                 crossfadeDuration = display(overlap > 0 ? overlap : isPicture ? 1 : 0.5)
@@ -796,6 +798,11 @@ private struct ProjectInspector: View {
         }
         numericField(isPicture ? "Dissolve duration (s)" : "Crossfade duration (s)", text: $crossfadeDuration)
         if !isPicture { fadeCurvePicker("Crossfade curve", selection: $crossfadeCurve) }
+        else {
+            Picker("Style", selection: $transitionStyle) {
+                ForEach(TransitionStyle.allCases, id: \.self) { Text($0.displayName).tag($0) }
+            }
+        }
         Button(isPicture ? "Apply dissolve" : "Apply crossfade", systemImage: "checkmark") {
             guard let target = crossfadeTargetID,
                   let seconds = entered(crossfadeDuration, current: store.project.audioCrossfades.first { $0.outgoingClipID == clip.id && $0.incomingClipID == crossfadeTargetID }?.duration.seconds),
@@ -806,13 +813,13 @@ private struct ProjectInspector: View {
             }
             do {
                 try store.applyAudioCrossfade(outgoingClipID: clip.id, incomingClipID: target, seconds: seconds,
-                                             curve: crossfadeCurve, expectedProject: baseline)
+                                             curve: crossfadeCurve, style: isPicture ? transitionStyle : nil, expectedProject: baseline)
                 refreshCrossfade()
             } catch { store.errorMessage = store.audioEditErrorMessage(error) }
         }.labelStyle(.iconOnly).help(isPicture ? "Apply cross dissolve" : "Apply linked audio crossfade").disabled(crossfadeTargetID == nil)
         ForEach(store.project.audioCrossfades.filter { $0.outgoingClipID == clip.id || $0.incomingClipID == clip.id }) { crossfade in
             HStack {
-                Text("\(crossfade.outgoingClipID == clip.id ? "To next" : "From previous") · \(String(format: "%.3f", crossfade.duration.seconds)) s")
+                Text("\(crossfade.outgoingClipID == clip.id ? "To next" : "From previous") · \(isPicture ? (crossfade.style ?? .dissolve).displayName + " · " : "")\(String(format: "%.3f", crossfade.duration.seconds)) s")
                     .font(.caption)
                 Spacer()
                 Button(isPicture ? "Remove dissolve" : "Remove crossfade", systemImage: "xmark") {
@@ -837,6 +844,7 @@ private struct ProjectInspector: View {
             crossfadeTargetID = existing.incomingClipID
             crossfadeDuration = display(existing.duration.seconds)
             crossfadeCurve = existing.curve
+            transitionStyle = existing.style ?? .dissolve
         } else {
             crossfadeTargetID = nil
             crossfadeDuration = clip.requiredTrackKind == .video ? "1" : "0.5"

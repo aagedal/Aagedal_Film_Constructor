@@ -10,10 +10,31 @@ public struct AudioCrossfade: Identifiable, Equatable, Codable, Sendable {
     public var incomingClipID: UUID
     public var duration: RationalTime
     public var curve: AudioFadeCurve
-    public init(id: UUID = UUID(), outgoingClipID: UUID, incomingClipID: UUID, duration: RationalTime, curve: AudioFadeCurve = .equalPower) {
+    /// How two pictures change over; nil is a cross dissolve. Audio always crossfades.
+    public var style: TransitionStyle?
+    public init(id: UUID = UUID(), outgoingClipID: UUID, incomingClipID: UUID, duration: RationalTime, curve: AudioFadeCurve = .equalPower,
+                style: TransitionStyle? = nil) {
         self.id = id; self.outgoingClipID = outgoingClipID; self.incomingClipID = incomingClipID
-        self.duration = duration; self.curve = curve
+        self.duration = duration; self.curve = curve; self.style = style == .dissolve ? nil : style
     }
+}
+
+/// Picture transitions. Slides move the incoming picture in over the outgoing one; pushes
+/// also move the outgoing picture out. Both need full-frame pictures without their own transform.
+public enum TransitionStyle: String, Codable, CaseIterable, Sendable {
+    case dissolve, slideFromRight, slideFromLeft, pushLeft, pushRight
+    public var displayName: String {
+        switch self {
+        case .dissolve: "Cross dissolve"
+        case .slideFromRight: "Slide in from right"
+        case .slideFromLeft: "Slide in from left"
+        case .pushLeft: "Push left"
+        case .pushRight: "Push right"
+        }
+    }
+    /// Horizontal start offset of the incoming picture and end offset of the outgoing one.
+    var incomingFrom: Double { self == .slideFromLeft || self == .pushRight ? -1 : 1 }
+    var outgoingTo: Double? { self == .pushLeft ? -1 : self == .pushRight ? 1 : nil }
 }
 
 public struct AudioCrossfadeGeometry: Equatable, Sendable {
@@ -64,6 +85,14 @@ extension Project {
         guard gridDuration.denominator == 1 else { throw TimelineEditError.invalidAudioCrossfade }
         if isDissolve {
             guard outgoing.track.id == incoming.track.id, crossfade.curve == .linear else { throw TimelineEditError.invalidAudioCrossfade }
+            if crossfade.style != nil {
+                // Moving pictures replace any placement of their own.
+                guard [outgoing.clip, incoming.clip].allSatisfy({ $0.transform.isIdentity && $0.transformKeyframes.isEmpty }) else {
+                    throw TimelineEditError.invalidAudioCrossfade
+                }
+            }
+        } else if crossfade.style != nil {
+            throw TimelineEditError.invalidAudioCrossfade
         } else {
             func route(_ track: TimelineTrack) -> [Int] {
                 track.template.routing.outputChannels.isEmpty ? Array(0..<(track.audioLayout?.channels.count ?? 0)) : track.template.routing.outputChannels

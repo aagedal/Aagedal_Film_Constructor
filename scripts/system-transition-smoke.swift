@@ -222,6 +222,34 @@ import EditorCore
         }
         print("PASS animated placement preview matches export")
 
+        // A push: halfway through, the red shot fills the left half and the blue shot the right.
+        var pushEngine = try TimelineEditEngine(project: base)
+        try pushEngine.apply(.setAudioCrossfade(outgoingClipID: a.id, incomingClipID: b.id, duration: RationalTime(1), curve: .linear, style: .pushLeft))
+        let pushed = pushEngine.project
+        let pushOutput = directory.appendingPathComponent("push.mov")
+        _ = try run(ffmpeg, try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: pushed), outputURL: pushOutput).arguments)
+        let pushBackend = try AVFoundationSequenceBackend(project: pushed, videoProxies: [:])
+        pushBackend.display = { displayed, _ in image = displayed }
+        func redShare(_ row: [(Int, Int, Int)]) -> Double { Double(row.filter { $0.0 > 128 && $0.2 < 128 }.count) / Double(row.count) }
+        for frame in [30, 36, 42] {
+            let data = try run(ffmpeg, ["-hide_banner", "-i", pushOutput.path, "-vf", "select=eq(n\\,\(frame)),crop=80:1:0:24",
+                                        "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
+            let exported = redShare(stride(from: 0, to: data.count, by: 3).map { (Int(data[$0]), Int(data[$0 + 1]), Int(data[$0 + 2])) })
+            try await pushBackend.seek(toFrame: Int64(frame))
+            var bytes = [UInt8](repeating: 0, count: 80 * 4)
+            bytes.withUnsafeMutableBytes { pointer in
+                let context = CGContext(data: pointer.baseAddress, width: 80, height: 1, bitsPerComponent: 8, bytesPerRow: 80 * 4,
+                    space: image!.colorSpace ?? CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                context.draw(image!, in: CGRect(x: 0, y: -23, width: image!.width, height: image!.height))
+            }
+            let previewed = redShare(stride(from: 0, to: bytes.count, by: 4).map { (Int(bytes[$0]), Int(bytes[$0 + 1]), Int(bytes[$0 + 2])) })
+            print("push frame \(frame): red share export \(exported) preview \(previewed)")
+            try require(abs(exported - previewed) < 0.05, "Push preview differs at \(frame)")
+            if frame == 36 { try require(abs(exported - 0.5) < 0.05, "Halfway through the push") }
+        }
+        await pushBackend.close()
+        print("PASS push transition preview matches export")
+
         // Volume keyframes: full level until source 1 s, then down to a quarter by source 2 s.
         let tone = directory.appendingPathComponent("tone.mov")
         _ = try run(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000:duration=4",

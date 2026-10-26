@@ -1043,7 +1043,7 @@ final class EditorStore: ObservableObject {
         return try RationalTime(Int64(units)).divided(by: grid)
     }
     func previewAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, seconds: Double,
-                               curve: AudioFadeCurve) throws -> Project {
+                               curve: AudioFadeCurve, style: TransitionStyle? = nil) throws -> Project {
         guard let outgoing = project.tracks.flatMap(\.clips).first(where: { $0.id == outgoingClipID }) else { throw TimelineEditError.missingClip }
         let isPicture = outgoing.requiredTrackKind == .video
         let existing = project.audioCrossfades.first { $0.outgoingClipID == outgoingClipID && $0.incomingClipID == incomingClipID }
@@ -1051,10 +1051,10 @@ final class EditorStore: ObservableObject {
         var engine = try TimelineEditEngine(project: project)
         do {
             try engine.apply(.setAudioCrossfade(outgoingClipID: outgoingClipID, incomingClipID: incomingClipID,
-                                               duration: time, curve: isPicture ? .linear : curve))
+                                               duration: time, curve: isPicture ? .linear : curve, style: isPicture ? style : nil))
         } catch TimelineEditError.invalidAudioCrossfade {
             throw EditorCoreError.invalidModel(isPicture
-                ? "Cannot dissolve between these clips. Both must be on the same video track, meet at a cut or overlap by exactly the dissolve duration, and have enough source beyond the cut. The joined edges must have no standalone fade."
+                ? "Cannot join these clips. Both must be on the same video track, meet at a cut or overlap by exactly the transition duration, and have enough source beyond the cut. The joined edges must have no standalone fade, and slides and pushes need pictures without their own scale, position or keyframes."
                 : "Cannot link this audio pair. Use adjacent cuts with enough source handles or a duration matching the existing overlap. Audio layouts and output routing must match, and the linked edges must have no standalone fade.")
         }
         return engine.project
@@ -1078,12 +1078,12 @@ final class EditorStore: ObservableObject {
         } catch { report(error) }
     }
     func applyAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, seconds: Double,
-                             curve: AudioFadeCurve, expectedProject: Project) throws {
+                             curve: AudioFadeCurve, style: TransitionStyle? = nil, expectedProject: Project) throws {
         guard project == expectedProject else {
             throw EditorCoreError.invalidModel("The project changed while editing the crossfade. Review the current clips and try again.")
         }
         let draft = try previewAudioCrossfade(outgoingClipID: outgoingClipID, incomingClipID: incomingClipID,
-                                              seconds: seconds, curve: curve)
+                                              seconds: seconds, curve: curve, style: style)
         try change { $0 = draft }
         selectedClipID = outgoingClipID
         statusMessage = project.tracks.flatMap(\.clips).first { $0.id == outgoingClipID }?.requiredTrackKind == .video

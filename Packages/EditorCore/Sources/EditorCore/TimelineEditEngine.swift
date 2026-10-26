@@ -15,7 +15,7 @@ public enum EditCommand: Sendable {
     case rippleTrim(clipID: UUID, edge: TimelineTrimEdge, at: RationalTime)
     case delete(clipID: UUID)
     /// Change only the selected audio component, preserving linked components.
-    case setAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, duration: RationalTime, curve: AudioFadeCurve = .equalPower)
+    case setAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, duration: RationalTime, curve: AudioFadeCurve = .equalPower, style: TransitionStyle? = nil)
     case removeAudioCrossfade(crossfadeID: UUID)
     /// Audio components take any curve; pictures fade their opacity linearly.
     case setFades(clipID: UUID, fadeIn: AudioFade, fadeOut: AudioFade)
@@ -393,12 +393,14 @@ public struct TimelineEditEngine: Sendable {
                 try place(left, on: component.trackID, in: &project)
                 try place(right, on: component.trackID, in: &project)
             }
-        case .setAudioCrossfade(let outgoingID, let incomingID, let duration, let curve):
+        case .setAudioCrossfade(let outgoingID, let incomingID, let duration, let curve, let style):
+            let stored = style == .dissolve ? nil : style
             if let index = project.audioCrossfades.firstIndex(where: { $0.outgoingClipID == outgoingID && $0.incomingClipID == incomingID }) {
                 project.audioCrossfades[index].duration = duration
                 project.audioCrossfades[index].curve = curve
+                project.audioCrossfades[index].style = stored
             } else {
-                project.audioCrossfades.append(AudioCrossfade(outgoingClipID: outgoingID, incomingClipID: incomingID, duration: duration, curve: curve))
+                project.audioCrossfades.append(AudioCrossfade(outgoingClipID: outgoingID, incomingClipID: incomingID, duration: duration, curve: curve, style: stored))
             }
         case .removeAudioCrossfade(let id):
             guard let index = project.audioCrossfades.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingAudioCrossfade }
