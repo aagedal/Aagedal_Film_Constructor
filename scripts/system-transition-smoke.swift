@@ -82,5 +82,35 @@ import EditorCore
         try require(abs(middle[0] - middle[2]) < 30 && middle[0] > 90, "Dissolve midpoint must blend red and blue: \(middle)")
         await backend.close()
         print("PASS system transition preview matches export")
+
+        // Picture in picture: half-size red inset, offset right and down, at 60% opacity over blue.
+        let inset = TimelineClip(assetID: asset.id, sourceRange: try TimeRange(start: .zero, duration: RationalTime(1)),
+                                 selection: .video(streamIndex: vi), transform: PictureTransform(scale: 0.5, offsetX: 0.25, offsetY: 0.25, opacity: 0.6))
+        let below = TimelineClip(assetID: asset.id, sourceRange: try TimeRange(start: RationalTime(3), duration: RationalTime(1)), selection: .video(streamIndex: vi))
+        let pip = Project(settings: base.settings, assets: [asset], families: [family], tracks: [
+            TimelineTrack(familyID: family.id, template: template, clips: [inset]),
+            TimelineTrack(familyID: family.id, template: template, clips: [below])])
+        let pipOutput = directory.appendingPathComponent("pip.mov")
+        _ = try run(ffmpeg, try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: pip), outputURL: pipOutput).arguments)
+        let pipBackend = try AVFoundationSequenceBackend(project: pip, videoProxies: [:])
+        pipBackend.display = { displayed, _ in image = displayed }
+        try await pipBackend.seek(toFrame: 12)
+        for (x, y) in [(60, 36), (10, 10), (30, 18), (78, 46)] {
+            let data = try run(ffmpeg, ["-hide_banner", "-i", pipOutput.path, "-vf", "select=eq(n\\,12),crop=2:2:\(x):\(y)",
+                                        "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
+            let expected = data.prefix(3).map(Int.init)
+            var bytes = [UInt8](repeating: 0, count: 4)
+            bytes.withUnsafeMutableBytes { pointer in
+                let context = CGContext(data: pointer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                    space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                context.interpolationQuality = .none
+                context.draw(image!, in: CGRect(x: -x, y: -(image!.height - 1 - y), width: image!.width, height: image!.height))
+            }
+            let actual = bytes.prefix(3).map(Int.init)
+            print("pip (\(x),\(y)): export \(expected) preview \(actual)")
+            try require(zip(expected, actual).allSatisfy { abs($0 - $1) <= 16 }, "Picture in picture preview differs at (\(x),\(y))")
+        }
+        await pipBackend.close()
+        print("PASS picture in picture preview matches export")
     }
 }

@@ -11,7 +11,7 @@ public struct VideoCompositionPlan: Equatable, Sendable {
     }
     public struct Instruction: Equatable, Sendable {
         public var timeRange: TimeRange
-        /// Front to back; stills and fading pictures reveal lower layers, other motion video is opaque.
+        /// Front to back; stills and fading or transformed pictures reveal lower layers, other motion video is opaque.
         public let componentIndices: [Int]
     }
     /// Ordered by timeline start, so scaling a still hold cannot shift later inserts.
@@ -84,7 +84,7 @@ public struct VideoCompositionPlan: Equatable, Sendable {
             while let rank = active.first {
                 if finishes[rank] <= boundary { _ = active.pop(); continue }
                 visible.append(pictures[rank])
-                if case .video = plan.components[pictures[rank]].selection,
+                if case .video = plan.components[pictures[rank]].selection, plan.components[pictures[rank]].transform.isIdentity,
                    opaqueFrom[rank] <= boundary, boundary < opaqueUntil[rank] { break }
                 transparent.append(active.pop()!)
             }

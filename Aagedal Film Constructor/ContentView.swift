@@ -482,6 +482,10 @@ private struct ProjectInspector: View {
     @State private var fadeOutCurve = AudioFadeCurve.linear
     @State private var fadeDraftClip: TimelineClip?
     @State private var clipVolume = "0"
+    @State private var transformScale = "100"
+    @State private var transformX = "0"
+    @State private var transformY = "0"
+    @State private var transformOpacity = "100"
     @State private var crossfadeTargetID: UUID?
     @State private var crossfadeDuration = "0.5"
     @State private var crossfadeCurve = AudioFadeCurve.equalPower
@@ -520,6 +524,28 @@ private struct ProjectInspector: View {
                                     Text("Fill").tag(ScalingMode.fill)
                                     Text("Native size").tag(ScalingMode.none)
                                 }
+                                Text("Transform").font(.subheadline.bold())
+                                HStack {
+                                    numericField("Scale (%)", text: $transformScale)
+                                    numericField("Opacity (%)", text: $transformOpacity)
+                                }
+                                HStack {
+                                    numericField("Position X (%)", text: $transformX)
+                                    numericField("Position Y (%)", text: $transformY)
+                                }
+                                HStack {
+                                    Button("Apply transform", systemImage: "checkmark") {
+                                        store.setSelectedClipTransform(scale: transformScale, x: transformX, y: transformY, opacity: transformOpacity)
+                                    }.labelStyle(.iconOnly).help("Apply scale, position and opacity")
+                                    Button("Picture in picture", systemImage: "pip") {
+                                        store.setSelectedClipTransform(scale: "33", x: "30", y: "30", opacity: "100")
+                                    }.labelStyle(.iconOnly).help("Shrink to a third in the lower right corner")
+                                    Button("Reset transform", systemImage: "arrow.counterclockwise") {
+                                        store.setSelectedClipTransform(scale: "100", x: "0", y: "0", opacity: "100")
+                                    }.labelStyle(.iconOnly).help("Reset scale, position and opacity").disabled(clip.transform.isIdentity)
+                                }
+                                Text("Position is a share of the frame: positive X moves right, positive Y down. Layers below show around and through the picture.")
+                                    .font(.caption).foregroundStyle(.secondary)
                             } else {
                                 Button("Audio source channels…", systemImage: "waveform") { editingAudio = true }
                                     .labelStyle(.iconOnly).help("Edit audio source channels and output routing")
@@ -738,6 +764,9 @@ private struct ProjectInspector: View {
         fadeInCurve = clip.fadeIn.curve
         fadeOutCurve = clip.fadeOut.curve
         fadeDraftClip = clip
+        func percent(_ value: Double) -> String { String(format: "%g", (value * 1000).rounded() / 10) }
+        transformScale = percent(clip.transform.scale); transformX = percent(clip.transform.offsetX)
+        transformY = percent(clip.transform.offsetY); transformOpacity = percent(clip.transform.opacity)
         if let gain = store.selectedVolumeClips.first?.gain {
             clipVolume = gain == 0 ? "-inf" : String(format: "%.1f", 20 * log10(gain))
         }

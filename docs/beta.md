@@ -86,6 +86,14 @@ occupied time stacks the copy on a new sibling track rather than overwriting.
 - FCPXML, OTIO and EDL exports refuse sequences with fades or transitions rather
   than dropping them.
 
+## Scale, position and opacity
+
+Select a picture clip and use **Transform** in the inspector: scale and opacity in
+percent, and position as a percentage of the frame (positive X moves right, positive
+Y down). The picture-in-picture button shrinks the clip to a third in the lower right
+corner, and reset restores it. Layers below show around and through a transformed
+picture. Interchange exports refuse transformed clips.
+
 ## Titles
 
 Press ⌃T (or the **T** button in the timeline toolbar) to add a five-second title at
@@ -167,9 +175,9 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Effects, title animation and fonts other than the system font, transitions other
-  than cross dissolves and audio crossfades, keyframes and a mixer are not part of
-  this version.
+- Effects (colour correction, blur), title animation and fonts other than the
+  system font, transitions other than dissolves and crossfades, keyframes (transforms
+  and volume are static per clip) and a mixer are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
 - 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed

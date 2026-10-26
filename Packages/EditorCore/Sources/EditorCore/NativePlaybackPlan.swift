@@ -153,8 +153,8 @@ public struct NativePlaybackPlan: Equatable, Sendable {
                     streamIndex = index
                     _ = try sourceStream(streamIndex, kind: .video)
                 }
-                guard component.fadeIn.duration == .zero && component.fadeOut.duration == .zero else {
-                    throw EditorCoreError.invalidModel("Only audio clips support fades")
+                guard component.fadeIn.duration == .zero && component.fadeOut.duration == .zero, component.transform.isIdentity else {
+                    throw EditorCoreError.invalidModel("The native runtime does not render picture fades or transforms")
                 }
                 guard component.routing.outputChannels.isEmpty else {
                     throw EditorCoreError.invalidModel("Video component has audio routing")

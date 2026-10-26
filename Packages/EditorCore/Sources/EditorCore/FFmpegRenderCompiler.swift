@@ -142,10 +142,13 @@ public enum FFmpegRenderCompiler {
                 let end = try RationalTime(start).adding(RationalTime(count)).numerator
                 let scaling: String
                 let w = settings.width, h = settings.height
+                // Transformed pictures reveal lower layers outside their own picture area.
+                let transformed = !component.transform.isIdentity
+                let clearPad = isStill || transformed
                 switch component.scalingMode {
-                case .fit: scaling = "scale=\(w):\(h):force_original_aspect_ratio=decrease,pad=\(w):\(h):(ow-iw)/2:(oh-ih)/2\(isStill ? ":color=black@0" : "")"
+                case .fit: scaling = "scale=\(w):\(h):force_original_aspect_ratio=decrease,pad=\(w):\(h):(ow-iw)/2:(oh-ih)/2\(clearPad ? ":color=black@0" : "")"
                 case .fill: scaling = "scale=\(w):\(h):force_original_aspect_ratio=increase,crop=\(w):\(h)"
-                case .none: scaling = "pad='max(iw,\(w))':'max(ih,\(h))':(ow-iw)/2:(oh-ih)/2\(isStill ? ":color=black@0" : ""),crop=\(w):\(h)"
+                case .none: scaling = "pad='max(iw,\(w))':'max(ih,\(h))':(ow-iw)/2:(oh-ih)/2\(clearPad ? ":color=black@0" : ""),crop=\(w):\(h)"
                 }
                 let source: String
                 let timing: String
@@ -195,12 +198,22 @@ public enum FFmpegRenderCompiler {
                 let squarePixels = "scale=w='if(eq(sar,1),iw,trunc(iw*sar/2)*2)':h=ih:out_range=tv,setsar=1"
                 let fades = try pictureFades(component, placement: placement, count: count, rate: settings.frameRate.value)
                 let geometry = isStill ? "format=yuva444p,\(scaling),setsar=1"
+                    : transformed ? "\(squarePixels),format=yuva444p,\(scaling),setsar=1"
                     : "\(squarePixels),\(scaling),setsar=1,format=\(fades.isEmpty ? "yuv444p" : "yuva444p")"
-                graph.append("\(source)\(timing),\(geometry)\(fades)[v\(index)]")
+                var arrangement = ""
+                if transformed {
+                    let t = component.transform
+                    if t.scale != 1 { arrangement += ",scale=w='max(1,round(iw*\(t.scale)))':h='max(1,round(ih*\(t.scale)))'" }
+                    if t.opacity != 1 { arrangement += ",lut=a='val*\(t.opacity)'" }
+                }
+                graph.append("\(source)\(timing),\(geometry)\(arrangement)\(fades)[v\(index)]")
                 // Explicit half-open visibility also prevents framesync holding a layer past its cut.
                 let visibleEnd = try RationalTime(placement).adding(RationalTime(count)).numerator
                 let enabled = "gte(n,\(placement))*lt(n,\(visibleEnd))"
-                graph.append("[\(videoLabel)][v\(index)]overlay=eof_action=repeat:repeatlast=1:format=yuv444:enable='\(enabled)'[layer\(index)]")
+                // A transformed layer is centred, then offset in fractions of the frame.
+                let position = transformed
+                    ? ":x='(main_w-overlay_w)/2+\(component.transform.offsetX)*main_w':y='(main_h-overlay_h)/2+\(component.transform.offsetY)*main_h'" : ""
+                graph.append("[\(videoLabel)][v\(index)]overlay=eof_action=repeat:repeatlast=1:format=yuv444\(position):enable='\(enabled)'[layer\(index)]")
                 videoLabel = "layer\(index)"
             case .audio(let selection):
                 try selection.layout.validate()

@@ -46,6 +46,11 @@ express it.
   splits clips at the playhead and pushes later clips; overwrite (.) trims, splits or
   removes what lies on the destination tracks. Both use the source marks, keep
   transitions whose clips still meet, and leave the playhead after the new clip.
+- [x] Picture transform: per-clip scale (1–1000%), position (fractions of the frame)
+  and opacity after the scaling mode, with a picture-in-picture preset. Transformed
+  pictures reveal lower layers in render and preview; split, copy and save keep it;
+  interchange and stream copy refuse it. `PictureTransformTests` checks decoded export
+  pixels; `scripts/system-transition-smoke.sh` compares preview and export.
 - [x] Real-window acceptance (2026-10-26, `scripts/app-acceptance.sh … generate`): ⌘T,
   ⌃T and title editing, clip volume, insert, overwrite, ⌘C/⌘V, ⌘D and ⇧⌘⌫ pass
   alongside the beta steps; H.264 and ProRes renders of the edited timeline verify.

@@ -50,6 +50,7 @@ public enum OTIOExporter {
             }
             if component.gain != 1 { reasons.append("\(label): track gain and clip volume must be unity.") }
             if component.fadeIn.duration != .zero || component.fadeOut.duration != .zero { reasons.append("\(label): fades are not supported.") }
+            if !component.transform.isIdentity { reasons.append("\(label): scale, position and opacity are not supported.") }
             let clock: RationalTime
             switch component.selection {
             case .still:

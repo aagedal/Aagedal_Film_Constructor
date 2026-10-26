@@ -262,10 +262,17 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     offsetX = offsetX.rounded(.towardZero)
                     offsetY = offsetY.rounded(.towardZero)
                 }
+                // The clip's own scale is about the frame centre, then offset in frame fractions.
+                let placement = component.transform
+                let centre = CGAffineTransform(translationX: -canvas.width / 2, y: -canvas.height / 2)
+                    .concatenating(CGAffineTransform(scaleX: placement.scale, y: placement.scale))
+                    .concatenating(CGAffineTransform(translationX: canvas.width * (0.5 + placement.offsetX),
+                                                     y: canvas.height * (0.5 + placement.offsetY)))
                 let transform = orientation
                     .concatenating(CGAffineTransform(translationX: -bounds.minX, y: -bounds.minY))
                     .concatenating(CGAffineTransform(scaleX: factor, y: factor))
                     .concatenating(CGAffineTransform(translationX: offsetX, y: offsetY))
+                    .concatenating(placement.isIdentity ? .identity : centre)
                 let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
                 layer.setTransform(transform, at: .zero)
                 try applyOpacityFades(component, to: layer)
@@ -330,12 +337,16 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
     /// Overlapping fade in and fade out multiply; that product is followed with short segments.
     private func applyOpacityFades(_ component: TimelineRenderPlan.Component, to layer: AVMutableVideoCompositionLayerInstruction) throws {
         let fadeIn = component.fadeIn.duration.seconds, fadeOut = component.fadeOut.duration.seconds
-        guard fadeIn > 0 || fadeOut > 0 else { return }
+        let level = component.transform.opacity
+        guard fadeIn > 0 || fadeOut > 0 else {
+            if level != 1 { layer.setOpacity(Float(level), at: .zero) }
+            return
+        }
         let start = component.timelineRange.start.seconds, duration = component.timelineRange.duration.seconds
         func opacity(_ t: Double) -> Double {
             let rising = fadeIn > 0 ? min(1, max(0, t / fadeIn)) : 1
             let falling = fadeOut > 0 ? min(1, max(0, (duration - t) / fadeOut)) : 1
-            return rising * falling
+            return rising * falling * level
         }
         var times = Set([0, duration, min(fadeIn, duration), max(0, duration - fadeOut)])
         if fadeIn + fadeOut > duration {
@@ -346,7 +357,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
         layer.setOpacity(Float(opacity(0)), at: rampTime(start))
         for (a, b) in zip(points, points.dropFirst()) where b > a {
             let from = opacity(a), to = opacity(b)
-            guard from != 1 || to != 1 else { continue }
+            guard from != level || to != level else { continue }
             let rampStart = rampTime(start + a), rampEnd = rampTime(start + b)
             guard rampStart.isNumeric, rampEnd.isNumeric, CMTimeCompare(rampEnd, rampStart) > 0 else {
                 throw Self.unsupported("Picture fade timing exceeds system preview precision.")

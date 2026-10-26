@@ -21,6 +21,8 @@ public enum EditCommand: Sendable {
     case setFades(clipID: UUID, fadeIn: AudioFade, fadeOut: AudioFade)
     /// Set the linear volume of the listed audio components; other kinds are refused.
     case setGain(clipIDs: [UUID], gain: Double)
+    /// Place one picture component; linked components keep their own transforms.
+    case setTransform(clipID: UUID, transform: PictureTransform)
     /// Replace one audio component with explicitly mapped components, preserving linked picture/timing.
     case selectAudioSource(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting])
     /// Replace explicitly chosen, aligned linked audio components with one mapped component.
@@ -405,6 +407,11 @@ public struct TimelineEditEngine: Sendable {
                 guard project.tracks[t].clips[c].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
                 project.tracks[t].clips[c].gain = gain
             }
+        case .setTransform(let clipID, let transform):
+            guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
+                  let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
+            guard project.tracks[t].clips[c].requiredTrackKind == .video else { throw TimelineEditError.incompatibleTrack }
+            project.tracks[t].clips[c].transform = transform
         case .delete(let clipID):
             let components = try linked(to: clipID, in: project)
             remove(Set(components.map { $0.clip.id }), from: &project)

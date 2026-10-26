@@ -433,6 +433,12 @@ enum AcceptanceDriver {
                 features["clipboard"] = ["menuKeys": keyed, "copiedAndPasted": pasted, "duplicated": duplicated, "rippleDeleted": rippled,
                                          "clipboardEntries": store.clipboard?.entries.count ?? 0, "error": store.errorMessage ?? ""]
             }
+            if let picture = clips().first(where: { $0.requiredTrackKind == .video && store.asset(id: $0.assetID)?.title == nil }) {
+                store.selectTimelineClip(picture.id)
+                store.setSelectedClipTransform(scale: "33", x: "30", y: "30", opacity: "80")
+                let transform = clips().first { $0.id == picture.id }?.transform
+                features["transform"] = ["scale": transform?.scale ?? 0, "opacity": transform?.opacity ?? 0]
+            }
             features["undoAvailable"] = store.canUndo
             store.seek(to: 0)
             record("finishing_tools", features)

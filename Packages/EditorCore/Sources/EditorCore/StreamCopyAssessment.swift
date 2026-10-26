@@ -68,7 +68,7 @@ public struct StreamCopyEvidence: Equatable, Sendable {
 
 public enum StreamCopyReason: String, Equatable, Sendable {
     case missingStream, multipleComponents, generatedGapOrTimingChange, missingOriginal
-    case stillImage, missingSourceStream, nonzeroStreamOffset, audioProcessing, channelRemapping
+    case stillImage, missingSourceStream, nonzeroStreamOffset, audioProcessing, videoProcessing, channelRemapping
     case missingEvidence, ambiguousEvidence, evidenceDoesNotMatch, missingMetadata
     case videoGeometryChange, frameRateChange, audioFormatChange
     case inexactPacketBoundaries, unprovenRandomAccess, incompleteOutgoingDependencies
@@ -109,7 +109,11 @@ public struct StreamCopyAssessment: Equatable, Sendable {
             let streamIndex: Int?
             switch component.selection {
             case .still: streamIndex = nil; reject(.stillImage)
-            case .video(let index): streamIndex = index
+            case .video(let index):
+                streamIndex = index
+                if !component.transform.isIdentity || component.fadeIn.duration != .zero || component.fadeOut.duration != .zero {
+                    reject(.videoProcessing)
+                }
             case .audio(let selection):
                 let indices = Set(selection.channels.map(\.streamIndex))
                 streamIndex = indices.count == 1 ? indices.first : nil

@@ -75,6 +75,7 @@ checks = [
     (', inserted the source and moved later clips', tools.get('insert', {}).get('secondsAdded', 0) > 0.5),
     ('. overwrote the sequence at the playhead', tools.get('overwrite', {}).get('clipsAfter', 0) > 0 and not tools.get('overwrite', {}).get('error')),
     ('⌘C/⌘V pasted, ⌘D duplicated and ⇧⌘⌫ ripple deleted', tools.get('clipboard', {}).get('copiedAndPasted') and tools.get('clipboard', {}).get('duplicated') and tools.get('clipboard', {}).get('rippleDeleted')),
+    ('picture-in-picture transform applied (33%, 80% opacity)', tools.get('transform', {}).get('scale') == 0.33 and tools.get('transform', {}).get('opacity') == 0.8),
     ('remapped Play / Pause shortcut works and was restored', shortcut.get('remapped') and shortcut.get('plays') and shortcut.get('pauses') and shortcut.get('restored')),
     ('Tab switched to a prepared Sequence viewer', seq.get('tabSwitchedToSequence') and seq.get('prepared')),
     ('Space started playback and the playhead advanced', space.get('startedPlaying') and space.get('playheadWhilePlaying', 0) > 0.5),

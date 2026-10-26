@@ -94,6 +94,26 @@ public struct AudioSourceSelection: Hashable, Codable, Sendable {
 }
 public enum ClipSelection: Hashable, Codable, Sendable { case video(streamIndex: Int), audio(AudioSourceSelection), still }
 public enum ScalingMode: String, Codable, Sendable { case fit, fill, none }
+/// Placement of a picture after its scaling mode: a uniform scale about the frame centre,
+/// an offset in fractions of the frame size (positive x right, positive y down) and opacity.
+public struct PictureTransform: Equatable, Codable, Sendable {
+    public var scale: Double
+    public var offsetX: Double
+    public var offsetY: Double
+    public var opacity: Double
+    public init(scale: Double = 1, offsetX: Double = 0, offsetY: Double = 0, opacity: Double = 1) {
+        self.scale = scale; self.offsetX = offsetX; self.offsetY = offsetY; self.opacity = opacity
+    }
+    public static let identity = PictureTransform()
+    public var isIdentity: Bool { self == .identity }
+    /// Scales from 1% to 1000%, offsets within two frames, opacity from 0 to 1.
+    public func validate() throws {
+        guard [scale, offsetX, offsetY, opacity].allSatisfy(\.isFinite), (0.01...10).contains(scale),
+              (-2...2).contains(offsetX), (-2...2).contains(offsetY), (0...1).contains(opacity) else {
+            throw EditorCoreError.invalidModel("Scale must be 1–1000%, position within two frames and opacity 0–100%")
+        }
+    }
+}
 public enum TrackKind: String, Codable, Sendable { case video, audio }
 public struct AudioRouting: Equatable, Codable, Sendable {
     /// Destination speaker for every input channel; an empty map means identity routing.
@@ -121,11 +141,13 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
     public var fadeOut: AudioFade
     /// Linear clip volume for audio components, applied on top of the track gain.
     public var gain: Double
-    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1) {
+    /// Picture placement after scaling; identity for audio.
+    public var transform: PictureTransform
+    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1, transform: PictureTransform = .identity) {
         self.id = id; self.assetID = assetID; self.sourceRange = sourceRange; self.timelineStart = timelineStart; self.selection = selection; self.scalingMode = scalingMode; self.linkGroupID = linkGroupID; self.fadeIn = fadeIn; self.fadeOut = fadeOut
-        self.gain = gain
+        self.gain = gain; self.transform = transform
     }
-    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain }
+    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain, transform }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.init(id: try c.decode(UUID.self, forKey: .id), assetID: try c.decode(UUID.self, forKey: .assetID),
@@ -134,7 +156,8 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
                   linkGroupID: try c.decodeIfPresent(UUID.self, forKey: .linkGroupID),
                   fadeIn: try c.decodeIfPresent(AudioFade.self, forKey: .fadeIn) ?? .init(),
                   fadeOut: try c.decodeIfPresent(AudioFade.self, forKey: .fadeOut) ?? .init(),
-                  gain: try c.decodeIfPresent(Double.self, forKey: .gain) ?? 1)
+                  gain: try c.decodeIfPresent(Double.self, forKey: .gain) ?? 1,
+                  transform: try c.decodeIfPresent(PictureTransform.self, forKey: .transform) ?? .identity)
     }
     public var requiredTrackKind: TrackKind { if case .audio = selection { return .audio }; return .video }
     public var requiredAudioLayout: ChannelLayout? { if case .audio(let selection) = selection { return selection.layout }; return nil }

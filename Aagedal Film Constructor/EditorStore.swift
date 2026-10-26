@@ -775,6 +775,21 @@ final class EditorStore: ObservableObject {
             statusMessage = "Updated the title."
         } catch { errorMessage = audioEditErrorMessage(error) }
     }
+    /// Percentages: scale, position as a share of the frame (right/down positive) and opacity.
+    func setSelectedClipTransform(scale: String, x: String, y: String, opacity: String) {
+        guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
+        func percent(_ text: String) -> Double? {
+            Double(text.replacingOccurrences(of: "%", with: "").replacingOccurrences(of: "−", with: "-").trimmingCharacters(in: .whitespaces)).map { $0 / 100 }
+        }
+        guard let s = percent(scale), let px = percent(x), let py = percent(y), let o = percent(opacity) else {
+            errorMessage = "Enter scale, position and opacity as percentages."
+            return
+        }
+        let transform = PictureTransform(scale: s, offsetX: px, offsetY: py, opacity: o)
+        do { try transform.validate() } catch { errorMessage = audioEditErrorMessage(error); return }
+        edit(.setTransform(clipID: clip.id, transform: transform))
+        if errorMessage == nil { statusMessage = transform.isIdentity ? "Reset the picture's transform." : "Updated the picture's scale, position and opacity." }
+    }
     func deleteSelectedClip() {
         guard let id = selectedClipID else { return }
         edit(.delete(clipID: id)); reconcileSelection()
