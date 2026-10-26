@@ -17,7 +17,26 @@ publication and opt-in helper packaging; FCPXML has a validated structural subse
 This plan records the intended product and implementation order; unchecked
 items remain planned capabilities.
 
-## Current priority: usable beta (2026-10-23)
+## Current priority: usable editor (2026-10-26)
+
+The beta assembles, previews and exports cuts. These are the remaining everyday
+editing tools needed before the editor is usable for finished pieces. Each item
+renders exactly in export, previews through the system backend, persists, undoes
+as one step, and is refused (never dropped) by interchange exports that cannot
+express it.
+
+- [x] Picture fades and cross dissolves: linear opacity fades on video and still
+  clips; dissolves between pictures meeting on one track reuse the paired
+  crossfade relation on the frame grid with centred source handles. ⌘T adds a
+  dissolve/crossfade (or edge fades) to the selected clip and its linked
+  components. Decoded-pixel checks: `VideoTransitionRenderTests` (export, with
+  `AFC_FFMPEG`) and `scripts/system-transition-smoke.sh` (preview vs export).
+- [ ] Titles: text clips with font, size, colour and position.
+- [ ] Per-clip audio volume in dB, independent of track gain.
+- [ ] Ripple delete, and insert/overwrite edits at the playhead from the source.
+- [ ] Copy, paste and duplicate clips.
+
+## Earlier priority: usable beta (2026-10-23)
 
 Prioritize everyday usability over further qualification proofs. Unqualified
 sources now render or preview with visible approximations instead of refusing;

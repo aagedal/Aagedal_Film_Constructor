@@ -268,6 +268,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     .concatenating(CGAffineTransform(translationX: offsetX, y: offsetY))
                 let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
                 layer.setTransform(transform, at: .zero)
+                try applyOpacityFades(component, to: layer)
                 layers[componentIndex] = layer
             } else {
                 if component.gain > 1 {
@@ -323,6 +324,36 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
         try Task.checkCancellation()
         guard !closed else { throw CancellationError() }
         return item
+    }
+
+    /// Linear opacity ramps for picture fades and dissolves, matching the export's alpha fades.
+    /// Overlapping fade in and fade out multiply; that product is followed with short segments.
+    private func applyOpacityFades(_ component: TimelineRenderPlan.Component, to layer: AVMutableVideoCompositionLayerInstruction) throws {
+        let fadeIn = component.fadeIn.duration.seconds, fadeOut = component.fadeOut.duration.seconds
+        guard fadeIn > 0 || fadeOut > 0 else { return }
+        let start = component.timelineRange.start.seconds, duration = component.timelineRange.duration.seconds
+        func opacity(_ t: Double) -> Double {
+            let rising = fadeIn > 0 ? min(1, max(0, t / fadeIn)) : 1
+            let falling = fadeOut > 0 ? min(1, max(0, (duration - t) / fadeOut)) : 1
+            return rising * falling
+        }
+        var times = Set([0, duration, min(fadeIn, duration), max(0, duration - fadeOut)])
+        if fadeIn + fadeOut > duration {
+            let from = max(0, duration - fadeOut), to = min(fadeIn, duration)
+            for step in 1..<16 { times.insert(from + (to - from) * Double(step) / 16) }
+        }
+        let points = times.sorted()
+        layer.setOpacity(Float(opacity(0)), at: rampTime(start))
+        for (a, b) in zip(points, points.dropFirst()) where b > a {
+            let from = opacity(a), to = opacity(b)
+            guard from != 1 || to != 1 else { continue }
+            let rampStart = rampTime(start + a), rampEnd = rampTime(start + b)
+            guard rampStart.isNumeric, rampEnd.isNumeric, CMTimeCompare(rampEnd, rampStart) > 0 else {
+                throw Self.unsupported("Picture fade timing exceeds system preview precision.")
+            }
+            layer.setOpacityRamp(fromStartOpacity: Float(from), toEndOpacity: Float(to),
+                                 timeRange: CMTimeRange(start: rampStart, duration: CMTimeSubtract(rampEnd, rampStart)))
+        }
     }
 
     private func prepare() async throws {

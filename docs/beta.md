@@ -35,13 +35,34 @@ and Gatekeeper assesses it as "Notarized Developer ID".
    J/K/L also work. Drag clips to move them, drag edges to trim, use ⌘B to split
    and ⌘⌫ to delete. Undo and redo with ⌘Z and ⇧⌘Z. Every shortcut can be
    remapped in Settings.
-5. Set the sequence resolution, frame rate, audio rate and start timecode in the
+5. Select a clip and press ⌘T to add a transition at its edit nearest the
+   playhead: picture cross dissolves and sound crossfades into the next clip on
+   the same track, or a free edge fades from or to black and silence. See
+   [Transitions](#transitions).
+6. Set the sequence resolution, frame rate, audio rate and start timecode in the
    inspector. The first picture you add can match the sequence to its source.
-6. Choose **File → Render Sequence…** (⇧⌘E), pick a format, check any warnings,
+7. Choose **File → Render Sequence…** (⇧⌘E), pick a format, check any warnings,
    then choose a folder.
-7. Save with ⌘S. Projects reference your media; they don't copy it.
+8. Save with ⌘S. Projects reference your media; they don't copy it.
 
 [Basic workspace testing](basic-workspace.md) describes every editing control.
+
+## Transitions
+
+- **⌘T (Add Transition)** works on the selected clip and its linked components in
+  one undoable edit. It uses the clip edge nearest the playhead. Where another clip
+  meets that edge on the same track, picture gets a one-second cross dissolve and
+  sound an equal-power crossfade. A dissolve centres on the cut and uses source
+  beyond it, shrinking to fit the source that is available. An edge with no
+  neighbour fades the picture from or to black (or the layers below) and fades
+  the sound.
+- Picture clips have fade handles like audio clips: drag the yellow handle inward
+  to fade, or drop it onto the neighbouring clip to dissolve. The inspector sets
+  exact fade and dissolve durations and removes dissolves.
+- Picture fades and dissolves are linear and snap to whole frames. Exports render
+  them exactly; the sequence preview matches within normal colour conversion.
+- FCPXML, OTIO and EDL exports refuse sequences with fades or transitions rather
+  than dropping them.
 
 ## Media support
 
@@ -107,8 +128,8 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Effects, titles, transitions other than audio crossfades, keyframes and a mixer
-  are not part of this version.
+- Effects, titles, transitions other than cross dissolves and audio crossfades,
+  keyframes and a mixer are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
 - 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed

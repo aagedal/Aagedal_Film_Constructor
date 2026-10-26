@@ -35,17 +35,17 @@ final class AudioFadeTests: XCTestCase {
     func testAtomicFadeEditIndependentOverlapUndoRedoAndInvalidValues() throws {
         let (project, id) = try fixture()
         var engine = try TimelineEditEngine(project: project)
-        try engine.apply(.setAudioFades(clipID: id, fadeIn: fade(4), fadeOut: fade(4, .equalPower)))
+        try engine.apply(.setFades(clipID: id, fadeIn: fade(4), fadeOut: fade(4, .equalPower)))
         let edited = engine.project
         engine.undo(); XCTAssertEqual(engine.project, project)
         engine.redo(); XCTAssertEqual(engine.project, edited)
         engine.undo()
         for value in [try fade(-1), try fade(6)] {
-            XCTAssertThrowsError(try engine.apply(.setAudioFades(clipID: id, fadeIn: value, fadeOut: .init())))
+            XCTAssertThrowsError(try engine.apply(.setFades(clipID: id, fadeIn: value, fadeOut: .init())))
             XCTAssertEqual(engine.project, project)
             XCTAssertTrue(engine.canRedo)
         }
-        XCTAssertThrowsError(try engine.apply(.setAudioFades(clipID: UUID(), fadeIn: .init(), fadeOut: .init())))
+        XCTAssertThrowsError(try engine.apply(.setFades(clipID: UUID(), fadeIn: .init(), fadeOut: .init())))
     }
 
     func testAudioOnlyFadeEditDoesNotChangeLinkedAudioOrVideo() throws {
@@ -60,13 +60,17 @@ final class AudioFadeTests: XCTestCase {
                                  selection: .video(streamIndex: 1), linkGroupID: group)
         project.tracks.append(TimelineTrack(familyID: family.id, template: family.template, clips: [video]))
         var engine = try TimelineEditEngine(project: project)
-        try engine.apply(.setAudioFades(clipID: id, fadeIn: fade(1), fadeOut: fade(1)))
+        try engine.apply(.setFades(clipID: id, fadeIn: fade(1), fadeOut: fade(1)))
         XCTAssertEqual(engine.project.tracks[0].clips[1], project.tracks[0].clips[1])
         XCTAssertEqual(engine.project.tracks[1], project.tracks[1])
         let edited = engine.project
-        XCTAssertThrowsError(try engine.apply(.setAudioFades(clipID: video.id, fadeIn: fade(1), fadeOut: .init())))
+        // Pictures fade opacity linearly; curved picture fades are refused.
+        XCTAssertThrowsError(try engine.apply(.setFades(clipID: video.id, fadeIn: fade(1, .equalPower), fadeOut: .init())))
         XCTAssertEqual(engine.project, edited)
-        var invalid = project; invalid.tracks[1].clips[0].fadeIn = try fade(1)
+        try engine.apply(.setFades(clipID: video.id, fadeIn: fade(1), fadeOut: .init()))
+        XCTAssertEqual(engine.project.tracks[1].clips[0].fadeIn, try fade(1))
+        XCTAssertEqual(engine.project.tracks[0].clips[1], project.tracks[0].clips[1], "Picture fades leave linked audio unchanged")
+        var invalid = project; invalid.tracks[1].clips[0].fadeIn = try fade(1, .equalPower)
         XCTAssertThrowsError(try invalid.validate())
     }
 
@@ -117,7 +121,7 @@ final class AudioFadeTests: XCTestCase {
             XCTAssertEqual(clip.fadeIn, selected.fadeIn); XCTAssertEqual(clip.fadeOut, selected.fadeOut)
         }
         let separated = engine.project
-        try engine.apply(.setAudioFades(clipID: ids[1], fadeIn: .init(), fadeOut: .init()))
+        try engine.apply(.setFades(clipID: ids[1], fadeIn: .init(), fadeOut: .init()))
         let different = engine.project
         XCTAssertTrue(try different.audioConsolidationCandidates(for: id).isEmpty)
         XCTAssertThrowsError(try engine.consolidateAudioSources(clipID: id, replacingClipIDs: [ids[1]], selection: map, routing: .init(outputChannels: [0])))

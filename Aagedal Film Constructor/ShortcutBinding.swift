@@ -3,7 +3,7 @@ import Foundation
 enum EditorCommandScope: String, Codable { case document, source, timeline }
 
 enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
-    case togglePlayback, zoomTimelineToFit, rippleTrimStart, rippleTrimEnd, toggleViewer, undo, redo, importMedia, appendSource, markSourceIn, markSourceOut, clearSourceMarks, splitClip, previousFrame, nextFrame, deleteClip, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO
+    case togglePlayback, zoomTimelineToFit, rippleTrimStart, rippleTrimEnd, toggleViewer, undo, redo, importMedia, appendSource, markSourceIn, markSourceOut, clearSourceMarks, splitClip, addTransition, previousFrame, nextFrame, deleteClip, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -20,6 +20,7 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .markSourceOut: "Mark Source Out (Exclusive)"
         case .clearSourceMarks: "Clear Source Marks"
         case .splitClip: "Split at Playhead"
+        case .addTransition: "Add Transition at Nearest Edit"
         case .previousFrame: "Previous Frame"
         case .nextFrame: "Next Frame"
         case .deleteClip: "Delete Selected Clip"
@@ -55,6 +56,7 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .markSourceOut: ShortcutBinding(key: "o")
         case .clearSourceMarks: ShortcutBinding(key: "x", option: true)
         case .splitClip: ShortcutBinding(key: "b", command: true)
+        case .addTransition: ShortcutBinding(key: "t", command: true)
         case .previousFrame: ShortcutBinding(key: "left", command: true, option: true)
         case .nextFrame: ShortcutBinding(key: "right", command: true, option: true)
         case .deleteClip: ShortcutBinding(key: "delete", command: true)

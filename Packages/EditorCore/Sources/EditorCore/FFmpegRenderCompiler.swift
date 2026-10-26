@@ -104,10 +104,7 @@ public enum FFmpegRenderCompiler {
         var videoLabel = "base"
         var audioLabels = ["silence"]
         // Composite back to front: track zero is frontmost in the canonical plan.
-        let components = plan.components.sorted {
-            if $0.layerOrder != $1.layerOrder { return $0.layerOrder > $1.layerOrder }
-            return $0.clipID.uuidString < $1.clipID.uuidString
-        }
+        let components = plan.components.sorted { TimelineRenderPlan.Component.isInFront($1, of: $0) }
         for (index, component) in components.enumerated() {
             guard let url = component.originalURL, url.isFileURL, !aliases(url, outputURL) else {
                 throw EditorCoreError.invalidModel("Missing original or output aliases a source")
@@ -132,8 +129,8 @@ public enum FFmpegRenderCompiler {
             }
             switch component.selection {
             case .still, .video:
-                guard component.fadeIn.duration == .zero && component.fadeOut.duration == .zero else {
-                    throw EditorCoreError.invalidModel("Only audio clips support fades")
+                guard component.fadeIn.curve == .linear, component.fadeOut.curve == .linear else {
+                    throw EditorCoreError.invalidModel("Picture fades are linear")
                 }
                 let isStill = component.selection == .still
                 // Edit points snap to the nearest sequence frame. Shared boundaries round
@@ -196,8 +193,10 @@ public enum FFmpegRenderCompiler {
                 // so overlays and encoders receive one consistent range.
                 // Anamorphic movies are widened to square pixels first; square sources keep their exact width.
                 let squarePixels = "scale=w='if(eq(sar,1),iw,trunc(iw*sar/2)*2)':h=ih:out_range=tv,setsar=1"
-                let geometry = isStill ? "format=yuva444p,\(scaling),setsar=1" : "\(squarePixels),\(scaling),setsar=1,format=yuv444p"
-                graph.append("\(source)\(timing),\(geometry)[v\(index)]")
+                let fades = try pictureFades(component, placement: placement, count: count, rate: settings.frameRate.value)
+                let geometry = isStill ? "format=yuva444p,\(scaling),setsar=1"
+                    : "\(squarePixels),\(scaling),setsar=1,format=\(fades.isEmpty ? "yuv444p" : "yuva444p")"
+                graph.append("\(source)\(timing),\(geometry)\(fades)[v\(index)]")
                 // Explicit half-open visibility also prevents framesync holding a layer past its cut.
                 let visibleEnd = try RationalTime(placement).adding(RationalTime(count)).numerator
                 let enabled = "gte(n,\(placement))*lt(n,\(visibleEnd))"
@@ -240,6 +239,23 @@ public enum FFmpegRenderCompiler {
             // Sequences are SDR Rec. 709; tag every output so players apply the right matrix.
             + ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-ar", String(settings.audioSampleRate), "-ac", String(settings.audioLayout.channels.count), "-video_track_timescale", String(settings.frameRate.value.numerator), "-timecode", try settings.startTimecode.formatted(rate: settings.frameRate), outputURL.path]
         return FFmpegRenderCommand(inputs: inputs, arguments: arguments, filterGraph: filterGraph, videoFrames: frames, audioSamples: samples)
+    }
+    /// Linear opacity ramps in timeline seconds; frames carry timeline timestamps here.
+    /// A frame at the start of a fade in is transparent; the last frame of a fade out
+    /// keeps 1/n of its opacity, matching a ramp that reaches zero at the cut.
+    private static func pictureFades(_ component: TimelineRenderPlan.Component, placement: Int64,
+                                     count: Int64, rate: RationalTime) throws -> String {
+        func seconds(_ frames: Int64) throws -> RationalTime { try RationalTime(frames).divided(by: rate) }
+        func decimal(_ time: RationalTime) -> String { String(format: "%.9f", time.seconds) }
+        var result = ""
+        if component.fadeIn.duration != .zero {
+            result += ",fade=t=in:st=\(decimal(try seconds(placement))):d=\(decimal(component.fadeIn.duration)):alpha=1"
+        }
+        if component.fadeOut.duration != .zero {
+            let start = try seconds(placement + count).subtracting(component.fadeOut.duration)
+            result += ",fade=t=out:st=\(decimal(start)):d=\(decimal(component.fadeOut.duration)):alpha=1"
+        }
+        return result
     }
     /// aeval's n begins at zero after trim, before timeline delay. The rational
     /// denominators retain sub-sample fade durations without rounding either edge.

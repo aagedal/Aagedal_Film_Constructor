@@ -575,13 +575,13 @@ struct AppFileSmoke {
         let baseline = store.project
         let audio = baseline.tracks.flatMap(\.clips).first { $0.requiredTrackKind == .audio }!
         let picture = baseline.tracks.flatMap(\.clips).first { $0.requiredTrackKind == .video }!
-        let proposed = store.proposedAudioFadeDuration(clip: audio, seconds: 0.1234567)
+        let proposed = store.proposedFadeDuration(clip: audio, seconds: 0.1234567)
         try check(abs(proposed - 5926.0 / 48000) < 1e-12,
                   "Linked audio fades use audio sample alignment rather than picture frames")
-        try check(store.project == baseline && store.proposedAudioFadeDuration(clip: audio, seconds: -2) == 0 &&
-                  store.proposedAudioFadeDuration(clip: audio, seconds: 100) == 4,
+        try check(store.project == baseline && store.proposedFadeDuration(clip: audio, seconds: -2) == 0 &&
+                  store.proposedFadeDuration(clip: audio, seconds: 100) == 4,
                   "Local fade preview clamps independently without mutating history")
-        try store.applyAudioFades(clipID: audio.id, fadeInSeconds: proposed, fadeInCurve: .equalPower,
+        try store.applyFades(clipID: audio.id, fadeInSeconds: proposed, fadeInCurve: .equalPower,
                                  fadeOutSeconds: 3.5, fadeOutCurve: .linear, expectedClip: audio)
         let changed = store.project
         let faded = changed.tracks.flatMap(\.clips).first { $0.id == audio.id }!
@@ -597,29 +597,29 @@ struct AppFileSmoke {
                   "Audio fades persist through project save and reopen")
         store.undo()
         do {
-            try store.applyAudioFades(clipID: audio.id, fadeInSeconds: 1, fadeInCurve: .linear,
+            try store.applyFades(clipID: audio.id, fadeInSeconds: 1, fadeInCurve: .linear,
                                      fadeOutSeconds: 1, fadeOutCurve: .linear, expectedClip: faded)
             throw SmokeError.failed("Stale audio fade draft accepted")
         } catch EditorCoreError.invalidModel { }
         for invalid in [-1.0, Double.nan, Double.infinity] {
             do {
-                try store.applyAudioFades(clipID: audio.id, fadeInSeconds: invalid, fadeInCurve: .linear,
+                try store.applyFades(clipID: audio.id, fadeInSeconds: invalid, fadeInCurve: .linear,
                                          fadeOutSeconds: 0, fadeOutCurve: .linear, expectedClip: audio)
                 throw SmokeError.failed("Invalid fade duration accepted")
             } catch EditorCoreError.invalidTime { }
         }
         try check(store.project == baseline && store.canRedo, "Rejected fade edits preserve the document and redo history")
-        try store.applyAudioFades(clipID: audio.id, fadeInSeconds: 0, fadeInCurve: .linear,
+        try store.applyFades(clipID: audio.id, fadeInSeconds: 0, fadeInCurve: .linear,
                                  fadeOutSeconds: 0, fadeOutCurve: .linear, expectedClip: audio)
         try check(store.canRedo, "No-op fade commit preserves redo history")
-        try store.applyAudioFades(clipID: audio.id, fadeInSeconds: 3, fadeInCurve: .equalPower,
+        try store.applyFades(clipID: audio.id, fadeInSeconds: 3, fadeInCurve: .equalPower,
                                  fadeOutSeconds: 3, fadeOutCurve: .equalPower, expectedClip: audio)
         let overlap = store.selectedClip!
         try check(overlap.fadeIn.duration.seconds == 3 && overlap.fadeOut.duration.seconds == 3,
                   "Fade durations may overlap independently")
         let fractional = TimelineClip(assetID: audio.assetID, sourceRange: try TimeRange(start: .zero, duration: RationalTime(1, 7)),
                                       timelineStart: .zero, selection: audio.selection)
-        let bound = store.proposedAudioFadeDuration(clip: fractional, seconds: 1)
+        let bound = store.proposedFadeDuration(clip: fractional, seconds: 1)
         try check(abs(bound - 6857.0 / 48000) < 1e-12 && bound < 1.0 / 7,
                   "Fade clamp floors a fractional duration to the last complete sample")
         var imported = store.project
@@ -630,7 +630,7 @@ struct AppFileSmoke {
         }
         store.load(ProjectDocument(project: imported))
         let importedAudio = imported.tracks.flatMap(\.clips).first { $0.id == audio.id }!
-        try store.applyAudioFades(clipID: audio.id, fadeInSeconds: 1, fadeInCurve: .linear,
+        try store.applyFades(clipID: audio.id, fadeInSeconds: 1, fadeInCurve: .linear,
                                  fadeOutSeconds: importedAudio.fadeOut.duration.seconds, fadeOutCurve: importedAudio.fadeOut.curve,
                                  expectedClip: importedAudio)
         try check(store.selectedClip?.fadeOut == importedAudio.fadeOut,

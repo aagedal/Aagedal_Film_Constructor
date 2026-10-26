@@ -319,7 +319,7 @@ enum AcceptanceDriver {
             }
             // Fades on a clip the crossfade doesn't use (a crossfade replaces those fade edges).
             if let audio = clips().last(where: { $0.requiredTrackKind == .audio && !crossfaded.contains($0.id) }) {
-                fadeApplied = (try? store.applyAudioFades(clipID: audio.id, fadeInSeconds: 0.5, fadeInCurve: .linear,
+                fadeApplied = (try? store.applyFades(clipID: audio.id, fadeInSeconds: 0.5, fadeInCurve: .linear,
                     fadeOutSeconds: 0.5, fadeOutCurve: .equalPower, expectedClip: audio)) != nil
             }
             // Source audio change: pick two other mono streams of a multitrack source as left/right.

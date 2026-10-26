@@ -55,8 +55,9 @@ public struct Project: Equatable, Codable, Sendable {
                 try clip.sourceRange.validate()
                 try clip.fadeIn.validate(duration: clip.sourceRange.duration)
                 try clip.fadeOut.validate(duration: clip.sourceRange.duration)
-                guard clip.requiredTrackKind == .audio || (clip.fadeIn.duration == .zero && clip.fadeOut.duration == .zero) else {
-                    throw EditorCoreError.invalidModel("Only audio clips support fades")
+                // Picture fades are linear opacity ramps over lower layers or black.
+                guard clip.requiredTrackKind == .audio || (clip.fadeIn.curve == .linear && clip.fadeOut.curve == .linear) else {
+                    throw EditorCoreError.invalidModel("Picture fades are linear")
                 }
                 _ = try clip.timelineRange()
                 guard try clip.sourceRange.end().compared(to: asset.duration) != .orderedDescending else { throw EditorCoreError.invalidModel("Source range exceeds media") }
@@ -119,6 +120,15 @@ public struct TimelineRenderPlan: Equatable, Sendable {
         public var gain: Double
         public var fadeIn: AudioFade = .init()
         public var fadeOut: AudioFade = .init()
+        /// Front-to-back picture order. Upper tracks are in front; within one track only a
+        /// dissolve overlaps, and its incoming (later) picture is in front.
+        public static func isInFront(_ a: Self, of b: Self) -> Bool {
+            if a.layerOrder != b.layerOrder { return a.layerOrder < b.layerOrder }
+            if a.timelineRange.start != b.timelineRange.start {
+                return (try? a.timelineRange.start.compared(to: b.timelineRange.start)) == .orderedDescending
+            }
+            return a.clipID.uuidString < b.clipID.uuidString
+        }
     }
     public let settings: SequenceSettings
     public let components: [Component]
@@ -164,7 +174,8 @@ public struct TimelineRenderPlan: Equatable, Sendable {
                     let extensionDuration = try geometry.outgoingSourceRange.duration.subtracting(clip.sourceRange.duration)
                     sourceRange.duration = try sourceRange.duration.adding(extensionDuration)
                     renderRange.duration = try renderRange.duration.adding(extensionDuration)
-                    fadeOut = AudioFade(duration: outgoing.duration, curve: outgoing.curve)
+                    // A dissolve keeps the outgoing picture opaque beneath the incoming one.
+                    if clip.requiredTrackKind == .audio { fadeOut = AudioFade(duration: outgoing.duration, curve: outgoing.curve) }
                 }
                 result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain, fadeIn: fadeIn, fadeOut: fadeOut))
             }

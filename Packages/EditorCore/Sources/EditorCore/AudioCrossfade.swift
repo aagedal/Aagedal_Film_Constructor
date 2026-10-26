@@ -1,6 +1,9 @@
 import Foundation
 
-/// A paired envelope with audio-only source handles. Original clip ranges remain editorial bounds.
+/// A paired envelope with source handles. Original clip ranges remain editorial bounds.
+/// Between audio components it is a crossfade on the sample grid. Between two pictures on
+/// one video track it is a linear cross dissolve on the frame grid: the incoming picture is
+/// composited over the outgoing one with rising opacity.
 public struct AudioCrossfade: Identifiable, Equatable, Codable, Sendable {
     public var id: UUID
     public var outgoingClipID: UUID
@@ -46,21 +49,28 @@ extension Project {
     }
 
     func audioCrossfadeGeometry(for crossfade: AudioCrossfade, context: AudioCrossfadeContext) throws -> AudioCrossfadeGeometry {
-        let sampleDuration = try crossfade.duration.multiplied(by: Int64(settings.audioSampleRate))
-        guard sampleDuration.denominator == 1 else { throw TimelineEditError.invalidAudioCrossfade }
         guard crossfade.duration.numerator > 0, crossfade.outgoingClipID != crossfade.incomingClipID,
               let outgoing = context.endpoints[crossfade.outgoingClipID],
               let incoming = context.endpoints[crossfade.incomingClipID],
-              outgoing.clip.requiredTrackKind == .audio, incoming.clip.requiredTrackKind == .audio,
-              outgoing.clip.requiredAudioLayout == incoming.clip.requiredAudioLayout,
+              outgoing.clip.requiredTrackKind == incoming.clip.requiredTrackKind,
               outgoing.clip.fadeOut.duration == .zero, incoming.clip.fadeIn.duration == .zero,
               let outgoingAsset = context.assets[outgoing.clip.assetID] else {
             throw TimelineEditError.invalidAudioCrossfade
         }
-        func route(_ track: TimelineTrack) -> [Int] {
-            track.template.routing.outputChannels.isEmpty ? Array(0..<(track.audioLayout?.channels.count ?? 0)) : track.template.routing.outputChannels
+        let isDissolve = outgoing.clip.requiredTrackKind == .video
+        // Handles and durations use whole units of the grid each kind renders on.
+        let grid = isDissolve ? settings.frameRate.value : try RationalTime(Int64(settings.audioSampleRate))
+        let gridDuration = try crossfade.duration.multiplied(by: grid)
+        guard gridDuration.denominator == 1 else { throw TimelineEditError.invalidAudioCrossfade }
+        if isDissolve {
+            guard outgoing.track.id == incoming.track.id, crossfade.curve == .linear else { throw TimelineEditError.invalidAudioCrossfade }
+        } else {
+            func route(_ track: TimelineTrack) -> [Int] {
+                track.template.routing.outputChannels.isEmpty ? Array(0..<(track.audioLayout?.channels.count ?? 0)) : track.template.routing.outputChannels
+            }
+            guard outgoing.clip.requiredAudioLayout == incoming.clip.requiredAudioLayout,
+                  route(outgoing.track) == route(incoming.track) else { throw TimelineEditError.invalidAudioCrossfade }
         }
-        guard route(outgoing.track) == route(incoming.track) else { throw TimelineEditError.invalidAudioCrossfade }
         let a = try outgoing.clip.timelineRange(), b = try incoming.clip.timelineRange()
         let endA = try a.end(), endB = try b.end()
         guard try a.start.compared(to: b.start) == .orderedAscending,
@@ -74,23 +84,27 @@ extension Project {
             func minimum(_ x: RationalTime, _ y: RationalTime) throws -> RationalTime {
                 try x.compared(to: y) == .orderedDescending ? y : x
             }
-            func sampleFloor(_ time: RationalTime) throws -> RationalTime {
-                let samples = try time.multiplied(by: Int64(settings.audioSampleRate))
-                return try RationalTime(samples.numerator / samples.denominator, Int64(settings.audioSampleRate))
+            func gridFloor(_ time: RationalTime) throws -> RationalTime {
+                let units = try time.multiplied(by: grid)
+                return try RationalTime(units.numerator / units.denominator).divided(by: grid)
             }
-            let availableLeft = try sampleFloor(minimum(incoming.clip.sourceRange.start, a.duration))
-            let availableRight = try sampleFloor(minimum(outgoingAsset.duration.subtracting(outgoing.clip.sourceRange.end()), b.duration))
+            // A still repeats its single picture, so its hold has no source end.
+            let outgoingSourceEnd = outgoing.clip.selection == .still ? try outgoing.clip.sourceRange.end().adding(b.duration) : outgoingAsset.duration
+            let incomingSourceStart = incoming.clip.selection == .still ? a.duration : incoming.clip.sourceRange.start
+            let availableLeft = try gridFloor(minimum(incomingSourceStart, a.duration))
+            let availableRight = try gridFloor(minimum(outgoingSourceEnd.subtracting(outgoing.clip.sourceRange.end()), b.duration))
             guard try availableLeft.adding(availableRight).compared(to: crossfade.duration) != .orderedAscending else {
                 throw TimelineEditError.invalidAudioCrossfade
             }
-            left = try minimum(RationalTime(sampleDuration.numerator / 2, Int64(settings.audioSampleRate)), availableLeft)
+            left = try minimum(RationalTime(gridDuration.numerator / 2).divided(by: grid), availableLeft)
             right = try minimum(crossfade.duration.subtracting(left), availableRight)
             left = try crossfade.duration.subtracting(right)
         }
         return try AudioCrossfadeGeometry(
             outgoingSourceRange: TimeRange(start: outgoing.clip.sourceRange.start, duration: outgoing.clip.sourceRange.duration.adding(right)),
             outgoingTimelineRange: TimeRange(start: a.start, duration: a.duration.adding(right)),
-            incomingSourceRange: TimeRange(start: incoming.clip.sourceRange.start.subtracting(left), duration: incoming.clip.sourceRange.duration.adding(left)),
+            incomingSourceRange: TimeRange(start: incoming.clip.selection == .still ? incoming.clip.sourceRange.start : incoming.clip.sourceRange.start.subtracting(left),
+                                           duration: incoming.clip.sourceRange.duration.adding(left)),
             incomingTimelineRange: TimeRange(start: b.start.subtracting(left), duration: b.duration.adding(left)))
     }
 

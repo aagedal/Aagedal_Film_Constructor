@@ -760,50 +760,75 @@ final class EditorStore: ObservableObject {
     func setAudioLayoutConfirmation(_ enabled: Bool) {
         do { try change { $0.preferences.askBeforeAudioTrackLayoutChanges = enabled } } catch { report(error) }
     }
-    /// Fades use the audio sample grid even when their clip is linked to picture.
-    private func audioFadeTime(_ seconds: Double, clip: TimelineClip) throws -> RationalTime {
-        guard seconds.isFinite else { throw EditorCoreError.invalidTime }
-        let rate = Int64(project.settings.audioSampleRate)
-        let extent = try clip.sourceRange.duration.multiplied(by: rate)
-        let maximum = extent.numerator / extent.denominator
-        let samples = min(Double(maximum), max(0, seconds * Double(rate))).rounded()
-        guard samples.isFinite, samples < Double(Int64.max) else { throw EditorCoreError.invalidTime }
-        return try RationalTime(min(maximum, Int64(samples)), rate)
+    /// Audio fades use the sample grid even when linked to picture; picture fades use frames.
+    private func transitionGrid(for clip: TimelineClip) throws -> RationalTime {
+        clip.requiredTrackKind == .video ? project.settings.frameRate.value : try RationalTime(Int64(project.settings.audioSampleRate))
     }
-    func proposedAudioFadeDuration(clip: TimelineClip, seconds: Double) -> Double {
-        (try? audioFadeTime(seconds, clip: clip).seconds) ?? 0
+    private func fadeTime(_ seconds: Double, clip: TimelineClip) throws -> RationalTime {
+        guard seconds.isFinite else { throw EditorCoreError.invalidTime }
+        let grid = try transitionGrid(for: clip)
+        let extent = try clip.sourceRange.duration.multiplied(by: grid)
+        let maximum = extent.numerator / extent.denominator
+        let units = min(Double(maximum), max(0, seconds * grid.seconds)).rounded()
+        guard units.isFinite, units < Double(Int64.max) else { throw EditorCoreError.invalidTime }
+        return try RationalTime(min(maximum, Int64(units))).divided(by: grid)
+    }
+    func proposedFadeDuration(clip: TimelineClip, seconds: Double) -> Double {
+        (try? fadeTime(seconds, clip: clip).seconds) ?? 0
     }
     /// Offer only pairs that the edit engine can link, including source-handle validation.
+    /// Audio pairs crossfade; pictures on one track dissolve.
     func audioCrossfadeTargets(for clip: TimelineClip) -> [TimelineClip] {
-        guard clip.requiredTrackKind == .audio else { return [] }
+        let isPicture = clip.requiredTrackKind == .video
         return project.tracks.flatMap(\.clips).filter { candidate in
-            guard candidate.id != clip.id, candidate.requiredTrackKind == .audio else { return false }
+            guard candidate.id != clip.id, candidate.requiredTrackKind == clip.requiredTrackKind else { return false }
             let overlap = clip.timelineStart.seconds + clip.sourceRange.duration.seconds - candidate.timelineStart.seconds
-            let seconds = overlap > 0 ? overlap : 1 / Double(project.settings.audioSampleRate)
+            let unit = isPicture ? 1 / project.settings.frameRate.value.seconds : 1 / Double(project.settings.audioSampleRate)
             return (try? previewAudioCrossfade(outgoingClipID: clip.id, incomingClipID: candidate.id,
-                                              seconds: seconds, curve: .equalPower)) != nil
+                                              seconds: overlap > 0 ? overlap : unit, curve: isPicture ? .linear : .equalPower)) != nil
         }.sorted { $0.timelineStart.seconds < $1.timelineStart.seconds }
     }
-    private func crossfadeTime(_ seconds: Double) throws -> RationalTime {
-        let rate = Int64(project.settings.audioSampleRate)
-        let samples = (seconds * Double(rate)).rounded()
-        guard seconds.isFinite, seconds > 0, samples.isFinite, samples >= 1, samples < Double(Int64.max) else {
-            throw EditorCoreError.invalidModel("Enter a positive crossfade duration of at least one audio sample.")
+    private func crossfadeTime(_ seconds: Double, clip: TimelineClip) throws -> RationalTime {
+        let grid = try transitionGrid(for: clip)
+        let units = (seconds * grid.seconds).rounded()
+        guard seconds.isFinite, seconds > 0, units.isFinite, units >= 1, units < Double(Int64.max) else {
+            throw EditorCoreError.invalidModel(clip.requiredTrackKind == .video ? "Enter a dissolve duration of at least one frame."
+                                               : "Enter a positive crossfade duration of at least one audio sample.")
         }
-        return try RationalTime(Int64(samples), rate)
+        return try RationalTime(Int64(units)).divided(by: grid)
     }
     func previewAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, seconds: Double,
                                curve: AudioFadeCurve) throws -> Project {
+        guard let outgoing = project.tracks.flatMap(\.clips).first(where: { $0.id == outgoingClipID }) else { throw TimelineEditError.missingClip }
+        let isPicture = outgoing.requiredTrackKind == .video
         let existing = project.audioCrossfades.first { $0.outgoingClipID == outgoingClipID && $0.incomingClipID == incomingClipID }
-        let time = existing?.duration.seconds == seconds ? existing!.duration : try crossfadeTime(seconds)
+        let time = existing?.duration.seconds == seconds ? existing!.duration : try crossfadeTime(seconds, clip: outgoing)
         var engine = try TimelineEditEngine(project: project)
         do {
             try engine.apply(.setAudioCrossfade(outgoingClipID: outgoingClipID, incomingClipID: incomingClipID,
-                                               duration: time, curve: curve))
+                                               duration: time, curve: isPicture ? .linear : curve))
         } catch TimelineEditError.invalidAudioCrossfade {
-            throw EditorCoreError.invalidModel("Cannot link this audio pair. Use adjacent cuts with enough source handles or a duration matching the existing overlap. Audio layouts and output routing must match, and the linked edges must have no standalone fade.")
+            throw EditorCoreError.invalidModel(isPicture
+                ? "Cannot dissolve between these clips. Both must be on the same video track, meet at a cut or overlap by exactly the dissolve duration, and have enough source beyond the cut. The joined edges must have no standalone fade."
+                : "Cannot link this audio pair. Use adjacent cuts with enough source handles or a duration matching the existing overlap. Audio layouts and output routing must match, and the linked edges must have no standalone fade.")
         }
         return engine.project
+    }
+    /// Dissolve or crossfade the selected clip's nearest cut, or fade a free edge, with linked components.
+    func addTransitionAtPlayhead(seconds: Double = 1) {
+        guard let clip = selectedClip else { return }
+        do {
+            let at = try time(playheadSeconds), duration = try time(seconds)
+            var count = 0
+            try change {
+                var engine = try TimelineEditEngine(project: $0)
+                count = try engine.addTransition(clipID: clip.id, near: at, duration: duration)
+                $0 = engine.project
+            }
+            statusMessage = count == 1 ? "Added a transition." : "Added \(count) transitions."
+        } catch TimelineEditError.invalidAudioCrossfade {
+            errorMessage = "No transition fits at this edit point. Existing transitions are kept, and joining clips need source beyond the cut."
+        } catch { report(error) }
     }
     func applyAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, seconds: Double,
                              curve: AudioFadeCurve, expectedProject: Project) throws {
@@ -814,7 +839,8 @@ final class EditorStore: ObservableObject {
                                               seconds: seconds, curve: curve)
         try change { $0 = draft }
         selectedClipID = outgoingClipID
-        statusMessage = "Updated linked audio crossfade."
+        statusMessage = project.tracks.flatMap(\.clips).first { $0.id == outgoingClipID }?.requiredTrackKind == .video
+            ? "Updated cross dissolve." : "Updated linked audio crossfade."
     }
     func removeAudioCrossfade(_ id: UUID, expectedProject: Project) throws {
         guard project == expectedProject else {
@@ -825,33 +851,34 @@ final class EditorStore: ObservableObject {
             try engine.apply(.removeAudioCrossfade(crossfadeID: id))
             $0 = engine.project
         }
-        statusMessage = "Removed linked audio crossfade."
+        statusMessage = "Removed transition."
     }
     func audioEditErrorMessage(_ error: Error) -> String {
         if case EditorCoreError.invalidModel(let message) = error { return message }
         return (error as? LocalizedError)?.errorDescription ?? String(describing: error)
     }
-    func applyAudioFades(clipID: UUID, fadeInSeconds: Double, fadeInCurve: AudioFadeCurve,
+    func applyFades(clipID: UUID, fadeInSeconds: Double, fadeInCurve: AudioFadeCurve,
                          fadeOutSeconds: Double, fadeOutCurve: AudioFadeCurve, expectedClip: TimelineClip) throws {
         guard fadeInSeconds.isFinite, fadeOutSeconds.isFinite, fadeInSeconds >= 0, fadeOutSeconds >= 0 else {
             throw EditorCoreError.invalidTime
         }
-        guard let clip = project.tracks.flatMap(\.clips).first(where: { $0.id == clipID }), clip == expectedClip,
-              clip.requiredTrackKind == .audio else {
-            throw EditorCoreError.invalidModel("The audio clip changed while editing fades. Review its current settings and try again.")
+        guard let clip = project.tracks.flatMap(\.clips).first(where: { $0.id == clipID }), clip == expectedClip else {
+            throw EditorCoreError.invalidModel("The clip changed while editing fades. Review its current settings and try again.")
         }
+        let isPicture = clip.requiredTrackKind == .video
         // Preserve exact persisted times on the untouched edge, including imported rational values.
-        let inTime = fadeInSeconds == clip.fadeIn.duration.seconds ? clip.fadeIn.duration : try audioFadeTime(fadeInSeconds, clip: clip)
-        let outTime = fadeOutSeconds == clip.fadeOut.duration.seconds ? clip.fadeOut.duration : try audioFadeTime(fadeOutSeconds, clip: clip)
-        let fadeIn = AudioFade(duration: inTime, curve: fadeInCurve)
-        let fadeOut = AudioFade(duration: outTime, curve: fadeOutCurve)
+        let inTime = fadeInSeconds == clip.fadeIn.duration.seconds ? clip.fadeIn.duration : try fadeTime(fadeInSeconds, clip: clip)
+        let outTime = fadeOutSeconds == clip.fadeOut.duration.seconds ? clip.fadeOut.duration : try fadeTime(fadeOutSeconds, clip: clip)
+        // Pictures fade their opacity linearly.
+        let fadeIn = AudioFade(duration: inTime, curve: isPicture ? .linear : fadeInCurve)
+        let fadeOut = AudioFade(duration: outTime, curve: isPicture ? .linear : fadeOutCurve)
         try change {
             var engine = try TimelineEditEngine(project: $0)
-            try engine.apply(.setAudioFades(clipID: clipID, fadeIn: fadeIn, fadeOut: fadeOut))
+            try engine.apply(.setFades(clipID: clipID, fadeIn: fadeIn, fadeOut: fadeOut))
             $0 = engine.project
         }
         selectedClipID = clipID
-        statusMessage = "Updated audio fades."
+        statusMessage = isPicture ? "Updated picture fades." : "Updated audio fades."
     }
     /// Validate a draft on a copy before the inspector asks to commit a track change.
     func previewAudioSelection(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], replacingClipIDs: [UUID] = []) throws -> Project {

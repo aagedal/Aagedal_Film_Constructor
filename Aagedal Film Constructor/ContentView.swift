@@ -502,7 +502,8 @@ private struct ProjectInspector: View {
                                 guard let start = Double(sourceStart), let duration = Double(clipDuration), start.isFinite, duration.isFinite, start >= 0, duration > 0 else { store.errorMessage = "Enter a nonnegative source in and a positive duration in seconds."; return }
                                 store.trimSelectedClip(start: start, duration: duration)
                             }.labelStyle(.iconOnly).help("Apply source in and duration")
-                            if clip.requiredTrackKind == .video {
+                            let isPicture = clip.requiredTrackKind == .video
+                            if isPicture {
                                 Picker("Scaling", selection: Binding(get: { clip.scalingMode }, set: store.setScalingMode)) {
                                     Text("Fit").tag(ScalingMode.fit)
                                     Text("Fill").tag(ScalingMode.fill)
@@ -513,20 +514,19 @@ private struct ProjectInspector: View {
                                     .labelStyle(.iconOnly).help("Edit audio source channels and output routing")
                                 Text("\(clip.requiredAudioLayout?.channels.count ?? 0) selected channels")
                                     .font(.caption).foregroundStyle(.secondary)
-                                Divider()
-                                numericField("Fade in (s)", text: $fadeInDuration)
-                                fadeCurvePicker("Fade in curve", selection: $fadeInCurve)
-                                numericField("Fade out (s)", text: $fadeOutDuration)
-                                fadeCurvePicker("Fade out curve", selection: $fadeOutCurve)
-                                Button("Apply fades", systemImage: "checkmark") { applyFades(clip) }
-                                    .labelStyle(.iconOnly).help("Apply audio fades")
-                                Text("Fades apply to this audio component. Durations may overlap.")
-                                    .font(.caption).foregroundStyle(.secondary)
-                                Text("Sequence rendering and the development monitor use fades. Source preview plays the original audio.")
-                                    .font(.caption).foregroundStyle(.secondary)
-                                Divider()
-                                crossfadeControls(clip)
                             }
+                            Divider()
+                            numericField("Fade in (s)", text: $fadeInDuration)
+                            if !isPicture { fadeCurvePicker("Fade in curve", selection: $fadeInCurve) }
+                            numericField("Fade out (s)", text: $fadeOutDuration)
+                            if !isPicture { fadeCurvePicker("Fade out curve", selection: $fadeOutCurve) }
+                            Button("Apply fades", systemImage: "checkmark") { applyFades(clip) }
+                                .labelStyle(.iconOnly).help(isPicture ? "Apply picture fades" : "Apply audio fades")
+                            Text(isPicture ? "The picture fades from and to the layers below it, or black. Linked audio keeps its own fades; ⌘T fades both."
+                                 : "Fades apply to this audio component. Durations may overlap.")
+                                .font(.caption).foregroundStyle(.secondary)
+                            Divider()
+                            crossfadeControls(clip)
                         }.padding(5)
                     }
                 } else {
@@ -636,16 +636,17 @@ private struct ProjectInspector: View {
             return
         }
         do {
-            try store.applyAudioFades(clipID: clip.id, fadeInSeconds: fadeIn, fadeInCurve: fadeInCurve,
+            try store.applyFades(clipID: clip.id, fadeInSeconds: fadeIn, fadeInCurve: fadeInCurve,
                                      fadeOutSeconds: fadeOut, fadeOutCurve: fadeOutCurve, expectedClip: expected)
             refreshClip()
         } catch { store.errorMessage = store.audioEditErrorMessage(error) }
     }
     @ViewBuilder
     private func crossfadeControls(_ clip: TimelineClip) -> some View {
-        Text("Linked crossfade").font(.subheadline.bold())
+        let isPicture = clip.requiredTrackKind == .video
+        Text(isPicture ? "Cross dissolve" : "Linked crossfade").font(.subheadline.bold())
         let targets = store.audioCrossfadeTargets(for: clip)
-        Picker("Incoming audio", selection: $crossfadeTargetID) {
+        Picker(isPicture ? "Incoming clip" : "Incoming audio", selection: $crossfadeTargetID) {
             Text("Select a clip").tag(nil as UUID?)
             ForEach(targets) { target in
                 Text("\(store.project.assets.first { $0.id == target.assetID }?.name ?? "Audio") · \(store.project.tracks.first { $0.clips.contains { $0.id == target.id } }?.displayName(in: store.project) ?? "Track") · \(String(format: "%.3f", target.timelineStart.seconds)) s")
@@ -658,16 +659,17 @@ private struct ProjectInspector: View {
                 crossfadeCurve = existing.curve
             } else if let target = targets.first(where: { $0.id == id }) {
                 let overlap = clip.timelineStart.seconds + clip.sourceRange.duration.seconds - target.timelineStart.seconds
-                crossfadeDuration = String(overlap > 0 ? overlap : 0.5)
-                crossfadeCurve = .equalPower
+                crossfadeDuration = String(overlap > 0 ? overlap : isPicture ? 1 : 0.5)
+                crossfadeCurve = isPicture ? .linear : .equalPower
             }
             crossfadeDraftProject = store.project
         }
-        numericField("Crossfade duration (s)", text: $crossfadeDuration)
-        fadeCurvePicker("Crossfade curve", selection: $crossfadeCurve)
-        Button("Apply crossfade", systemImage: "checkmark") {
+        numericField(isPicture ? "Dissolve duration (s)" : "Crossfade duration (s)", text: $crossfadeDuration)
+        if !isPicture { fadeCurvePicker("Crossfade curve", selection: $crossfadeCurve) }
+        Button(isPicture ? "Apply dissolve" : "Apply crossfade", systemImage: "checkmark") {
             guard let target = crossfadeTargetID, let seconds = Double(crossfadeDuration), let baseline = crossfadeDraftProject else {
-                store.errorMessage = "Select incoming audio and enter a positive crossfade duration in seconds."
+                store.errorMessage = isPicture ? "Select the incoming clip and enter a positive dissolve duration in seconds."
+                    : "Select incoming audio and enter a positive crossfade duration in seconds."
                 return
             }
             do {
@@ -675,22 +677,25 @@ private struct ProjectInspector: View {
                                              curve: crossfadeCurve, expectedProject: baseline)
                 refreshCrossfade()
             } catch { store.errorMessage = store.audioEditErrorMessage(error) }
-        }.labelStyle(.iconOnly).help("Apply linked audio crossfade").disabled(crossfadeTargetID == nil)
+        }.labelStyle(.iconOnly).help(isPicture ? "Apply cross dissolve" : "Apply linked audio crossfade").disabled(crossfadeTargetID == nil)
         ForEach(store.project.audioCrossfades.filter { $0.outgoingClipID == clip.id || $0.incomingClipID == clip.id }) { crossfade in
             HStack {
                 Text("\(crossfade.outgoingClipID == clip.id ? "To next" : "From previous") · \(String(format: "%.3f", crossfade.duration.seconds)) s")
                     .font(.caption)
                 Spacer()
-                Button("Remove crossfade", systemImage: "xmark") {
+                Button(isPicture ? "Remove dissolve" : "Remove crossfade", systemImage: "xmark") {
                     do {
                         try store.removeAudioCrossfade(crossfade.id, expectedProject: store.project)
                         refreshCrossfade()
                     } catch { store.errorMessage = store.audioEditErrorMessage(error) }
-                }.labelStyle(.iconOnly).help("Remove linked crossfade")
+                }.labelStyle(.iconOnly).help(isPicture ? "Remove cross dissolve" : "Remove linked crossfade")
             }
         }
-        Text(targets.isEmpty ? "No compatible incoming audio. Adjacent cuts need available source handles; overlapping clips need a matching overlap duration."
-             : "Adjacent cuts use available source handles. Overlapping audio uses its existing overlap. Editing an endpoint can remove its linked crossfade. Each edit is one undo step.")
+        Text(isPicture
+             ? (targets.isEmpty ? "No clip to dissolve into. The next clip must meet this one on the same track, with source beyond the cut."
+                : "The dissolve is centred on the cut and uses source beyond it. Editing either clip can remove it. Each edit is one undo step.")
+             : (targets.isEmpty ? "No compatible incoming audio. Adjacent cuts need available source handles; overlapping clips need a matching overlap duration."
+                : "Adjacent cuts use available source handles. Overlapping audio uses its existing overlap. Editing an endpoint can remove its linked crossfade. Each edit is one undo step."))
             .font(.caption).foregroundStyle(.secondary)
     }
     private func refreshCrossfade() {
@@ -702,8 +707,8 @@ private struct ProjectInspector: View {
             crossfadeCurve = existing.curve
         } else {
             crossfadeTargetID = nil
-            crossfadeDuration = "0.5"
-            crossfadeCurve = .equalPower
+            crossfadeDuration = clip.requiredTrackKind == .video ? "1" : "0.5"
+            crossfadeCurve = clip.requiredTrackKind == .video ? .linear : .equalPower
         }
     }
     private func refreshClip() {

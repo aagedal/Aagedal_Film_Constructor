@@ -17,7 +17,8 @@ public enum EditCommand: Sendable {
     /// Change only the selected audio component, preserving linked components.
     case setAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, duration: RationalTime, curve: AudioFadeCurve = .equalPower)
     case removeAudioCrossfade(crossfadeID: UUID)
-    case setAudioFades(clipID: UUID, fadeIn: AudioFade, fadeOut: AudioFade)
+    /// Audio components take any curve; pictures fade their opacity linearly.
+    case setFades(clipID: UUID, fadeIn: AudioFade, fadeOut: AudioFade)
     /// Replace one audio component with explicitly mapped components, preserving linked picture/timing.
     case selectAudioSource(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting])
     /// Replace explicitly chosen, aligned linked audio components with one mapped component.
@@ -120,7 +121,7 @@ public struct TimelineEditEngine: Sendable {
         candidate.audioCrossfades.removeAll { conflicts.contains($0.id) }
     }
 
-    private mutating func commit(_ proposed: Project) throws {
+    mutating func commit(_ proposed: Project) throws {
         var candidate = proposed
         if candidate.preferences.automaticallyRemoveEmptyTracks {
             candidate.tracks.removeAll { $0.clips.isEmpty && !$0.retained }
@@ -389,10 +390,9 @@ public struct TimelineEditEngine: Sendable {
         case .removeAudioCrossfade(let id):
             guard let index = project.audioCrossfades.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingAudioCrossfade }
             project.audioCrossfades.remove(at: index)
-        case .setAudioFades(let clipID, let fadeIn, let fadeOut):
+        case .setFades(let clipID, let fadeIn, let fadeOut):
             guard let trackIndex = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
                   let clipIndex = project.tracks[trackIndex].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
-            guard project.tracks[trackIndex].clips[clipIndex].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
             project.tracks[trackIndex].clips[clipIndex].fadeIn = fadeIn
             project.tracks[trackIndex].clips[clipIndex].fadeOut = fadeOut
         case .delete(let clipID):

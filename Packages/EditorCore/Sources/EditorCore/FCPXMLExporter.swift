@@ -34,7 +34,7 @@ public enum FCPXMLExporter {
         if rates[settings.audioSampleRate] == nil { reasons.append("The sequence audio sample rate is not supported by FCPXML 1.10.") }
         if settings.audioLayout != .mono && settings.audioLayout != .stereo { reasons.append("Only mono and stereo sequence audio layouts are supported.") }
         if plan.components.isEmpty { reasons.append("The sequence has no clips.") }
-        if !project.audioCrossfades.isEmpty { reasons.append("Audio crossfades are not supported.") }
+        if !project.audioCrossfades.isEmpty { reasons.append("Audio crossfades and video dissolves are not supported.") }
         if !validXMLText(projectName) { reasons.append("The project name contains characters that XML 1.0 cannot represent.") }
         let frameDuration = try settings.frameRate.time(forFrames: 1)
         let tcStart = try settings.frameRate.time(forFrames: settings.startTimecode.frameCount)
@@ -55,7 +55,7 @@ public enum FCPXMLExporter {
         for component in plan.components {
             let asset = assets.first { $0.id == component.assetID }!
             let label = "Clip \(component.clipID.uuidString) (\(asset.name))"
-            if component.fadeIn.duration != .zero || component.fadeOut.duration != .zero { reasons.append("\(label): audio fades are not supported.") }
+            if component.fadeIn.duration != .zero || component.fadeOut.duration != .zero { reasons.append("\(label): fades are not supported.") }
             if component.gain != 1 { reasons.append("\(label): track gain must be unity.") }
             switch component.selection {
             case .still:

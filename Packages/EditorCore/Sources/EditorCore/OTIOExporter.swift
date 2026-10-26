@@ -22,7 +22,7 @@ public enum OTIOExporter {
         let assets = Dictionary(uniqueKeysWithValues: project.assets.map { ($0.id, $0) })
         var reasons: [String] = []
         if plan.components.isEmpty { reasons.append("The sequence has no clips.") }
-        if !project.audioCrossfades.isEmpty { reasons.append("Audio crossfades are not supported.") }
+        if !project.audioCrossfades.isEmpty { reasons.append("Audio crossfades and video dissolves are not supported.") }
         if settings.audioLayout != .mono && settings.audioLayout != .stereo { reasons.append("Only mono and stereo sequence audio layouts are supported.") }
         if settings.frameRate.value.numerator > largestExactInteger || settings.frameRate.value.denominator > largestExactInteger {
             reasons.append("The sequence frame rate exceeds OTIO's exact numeric range.")
@@ -49,7 +49,7 @@ public enum OTIOExporter {
                 reasons.append("\(label): source timecode without a known source frame rate is not supported.")
             }
             if component.gain != 1 { reasons.append("\(label): track gain must be unity.") }
-            if component.fadeIn.duration != .zero || component.fadeOut.duration != .zero { reasons.append("\(label): audio fades are not supported.") }
+            if component.fadeIn.duration != .zero || component.fadeOut.duration != .zero { reasons.append("\(label): fades are not supported.") }
             let clock: RationalTime
             switch component.selection {
             case .still:
