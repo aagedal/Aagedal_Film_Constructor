@@ -227,6 +227,11 @@ public enum FFmpegRenderCompiler {
                         arrangement += ",scale=w='max(1,round(iw*(\(scale))))':h='max(1,round(ih*(\(scale))))':eval=frame"
                     } else if t.scale != 1 { arrangement += ",scale=w='max(1,round(iw*\(t.scale)))':h='max(1,round(ih*\(t.scale)))'" }
                     if t.opacity != 1 { arrangement += ",lut=a='val*\(t.opacity)'" }
+                    if component.transformKeyframes.contains(where: { $0.opacity != 1 }) {
+                        // Animated opacity scales alpha by a time expression (T is the frame time in seconds).
+                        let opacity = animation(component, \.opacity, time: "T")
+                        arrangement += ",geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':a='alpha(X,Y)*(\(opacity))'"
+                    }
                 }
                 graph.append("\(source)\(timing),\(geometry)\(arrangement)\(fades)[v\(index)]")
                 var layerLabel = "v\(index)"
@@ -304,15 +309,15 @@ public enum FFmpegRenderCompiler {
         return FFmpegRenderCommand(inputs: inputs, arguments: arguments, filterGraph: filterGraph, videoFrames: frames, audioSamples: samples)
     }
     /// A keyframed value as a piecewise-linear expression in the frame time `t` (timeline seconds).
-    private static func animation(_ component: TimelineRenderPlan.Component, _ value: KeyPath<TransformKeyframe, Double>) -> String {
+    private static func animation(_ component: TimelineRenderPlan.Component, _ value: KeyPath<TransformKeyframe, Double>, time t: String = "t") -> String {
         let points = component.transformKeyframes.map { (component.timelineSeconds(ofSource: $0.time), $0[keyPath: value]) }
         guard let first = points.first, let last = points.last else { return "1" }
         var expression = "\(last.1)"
         for (a, b) in zip(points, points.dropFirst()).reversed() {
             let slope = b.0 > a.0 ? (b.1 - a.1) / (b.0 - a.0) : 0
-            expression = "if(lt(t,\(b.0)),\(a.1)+(\(slope))*(t-(\(a.0))),\(expression))"
+            expression = "if(lt(\(t),\(b.0)),\(a.1)+(\(slope))*(\(t)-(\(a.0))),\(expression))"
         }
-        return "if(lt(t,\(first.0)),\(first.1),\(expression))"
+        return "if(lt(\(t),\(first.0)),\(first.1),\(expression))"
     }
 
     /// Linear opacity ramps in timeline seconds; frames carry timeline timestamps here.

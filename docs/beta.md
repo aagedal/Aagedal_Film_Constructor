@@ -100,9 +100,9 @@ picture. Interchange exports refuse transformed clips.
 
 ## Motion
 
-To animate a picture or title, set **Scale** and **Position** under Transform, move
-the playhead and click the diamond to add a keyframe; repeat at another time. The
-picture moves and scales between keyframes. **Motion presets** (the wand) add a
+To animate a picture or title, set **Scale**, **Position** and **Opacity** under
+Transform, move the playhead and click the diamond to add a keyframe; repeat at
+another time. The picture moves, scales and fades between keyframes. **Motion presets** (the wand) add a
 slide in from the left, a rise from below, a slow zoom or a drift in one step. The
 inspector lists keyframes to jump to or remove.
 
@@ -222,7 +222,7 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Effects beyond basic colour correction and blur (curves, keying, stabilisation), title animation beyond position and scale, transitions other than dissolves, slides, pushes, wipes, dips and crossfades, opacity keyframes (use fades) and audio effects beyond the three-band EQ (compression, noise reduction) are not part of this version.
+- Effects beyond basic colour correction and blur (curves, keying, stabilisation), title animation beyond position, scale and opacity, transitions other than dissolves, slides, pushes, wipes, dips and crossfades, and audio effects beyond the three-band EQ (compression, noise reduction) are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
 - 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed

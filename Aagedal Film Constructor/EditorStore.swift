@@ -798,13 +798,13 @@ final class EditorStore: ObservableObject {
         } catch { report(error) }
     }
     /// Keyframes the selected picture's scale and position (percent) at the playhead.
-    func addTransformKeyframeAtPlayhead(scale: String, x: String, y: String) {
+    func addTransformKeyframeAtPlayhead(scale: String, x: String, y: String, opacity: String = "100") {
         guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
         func fraction(_ text: String) -> Double? {
             Double(text.replacingOccurrences(of: "%", with: "").replacingOccurrences(of: "−", with: "-").trimmingCharacters(in: .whitespaces)).map { $0 / 100 }
         }
-        guard let s = fraction(scale), let px = fraction(x), let py = fraction(y) else {
-            errorMessage = "Enter scale and position as percentages."
+        guard let s = fraction(scale), let px = fraction(x), let py = fraction(y), let o = fraction(opacity) else {
+            errorMessage = "Enter scale, position and opacity as percentages."
             return
         }
         let offset = playheadSeconds - clip.timelineStart.seconds
@@ -815,10 +815,10 @@ final class EditorStore: ObservableObject {
         do {
             let at = try clip.sourceTime(atTimelineOffset: time(offset))
             var keyframes = clip.transformKeyframes.filter { abs($0.time.seconds - at.seconds) > 0.0005 }
-            keyframes.append(TransformKeyframe(time: at, scale: s, offsetX: px, offsetY: py))
+            keyframes.append(TransformKeyframe(time: at, scale: s, offsetX: px, offsetY: py, opacity: o))
             keyframes.sort { $0.time.seconds < $1.time.seconds }
             edit(.setTransformKeyframes(clipID: clip.id, keyframes: keyframes))
-            if errorMessage == nil { statusMessage = "Added a position keyframe. Move the playhead and add another to animate." }
+            if errorMessage == nil { statusMessage = "Added a keyframe. Move the playhead and add another to animate scale, position and opacity." }
         } catch { report(error) }
     }
     enum MotionPreset: String, CaseIterable, Identifiable {

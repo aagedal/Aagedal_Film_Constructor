@@ -405,41 +405,58 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
     /// Linear opacity ramps for picture fades and dissolves, matching the export's alpha fades.
     /// Overlapping fade in and fade out multiply; that product is followed with short segments.
     /// Opacity at a sequence time in seconds: fades times the clip's own opacity.
+    /// Opacity at a sequence time in seconds: fades times the clip's static opacity times any
+    /// keyframed opacity (interpolated in timeline time).
     static func opacityCurve(_ component: TimelineRenderPlan.Component) -> @Sendable (Double) -> Double {
         let fadeIn = component.fadeIn.duration.seconds, fadeOut = component.fadeOut.duration.seconds
         let start = component.timelineRange.start.seconds, duration = component.timelineRange.duration.seconds
         let level = component.transform.opacity
+        let keys = component.transformKeyframes.map { (time: component.timelineSeconds(ofSource: $0.time), opacity: $0.opacity) }
         return { time in
             let t = time - start
             let rising = fadeIn > 0 ? min(1, max(0, t / fadeIn)) : 1
             let falling = fadeOut > 0 ? min(1, max(0, (duration - t) / fadeOut)) : 1
-            return rising * falling * level
+            var keyed = 1.0
+            if let first = keys.first, let last = keys.last {
+                if time <= first.time { keyed = first.opacity }
+                else if time >= last.time { keyed = last.opacity }
+                else {
+                    let next = keys.firstIndex { $0.time > time }!
+                    let a = keys[next - 1], b = keys[next]
+                    keyed = a.opacity + (b.opacity - a.opacity) * (time - a.time) / (b.time - a.time)
+                }
+            }
+            return rising * falling * level * keyed
         }
     }
 
     private func applyOpacityFades(_ component: TimelineRenderPlan.Component, to layer: AVMutableVideoCompositionLayerInstruction) throws {
         let fadeIn = component.fadeIn.duration.seconds, fadeOut = component.fadeOut.duration.seconds
-        let level = component.transform.opacity
-        guard fadeIn > 0 || fadeOut > 0 else {
-            if level != 1 { layer.setOpacity(Float(level), at: .zero) }
+        let start = component.timelineRange.start.seconds, duration = component.timelineRange.duration.seconds
+        let keyed = component.transformKeyframes.contains { $0.opacity != 1 }
+        let opacity = Self.opacityCurve(component)
+        guard fadeIn > 0 || fadeOut > 0 || keyed else {
+            if component.transform.opacity != 1 { layer.setOpacity(Float(component.transform.opacity), at: .zero) }
             return
         }
-        let start = component.timelineRange.start.seconds, duration = component.timelineRange.duration.seconds
-        func opacity(_ t: Double) -> Double {
-            let rising = fadeIn > 0 ? min(1, max(0, t / fadeIn)) : 1
-            let falling = fadeOut > 0 ? min(1, max(0, (duration - t) / fadeOut)) : 1
-            return rising * falling * level
-        }
+        // Ramps between every change point; products of changing terms get finer steps.
         var times = Set([0, duration, min(fadeIn, duration), max(0, duration - fadeOut)])
-        if fadeIn + fadeOut > duration {
-            let from = max(0, duration - fadeOut), to = min(fadeIn, duration)
-            for step in 1..<16 { times.insert(from + (to - from) * Double(step) / 16) }
+        if keyed {
+            for key in component.transformKeyframes {
+                let t = component.timelineSeconds(ofSource: key.time) - start
+                if t > 0 && t < duration { times.insert(t) }
+            }
+        }
+        if fadeIn + fadeOut > duration || (keyed && (fadeIn > 0 || fadeOut > 0)) {
+            let sorted = times.sorted()
+            for (a, b) in zip(sorted, sorted.dropFirst()) where b > a {
+                for step in 1..<16 { times.insert(a + (b - a) * Double(step) / 16) }
+            }
         }
         let points = times.sorted()
-        layer.setOpacity(Float(opacity(0)), at: rampTime(start))
+        layer.setOpacity(Float(opacity(start)), at: rampTime(start))
         for (a, b) in zip(points, points.dropFirst()) where b > a {
-            let from = opacity(a), to = opacity(b)
-            guard from != level || to != level else { continue }
+            let from = opacity(start + a), to = opacity(start + b)
             let rampStart = rampTime(start + a), rampEnd = rampTime(start + b)
             guard rampStart.isNumeric, rampEnd.isNumeric, CMTimeCompare(rampEnd, rampStart) > 0 else {
                 throw Self.unsupported("Picture fade timing exceeds system preview precision.")

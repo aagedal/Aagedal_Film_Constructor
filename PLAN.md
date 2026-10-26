@@ -58,6 +58,11 @@ express it.
   expressions; the system preview uses transform ramps and the CoreImage compositor
   evaluates the same placement per frame. `TransformKeyframeTests` measures the decoded
   inset's position and size; the preview matches export at the keyframes and between.
+- [x] Opacity keyframes: each transform keyframe carries opacity (multiplying the static
+  opacity). Export scales alpha with a time-based `geq` only for such clips; the system
+  preview ramps opacity through the same curve and the CoreImage compositor evaluates it
+  per frame. Export pixels are checked in `OpacityKeyframeTests`; previews agree within
+  3 levels.
 - [x] Slide and push transitions: an optional style on the transition relation; the render
   plan turns it into keyframes on the incoming (and, for pushes, outgoing) picture, so
   export and both preview compositors animate it. Decoded export and preview agree on

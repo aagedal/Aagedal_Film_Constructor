@@ -94,15 +94,23 @@ public struct AudioSourceSelection: Hashable, Codable, Sendable {
 }
 public enum ClipSelection: Hashable, Codable, Sendable { case video(streamIndex: Int), audio(AudioSourceSelection), still }
 public enum ScalingMode: String, Codable, Sendable { case fit, fill, none }
-/// Scale and position at a source time. Between keyframes they move linearly; before the
-/// first and after the last they hold. Opacity stays the clip's static transform opacity.
+/// Scale, position and opacity at a source time. Between keyframes they change linearly;
+/// before the first and after the last they hold. Opacity multiplies the clip's static opacity.
 public struct TransformKeyframe: Equatable, Codable, Sendable {
     public var time: RationalTime
     public var scale: Double
     public var offsetX: Double
     public var offsetY: Double
-    public init(time: RationalTime, scale: Double = 1, offsetX: Double = 0, offsetY: Double = 0) {
-        self.time = time; self.scale = scale; self.offsetX = offsetX; self.offsetY = offsetY
+    public var opacity: Double
+    public init(time: RationalTime, scale: Double = 1, offsetX: Double = 0, offsetY: Double = 0, opacity: Double = 1) {
+        self.time = time; self.scale = scale; self.offsetX = offsetX; self.offsetY = offsetY; self.opacity = opacity
+    }
+    private enum CodingKeys: String, CodingKey { case time, scale, offsetX, offsetY, opacity }
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(time: try c.decode(RationalTime.self, forKey: .time), scale: try c.decode(Double.self, forKey: .scale),
+                  offsetX: try c.decode(Double.self, forKey: .offsetX), offsetY: try c.decode(Double.self, forKey: .offsetY),
+                  opacity: try c.decodeIfPresent(Double.self, forKey: .opacity) ?? 1)
     }
 }
 
@@ -112,19 +120,22 @@ public enum PictureAnimation {
               try zip(keyframes, keyframes.dropFirst()).allSatisfy({ try $0.time.compared(to: $1.time) == .orderedAscending }) else {
             throw EditorCoreError.invalidModel("Position keyframes need increasing times")
         }
-        for keyframe in keyframes { try PictureTransform(scale: keyframe.scale, offsetX: keyframe.offsetX, offsetY: keyframe.offsetY).validate() }
+        for keyframe in keyframes {
+            try PictureTransform(scale: keyframe.scale, offsetX: keyframe.offsetX, offsetY: keyframe.offsetY, opacity: keyframe.opacity).validate()
+        }
     }
-    /// The placement at a source time: keyframed scale and position with the static opacity.
+    /// The placement at a source time: keyframed scale and position, and keyframed opacity
+    /// times the static opacity.
     public static func transform(atSourceSeconds t: Double, base: PictureTransform, keyframes: [TransformKeyframe]) -> PictureTransform {
         guard let first = keyframes.first, let last = keyframes.last else { return base }
-        func at(_ k: TransformKeyframe) -> PictureTransform { PictureTransform(scale: k.scale, offsetX: k.offsetX, offsetY: k.offsetY, opacity: base.opacity) }
+        func at(_ k: TransformKeyframe) -> PictureTransform { PictureTransform(scale: k.scale, offsetX: k.offsetX, offsetY: k.offsetY, opacity: base.opacity * k.opacity) }
         if t <= first.time.seconds { return at(first) }
         if t >= last.time.seconds { return at(last) }
         let next = keyframes.firstIndex { $0.time.seconds > t }!
         let a = keyframes[next - 1], b = keyframes[next]
         let f = (t - a.time.seconds) / (b.time.seconds - a.time.seconds)
         return PictureTransform(scale: a.scale + (b.scale - a.scale) * f, offsetX: a.offsetX + (b.offsetX - a.offsetX) * f,
-                                offsetY: a.offsetY + (b.offsetY - a.offsetY) * f, opacity: base.opacity)
+                                offsetY: a.offsetY + (b.offsetY - a.offsetY) * f, opacity: base.opacity * (a.opacity + (b.opacity - a.opacity) * f))
     }
 }
 

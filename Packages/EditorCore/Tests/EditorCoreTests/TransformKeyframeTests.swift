@@ -70,3 +70,41 @@ final class TransformKeyframeTests: XCTestCase {
         XCTAssertEqual(end.width, 0.5, accuracy: 0.02); XCTAssertEqual(end.centre, 0.75, accuracy: 0.02)
     }
 }
+
+final class OpacityKeyframeTests: XCTestCase {
+    func testOpacityKeyframesInterpolateAndRenderAlpha() throws {
+        let keyframes = [TransformKeyframe(time: .zero, opacity: 0), TransformKeyframe(time: try RationalTime(1), opacity: 1)]
+        XCTAssertEqual(PictureAnimation.transform(atSourceSeconds: 0.25, base: PictureTransform(opacity: 0.8), keyframes: keyframes).opacity, 0.2, accuracy: 1e-12)
+        let legacy = try JSONDecoder().decode(TransformKeyframe.self, from: Data(#"{"time":{"numerator":0,"denominator":1},"scale":1,"offsetX":0,"offsetY":0}"#.utf8))
+        XCTAssertEqual(legacy.opacity, 1)
+        guard let ffmpeg = ProcessInfo.processInfo.environment["AFC_FFMPEG"] else { throw XCTSkip("Set AFC_FFMPEG to render opacity keyframes") }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("opacity-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        func run(_ arguments: [String]) throws -> Data {
+            let process = Process(); process.executableURL = URL(fileURLWithPath: ffmpeg); process.arguments = arguments
+            let pipe = Pipe(); process.standardOutput = pipe; process.standardError = FileHandle.nullDevice
+            try process.run(); let data = pipe.fileHandleForReading.readDataToEndOfFile(); process.waitUntilExit()
+            XCTAssertEqual(process.terminationStatus, 0); return data
+        }
+        for color in ["blue", "red"] {
+            _ = try run(["-v", "error", "-f", "lavfi", "-i", "color=\(color):s=160x90:r=25:d=4", "-c:v", "prores_ks", directory.appendingPathComponent("\(color).mov").path])
+        }
+        let family = TrackFamily(baseName: "Video", template: .init(kind: .video))
+        let blue = MediaAsset(name: "blue", originalURL: directory.appendingPathComponent("blue.mov"), duration: try RationalTime(4), streams: [.init(index: 0, kind: .video)])
+        let red = MediaAsset(name: "red", originalURL: directory.appendingPathComponent("red.mov"), duration: try RationalTime(4), streams: [.init(index: 0, kind: .video)])
+        let range = try TimeRange(start: .zero, duration: RationalTime(2))
+        let top = TimelineClip(assetID: red.id, sourceRange: range, selection: .video(streamIndex: 0), transformKeyframes: keyframes)
+        let project = Project(settings: try SequenceSettings(width: 160, height: 90, frameRate: FrameRate(25)), assets: [blue, red], families: [family],
+                              tracks: [TimelineTrack(familyID: family.id, template: family.template, clips: [top]),
+                                       TimelineTrack(familyID: family.id, template: family.template, clips: [TimelineClip(assetID: blue.id, sourceRange: range, selection: .video(streamIndex: 0))])])
+        let output = directory.appendingPathComponent("opacity.mov")
+        _ = try run(try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: output).arguments)
+        func redLevel(_ frame: Int) throws -> Double {
+            Double(try run(["-v", "error", "-i", output.path, "-vf", "select=eq(n\\,\(frame)),crop=2:2:80:44", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])[0])
+        }
+        XCTAssertLessThan(try redLevel(0), 12)
+        XCTAssertEqual(try redLevel(12), 255 * 0.48, accuracy: 14, "Half way up the opacity ramp")
+        XCTAssertGreaterThan(try redLevel(30), 240)
+    }
+}

@@ -555,8 +555,8 @@ private struct ProjectInspector: View {
                                     } label: { Label("Motion presets", systemImage: "wand.and.rays") }
                                     .labelStyle(.iconOnly).help("Animate this picture or title with a common move").fixedSize()
                                     Button("Add position keyframe at playhead", systemImage: "diamond") {
-                                        store.addTransformKeyframeAtPlayhead(scale: transformScale, x: transformX, y: transformY)
-                                    }.labelStyle(.iconOnly).help("Keyframe this scale and position at the playhead; the picture moves between keyframes")
+                                        store.addTransformKeyframeAtPlayhead(scale: transformScale, x: transformX, y: transformY, opacity: transformOpacity)
+                                    }.labelStyle(.iconOnly).help("Keyframe this scale, position and opacity at the playhead; the picture changes between keyframes")
                                     Button("Reset transform", systemImage: "arrow.counterclockwise") {
                                         store.setSelectedClipTransform(scale: "100", x: "0", y: "0", opacity: "100")
                                     }.labelStyle(.iconOnly).help("Reset scale, position and opacity").disabled(clip.transform.isIdentity)
@@ -569,7 +569,8 @@ private struct ProjectInspector: View {
                                         let at = clip.timelineStart.seconds + (keyframe.time.seconds - clip.sourceRange.start.seconds) / clip.speed.seconds
                                         HStack {
                                             Image(systemName: "diamond.fill").foregroundStyle(.cyan)
-                                            Text(String(format: "%.2f s · %g%% · %g, %g", at, keyframe.scale * 100, keyframe.offsetX * 100, keyframe.offsetY * 100))
+                                            Text(String(format: "%.2f s · %g%% · %g, %g · %g%%", at, keyframe.scale * 100, keyframe.offsetX * 100,
+                                                        keyframe.offsetY * 100, keyframe.opacity * 100))
                                                 .font(.caption.monospacedDigit())
                                             Spacer()
                                             Button("Go to keyframe", systemImage: "arrow.right.to.line") { store.seek(to: max(0, at)) }
@@ -581,7 +582,7 @@ private struct ProjectInspector: View {
                                         }
                                     }
                                     Button("Clear position keyframes", systemImage: "trash") { store.setSelectedTransformKeyframes([]) }
-                                    Text("Scale and position move between keyframes; opacity stays as set above.")
+                                    Text("Scale, position and opacity change between keyframes; keyframe opacity multiplies the static opacity.")
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
                                 ColorControls(color: clip.color) { store.setSelectedClipColor($0) }.id(clip.id)

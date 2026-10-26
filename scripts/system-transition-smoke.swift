@@ -257,6 +257,35 @@ import EditorCore
         }
         print("PASS animated placement preview matches export")
 
+        // Opacity keyframes: the inset rises from transparent to opaque over its first second.
+        var faded = pip
+        faded.tracks[0].clips[0].transform = PictureTransform(scale: 0.5, offsetX: 0.25, offsetY: 0.25)
+        faded.tracks[0].clips[0].transformKeyframes = [TransformKeyframe(time: .zero, scale: 0.5, offsetX: 0.25, offsetY: 0.25, opacity: 0),
+                                                       TransformKeyframe(time: try RationalTime(1), scale: 0.5, offsetX: 0.25, offsetY: 0.25, opacity: 1)]
+        var fadedColour = faded
+        fadedColour.tracks[0].clips[0].color = ColorAdjustment(brightness: 0.01)
+        for (name, candidate) in [("system", faded), ("coreimage", fadedColour)] {
+            let fadedOutput = directory.appendingPathComponent("opacity-\(name).mov")
+            _ = try run(ffmpeg, try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: candidate), outputURL: fadedOutput).arguments)
+            let fadedBackend = try AVFoundationSequenceBackend(project: candidate, videoProxies: [:])
+            fadedBackend.display = { displayed, _ in image = displayed }
+            for frame in [0, 12, 23] {
+                let expected = Int(try run(ffmpeg, ["-hide_banner", "-i", fadedOutput.path, "-vf", "select=eq(n\\,\(frame)),crop=2:2:60:36",
+                                                    "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])[0])
+                try await fadedBackend.seek(toFrame: Int64(frame))
+                var bytes = [UInt8](repeating: 0, count: 4)
+                bytes.withUnsafeMutableBytes { pointer in
+                    let context = CGContext(data: pointer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                        space: image!.colorSpace ?? CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                    context.draw(image!, in: CGRect(x: -60, y: -11, width: image!.width, height: image!.height))
+                }
+                print("opacity \(name) frame \(frame): red export \(expected) preview \(bytes[0])")
+                try require(abs(expected - Int(bytes[0])) <= 12, "Opacity keyframe preview differs at \(frame)")
+            }
+            await fadedBackend.close()
+        }
+        print("PASS opacity keyframes preview matches export")
+
         // A push: halfway through, the red shot fills the left half and the blue shot the right.
         var pushEngine = try TimelineEditEngine(project: base)
         try pushEngine.apply(.setAudioCrossfade(outgoingClipID: a.id, incomingClipID: b.id, duration: RationalTime(1), curve: .linear, style: .pushLeft))
