@@ -134,15 +134,25 @@ public struct ColorAdjustment: Equatable, Codable, Sendable {
     public var brightness: Double
     public var contrast: Double
     public var saturation: Double
-    public init(brightness: Double = 0, contrast: Double = 1, saturation: Double = 1) {
-        self.brightness = brightness; self.contrast = contrast; self.saturation = saturation
+    /// Gaussian blur standard deviation as a fraction of the frame height; zero is sharp.
+    public var blur: Double
+    public init(brightness: Double = 0, contrast: Double = 1, saturation: Double = 1, blur: Double = 0) {
+        self.brightness = brightness; self.contrast = contrast; self.saturation = saturation; self.blur = blur
     }
+    private enum CodingKeys: String, CodingKey { case brightness, contrast, saturation, blur }
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(brightness: try c.decode(Double.self, forKey: .brightness), contrast: try c.decode(Double.self, forKey: .contrast),
+                  saturation: try c.decode(Double.self, forKey: .saturation), blur: try c.decodeIfPresent(Double.self, forKey: .blur) ?? 0)
+    }
+    /// Whether only blur is set, with neutral colour.
+    public var isColorNeutral: Bool { brightness == 0 && contrast == 1 && saturation == 1 }
     public static let neutral = ColorAdjustment()
     public var isNeutral: Bool { self == .neutral }
     public func validate() throws {
-        guard [brightness, contrast, saturation].allSatisfy(\.isFinite), (-1...1).contains(brightness),
-              (0...3).contains(contrast), (0...3).contains(saturation) else {
-            throw EditorCoreError.invalidModel("Brightness must be −100 to +100, contrast and saturation 0–300%")
+        guard [brightness, contrast, saturation, blur].allSatisfy(\.isFinite), (-1...1).contains(brightness),
+              (0...3).contains(contrast), (0...3).contains(saturation), (0...0.1).contains(blur) else {
+            throw EditorCoreError.invalidModel("Brightness must be −100 to +100, contrast and saturation 0–300%, blur 0–10%")
         }
     }
 }

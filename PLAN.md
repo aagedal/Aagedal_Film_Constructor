@@ -82,6 +82,9 @@ express it.
   field and lists, jumps to and removes them; the timeline draws the envelope. Export
   levels (`VolumeKeyframeTests`) and preview levels (`system-transition-smoke.sh`)
   measure 1 : 0.625 : 0.25 at the expected points.
+- [x] Blur: a Gaussian blur on the fitted, frame-sized picture before placement (export
+  `gblur`, preview `CIGaussianBlur` on the same canvas). Export pixels are checked in
+  `BlurTests`; preview and export edge profiles agree within 18 levels.
 - [x] Mixer panel: per-track mute, solo, gain fader and a post-fader peak meter fed by
   MTAudioProcessingTap taps on the preview's audio tracks (falling peak hold). The
   smoke checks the meter reports a known tone; acceptance checks it moves in playback.

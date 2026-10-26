@@ -119,6 +119,8 @@ import EditorCore
         coloured.tracks[0].clips[coloured.tracks[0].clips.firstIndex { $0.id == a.id }!].color = ColorAdjustment(brightness: 0.1, saturation: 0.5)
         var colouredPip = pip
         colouredPip.tracks[0].clips[0].color = ColorAdjustment(brightness: 0.2, contrast: 1.2, saturation: 0)
+        // A blurred lower layer: its flat colour is unchanged, so blur shows only at edges.
+        colouredPip.tracks[1].clips[0].color = ColorAdjustment(blur: 0.03)
         for (name, candidate, frames, points) in [("dissolve", coloured, [0, 6, 12, 30, 36, 42, 60, 71], [(40, 24)]),
                                                   ("pip", colouredPip, [12], [(60, 36), (10, 10), (78, 46)])] {
             let colourOutput = directory.appendingPathComponent("colour-\(name).mov")
@@ -146,6 +148,39 @@ import EditorCore
             await colourBackend.close()
         }
         print("PASS colour correction preview matches export")
+
+        // Blur across a black/white edge at x = 40 softens it alike in preview and export.
+        let edge = directory.appendingPathComponent("edge.mov")
+        _ = try run(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "color=black:s=80x48:r=24:d=2", "-f", "lavfi", "-i", "color=white:s=40x48:r=24:d=2",
+                             "-filter_complex", "[0][1]overlay=x=40,setparams=range=tv:colorspace=bt709:color_primaries=bt709:color_trc=bt709",
+                             "-c:v", "prores_ks", "-colorspace", "bt709", edge.path])
+        let edgeTracks = try await AVURLAsset(url: edge).load(.tracks)
+        let edgeAsset = MediaAsset(name: "Edge", originalURL: edge, duration: try RationalTime(2),
+                                   streams: [MediaStream(index: edgeTracks.firstIndex { $0.mediaType == .video }!, kind: .video)])
+        var blurred = Project(settings: base.settings, assets: [edgeAsset])
+        let blurIDs = try blurred.appendAsset(edgeAsset.id, at: .zero, sourceRange: TimeRange(start: .zero, duration: RationalTime(1)))
+        var blurEngine = try TimelineEditEngine(project: blurred)
+        try blurEngine.apply(.setColor(clipID: blurIDs[0], color: ColorAdjustment(blur: 0.05)))
+        blurred = blurEngine.project
+        let blurOutput = directory.appendingPathComponent("blur.mov")
+        _ = try run(ffmpeg, try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: blurred), outputURL: blurOutput).arguments)
+        let blurBackend = try AVFoundationSequenceBackend(project: blurred, videoProxies: [:])
+        blurBackend.display = { displayed, _ in image = displayed }
+        try await blurBackend.seek(toFrame: 12)
+        let blurRow = try run(ffmpeg, ["-hide_banner", "-i", blurOutput.path, "-vf", "select=eq(n\\,12),crop=80:1:0:24",
+                                       "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
+        var blurBytes = [UInt8](repeating: 0, count: 80 * 4)
+        blurBytes.withUnsafeMutableBytes { pointer in
+            let context = CGContext(data: pointer.baseAddress, width: 80, height: 1, bitsPerComponent: 8, bytesPerRow: 80 * 4,
+                space: image!.colorSpace ?? CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            context.draw(image!, in: CGRect(x: 0, y: -23, width: image!.width, height: image!.height))
+        }
+        let exportedEdge = (35...44).map { Int(blurRow[$0 * 3]) }, previewedEdge = (35...44).map { Int(blurBytes[$0 * 4]) }
+        print("blur edge export \(exportedEdge) preview \(previewedEdge)")
+        try require(exportedEdge[3] > 20 && exportedEdge[6] < 235, "The export edge is soft")
+        try require(zip(exportedEdge, previewedEdge).allSatisfy { abs($0 - $1) <= 24 }, "Blurred edge differs between preview and export")
+        await blurBackend.close()
+        print("PASS blur preview matches export")
 
         // Speed: a 50% clip of a ramp whose frame n has luma 16 + 3n shows the same source
         // frame in preview and export.

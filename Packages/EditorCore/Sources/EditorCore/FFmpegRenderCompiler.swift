@@ -210,7 +210,11 @@ public enum FFmpegRenderCompiler {
                     : transformed ? "\(squarePixels),format=yuva444p,\(scaling),setsar=1"
                     : "\(squarePixels),\(scaling),setsar=1,format=\(fades.isEmpty ? "yuv444p" : "yuva444p")"
                 var arrangement = ""
-                if !component.color.isNeutral {
+                if component.color.blur > 0 {
+                    // Gaussian blur in pixels of the sequence height, before placement scaling.
+                    arrangement += ",gblur=sigma=\(component.color.blur * Double(settings.height))"
+                }
+                if !component.color.isColorNeutral {
                     // 8-bit video range: luma 16–235 about mid grey, chroma about 128.
                     let c = component.color
                     arrangement += ",lutyuv=y='clip(16+219*(((val-16)/219-0.5)*\(c.contrast)+0.5+(\(c.brightness))),16,235)'"

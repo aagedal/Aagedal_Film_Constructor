@@ -906,14 +906,15 @@ private struct ColorControls: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Colour").font(.subheadline.bold())
+                Text("Colour and blur").font(.subheadline.bold())
                 Spacer()
                 Button("Reset colour", systemImage: "arrow.counterclockwise") { draft = .neutral; apply(.neutral) }
-                    .labelStyle(.iconOnly).help("Reset brightness, contrast and saturation").disabled(color.isNeutral)
+                    .labelStyle(.iconOnly).help("Reset brightness, contrast, saturation and blur").disabled(color.isNeutral)
             }
             slider("Brightness", value: $draft.brightness, range: -1...1, label: String(format: "%+.0f", draft.brightness * 100))
             slider("Contrast", value: $draft.contrast, range: 0...2, label: String(format: "%.0f%%", draft.contrast * 100))
             slider("Saturation", value: $draft.saturation, range: 0...2, label: String(format: "%.0f%%", draft.saturation * 100))
+            slider("Blur", value: $draft.blur, range: 0...0.05, label: String(format: "%.1f", draft.blur * 100))
         }
         .onChange(of: color) { _, value in draft = value }
     }

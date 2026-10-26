@@ -115,8 +115,8 @@ refuse speed changes.
 
 ## Colour
 
-Select a picture clip and drag **Brightness**, **Contrast** or **Saturation** under
-**Colour** in the inspector; each release is one undoable change, and the reset
+Select a picture clip and drag **Brightness**, **Contrast**, **Saturation** or **Blur**
+under **Colour and blur** in the inspector; each release is one undoable change, and the reset
 button restores the original. Sequences with colour correction preview through a
 CoreImage compositor; preview colours are within a few levels of the export.
 
@@ -215,7 +215,7 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Effects beyond basic colour correction (curves, blur, keying), title animation beyond position and scale, transitions other than dissolves, slides, pushes, dips and crossfades (no wipes), opacity keyframes (use fades) and audio effects (EQ, compression) are not part of this version.
+- Effects beyond basic colour correction and blur (curves, keying, stabilisation), title animation beyond position and scale, transitions other than dissolves, slides, pushes, dips and crossfades (no wipes), opacity keyframes (use fades) and audio effects (EQ, compression) are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
 - 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed

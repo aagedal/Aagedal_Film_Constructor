@@ -10,8 +10,11 @@ nonisolated struct LayerPlacement: Sendable {
     /// Sorted by time; empty means no placement beyond the fit.
     let points: [Point]
 
-    func transform(at seconds: Double) -> CGAffineTransform {
-        guard let first = points.first, let last = points.last else { return base }
+    func transform(at seconds: Double) -> CGAffineTransform { base.concatenating(placement(at: seconds)) }
+
+    /// The scale about the canvas centre and the offset, after the fit.
+    func placement(at seconds: Double) -> CGAffineTransform {
+        guard let first = points.first, let last = points.last else { return .identity }
         let p: Point
         if seconds <= first.time { p = first }
         else if seconds >= last.time { p = last }
@@ -22,7 +25,7 @@ nonisolated struct LayerPlacement: Sendable {
             p = Point(time: seconds, scale: a.scale + (b.scale - a.scale) * f, offsetX: a.offsetX + (b.offsetX - a.offsetX) * f,
                       offsetY: a.offsetY + (b.offsetY - a.offsetY) * f)
         }
-        return base.concatenating(CGAffineTransform(translationX: -canvas.width / 2, y: -canvas.height / 2))
+        return CGAffineTransform(translationX: -canvas.width / 2, y: -canvas.height / 2)
             .concatenating(CGAffineTransform(scaleX: p.scale, y: p.scale))
             .concatenating(CGAffineTransform(translationX: canvas.width * (0.5 + p.offsetX), y: canvas.height * (0.5 + p.offsetY)))
     }
@@ -38,6 +41,8 @@ final class CoreImageInstruction: NSObject, AVVideoCompositionInstructionProtoco
         let opacity: @Sendable (Double) -> Double
         /// Colour correction as plain values, read on the compositor's own queue.
         let brightness: Double, contrast: Double, saturation: Double
+        /// Blur standard deviation in canvas pixels before placement scaling.
+        let blur: Double
         var isNeutral: Bool { brightness == 0 && contrast == 1 && saturation == 1 }
     }
     let timeRange: CMTimeRange
@@ -78,10 +83,16 @@ final class CoreImageCompositor: NSObject, AVVideoCompositing, @unchecked Sendab
             let source = CIImage(cvPixelBuffer: frame)
             let height = source.extent.height
             // CoreImage has a lower-left origin: flip into the layer transform's space and back.
-            let placement = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: height)
-                .concatenating(layer.placement.transform(at: seconds))
-                .concatenating(CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: instruction.canvas.height))
-            var picture = source.transformed(by: placement)
+            let flipCanvas = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: instruction.canvas.height)
+            var picture = source.transformed(by: CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: height)
+                .concatenating(layer.placement.base).concatenating(flipCanvas))
+            if layer.blur > 0 {
+                // As in export: blur the fitted, frame-sized layer (transparent around the picture,
+                // edges held at the frame border), then place it.
+                picture = picture.composited(over: CIImage(color: .clear).cropped(to: bounds)).cropped(to: bounds).clampedToExtent()
+                    .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: layer.blur]).cropped(to: bounds)
+            }
+            picture = picture.transformed(by: flipCanvas.concatenating(layer.placement.placement(at: seconds)).concatenating(flipCanvas))
             if !layer.isNeutral {
                 picture = picture.applyingFilter("CIColorControls", parameters: [
                     kCIInputBrightnessKey: layer.brightness, kCIInputContrastKey: layer.contrast,

@@ -381,7 +381,8 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                             let component = plan.components[index]
                             return .init(trackID: placement.track, placement: placement.placement,
                                          opacity: Self.opacityCurve(component), brightness: component.color.brightness,
-                                         contrast: component.color.contrast, saturation: component.color.saturation)
+                                         contrast: component.color.contrast, saturation: component.color.saturation,
+                                         blur: component.color.blur * Double(plan.settings.height))
                         }, canvas: canvas)
                 }
             }
