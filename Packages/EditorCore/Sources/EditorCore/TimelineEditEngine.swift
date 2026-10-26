@@ -23,6 +23,9 @@ public enum EditCommand: Sendable {
     case setGain(clipIDs: [UUID], gain: Double)
     /// Replace the volume automation of the listed audio components.
     case setVolumeKeyframes(clipIDs: [UUID], keyframes: [VolumeKeyframe])
+    /// Change the speed of a clip and its linked components, keeping their source in and the
+    /// source they play. Timeline length changes; overlaps move to sibling tracks.
+    case setSpeed(clipID: UUID, speed: RationalTime)
     /// Colour-correct one picture component.
     case setColor(clipID: UUID, color: ColorAdjustment)
     /// Place one picture component; linked components keep their own transforms.
@@ -338,7 +341,7 @@ public struct TimelineEditEngine: Sendable {
                     var clip = project.tracks[ti].clips[ci]
                     if ids.contains(clip.id) {
                         clip.sourceRange = try TimeRange(
-                            start: edge == .leading ? clip.sourceRange.start.adding(removed.duration) : clip.sourceRange.start,
+                            start: edge == .leading ? clip.sourceTime(atTimelineOffset: removed.duration) : clip.sourceRange.start,
                             duration: clip.sourceRange.duration.subtracting(removed.duration))
                         // The remaining picture starts at the old cut after a leading ripple.
                         if try clip.fadeIn.duration.compared(to: clip.sourceRange.duration) == .orderedDescending { clip.fadeIn.duration = clip.sourceRange.duration }
@@ -383,7 +386,7 @@ public struct TimelineEditEngine: Sendable {
                 right.id = UUID()
                 right.linkGroupID = rightGroup
                 right.timelineStart = at
-                right.sourceRange = try TimeRange(start: left.sourceRange.start.adding(leftDuration), duration: left.sourceRange.duration.subtracting(leftDuration))
+                right.sourceRange = try TimeRange(start: left.sourceTime(atTimelineOffset: leftDuration), duration: left.sourceRange.duration.subtracting(leftDuration))
                 left.sourceRange = try TimeRange(start: left.sourceRange.start, duration: leftDuration)
                 try place(left, on: component.trackID, in: &project)
                 try place(right, on: component.trackID, in: &project)
@@ -418,6 +421,24 @@ public struct TimelineEditEngine: Sendable {
                       let c = project.tracks[t].clips.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingClip }
                 guard project.tracks[t].clips[c].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
                 project.tracks[t].clips[c].volumeKeyframes = keyframes
+            }
+        case .setSpeed(let clipID, let speed):
+            let components = try linked(to: clipID, in: project)
+            // Keep picture lengths on whole frames, else whole audio samples.
+            let grid = components.contains { $0.clip.requiredTrackKind == .video } ? project.settings.frameRate.value : try RationalTime(Int64(project.settings.audioSampleRate))
+            let selected = components.first { $0.clip.id == clipID }!.clip
+            let extent = try selected.sourceExtent().divided(by: speed).multiplied(by: grid)
+            let units = max(1, extent.numerator / extent.denominator)
+            let duration = try RationalTime(units).divided(by: grid)
+            remove(Set(components.map { $0.clip.id }), from: &project)
+            for component in components {
+                var clip = component.clip
+                guard clip.selection != .still else { throw EditorCoreError.invalidModel("Stills have no speed") }
+                clip.speed = speed
+                clip.sourceRange.duration = duration
+                if try clip.fadeIn.duration.compared(to: duration) == .orderedDescending { clip.fadeIn.duration = duration }
+                if try clip.fadeOut.duration.compared(to: duration) == .orderedDescending { clip.fadeOut.duration = duration }
+                try place(clip, on: component.trackID, in: &project)
             }
         case .setColor(let clipID, let color):
             guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),

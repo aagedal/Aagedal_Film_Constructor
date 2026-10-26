@@ -339,8 +339,8 @@ private struct TimelineClipView: View {
     private var previewRequest: TimelinePreviewRequest? {
         guard clipFrame.intersects(viewport), let url = asset?.originalURL else { return nil }
         return TimelinePreviewRequest(url: url, selection: clip.selection,
-            start: max(0, clip.sourceRange.start.seconds + leadingDelta + previewOffset / pixelsPerSecond),
-            duration: min(clipDuration - previewOffset / pixelsPerSecond, previewWidth / pixelsPerSecond),
+            start: max(0, clip.sourceRange.start.seconds + (leadingDelta + previewOffset / pixelsPerSecond) * clip.speed.seconds),
+            duration: min(clipDuration - previewOffset / pixelsPerSecond, previewWidth / pixelsPerSecond) * clip.speed.seconds,
             thumbnailCount: min(12, max(1, Int(ceil(min(1080, previewWidth) / 90)))),
             waveformBins: min(512, max(16, Int(ceil(min(1536, previewWidth) / 3)))), revision: previewRevision)
     }
@@ -359,7 +359,8 @@ private struct TimelineClipView: View {
             .overlay(alignment: .leading) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(asset?.name ?? "Media").font(.caption.bold()).lineLimit(1)
-                    Text("\(clip.sourceRange.duration.seconds - leadingDelta + trailingDelta, specifier: "%.2f") s").font(.caption2.monospacedDigit()).lineLimit(1)
+                    Text("\(clip.sourceRange.duration.seconds - leadingDelta + trailingDelta, specifier: "%.2f") s\(clip.speed == .one ? "" : String(format: " · %g%%", clip.speed.seconds * 100))")
+                        .font(.caption2.monospacedDigit()).lineLimit(1)
                 }.foregroundStyle(.white).padding(.horizontal, 12)
                     .shadow(color: .black.opacity(0.9), radius: 2)
             }

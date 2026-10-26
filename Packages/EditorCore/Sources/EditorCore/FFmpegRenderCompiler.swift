@@ -190,7 +190,16 @@ public enum FFmpegRenderCompiler {
                     // fps pads or drops from zero so trim frame numbers remain asset frames.
                     let origin = offset == .zero ? "setpts=PTS-STARTPTS,fps=\(rate):round=near"
                         : "setpts=PTS-STARTPTS+(\(offset.numerator)/\(offset.denominator))/TB,fps=\(rate):round=near:start_time=0"
-                    timing = "\(sdr)\(origin),trim=start_frame=\(start):end_frame=\(end),setpts=PTS-STARTPTS+\(placement)"
+                    if component.speed == .one {
+                        timing = "\(sdr)\(origin),trim=start_frame=\(start):end_frame=\(end),setpts=PTS-STARTPTS+\(placement)"
+                    } else {
+                        // Retime in a fine timebase, then take whole sequence frames again.
+                        let speed = component.speed
+                        let sourceFrames = try ceiling(RationalTime(count).multiplied(by: speed)) + 1
+                        timing = "\(sdr)\(origin),trim=start_frame=\(start):end_frame=\(start + sourceFrames),settb=AVTB,"
+                            + "setpts=(PTS-STARTPTS)*\(speed.denominator)/\(speed.numerator),fps=\(rate):round=near,trim=end_frame=\(count),"
+                            + "setpts=PTS-STARTPTS+\(placement)"
+                    }
                 }
                 // Full-range movies (screen recordings, some cameras) are normalized to video range
                 // so overlays and encoders receive one consistent range.
@@ -234,6 +243,15 @@ public enum FFmpegRenderCompiler {
                 let delay = try nearest(component.timelineRange.start.multiplied(by: Int64(settings.audioSampleRate)))
                 let end = try start + nearest(component.timelineRange.end().multiplied(by: Int64(settings.audioSampleRate))) - delay
                 guard end > start else { continue }
+                // Retimed sound keeps its pitch (atempo works from 0.5× up, so chain below that)
+                // and is padded or cut to the exact timeline sample count.
+                let sourceEnd = component.speed == .one ? end : try start + nearest(RationalTime(end - start).multiplied(by: component.speed))
+                var tempo = ""
+                if component.speed != .one {
+                    var factor = component.speed.seconds
+                    while factor < 0.5 { tempo += "atempo=0.5,"; factor /= 0.5 }
+                    tempo += "atempo=\(factor),apad,atrim=end_sample=\(end - start),"
+                }
                 let envelope = try audioEnvelope(component, sampleCount: end - start, sourceStartSample: start,
                                                  sampleRate: settings.audioSampleRate, layout: layout)
                 for (channel, sourceChannel) in selection.channels.enumerated() {
@@ -247,7 +265,7 @@ public enum FFmpegRenderCompiler {
                     let skip = max(0, -offsetSamples)
                     let map = settings.audioLayout.channels.indices.map { "c\($0)=\($0 == routing[channel] ? "c\(sourceChannel.channelIndex)" : "0*c\(sourceChannel.channelIndex)")" }.joined(separator: "|")
                     let label = "a\(index)c\(channel)"
-                    graph.append("\(source)aresample=\(settings.audioSampleRate),\(pad)atrim=start_sample=\(start + skip):end_sample=\(end + skip),asetpts=PTS-STARTPTS,pan=\(layout)|\(map),aformat=sample_fmts=flt,volume=\(component.gain):precision=float\(envelope),adelay=\(delay)S:all=1[\(label)]")
+                    graph.append("\(source)aresample=\(settings.audioSampleRate),\(pad)atrim=start_sample=\(start + skip):end_sample=\(sourceEnd + skip),asetpts=PTS-STARTPTS,\(tempo)pan=\(layout)|\(map),aformat=sample_fmts=flt,volume=\(component.gain):precision=float\(envelope),adelay=\(delay)S:all=1[\(label)]")
                     audioLabels.append(label)
                 }
             }
@@ -294,7 +312,7 @@ public enum FFmpegRenderCompiler {
         func automation() throws -> String? {
             let points = try component.volumeKeyframes.map { keyframe -> (Double, Double) in
                 let sample = try keyframe.time.multiplied(by: Int64(sampleRate))
-                return (Double(sample.numerator) / Double(sample.denominator) - Double(sourceStartSample), keyframe.gain)
+                return ((Double(sample.numerator) / Double(sample.denominator) - Double(sourceStartSample)) / component.speed.seconds, keyframe.gain)
             }
             guard let first = points.first, let last = points.last else { return nil }
             var expression = "\(last.1)"

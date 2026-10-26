@@ -781,6 +781,22 @@ final class EditorStore: ObservableObject {
             statusMessage = "Updated the title."
         } catch { errorMessage = audioEditErrorMessage(error) }
     }
+    /// Percent speed for the selected clip and its linked components; 100 restores normal speed.
+    func setSelectedClipSpeed(percent text: String) {
+        guard let clip = selectedClip else { return }
+        guard let percent = Double(text.replacingOccurrences(of: "%", with: "").trimmingCharacters(in: .whitespaces)),
+              percent.isFinite, (10...1000).contains(percent) else {
+            errorMessage = "Enter a speed from 10% to 1000%."
+            return
+        }
+        do {
+            let speed = try RationalTime(Int64((percent * 10).rounded()), 1000)
+            edit(.setSpeed(clipID: clip.id, speed: speed))
+            if errorMessage == nil {
+                statusMessage = percent == 100 ? "Restored normal speed." : "Set speed to \(String(format: "%g", percent))%; sound keeps its pitch."
+            }
+        } catch { report(error) }
+    }
     func setSelectedClipColor(_ color: ColorAdjustment) {
         guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
         edit(.setColor(clipID: clip.id, color: color))
@@ -887,7 +903,7 @@ final class EditorStore: ObservableObject {
         do {
             let bounded = TimelineGesture.trimDelta(delta, edge: edge, clip: clip, project: project, quantum: gestureQuantum(for: clip))
             let change = try editTime(bounded)
-            let range = try TimeRange(start: edge == .leading ? clip.sourceRange.start.adding(change) : clip.sourceRange.start,
+            let range = try TimeRange(start: edge == .leading ? clip.sourceTime(atTimelineOffset: change) : clip.sourceRange.start,
                                       duration: edge == .leading ? clip.sourceRange.duration.subtracting(change) : clip.sourceRange.duration.adding(change))
             edit(.trim(clipID: clip.id, sourceRange: range, timelineStart: edge == .leading ? try clip.timelineStart.adding(change) : clip.timelineStart))
         } catch { report(error) }

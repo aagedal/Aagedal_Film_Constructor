@@ -455,6 +455,13 @@ enum AcceptanceDriver {
                 store.setTrackMuted(track.id, muted: false)
                 features["mute"] = ["fewerComponentsWhileMuted": muted < before, "restored": ((try? TimelineRenderPlan(project: store.project).components.count) ?? 0) == before]
             }
+            if let movie = clips().first(where: { $0.requiredTrackKind == .video && store.asset(id: $0.assetID)?.title == nil }) {
+                store.selectTimelineClip(movie.id)
+                let before = movie.sourceRange.duration.seconds
+                store.setSelectedClipSpeed(percent: "50")
+                let after = clips().first { $0.id == movie.id }?.sourceRange.duration.seconds ?? 0
+                features["speed"] = ["doubled": abs(after - 2 * before) < 0.05, "error": store.errorMessage ?? ""]
+            }
             features["undoAvailable"] = store.canUndo
             store.seek(to: 0)
             record("finishing_tools", features)

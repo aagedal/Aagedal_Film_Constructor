@@ -15,7 +15,7 @@ public extension Project {
         }.flatMap(\.clips).filter {
             $0.id != clipID && $0.linkGroupID == group && $0.assetID == selected.assetID &&
             $0.timelineStart == selected.timelineStart && $0.sourceRange == selected.sourceRange &&
-            $0.fadeIn == selected.fadeIn && $0.fadeOut == selected.fadeOut && $0.gain == selected.gain && $0.volumeKeyframes == selected.volumeKeyframes
+            $0.fadeIn == selected.fadeIn && $0.fadeOut == selected.fadeOut && $0.gain == selected.gain && $0.volumeKeyframes == selected.volumeKeyframes && $0.speed == selected.speed
         }
     }
 }

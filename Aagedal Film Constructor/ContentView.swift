@@ -483,6 +483,7 @@ private struct ProjectInspector: View {
     @State private var fadeDraftClip: TimelineClip?
     @State private var clipVolume = "0"
     @State private var transformScale = "100"
+    @State private var speedPercent = "100"
     @State private var transformX = "0"
     @State private var transformY = "0"
     @State private var transformOpacity = "100"
@@ -584,6 +585,22 @@ private struct ProjectInspector: View {
                                     Button("Clear keyframes", systemImage: "trash") { store.setSelectedVolumeKeyframes([]) }
                                         .help("Remove all volume keyframes")
                                 }
+                            }
+                            if clip.selection != .still {
+                                Divider()
+                                HStack(alignment: .bottom) {
+                                    numericField("Speed (%)", text: $speedPercent)
+                                    Button("Apply speed", systemImage: "gauge.with.dots.needle.67percent") { store.setSelectedClipSpeed(percent: speedPercent) }
+                                        .labelStyle(.iconOnly).help("Apply speed to this clip and its linked components")
+                                    Menu {
+                                        ForEach(["25", "50", "100", "200", "400"], id: \.self) { preset in
+                                            Button("\(preset)%") { speedPercent = preset; store.setSelectedClipSpeed(percent: preset) }
+                                        }
+                                    } label: { Label("Speed presets", systemImage: "list.bullet") }
+                                    .labelStyle(.iconOnly).help("Speed presets").fixedSize()
+                                }
+                                Text("Keeps the source in and the media it plays; the clip gets longer or shorter. Sound keeps its pitch.")
+                                    .font(.caption).foregroundStyle(.secondary)
                             }
                             Divider()
                             numericField("Fade in (s)", text: $fadeInDuration)
@@ -807,6 +824,7 @@ private struct ProjectInspector: View {
         fadeOutCurve = clip.fadeOut.curve
         fadeDraftClip = clip
         func percent(_ value: Double) -> String { String(format: "%g", (value * 1000).rounded() / 10) }
+        speedPercent = percent(clip.speed.seconds)
         transformScale = percent(clip.transform.scale); transformX = percent(clip.transform.offsetX)
         transformY = percent(clip.transform.offsetY); transformOpacity = percent(clip.transform.opacity)
         if let gain = store.selectedVolumeClips.first?.gain {

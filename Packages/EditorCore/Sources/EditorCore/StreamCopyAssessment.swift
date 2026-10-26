@@ -107,6 +107,7 @@ public struct StreamCopyAssessment: Equatable, Sendable {
                 component.sourceRange.duration != component.timelineRange.duration { reject(.generatedGapOrTimingChange) }
             if component.originalURL?.isFileURL != true { reject(.missingOriginal) }
             let streamIndex: Int?
+            if component.speed != .one { reject(.generatedGapOrTimingChange) }
             switch component.selection {
             case .still: streamIndex = nil; reject(.stillImage)
             case .video(let index):

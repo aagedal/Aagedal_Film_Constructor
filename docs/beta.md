@@ -81,8 +81,7 @@ occupied time stacks the copy on a new sibling track rather than overwriting.
   to fade, or drop it onto the neighbouring clip to dissolve. The inspector sets
   exact fade and dissolve durations and removes dissolves.
 - Picture fades and dissolves are linear and snap to whole frames. Exports render
-  them exactly. For Rec. 709 media, preview and export colours match within a few
-  levels and fades within about one frame's opacity step.
+  them exactly. For Rec. 709 media, preview and export match within a few levels.
 - FCPXML, OTIO and EDL exports refuse sequences with fades or transitions rather
   than dropping them.
 
@@ -94,12 +93,20 @@ Y down). The picture-in-picture button shrinks the clip to a third in the lower 
 corner, and reset restores it. Layers below show around and through a transformed
 picture. Interchange exports refuse transformed clips.
 
+## Speed
+
+Select a clip and enter **Speed (%)** in the inspector (10–1000%), or pick a preset.
+The clip keeps its source in and plays the same media faster or slower, so it gets
+shorter or longer; linked sound changes with it and keeps its pitch. A longer clip
+never overwrites the next one; it moves to a track above. Interchange exports
+refuse speed changes.
+
 ## Colour
 
 Select a picture clip and drag **Brightness**, **Contrast** or **Saturation** under
 **Colour** in the inspector; each release is one undoable change, and the reset
 button restores the original. Sequences with colour correction preview through a
-CoreImage compositor; preview colours are within a few percent of the export.
+CoreImage compositor; preview colours are within a few levels of the export.
 
 ## Titles
 

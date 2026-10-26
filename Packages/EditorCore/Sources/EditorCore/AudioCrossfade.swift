@@ -88,11 +88,12 @@ extension Project {
                 let units = try time.multiplied(by: grid)
                 return try RationalTime(units.numerator / units.denominator).divided(by: grid)
             }
-            // A still repeats its single picture, so its hold has no source end.
-            let outgoingSourceEnd = outgoing.clip.selection == .still ? try outgoing.clip.sourceRange.end().adding(b.duration) : outgoingAsset.duration
-            let incomingSourceStart = incoming.clip.selection == .still ? a.duration : incoming.clip.sourceRange.start
-            let availableLeft = try gridFloor(minimum(incomingSourceStart, a.duration))
-            let availableRight = try gridFloor(minimum(outgoingSourceEnd.subtracting(outgoing.clip.sourceRange.end()), b.duration))
+            // A still repeats its single picture, so its hold has no source end. Source handles
+            // become timeline handles at each clip's speed.
+            let availableLeft = try gridFloor(minimum(incoming.clip.selection == .still ? a.duration
+                : incoming.clip.sourceRange.start.divided(by: incoming.clip.speed), a.duration))
+            let availableRight = try gridFloor(minimum(outgoing.clip.selection == .still ? b.duration
+                : outgoingAsset.duration.subtracting(outgoing.clip.sourceEnd()).divided(by: outgoing.clip.speed), b.duration))
             guard try availableLeft.adding(availableRight).compared(to: crossfade.duration) != .orderedAscending else {
                 throw TimelineEditError.invalidAudioCrossfade
             }
@@ -103,7 +104,8 @@ extension Project {
         return try AudioCrossfadeGeometry(
             outgoingSourceRange: TimeRange(start: outgoing.clip.sourceRange.start, duration: outgoing.clip.sourceRange.duration.adding(right)),
             outgoingTimelineRange: TimeRange(start: a.start, duration: a.duration.adding(right)),
-            incomingSourceRange: TimeRange(start: incoming.clip.selection == .still ? incoming.clip.sourceRange.start : incoming.clip.sourceRange.start.subtracting(left),
+            incomingSourceRange: TimeRange(start: incoming.clip.selection == .still ? incoming.clip.sourceRange.start
+                                                : incoming.clip.sourceRange.start.subtracting(left.multiplied(by: incoming.clip.speed)),
                                            duration: incoming.clip.sourceRange.duration.adding(left)),
             incomingTimelineRange: TimeRange(start: b.start.subtracting(left), duration: b.duration.adding(left)))
     }

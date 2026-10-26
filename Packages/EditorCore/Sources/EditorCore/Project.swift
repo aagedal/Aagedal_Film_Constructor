@@ -74,7 +74,10 @@ public struct Project: Equatable, Codable, Sendable {
                     throw EditorCoreError.invalidModel("Picture fades are linear")
                 }
                 _ = try clip.timelineRange()
-                guard try clip.sourceRange.end().compared(to: asset.duration) != .orderedDescending else { throw EditorCoreError.invalidModel("Source range exceeds media") }
+                // Speeds from 10% to 1000%; stills hold one picture and have no speed.
+                guard try clip.speed.compared(to: RationalTime(1, 10)) != .orderedAscending, try clip.speed.compared(to: RationalTime(10)) != .orderedDescending,
+                      clip.selection != .still || clip.speed == .one else { throw EditorCoreError.invalidModel("Speed must be 10–1000%, and stills have no speed") }
+                guard try clip.sourceEnd().compared(to: asset.duration) != .orderedDescending else { throw EditorCoreError.invalidModel("Source range exceeds media") }
                 switch clip.selection {
                 case .still: break
                 case .video(let index):
@@ -137,6 +140,10 @@ public struct TimelineRenderPlan: Equatable, Sendable {
         public var transform: PictureTransform = .identity
         public var volumeKeyframes: [VolumeKeyframe] = []
         public var color: ColorAdjustment = .neutral
+        /// Source seconds per timeline second; `sourceRange.duration` stays in timeline time.
+        public var speed: RationalTime = .one
+        /// Source time consumed by the component.
+        public func sourceExtent() throws -> RationalTime { try sourceRange.duration.multiplied(by: speed) }
         /// Front-to-back picture order. Upper tracks are in front; within one track only a
         /// dissolve overlaps, and its incoming (later) picture is in front.
         public static func isInFront(_ a: Self, of b: Self) -> Bool {
@@ -197,7 +204,7 @@ public struct TimelineRenderPlan: Equatable, Sendable {
                     // A dissolve keeps the outgoing picture opaque beneath the incoming one.
                     if clip.requiredTrackKind == .audio { fadeOut = AudioFade(duration: outgoing.duration, curve: outgoing.curve) }
                 }
-                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain * clip.gain, fadeIn: fadeIn, fadeOut: fadeOut, transform: clip.transform, volumeKeyframes: clip.volumeKeyframes, color: clip.color))
+                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain * clip.gain, fadeIn: fadeIn, fadeOut: fadeOut, transform: clip.transform, volumeKeyframes: clip.volumeKeyframes, color: clip.color, speed: clip.speed))
             }
         }
         components = result; duration = end

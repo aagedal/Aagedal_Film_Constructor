@@ -64,7 +64,7 @@ import EditorCore
             var bytes = [UInt8](repeating: 0, count: 4)
             bytes.withUnsafeMutableBytes { pointer in
                 let context = CGContext(data: pointer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
-                    space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                    space: image.colorSpace ?? CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
                 context.interpolationQuality = .none
                 context.draw(image, in: CGRect(x: -40, y: -23, width: image.width, height: image.height))
             }
@@ -75,8 +75,8 @@ import EditorCore
             let expected = try reference(frame), actual = try await preview(frame)
             let difference = zip(expected, actual).map { abs($0 - $1) }.max() ?? 255
             print("frame \(frame): export \(expected) preview \(actual)")
-            // Solid colours agree within 3 levels; ramps within one frame's opacity step (~13).
-            try require(difference <= 16, "Preview frame \(frame) differs from export: \(actual) vs \(expected)")
+            // Read in the frame's own colour space, ramps and solid colours agree closely.
+            try require(difference <= 8, "Preview frame \(frame) differs from export: \(actual) vs \(expected)")
         }
         let middle = try reference(36)
         try require(abs(middle[0] - middle[2]) < 30 && middle[0] > 90, "Dissolve midpoint must blend red and blue: \(middle)")
@@ -102,13 +102,13 @@ import EditorCore
             var bytes = [UInt8](repeating: 0, count: 4)
             bytes.withUnsafeMutableBytes { pointer in
                 let context = CGContext(data: pointer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
-                    space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                    space: image!.colorSpace ?? CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
                 context.interpolationQuality = .none
                 context.draw(image!, in: CGRect(x: -x, y: -(image!.height - 1 - y), width: image!.width, height: image!.height))
             }
             let actual = bytes.prefix(3).map(Int.init)
             print("pip (\(x),\(y)): export \(expected) preview \(actual)")
-            try require(zip(expected, actual).allSatisfy { abs($0 - $1) <= 16 }, "Picture in picture preview differs at (\(x),\(y))")
+            try require(zip(expected, actual).allSatisfy { abs($0 - $1) <= 8 }, "Picture in picture preview differs at (\(x),\(y))")
         }
         await pipBackend.close()
         print("PASS picture in picture preview matches export")
@@ -134,18 +134,54 @@ import EditorCore
                     var bytes = [UInt8](repeating: 0, count: 4)
                     bytes.withUnsafeMutableBytes { pointer in
                         let context = CGContext(data: pointer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
-                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                            space: image!.colorSpace ?? CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
                         context.interpolationQuality = .none
                         context.draw(image!, in: CGRect(x: -x, y: -(image!.height - 1 - y), width: image!.width, height: image!.height))
                     }
                     let actual = bytes.prefix(3).map(Int.init)
                     print("colour \(name) frame \(frame) (\(x),\(y)): export \(expected) preview \(actual)")
-                    try require(zip(expected, actual).allSatisfy { abs($0 - $1) <= 24 }, "Colour preview differs: \(name) frame \(frame)")
+                    try require(zip(expected, actual).allSatisfy { abs($0 - $1) <= 8 }, "Colour preview differs: \(name) frame \(frame)")
                 }
             }
             await colourBackend.close()
         }
         print("PASS colour correction preview matches export")
+
+        // Speed: a 50% clip of a ramp whose frame n has luma 16 + 3n shows the same source
+        // frame in preview and export.
+        let ramp = directory.appendingPathComponent("ramp.mov")
+        _ = try run(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "nullsrc=s=80x48:r=24:d=4,geq=lum='16+3*N':cb=128:cr=128,setparams=range=tv:colorspace=bt709:color_primaries=bt709:color_trc=bt709",
+                             "-c:v", "prores_ks", "-color_range", "tv", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", ramp.path])
+        let rampTracks = try await AVURLAsset(url: ramp).load(.tracks)
+        let rampAsset = MediaAsset(name: "Ramp", originalURL: ramp, duration: try RationalTime(4),
+                                   streams: [MediaStream(index: rampTracks.firstIndex { $0.mediaType == .video }!, kind: .video)])
+        var slow = Project(settings: base.settings, assets: [rampAsset])
+        let slowIDs = try slow.appendAsset(rampAsset.id, at: .zero, sourceRange: TimeRange(start: RationalTime(1, 2), duration: RationalTime(1)))
+        var slowEngine = try TimelineEditEngine(project: slow)
+        try slowEngine.apply(.setSpeed(clipID: slowIDs[0], speed: RationalTime(1, 2)))
+        slow = slowEngine.project
+        let slowOutput = directory.appendingPathComponent("slow.mov")
+        _ = try run(ffmpeg, try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: slow), outputURL: slowOutput).arguments)
+        let slowBackend = try AVFoundationSequenceBackend(project: slow, videoProxies: [:])
+        slowBackend.display = { displayed, _ in image = displayed }
+        for frame in [0, 1, 2, 3, 6, 12, 24, 36, 47] {
+            try await slowBackend.seek(toFrame: Int64(frame))
+            let data = try run(ffmpeg, ["-hide_banner", "-i", slowOutput.path, "-vf", "select=eq(n\\,\(frame)),crop=2:2:40:24",
+                                        "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
+            let expected = Int(data[0])
+            var bytes = [UInt8](repeating: 0, count: 4)
+            bytes.withUnsafeMutableBytes { pointer in
+                // Read the frame in its own colour space, without a display conversion.
+                let context = CGContext(data: pointer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                    space: image!.colorSpace ?? CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                context.draw(image!, in: CGRect(x: -40, y: -23, width: image!.width, height: image!.height))
+            }
+            print("speed 50% frame \(frame): export \(expected) preview \(bytes[0])")
+            // One source frame is about 3.5 levels.
+            try require(abs(expected - Int(bytes[0])) <= 8, "Retimed preview shows another source frame at \(frame)")
+        }
+        await slowBackend.close()
+        print("PASS speed preview matches export")
 
         // Volume keyframes: full level until source 1 s, then down to a quarter by source 2 s.
         let tone = directory.appendingPathComponent("tone.mov")

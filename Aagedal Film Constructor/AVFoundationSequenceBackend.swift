@@ -226,12 +226,13 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     throw Self.unsupported("Could not prepare still-image sequence preview.")
                 }
             } else {
-                range = try CMTimeRange(start: time(component.sourceRange.start), duration: time(component.sourceRange.duration))
+                // A retimed clip inserts the source it consumes, then scales to its timeline length.
+                range = try CMTimeRange(start: time(component.sourceRange.start), duration: time(component.sourceExtent()))
             }
             do {
                 let start = try time(component.timelineRange.start)
                 try track.insertTimeRange(range, of: source, at: start)
-                if component.selection == .still {
+                if component.selection == .still || component.speed != .one {
                     track.scaleTimeRange(CMTimeRange(start: start, duration: range.duration),
                         toDuration: try time(component.timelineRange.duration))
                 }
@@ -299,16 +300,17 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 var points = ramps.points.map { (seconds: $0.seconds, volume: $0.volume) }
                 if !component.volumeKeyframes.isEmpty {
                     let sourceStart = component.sourceRange.start.seconds, length = component.timelineRange.duration.seconds
+                    let speed = component.speed.seconds
                     func fade(at t: Double) -> Double {
                         guard let next = points.firstIndex(where: { $0.seconds >= t }) else { return points.last?.volume ?? 1 }
                         guard next > 0 else { return points[0].volume }
                         let a = points[next - 1], b = points[next]
                         return b.seconds > a.seconds ? a.volume + (b.volume - a.volume) * (t - a.seconds) / (b.seconds - a.seconds) : b.volume
                     }
-                    let times = Set(points.map(\.seconds) + component.volumeKeyframes.map { $0.time.seconds - sourceStart }
+                    let times = Set(points.map(\.seconds) + component.volumeKeyframes.map { ($0.time.seconds - sourceStart) / speed }
                         .filter { $0 > 0 && $0 < length }).sorted()
                     points = times.map { t in
-                        let automation = VolumeEnvelope.gain(atSourceSeconds: sourceStart + t, keyframes: component.volumeKeyframes)
+                        let automation = VolumeEnvelope.gain(atSourceSeconds: sourceStart + t * speed, keyframes: component.volumeKeyframes)
                         if automation * min(component.gain, 1) > 1 {
                             addQualificationNotice("Gain above 0 dB plays at 0 dB in preview; export applies the full gain.")
                         }
@@ -331,6 +333,8 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             }
         }
         let item = AVPlayerItem(asset: composition)
+        // Retimed sound keeps its pitch, as in export.
+        if plan.components.contains(where: { $0.speed != .one }) { item.audioTimePitchAlgorithm = .spectral }
         let mix = AVMutableAudioMix(); mix.inputParameters = mixes; item.audioMix = mix
         if hasVideo {
             let videoComposition = AVMutableVideoComposition()

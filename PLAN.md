@@ -52,11 +52,19 @@ express it.
   pictures reveal lower layers in render and preview; split, copy and save keep it;
   interchange and stream copy refuse it. `PictureTransformTests` checks decoded export
   pixels; `scripts/system-transition-smoke.sh` compares preview and export.
+- [x] Clip speed (10–1000%): `sourceRange.duration` stays timeline time and the clip plays
+  `duration × speed` of source; splits, trims, overwrite, transition handles, volume
+  keyframes and thumbnails map through the speed. Export retimes picture in a fine
+  timebase and sound with pitch-preserving `atempo`; preview scales the inserted source
+  with spectral pitch correction. `ClipSpeedTests` checks decoded frame numbers, exact
+  sample counts and pitch; the preview matches export frame for frame.
+- [x] Preview measurement fix: the smokes read preview frames in their own colour space
+  (drawing into device RGB had lifted greys by up to ~13 levels).
 - [x] Colour correction: per-picture brightness, contrast and saturation on encoded values
   (export: `lutyuv` in video range; preview: a CoreImage custom compositor without colour
   management, used only when a sequence has colour, which also reproduces transforms,
   opacity, fades and dissolves). Export pixels are checked in `ColorAdjustmentTests`;
-  preview matches export within ~16 levels (`system-transition-smoke.sh`), and real-window
+  preview matches export within 5 levels (`system-transition-smoke.sh`), and real-window
   acceptance plays and exports a colour-corrected timeline.
 - [x] Volume keyframes: audio clips carry source-anchored volume points (linear between
   points, held outside), multiplied with clip volume and fades. Trims and splits keep

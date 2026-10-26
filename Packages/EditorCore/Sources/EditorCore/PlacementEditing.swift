@@ -106,7 +106,7 @@ public extension Project {
                             let fresh = UUID(); rightGroups[group] = fresh; return fresh
                         }
                     }
-                    if clip.selection != .still { right.sourceRange.start = try clip.sourceRange.start.adding(removed) }
+                    if clip.selection != .still { right.sourceRange.start = try clip.sourceTime(atTimelineOffset: removed) }
                     right.sourceRange.duration = try clip.sourceRange.duration.subtracting(removed)
                     right.timelineStart = end
                     right.fadeIn = .init()

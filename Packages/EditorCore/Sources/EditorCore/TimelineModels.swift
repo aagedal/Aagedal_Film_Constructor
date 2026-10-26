@@ -166,11 +166,19 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
     public var volumeKeyframes: [VolumeKeyframe]
     /// Picture colour correction; neutral for audio.
     public var color: ColorAdjustment
-    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1, transform: PictureTransform = .identity, volumeKeyframes: [VolumeKeyframe] = [], color: ColorAdjustment = .neutral) {
+    /// Playback speed: the clip plays `sourceRange.duration × speed` of source in
+    /// `sourceRange.duration` of timeline. `sourceRange.start` is in source time.
+    public var speed: RationalTime
+    /// Source time consumed by the clip.
+    public func sourceExtent() throws -> RationalTime { try sourceRange.duration.multiplied(by: speed) }
+    public func sourceEnd() throws -> RationalTime { try sourceRange.start.adding(sourceExtent()) }
+    /// Source time reached `timelineOffset` into the clip.
+    public func sourceTime(atTimelineOffset offset: RationalTime) throws -> RationalTime { try sourceRange.start.adding(offset.multiplied(by: speed)) }
+    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1, transform: PictureTransform = .identity, volumeKeyframes: [VolumeKeyframe] = [], color: ColorAdjustment = .neutral, speed: RationalTime = RationalTime.one) {
         self.id = id; self.assetID = assetID; self.sourceRange = sourceRange; self.timelineStart = timelineStart; self.selection = selection; self.scalingMode = scalingMode; self.linkGroupID = linkGroupID; self.fadeIn = fadeIn; self.fadeOut = fadeOut
-        self.gain = gain; self.transform = transform; self.volumeKeyframes = volumeKeyframes; self.color = color
+        self.gain = gain; self.transform = transform; self.volumeKeyframes = volumeKeyframes; self.color = color; self.speed = speed
     }
-    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain, transform, volumeKeyframes, color }
+    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain, transform, volumeKeyframes, color, speed }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.init(id: try c.decode(UUID.self, forKey: .id), assetID: try c.decode(UUID.self, forKey: .assetID),
@@ -182,7 +190,8 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
                   gain: try c.decodeIfPresent(Double.self, forKey: .gain) ?? 1,
                   transform: try c.decodeIfPresent(PictureTransform.self, forKey: .transform) ?? .identity,
                   volumeKeyframes: try c.decodeIfPresent([VolumeKeyframe].self, forKey: .volumeKeyframes) ?? [],
-                  color: try c.decodeIfPresent(ColorAdjustment.self, forKey: .color) ?? .neutral)
+                  color: try c.decodeIfPresent(ColorAdjustment.self, forKey: .color) ?? .neutral,
+                  speed: try c.decodeIfPresent(RationalTime.self, forKey: .speed) ?? RationalTime.one)
     }
     public var requiredTrackKind: TrackKind { if case .audio = selection { return .audio }; return .video }
     public var requiredAudioLayout: ChannelLayout? { if case .audio(let selection) = selection { return selection.layout }; return nil }
