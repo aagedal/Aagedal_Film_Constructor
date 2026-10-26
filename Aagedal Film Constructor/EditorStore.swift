@@ -722,6 +722,12 @@ final class EditorStore: ObservableObject {
     func renameTrackFamily(_ id: UUID, name: String) {
         do { try change { try $0.renameTrackFamily(id: id, name: name) } } catch { report(error) }
     }
+    func setTrackMuted(_ id: UUID, muted: Bool) {
+        do { try change { try $0.setTrackMuted(id: id, muted: muted) } } catch { report(error) }
+    }
+    func setTrackSoloed(_ id: UUID, soloed: Bool) {
+        do { try change { try $0.setTrackSoloed(id: id, soloed: soloed) } } catch { report(error) }
+    }
     func setTrackRetention(_ id: UUID, retained: Bool) {
         do { try change { try $0.setTrackRetention(id: id, retained: retained) } } catch { report(error) }
     }

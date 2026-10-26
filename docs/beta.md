@@ -104,7 +104,11 @@ like any other clip. Titles are drawn as transparent images in the app's
 Application Support "Titles" folder and redrawn if missing. Interchange exports
 reference those images as stills.
 
-## Volume
+## Volume, mute and solo
+
+Each track header has quick controls: the eye hides a video track, **M** mutes an
+audio track and **S** solos it (while any track is soloed, only soloed audio
+plays). Hidden and muted tracks are left out of preview and every export.
 
 Select a clip and enter **Clip volume (dB)** in the inspector (up to +24 dB; −inf
 silences it). With a picture selected, the field sets its linked audio. Clip

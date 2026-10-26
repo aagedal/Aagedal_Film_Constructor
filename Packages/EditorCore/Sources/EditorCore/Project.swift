@@ -160,7 +160,10 @@ public struct TimelineRenderPlan: Equatable, Sendable {
         var result: [Component] = []
         result.reserveCapacity(project.tracks.reduce(0) { $0 + $1.clips.count })
         var end = RationalTime.zero
+        let soloing = project.tracks.contains { $0.kind == .audio && $0.soloed }
         for (order, track) in project.tracks.enumerated() {
+            // Muted tracks, and unsoloed sound while another track is soloed, are left out.
+            if track.muted || (soloing && track.kind == .audio && !track.soloed) { continue }
             // Stable sorting prevents array insertion history from changing the canonical plan.
             let clips = try track.clips.sorted { a, b in
                 let comparison = try a.timelineStart.compared(to: b.timelineStart)

@@ -181,7 +181,7 @@ public struct TimelineEditEngine: Sendable {
         }) {
             project.tracks[siblingIndex].clips.append(clip)
         } else {
-            let sibling = TimelineTrack(familyID: target.familyID, template: target.template, clips: [clip])
+            let sibling = TimelineTrack(familyID: target.familyID, template: target.template, clips: [clip], muted: target.muted, soloed: target.soloed)
             project.tracks.insert(sibling, at: targetIndex + 1)
         }
     }
@@ -254,7 +254,7 @@ public struct TimelineEditEngine: Sendable {
                 var template = origin.template
                 template.audioLayout = pair.0.layout
                 template.routing = pair.1
-                let sibling = TimelineTrack(familyID: origin.familyID, template: template, clips: [clip])
+                let sibling = TimelineTrack(familyID: origin.familyID, template: template, clips: [clip], muted: origin.muted, soloed: origin.soloed)
                 let insertion = project.tracks.firstIndex(where: { $0.id == origin.id }).map { $0 + 1 } ?? project.tracks.count
                 project.tracks.insert(sibling, at: insertion)
             }

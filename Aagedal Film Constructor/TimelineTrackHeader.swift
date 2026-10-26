@@ -13,7 +13,21 @@ struct TimelineTrackHeader: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 4) {
                 Text(track.displayName(in: store.project)).font(.caption.bold()).lineLimit(1)
+                    .foregroundStyle(audible ? .primary : .secondary)
                 Spacer(minLength: 0)
+                if track.kind == .video {
+                    toggle(track.muted ? "eye.slash" : "eye", on: track.muted, tint: .secondary,
+                           help: track.muted ? "Show this track in preview and export" : "Hide this track from preview and export") {
+                        store.setTrackMuted(track.id, muted: !track.muted)
+                    }
+                } else {
+                    toggle("m.square", on: track.muted, tint: .red, help: track.muted ? "Unmute this track" : "Mute this track") {
+                        store.setTrackMuted(track.id, muted: !track.muted)
+                    }
+                    toggle("s.square", on: track.soloed, tint: .yellow, help: track.soloed ? "Stop soloing this track" : "Solo: hear only soloed audio tracks") {
+                        store.setTrackSoloed(track.id, soloed: !track.soloed)
+                    }
+                }
                 Button {
                     name = track.customName ?? ""
                     familyName = store.project.families.first { $0.id == track.familyID }?.baseName ?? ""
@@ -67,6 +81,17 @@ struct TimelineTrackHeader: View {
                 Text("−96 to +24 dB. Applies to every clip on this track.").font(.caption).foregroundStyle(.secondary)
             }
         }.textFieldStyle(.roundedBorder).padding().frame(width: 300)
+    }
+
+    /// Whether this track is part of the mix and picture.
+    private var audible: Bool {
+        !track.muted && !(track.kind == .audio && !track.soloed && store.project.tracks.contains { $0.kind == .audio && $0.soloed })
+    }
+
+    private func toggle(_ symbol: String, on: Bool, tint: Color, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) { Image(systemName: on && symbol.hasSuffix(".square") ? symbol + ".fill" : symbol) }
+            .buttonStyle(.plain).foregroundStyle(on ? tint : .secondary)
+            .accessibilityLabel(help).help(help)
     }
 
     private func applyButton(_ title: String, action: @escaping () -> Void) -> some View {

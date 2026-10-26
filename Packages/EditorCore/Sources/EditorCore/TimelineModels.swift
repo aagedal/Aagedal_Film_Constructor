@@ -176,8 +176,22 @@ public struct TimelineTrack: Identifiable, Equatable, Codable, Sendable {
     public var template: TrackTemplate
     public var retained: Bool
     public var clips: [TimelineClip]
-    public init(id: UUID = UUID(), familyID: UUID, customName: String? = nil, template: TrackTemplate, retained: Bool = false, clips: [TimelineClip] = []) {
+    /// A muted track is left out of render and preview: hidden picture or silent sound.
+    public var muted: Bool
+    /// While any audio track is soloed, only soloed audio tracks are heard.
+    public var soloed: Bool
+    public init(id: UUID = UUID(), familyID: UUID, customName: String? = nil, template: TrackTemplate, retained: Bool = false, clips: [TimelineClip] = [],
+                muted: Bool = false, soloed: Bool = false) {
         self.id = id; self.familyID = familyID; self.customName = customName; self.template = template; self.retained = retained; self.clips = clips
+        self.muted = muted; self.soloed = soloed
+    }
+    private enum CodingKeys: String, CodingKey { case id, familyID, customName, template, retained, clips, muted, soloed }
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(id: try c.decode(UUID.self, forKey: .id), familyID: try c.decode(UUID.self, forKey: .familyID),
+                  customName: try c.decodeIfPresent(String.self, forKey: .customName), template: try c.decode(TrackTemplate.self, forKey: .template),
+                  retained: try c.decode(Bool.self, forKey: .retained), clips: try c.decode([TimelineClip].self, forKey: .clips),
+                  muted: try c.decodeIfPresent(Bool.self, forKey: .muted) ?? false, soloed: try c.decodeIfPresent(Bool.self, forKey: .soloed) ?? false)
     }
     public var kind: TrackKind { template.kind }
     public var audioLayout: ChannelLayout? { template.audioLayout }

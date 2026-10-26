@@ -52,6 +52,9 @@ express it.
   pictures reveal lower layers in render and preview; split, copy and save keep it;
   interchange and stream copy refuse it. `PictureTransformTests` checks decoded export
   pixels; `scripts/system-transition-smoke.sh` compares preview and export.
+- [x] Track mute/solo: the eye hides a video track; M mutes and S solos audio tracks.
+  The render plan (preview and every export) leaves them out; collision siblings
+  inherit the state.
 - [x] Real-window acceptance (2026-10-26, `scripts/app-acceptance.sh … generate`): ⌘T,
   ⌃T and title editing, clip volume, insert, overwrite, ⌘C/⌘V, ⌘D and ⇧⌘⌫ pass
   alongside the beta steps; H.264 and ProRes renders of the edited timeline verify.
