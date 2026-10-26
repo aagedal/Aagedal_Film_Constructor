@@ -52,6 +52,12 @@ express it.
   pictures reveal lower layers in render and preview; split, copy and save keep it;
   interchange and stream copy refuse it. `PictureTransformTests` checks decoded export
   pixels; `scripts/system-transition-smoke.sh` compares preview and export.
+- [x] Position keyframes and motion presets: picture scale and position keyframes in source
+  time, linear between points (opacity stays static), with slide-in, rise, slow-zoom and
+  drift presets that also animate titles. Export uses time-based `scale`/`overlay`
+  expressions; the system preview uses transform ramps and the CoreImage compositor
+  evaluates the same placement per frame. `TransformKeyframeTests` measures the decoded
+  inset's position and size; the preview matches export at the keyframes and between.
 - [x] Clip speed (10–1000%): `sourceRange.duration` stays timeline time and the clip plays
   `duration × speed` of source; splits, trims, overwrite, transition handles, volume
   keyframes and thumbnails map through the speed. Export retimes picture in a fine

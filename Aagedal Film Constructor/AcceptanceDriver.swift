@@ -462,6 +462,13 @@ enum AcceptanceDriver {
                 let after = clips().first { $0.id == movie.id }?.sourceRange.duration.seconds ?? 0
                 features["speed"] = ["doubled": abs(after - 2 * before) < 0.05, "error": store.errorMessage ?? ""]
             }
+            if let titleClip = clips().first(where: { store.asset(id: $0.assetID)?.title != nil }) {
+                store.selectTimelineClip(titleClip.id)
+                store.applyMotionPreset(.slideInLeft)
+                store.seek(to: titleClip.timelineStart.seconds + 3)
+                store.addTransformKeyframeAtPlayhead(scale: "120", x: "0", y: "0")
+                features["motion"] = ["keyframes": clips().first { $0.id == titleClip.id }?.transformKeyframes.count ?? 0, "error": store.errorMessage ?? ""]
+            }
             features["undoAvailable"] = store.canUndo
             store.seek(to: 0)
             record("finishing_tools", features)

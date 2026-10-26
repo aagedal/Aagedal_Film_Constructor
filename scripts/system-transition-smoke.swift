@@ -183,6 +183,45 @@ import EditorCore
         await slowBackend.close()
         print("PASS speed preview matches export")
 
+        // Animated picture in picture: red grows from 25% on the left to 50% on the right over
+        // one second, through the system compositor and (with colour) the CoreImage compositor.
+        var animated = pip
+        animated.tracks[0].clips[0].transform = .identity
+        animated.tracks[0].clips[0].transformKeyframes = [TransformKeyframe(time: .zero, scale: 0.25, offsetX: -0.25),
+                                                          TransformKeyframe(time: try RationalTime(1), scale: 0.5, offsetX: 0.25)]
+        var animatedColour = animated
+        animatedColour.tracks[0].clips[0].color = ColorAdjustment(brightness: 0.01)
+        for (name, candidate) in [("system", animated), ("coreimage", animatedColour)] {
+            let animatedOutput = directory.appendingPathComponent("animated-\(name).mov")
+            _ = try run(ffmpeg, try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: candidate), outputURL: animatedOutput).arguments)
+            let animatedBackend = try AVFoundationSequenceBackend(project: candidate, videoProxies: [:])
+            animatedBackend.display = { displayed, _ in image = displayed }
+            /// Centre and width of red on the middle row, in frame fractions.
+            func span(_ row: [(Int, Int, Int)]) -> (Double, Double) {
+                let red = row.indices.filter { row[$0].0 > 128 && row[$0].2 < 128 }
+                guard let first = red.first, let last = red.last else { return (0, 0) }
+                return ((Double(first + last) / 2 + 0.5) / Double(row.count), Double(last - first + 1) / Double(row.count))
+            }
+            for frame in [0, 12, 23] {
+                let data = try run(ffmpeg, ["-hide_banner", "-i", animatedOutput.path, "-vf", "select=eq(n\\,\(frame)),crop=80:1:0:24",
+                                            "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
+                let exported = span(stride(from: 0, to: data.count, by: 3).map { (Int(data[$0]), Int(data[$0 + 1]), Int(data[$0 + 2])) })
+                try await animatedBackend.seek(toFrame: Int64(frame))
+                var bytes = [UInt8](repeating: 0, count: 80 * 4)
+                bytes.withUnsafeMutableBytes { pointer in
+                    let context = CGContext(data: pointer.baseAddress, width: 80, height: 1, bitsPerComponent: 8, bytesPerRow: 80 * 4,
+                        space: image!.colorSpace ?? CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                    context.interpolationQuality = .none
+                    context.draw(image!, in: CGRect(x: 0, y: -23, width: image!.width, height: image!.height))
+                }
+                let previewed = span(stride(from: 0, to: bytes.count, by: 4).map { (Int(bytes[$0]), Int(bytes[$0 + 1]), Int(bytes[$0 + 2])) })
+                print("animated \(name) frame \(frame): export \(exported) preview \(previewed)")
+                try require(abs(exported.0 - previewed.0) < 0.04 && abs(exported.1 - previewed.1) < 0.04, "Animated placement differs at \(frame)")
+            }
+            await animatedBackend.close()
+        }
+        print("PASS animated placement preview matches export")
+
         // Volume keyframes: full level until source 1 s, then down to a quarter by source 2 s.
         let tone = directory.appendingPathComponent("tone.mov")
         _ = try run(ffmpeg, ["-v", "error", "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000:duration=4",

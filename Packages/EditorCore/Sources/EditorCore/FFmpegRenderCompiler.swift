@@ -143,7 +143,7 @@ public enum FFmpegRenderCompiler {
                 let scaling: String
                 let w = settings.width, h = settings.height
                 // Transformed pictures reveal lower layers outside their own picture area.
-                let transformed = !component.transform.isIdentity
+                let transformed = component.hasPlacement
                 let clearPad = isStill || transformed
                 switch component.scalingMode {
                 case .fit: scaling = "scale=\(w):\(h):force_original_aspect_ratio=decrease,pad=\(w):\(h):(ow-iw)/2:(oh-ih)/2\(clearPad ? ":color=black@0" : "")"
@@ -218,7 +218,10 @@ public enum FFmpegRenderCompiler {
                 }
                 if transformed {
                     let t = component.transform
-                    if t.scale != 1 { arrangement += ",scale=w='max(1,round(iw*\(t.scale)))':h='max(1,round(ih*\(t.scale)))'" }
+                    if !component.transformKeyframes.isEmpty {
+                        let scale = animation(component, \.scale)
+                        arrangement += ",scale=w='max(1,round(iw*(\(scale))))':h='max(1,round(ih*(\(scale))))':eval=frame"
+                    } else if t.scale != 1 { arrangement += ",scale=w='max(1,round(iw*\(t.scale)))':h='max(1,round(ih*\(t.scale)))'" }
                     if t.opacity != 1 { arrangement += ",lut=a='val*\(t.opacity)'" }
                 }
                 graph.append("\(source)\(timing),\(geometry)\(arrangement)\(fades)[v\(index)]")
@@ -226,8 +229,10 @@ public enum FFmpegRenderCompiler {
                 let visibleEnd = try RationalTime(placement).adding(RationalTime(count)).numerator
                 let enabled = "gte(n,\(placement))*lt(n,\(visibleEnd))"
                 // A transformed layer is centred, then offset in fractions of the frame.
+                let offsetX = component.transformKeyframes.isEmpty ? "\(component.transform.offsetX)" : "(\(animation(component, \.offsetX)))"
+                let offsetY = component.transformKeyframes.isEmpty ? "\(component.transform.offsetY)" : "(\(animation(component, \.offsetY)))"
                 let position = transformed
-                    ? ":x='(main_w-overlay_w)/2+\(component.transform.offsetX)*main_w':y='(main_h-overlay_h)/2+\(component.transform.offsetY)*main_h'" : ""
+                    ? ":x='(main_w-overlay_w)/2+\(offsetX)*main_w':y='(main_h-overlay_h)/2+\(offsetY)*main_h':eval=frame" : ""
                 graph.append("[\(videoLabel)][v\(index)]overlay=eof_action=repeat:repeatlast=1:format=yuv444\(position):enable='\(enabled)'[layer\(index)]")
                 videoLabel = "layer\(index)"
             case .audio(let selection):
@@ -278,6 +283,18 @@ public enum FFmpegRenderCompiler {
             + ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-ar", String(settings.audioSampleRate), "-ac", String(settings.audioLayout.channels.count), "-video_track_timescale", String(settings.frameRate.value.numerator), "-timecode", try settings.startTimecode.formatted(rate: settings.frameRate), outputURL.path]
         return FFmpegRenderCommand(inputs: inputs, arguments: arguments, filterGraph: filterGraph, videoFrames: frames, audioSamples: samples)
     }
+    /// A keyframed value as a piecewise-linear expression in the frame time `t` (timeline seconds).
+    private static func animation(_ component: TimelineRenderPlan.Component, _ value: KeyPath<TransformKeyframe, Double>) -> String {
+        let points = component.transformKeyframes.map { (component.timelineSeconds(ofSource: $0.time), $0[keyPath: value]) }
+        guard let first = points.first, let last = points.last else { return "1" }
+        var expression = "\(last.1)"
+        for (a, b) in zip(points, points.dropFirst()).reversed() {
+            let slope = b.0 > a.0 ? (b.1 - a.1) / (b.0 - a.0) : 0
+            expression = "if(lt(t,\(b.0)),\(a.1)+(\(slope))*(t-(\(a.0))),\(expression))"
+        }
+        return "if(lt(t,\(first.0)),\(first.1),\(expression))"
+    }
+
     /// Linear opacity ramps in timeline seconds; frames carry timeline timestamps here.
     /// A frame at the start of a fade in is transparent; the last frame of a fade out
     /// keeps 1/n of its opacity, matching a ramp that reaches zero at the cut.

@@ -66,6 +66,8 @@ public struct Project: Equatable, Codable, Sendable {
                 try clip.transform.validate()
                 try VolumeEnvelope.validate(clip.volumeKeyframes)
                 try clip.color.validate()
+                try PictureAnimation.validate(clip.transformKeyframes)
+                guard clip.requiredTrackKind == .video || clip.transformKeyframes.isEmpty else { throw EditorCoreError.invalidModel("Audio has no position keyframes") }
                 guard clip.requiredTrackKind == .video || clip.color.isNeutral else { throw EditorCoreError.invalidModel("Audio has no colour") }
                 guard clip.requiredTrackKind == .audio || clip.volumeKeyframes.isEmpty else { throw EditorCoreError.invalidModel("Pictures have no volume") }
                 guard clip.requiredTrackKind == .video || clip.transform.isIdentity else { throw EditorCoreError.invalidModel("Audio has no picture transform") }
@@ -142,6 +144,13 @@ public struct TimelineRenderPlan: Equatable, Sendable {
         public var color: ColorAdjustment = .neutral
         /// Source seconds per timeline second; `sourceRange.duration` stays in timeline time.
         public var speed: RationalTime = .one
+        public var transformKeyframes: [TransformKeyframe] = []
+        /// Whether the picture is scaled, moved, animated or translucent rather than filling the frame as is.
+        public var hasPlacement: Bool { !transform.isIdentity || !transformKeyframes.isEmpty }
+        /// Keyframe times on the sequence timeline, in seconds.
+        public func timelineSeconds(ofSource time: RationalTime) -> Double {
+            timelineRange.start.seconds + (time.seconds - sourceRange.start.seconds) / speed.seconds
+        }
         /// Source time consumed by the component.
         public func sourceExtent() throws -> RationalTime { try sourceRange.duration.multiplied(by: speed) }
         /// Front-to-back picture order. Upper tracks are in front; within one track only a
@@ -204,7 +213,7 @@ public struct TimelineRenderPlan: Equatable, Sendable {
                     // A dissolve keeps the outgoing picture opaque beneath the incoming one.
                     if clip.requiredTrackKind == .audio { fadeOut = AudioFade(duration: outgoing.duration, curve: outgoing.curve) }
                 }
-                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain * clip.gain, fadeIn: fadeIn, fadeOut: fadeOut, transform: clip.transform, volumeKeyframes: clip.volumeKeyframes, color: clip.color, speed: clip.speed))
+                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain * clip.gain, fadeIn: fadeIn, fadeOut: fadeOut, transform: clip.transform, volumeKeyframes: clip.volumeKeyframes, color: clip.color, speed: clip.speed, transformKeyframes: clip.transformKeyframes))
             }
         }
         components = result; duration = end

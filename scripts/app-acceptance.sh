@@ -82,6 +82,7 @@ checks = [
     ('picture-in-picture transform applied (33%, 80% opacity)', tools.get('transform', {}).get('scale') == 0.33 and tools.get('transform', {}).get('opacity') == 0.8),
     ('colour correction applied (preview uses the CoreImage compositor)', tools.get('color', {}).get('applied')),
     ('50% speed doubled a clip with its linked sound', tools.get('speed', {}).get('doubled')),
+    ('title slides in with a motion preset plus a hand-set keyframe', tools.get('motion', {}).get('keyframes') == 3),
     ('two volume keyframes added at the playhead', tools.get('keyframes', {}).get('count') == 2),
     ('muting a track removes it from the render plan and unmuting restores it', tools.get('mute', {}).get('fewerComponentsWhileMuted') and tools.get('mute', {}).get('restored')),
     ('remapped Play / Pause shortcut works and was restored', shortcut.get('remapped') and shortcut.get('plays') and shortcut.get('pauses') and shortcut.get('restored')),

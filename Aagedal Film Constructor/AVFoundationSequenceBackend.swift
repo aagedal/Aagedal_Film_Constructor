@@ -94,7 +94,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             return false
         }
         var layers: [Int: AVMutableVideoCompositionLayerInstruction] = [:]
-        var placements: [Int: (track: CMPersistentTrackID, transform: CGAffineTransform)] = [:]
+        var placements: [Int: (track: CMPersistentTrackID, placement: LayerPlacement)] = [:]
         var mixes: [AVAudioMixInputParameters] = []
         var assets: [URL: AVURLAsset] = [:]
         defer {
@@ -264,22 +264,31 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     offsetX = offsetX.rounded(.towardZero)
                     offsetY = offsetY.rounded(.towardZero)
                 }
-                // The clip's own scale is about the frame centre, then offset in frame fractions.
-                let placement = component.transform
-                let centre = CGAffineTransform(translationX: -canvas.width / 2, y: -canvas.height / 2)
-                    .concatenating(CGAffineTransform(scaleX: placement.scale, y: placement.scale))
-                    .concatenating(CGAffineTransform(translationX: canvas.width * (0.5 + placement.offsetX),
-                                                     y: canvas.height * (0.5 + placement.offsetY)))
-                let transform = orientation
+                // The clip's own scale is about the frame centre, then offset in frame fractions;
+                // keyframes animate them between their timeline times.
+                let fit = orientation
                     .concatenating(CGAffineTransform(translationX: -bounds.minX, y: -bounds.minY))
                     .concatenating(CGAffineTransform(scaleX: factor, y: factor))
                     .concatenating(CGAffineTransform(translationX: offsetX, y: offsetY))
-                    .concatenating(placement.isIdentity ? .identity : centre)
+                let static_ = component.transform
+                let points: [LayerPlacement.Point] = component.transformKeyframes.isEmpty
+                    ? (static_.isIdentity ? [] : [.init(time: 0, scale: static_.scale, offsetX: static_.offsetX, offsetY: static_.offsetY)])
+                    : component.transformKeyframes.map {
+                        .init(time: component.timelineSeconds(ofSource: $0.time), scale: $0.scale, offsetX: $0.offsetX, offsetY: $0.offsetY)
+                    }
+                let placement = LayerPlacement(base: fit, canvas: canvas, points: points)
                 let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
-                layer.setTransform(transform, at: .zero)
+                let start = component.timelineRange.start.seconds, end = try component.timelineRange.end().seconds
+                layer.setTransform(placement.transform(at: start), at: .zero)
+                // Linear matrix ramps equal linear scale and offset ramps for this placement.
+                let times = ([start] + points.map(\.time).filter { $0 > start && $0 < end } + [end])
+                for (a, b) in zip(times, times.dropFirst()) where points.count > 1 && b > a {
+                    layer.setTransformRamp(fromStart: placement.transform(at: a), toEnd: placement.transform(at: b),
+                                           timeRange: CMTimeRange(start: rampTime(a), end: rampTime(b)))
+                }
                 try applyOpacityFades(component, to: layer)
                 layers[componentIndex] = layer
-                placements[componentIndex] = (track.trackID, transform)
+                placements[componentIndex] = (track.trackID, placement)
             } else {
                 if component.gain > 1 {
                     addQualificationNotice("Gain above 0 dB plays at 0 dB in preview; export applies the full gain.")
@@ -362,7 +371,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                         layers: segment.componentIndices.map { index in
                             guard let placement = placements[index] else { throw Self.unsupported("Missing sequence preview layer.") }
                             let component = plan.components[index]
-                            return .init(trackID: placement.track, transform: placement.transform,
+                            return .init(trackID: placement.track, placement: placement.placement,
                                          opacity: Self.opacityCurve(component), brightness: component.color.brightness,
                                          contrast: component.color.contrast, saturation: component.color.saturation)
                         }, canvas: canvas)

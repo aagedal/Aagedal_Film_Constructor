@@ -53,7 +53,7 @@ public enum OTIOExporter {
             if !component.volumeKeyframes.isEmpty { reasons.append("\(label): volume keyframes are not supported.") }
             if component.speed != .one { reasons.append("\(label): speed changes are not supported.") }
             if !component.color.isNeutral { reasons.append("\(label): colour correction is not supported.") }
-            if !component.transform.isIdentity { reasons.append("\(label): scale, position and opacity are not supported.") }
+            if component.hasPlacement { reasons.append("\(label): scale, position, opacity and their keyframes are not supported.") }
             let clock: RationalTime
             switch component.selection {
             case .still:

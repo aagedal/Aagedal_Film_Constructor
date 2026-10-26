@@ -84,7 +84,7 @@ public struct VideoCompositionPlan: Equatable, Sendable {
             while let rank = active.first {
                 if finishes[rank] <= boundary { _ = active.pop(); continue }
                 visible.append(pictures[rank])
-                if case .video = plan.components[pictures[rank]].selection, plan.components[pictures[rank]].transform.isIdentity,
+                if case .video = plan.components[pictures[rank]].selection, !plan.components[pictures[rank]].hasPlacement,
                    opaqueFrom[rank] <= boundary, boundary < opaqueUntil[rank] { break }
                 transparent.append(active.pop()!)
             }

@@ -93,6 +93,14 @@ Y down). The picture-in-picture button shrinks the clip to a third in the lower 
 corner, and reset restores it. Layers below show around and through a transformed
 picture. Interchange exports refuse transformed clips.
 
+## Motion
+
+To animate a picture or title, set **Scale** and **Position** under Transform, move
+the playhead and click the diamond to add a keyframe; repeat at another time. The
+picture moves and scales between keyframes. **Motion presets** (the wand) add a
+slide in from the left, a rise from below, a slow zoom or a drift in one step. The
+inspector lists keyframes to jump to or remove.
+
 ## Speed
 
 Select a clip and enter **Speed (%)** in the inspector (10–1000%), or pick a preset.
@@ -199,8 +207,7 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Effects beyond basic colour correction (curves, blur, keying), title animation, transitions other than dissolves and crossfades, keyframes for picture
-  (transforms are static per clip) and a mixer are not part of this version.
+- Effects beyond basic colour correction (curves, blur, keying), title animation beyond position and scale, transitions other than dissolves and crossfades, opacity keyframes (use fades) and a mixer are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
 - 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed

@@ -112,7 +112,7 @@ public struct StreamCopyAssessment: Equatable, Sendable {
             case .still: streamIndex = nil; reject(.stillImage)
             case .video(let index):
                 streamIndex = index
-                if !component.transform.isIdentity || !component.color.isNeutral || component.fadeIn.duration != .zero || component.fadeOut.duration != .zero {
+                if component.hasPlacement || !component.color.isNeutral || component.fadeIn.duration != .zero || component.fadeOut.duration != .zero {
                     reject(.videoProcessing)
                 }
             case .audio(let selection):

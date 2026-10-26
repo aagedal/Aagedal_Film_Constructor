@@ -1,13 +1,40 @@
 import AVFoundation
 import CoreImage
 
+/// A layer's render transform over time: its fit into the canvas, then a scale about the
+/// canvas centre and an offset in canvas fractions, interpolated between timeline points.
+nonisolated struct LayerPlacement: Sendable {
+    struct Point: Sendable { let time: Double, scale: Double, offsetX: Double, offsetY: Double }
+    let base: CGAffineTransform
+    let canvas: CGSize
+    /// Sorted by time; empty means no placement beyond the fit.
+    let points: [Point]
+
+    func transform(at seconds: Double) -> CGAffineTransform {
+        guard let first = points.first, let last = points.last else { return base }
+        let p: Point
+        if seconds <= first.time { p = first }
+        else if seconds >= last.time { p = last }
+        else {
+            let next = points.firstIndex { $0.time > seconds }!
+            let a = points[next - 1], b = points[next]
+            let f = (seconds - a.time) / (b.time - a.time)
+            p = Point(time: seconds, scale: a.scale + (b.scale - a.scale) * f, offsetX: a.offsetX + (b.offsetX - a.offsetX) * f,
+                      offsetY: a.offsetY + (b.offsetY - a.offsetY) * f)
+        }
+        return base.concatenating(CGAffineTransform(translationX: -canvas.width / 2, y: -canvas.height / 2))
+            .concatenating(CGAffineTransform(scaleX: p.scale, y: p.scale))
+            .concatenating(CGAffineTransform(translationX: canvas.width * (0.5 + p.offsetX), y: canvas.height * (0.5 + p.offsetY)))
+    }
+}
+
 /// One preview segment for the CoreImage compositor: layers front to back, each with its
 /// composition track, render transform (top-left origin, as for layer instructions),
 /// opacity over time and colour correction.
 final class CoreImageInstruction: NSObject, AVVideoCompositionInstructionProtocol, @unchecked Sendable {
     struct Layer {
         let trackID: CMPersistentTrackID
-        let transform: CGAffineTransform
+        let placement: LayerPlacement
         let opacity: @Sendable (Double) -> Double
         /// Colour correction as plain values, read on the compositor's own queue.
         let brightness: Double, contrast: Double, saturation: Double
@@ -52,7 +79,7 @@ final class CoreImageCompositor: NSObject, AVVideoCompositing, @unchecked Sendab
             let height = source.extent.height
             // CoreImage has a lower-left origin: flip into the layer transform's space and back.
             let placement = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: height)
-                .concatenating(layer.transform)
+                .concatenating(layer.placement.transform(at: seconds))
                 .concatenating(CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: instruction.canvas.height))
             var picture = source.transformed(by: placement)
             if !layer.isNeutral {

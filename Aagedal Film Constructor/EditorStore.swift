@@ -797,6 +797,60 @@ final class EditorStore: ObservableObject {
             }
         } catch { report(error) }
     }
+    /// Keyframes the selected picture's scale and position (percent) at the playhead.
+    func addTransformKeyframeAtPlayhead(scale: String, x: String, y: String) {
+        guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
+        func fraction(_ text: String) -> Double? {
+            Double(text.replacingOccurrences(of: "%", with: "").replacingOccurrences(of: "−", with: "-").trimmingCharacters(in: .whitespaces)).map { $0 / 100 }
+        }
+        guard let s = fraction(scale), let px = fraction(x), let py = fraction(y) else {
+            errorMessage = "Enter scale and position as percentages."
+            return
+        }
+        let offset = playheadSeconds - clip.timelineStart.seconds
+        guard offset >= 0, offset <= clip.sourceRange.duration.seconds else {
+            errorMessage = "Move the playhead inside the clip to add a keyframe."
+            return
+        }
+        do {
+            let at = try clip.sourceTime(atTimelineOffset: time(offset))
+            var keyframes = clip.transformKeyframes.filter { abs($0.time.seconds - at.seconds) > 0.0005 }
+            keyframes.append(TransformKeyframe(time: at, scale: s, offsetX: px, offsetY: py))
+            keyframes.sort { $0.time.seconds < $1.time.seconds }
+            edit(.setTransformKeyframes(clipID: clip.id, keyframes: keyframes))
+            if errorMessage == nil { statusMessage = "Added a position keyframe. Move the playhead and add another to animate." }
+        } catch { report(error) }
+    }
+    enum MotionPreset: String, CaseIterable, Identifiable {
+        case slideInLeft = "Slide in from left", riseFromBelow = "Rise from below", slowZoom = "Slow zoom in", drift = "Drift left to right"
+        var id: String { rawValue }
+    }
+    /// Keyframes a common move from the clip's current scale and position.
+    func applyMotionPreset(_ preset: MotionPreset) {
+        guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
+        let base = clip.transform
+        let length = clip.sourceRange.duration.seconds
+        let entrance = min(0.6, length / 2)
+        func key(_ timelineOffset: Double, scale: Double? = nil, x: Double? = nil, y: Double? = nil) throws -> TransformKeyframe {
+            TransformKeyframe(time: try clip.sourceTime(atTimelineOffset: time(timelineOffset)), scale: scale ?? base.scale,
+                              offsetX: x ?? base.offsetX, offsetY: y ?? base.offsetY)
+        }
+        do {
+            let keyframes: [TransformKeyframe]
+            switch preset {
+            case .slideInLeft: keyframes = [try key(0, x: base.offsetX - 1), try key(entrance)]
+            case .riseFromBelow: keyframes = [try key(0, y: base.offsetY + 0.6), try key(entrance)]
+            case .slowZoom: keyframes = [try key(0), try key(length, scale: base.scale * 1.15)]
+            case .drift: keyframes = [try key(0, scale: base.scale * 1.1, x: base.offsetX - 0.04), try key(length, scale: base.scale * 1.1, x: base.offsetX + 0.04)]
+            }
+            edit(.setTransformKeyframes(clipID: clip.id, keyframes: keyframes))
+            if errorMessage == nil { statusMessage = "Applied \(preset.rawValue.lowercased())." }
+        } catch { report(error) }
+    }
+    func setSelectedTransformKeyframes(_ keyframes: [TransformKeyframe]) {
+        guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
+        edit(.setTransformKeyframes(clipID: clip.id, keyframes: keyframes))
+    }
     func setSelectedClipColor(_ color: ColorAdjustment) {
         guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
         edit(.setColor(clipID: clip.id, color: color))

@@ -542,12 +542,42 @@ private struct ProjectInspector: View {
                                     Button("Picture in picture", systemImage: "pip") {
                                         store.setSelectedClipTransform(scale: "33", x: "30", y: "30", opacity: "100")
                                     }.labelStyle(.iconOnly).help("Shrink to a third in the lower right corner")
+                                    Menu {
+                                        ForEach(EditorStore.MotionPreset.allCases) { preset in
+                                            Button(preset.rawValue) { store.applyMotionPreset(preset) }
+                                        }
+                                    } label: { Label("Motion presets", systemImage: "wand.and.rays") }
+                                    .labelStyle(.iconOnly).help("Animate this picture or title with a common move").fixedSize()
+                                    Button("Add position keyframe at playhead", systemImage: "diamond") {
+                                        store.addTransformKeyframeAtPlayhead(scale: transformScale, x: transformX, y: transformY)
+                                    }.labelStyle(.iconOnly).help("Keyframe this scale and position at the playhead; the picture moves between keyframes")
                                     Button("Reset transform", systemImage: "arrow.counterclockwise") {
                                         store.setSelectedClipTransform(scale: "100", x: "0", y: "0", opacity: "100")
                                     }.labelStyle(.iconOnly).help("Reset scale, position and opacity").disabled(clip.transform.isIdentity)
                                 }
                                 Text("Position is a share of the frame: positive X moves right, positive Y down. Layers below show around and through the picture.")
                                     .font(.caption).foregroundStyle(.secondary)
+                                if !clip.transformKeyframes.isEmpty {
+                                    ForEach(clip.transformKeyframes.indices, id: \.self) { index in
+                                        let keyframe = clip.transformKeyframes[index]
+                                        let at = clip.timelineStart.seconds + (keyframe.time.seconds - clip.sourceRange.start.seconds) / clip.speed.seconds
+                                        HStack {
+                                            Image(systemName: "diamond.fill").foregroundStyle(.cyan)
+                                            Text(String(format: "%.2f s · %g%% · %g, %g", at, keyframe.scale * 100, keyframe.offsetX * 100, keyframe.offsetY * 100))
+                                                .font(.caption.monospacedDigit())
+                                            Spacer()
+                                            Button("Go to keyframe", systemImage: "arrow.right.to.line") { store.seek(to: max(0, at)) }
+                                                .labelStyle(.iconOnly).help("Move the playhead to this keyframe")
+                                            Button("Remove keyframe", systemImage: "xmark") {
+                                                var remaining = clip.transformKeyframes; remaining.remove(at: index)
+                                                store.setSelectedTransformKeyframes(remaining)
+                                            }.labelStyle(.iconOnly).help("Remove this keyframe")
+                                        }
+                                    }
+                                    Button("Clear position keyframes", systemImage: "trash") { store.setSelectedTransformKeyframes([]) }
+                                    Text("Scale and position move between keyframes; opacity stays as set above.")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
                                 ColorControls(color: clip.color) { store.setSelectedClipColor($0) }.id(clip.id)
                             } else {
                                 Button("Audio source channels…", systemImage: "waveform") { editingAudio = true }

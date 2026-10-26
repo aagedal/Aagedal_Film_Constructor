@@ -26,6 +26,8 @@ public enum EditCommand: Sendable {
     /// Change the speed of a clip and its linked components, keeping their source in and the
     /// source they play. Timeline length changes; overlaps move to sibling tracks.
     case setSpeed(clipID: UUID, speed: RationalTime)
+    /// Replace the scale and position animation of one picture component.
+    case setTransformKeyframes(clipID: UUID, keyframes: [TransformKeyframe])
     /// Colour-correct one picture component.
     case setColor(clipID: UUID, color: ColorAdjustment)
     /// Place one picture component; linked components keep their own transforms.
@@ -440,6 +442,11 @@ public struct TimelineEditEngine: Sendable {
                 if try clip.fadeOut.duration.compared(to: duration) == .orderedDescending { clip.fadeOut.duration = duration }
                 try place(clip, on: component.trackID, in: &project)
             }
+        case .setTransformKeyframes(let clipID, let keyframes):
+            guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
+                  let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
+            guard project.tracks[t].clips[c].requiredTrackKind == .video else { throw TimelineEditError.incompatibleTrack }
+            project.tracks[t].clips[c].transformKeyframes = keyframes
         case .setColor(let clipID, let color):
             guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
                   let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
