@@ -5,9 +5,10 @@ public enum TimelineTrimEdge: Sendable { case leading, trailing }
 /// Geometry shared by the drag preview and committed edit. Linked source and timeline
 /// bounds constrain the entire gesture, including components with shorter media.
 public enum TimelineGesture {
-    public static func components(of clip: TimelineClip, in project: Project) -> [TimelineClip] {
+    /// `alone` limits the gesture to the clip itself (an Option-drag trim), keeping its link.
+    public static func components(of clip: TimelineClip, in project: Project, alone: Bool = false) -> [TimelineClip] {
         project.tracks.flatMap(\.clips).filter {
-            $0.id == clip.id || (clip.linkGroupID != nil && $0.linkGroupID == clip.linkGroupID)
+            $0.id == clip.id || (!alone && clip.linkGroupID != nil && $0.linkGroupID == clip.linkGroupID)
         }
     }
 
@@ -18,11 +19,11 @@ public enum TimelineGesture {
         return proposed + offset
     }
 
-    public static func trimDelta(_ proposed: Double, edge: TimelineTrimEdge, clip: TimelineClip, project: Project, quantum: Double) -> Double {
+    public static func trimDelta(_ proposed: Double, edge: TimelineTrimEdge, clip: TimelineClip, project: Project, quantum: Double, alone: Bool = false) -> Double {
         guard proposed.isFinite, quantum > 0 else { return 0 }
         var lower = -Double.greatestFiniteMagnitude
         var upper = Double.greatestFiniteMagnitude
-        for component in components(of: clip, in: project) {
+        for component in components(of: clip, in: project, alone: alone) {
             switch edge {
             case .leading:
                 lower = max(lower, -component.sourceRange.start.seconds / component.speed.seconds, -component.timelineStart.seconds)

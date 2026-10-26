@@ -1037,12 +1037,12 @@ final class EditorStore: ObservableObject {
         guard let id = selectedClipID, let track = project.tracks.first(where: { $0.clips.contains { $0.id == id } }) else { return }
         do { edit(.move(clipID: id, trackID: track.id, start: try editTime(max(0, seconds)))) } catch { report(error) }
     }
-    private func gestureQuantum(for clip: TimelineClip) -> Double {
-        TimelineGesture.components(of: clip, in: project).contains { $0.requiredTrackKind == .video }
+    private func gestureQuantum(for clip: TimelineClip, alone: Bool = false) -> Double {
+        TimelineGesture.components(of: clip, in: project, alone: alone).contains { $0.requiredTrackKind == .video }
             ? 1 / project.settings.frameRate.value.seconds : 0.000001
     }
-    private func snapTargets(excluding clip: TimelineClip) -> [Double] {
-        let excluded = Set(TimelineGesture.components(of: clip, in: project).map(\.id))
+    private func snapTargets(excluding clip: TimelineClip, alone: Bool = false) -> [Double] {
+        let excluded = Set(TimelineGesture.components(of: clip, in: project, alone: alone).map(\.id))
         return [0, playheadSeconds] + project.tracks.flatMap(\.clips).filter { !excluded.contains($0.id) }.flatMap {
             [$0.timelineStart.seconds, $0.timelineStart.seconds + $0.sourceRange.duration.seconds]
         }
@@ -1054,19 +1054,22 @@ final class EditorStore: ObservableObject {
         let quantum = gestureQuantum(for: clip)
         return max(ceil(minimum / quantum) * quantum, (proposed / quantum).rounded() * quantum)
     }
-    func proposedTrimDelta(clip: TimelineClip, edge: TimelineTrimEdge, delta: Double, tolerance: Double) -> Double {
+    /// `alone` (Option-drag) trims only this component; its linked components stay put and linked.
+    func proposedTrimDelta(clip: TimelineClip, edge: TimelineTrimEdge, delta: Double, tolerance: Double, alone: Bool = false) -> Double {
         let edgeTime = clip.timelineStart.seconds + (edge == .leading ? 0 : clip.sourceRange.duration.seconds)
-        let proposed = snappingEnabled ? TimelineGesture.snap(edgeTime + delta, movingEdges: [0], targets: snapTargets(excluding: clip), tolerance: tolerance) - edgeTime : delta
-        return TimelineGesture.trimDelta(proposed, edge: edge, clip: clip, project: project, quantum: gestureQuantum(for: clip))
+        let proposed = snappingEnabled ? TimelineGesture.snap(edgeTime + delta, movingEdges: [0], targets: snapTargets(excluding: clip, alone: alone), tolerance: tolerance) - edgeTime : delta
+        return TimelineGesture.trimDelta(proposed, edge: edge, clip: clip, project: project, quantum: gestureQuantum(for: clip, alone: alone), alone: alone)
     }
-    func trimSelectedClip(edge: TimelineTrimEdge, delta: Double) {
+    func trimSelectedClip(edge: TimelineTrimEdge, delta: Double, alone: Bool = false) {
         guard let clip = selectedClip else { return }
         do {
-            let bounded = TimelineGesture.trimDelta(delta, edge: edge, clip: clip, project: project, quantum: gestureQuantum(for: clip))
+            let bounded = TimelineGesture.trimDelta(delta, edge: edge, clip: clip, project: project, quantum: gestureQuantum(for: clip, alone: alone), alone: alone)
             let change = try editTime(bounded)
             let range = try TimeRange(start: edge == .leading ? clip.sourceTime(atTimelineOffset: change) : clip.sourceRange.start,
                                       duration: edge == .leading ? clip.sourceRange.duration.subtracting(change) : clip.sourceRange.duration.adding(change))
-            edit(.trim(clipID: clip.id, sourceRange: range, timelineStart: edge == .leading ? try clip.timelineStart.adding(change) : clip.timelineStart))
+            let start = edge == .leading ? try clip.timelineStart.adding(change) : clip.timelineStart
+            edit(alone ? .trimAlone(clipID: clip.id, sourceRange: range, timelineStart: start)
+                       : .trim(clipID: clip.id, sourceRange: range, timelineStart: start))
         } catch { report(error) }
     }
     func trimSelectedClip(start: Double, duration: Double) {

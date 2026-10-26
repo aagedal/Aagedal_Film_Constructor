@@ -24,6 +24,10 @@ final class TimelineGestureTests: XCTestCase {
         XCTAssertEqual(TimelineGesture.trimDelta(10, edge: .trailing, clip: clip, project: project, quantum: 0.04), 4)
         XCTAssertEqual(TimelineGesture.trimDelta(-10, edge: .trailing, clip: clip, project: project, quantum: 0.04), -2.96, accuracy: 1e-10)
         XCTAssertEqual(TimelineGesture.components(of: clip, in: project).count, 2)
+        // An Option-drag trim is bounded by the dragged component alone.
+        XCTAssertEqual(TimelineGesture.trimDelta(-5, edge: .leading, clip: clip, project: project, quantum: 0.04, alone: true), -2)
+        XCTAssertEqual(TimelineGesture.trimDelta(-10, edge: .trailing, clip: clip, project: project, quantum: 0.04, alone: true), -3.96, accuracy: 1e-10)
+        XCTAssertEqual(TimelineGesture.components(of: clip, in: project, alone: true).map(\.id), [clip.id])
     }
 
     func testSourceBoundsBetweenFramesRoundInward() throws {

@@ -145,6 +145,40 @@ final class TimelineEditEngineTests: XCTestCase {
         XCTAssertEqual(engine.project.tracks.flatMap(\.clips).count, 2)
         engine.undo(); XCTAssertEqual(engine.project.tracks.flatMap(\.clips).count, 4)
     }
+    func testTrimAloneKeepsLinkAndLaterLinkedTrimsKeepTheOffset() throws {
+        var (project, audio, track) = try fixture()
+        let group = UUID(); audio.linkGroupID = group
+        audio.sourceRange = try range(10, 4); audio.timelineStart = try time(10)
+        project.tracks[0].clips = [audio]
+        let family = TrackFamily(baseName: "Picture", template: TrackTemplate(kind: .video))
+        let video = TimelineClip(assetID: audio.assetID, sourceRange: audio.sourceRange, timelineStart: audio.timelineStart,
+                                 selection: .video(streamIndex: 1), linkGroupID: group)
+        project.families.append(family)
+        project.tracks.append(TimelineTrack(familyID: family.id, template: family.template, clips: [video]))
+        var engine = try TimelineEditEngine(project: project)
+        func clip(_ id: UUID) -> TimelineClip { engine.project.tracks.flatMap(\.clips).first { $0.id == id }! }
+        // Option-trim: the audio starts 1 s earlier (a J-cut); the picture is untouched and still linked.
+        try engine.apply(.trimAlone(clipID: audio.id, sourceRange: range(9, 5), timelineStart: time(9)))
+        XCTAssertEqual(clip(audio.id).sourceRange, try range(9, 5))
+        XCTAssertEqual(clip(audio.id).timelineStart, try time(9))
+        XCTAssertEqual(clip(video.id).sourceRange, try range(10, 4))
+        XCTAssertEqual(clip(video.id).timelineStart, try time(10))
+        XCTAssertEqual(clip(audio.id).linkGroupID, group)
+        XCTAssertEqual(clip(video.id).linkGroupID, group)
+        // A normal trim of the picture's start moves both starts by the same amount.
+        try engine.apply(.trim(clipID: video.id, sourceRange: range(11, 3), timelineStart: time(11)))
+        XCTAssertEqual(clip(video.id).sourceRange, try range(11, 3))
+        XCTAssertEqual(clip(audio.id).sourceRange, try range(10, 4))
+        XCTAssertEqual(clip(audio.id).timelineStart, try time(10))
+        // Moving keeps it too, and one undo restores only the last edit.
+        try engine.apply(.move(clipID: video.id, trackID: engine.project.tracks[1].id, start: time(20)))
+        XCTAssertEqual(clip(audio.id).timelineStart, try time(19))
+        engine.undo(); engine.undo()
+        XCTAssertEqual(clip(audio.id).sourceRange, try range(9, 5))
+        XCTAssertEqual(clip(video.id).sourceRange, try range(10, 4))
+        _ = track
+    }
+
     func testCollisionSkipsFreeSiblingWithIncompatibleLayout() throws {
         var (project, clip, track) = try fixture(cleanup: false)
         let mono = TimelineTrack(familyID: track.familyID, template: TrackTemplate(kind: .audio, audioLayout: .mono, routing: AudioRouting(outputChannels: [0])))
