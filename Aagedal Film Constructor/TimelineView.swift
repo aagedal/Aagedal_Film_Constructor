@@ -1,5 +1,15 @@
 import SwiftUI
+import AppKit
 import EditorCore
+
+/// A clip's live move or trim, which its linked components follow until the edit commits.
+private struct LinkedDrag: Equatable {
+    var sourceID: UUID
+    var ids: Set<UUID>
+    var offset: CGFloat
+    var leading: Double
+    var trailing: Double
+}
 
 struct TimelineView: View {
     @ObservedObject var store: EditorStore
@@ -10,6 +20,7 @@ struct TimelineView: View {
     @State private var timecodeEntry = ""
     @State private var viewport = CGRect.zero
     @State private var interactingClipIDs: Set<UUID> = []
+    @State private var linkedDrag: LinkedDrag?
     @State private var clipFrames: [UUID: CGRect] = [:]
     @State private var crossfadeHoverID: UUID?
     @State private var isDropTargeted = false
@@ -205,7 +216,7 @@ struct TimelineView: View {
         return track.clips.filter { clip in
             TimelineClipVisibility.includes(startSeconds: clip.timelineStart.seconds,
                 durationSeconds: clip.sourceRange.duration.seconds, pixelsPerSecond: pixelsPerSecond, range: range,
-                pinned: clip.id == store.selectedClipID || interactingClipIDs.contains(clip.id))
+                pinned: clip.id == store.selectedClipID || interactingClipIDs.contains(clip.id) || linkedDrag?.ids.contains(clip.id) == true)
         }
     }
 
@@ -223,13 +234,25 @@ struct TimelineView: View {
                     },
                     proposedMove: { store.proposedMove(clip: clip, to: $0, tolerance: 8 / pixelsPerSecond) },
                     move: { seconds in
+                        // Linked clips stop following before the edit lands, so they never show it twice.
+                        linkedDrag = nil
                         store.selectTimelineClip(clip.id)
                         store.moveSelectedClip(to: seconds)
                     },
-                    proposedTrim: { store.proposedTrimDelta(clip: clip, edge: $0, delta: $1, tolerance: 8 / pixelsPerSecond) },
-                    trim: { edge, delta in
+                    proposedTrim: { store.proposedTrimDelta(clip: clip, edge: $0, delta: $1, tolerance: 8 / pixelsPerSecond, alone: $2) },
+                    trim: { edge, delta, alone in
+                        linkedDrag = nil
                         store.selectTimelineClip(clip.id)
-                        store.trimSelectedClip(edge: edge, delta: delta)
+                        store.trimSelectedClip(edge: edge, delta: delta, alone: alone)
+                    },
+                    follow: linkedDrag.flatMap { $0.sourceID != clip.id && $0.ids.contains(clip.id) ? $0 : nil },
+                    dragChanged: { offset, leading, trailing, alone in
+                        if clip.linkGroupID == nil || alone || (offset == 0 && leading == 0 && trailing == 0) {
+                            if linkedDrag?.sourceID == clip.id { linkedDrag = nil }
+                        } else {
+                            linkedDrag = LinkedDrag(sourceID: clip.id, ids: Set(TimelineGesture.components(of: clip, in: store.project).map(\.id)),
+                                                    offset: offset, leading: leading, trailing: trailing)
+                        }
                     },
                     project: store.project,
                     proposedFade: { store.proposedFadeDuration(clip: clip, seconds: $0) },
@@ -312,8 +335,12 @@ private struct TimelineClipView: View {
     let interactionChanged: (Bool) -> Void
     let proposedMove: (Double) -> Double
     let move: (Double) -> Void
-    let proposedTrim: (TimelineTrimEdge, Double) -> Double
-    let trim: (TimelineTrimEdge, Double) -> Void
+    /// The Bool is true for an Option-drag, which trims this component alone.
+    let proposedTrim: (TimelineTrimEdge, Double, Bool) -> Double
+    let trim: (TimelineTrimEdge, Double, Bool) -> Void
+    /// Another clip's live drag that this linked component follows.
+    let follow: LinkedDrag?
+    let dragChanged: (CGFloat, Double, Double, Bool) -> Void
     let project: Project
     let proposedFade: (Double) -> Double
     let crossfadeHighlighted: Bool
@@ -322,9 +349,13 @@ private struct TimelineClipView: View {
     let linkFade: (TimelineTrimEdge, CGPoint, Double, Project) -> Bool
     let setFade: (TimelineTrimEdge, Double, TimelineClip) -> Void
     @GestureState private var interactionActive = false
-    @GestureState private var dragOffset: CGFloat = 0
-    @GestureState private var leadingDelta = 0.0
-    @GestureState private var trailingDelta = 0.0
+    @GestureState private var ownOffset: CGFloat = 0
+    @GestureState private var ownLeading = 0.0
+    @GestureState private var ownTrailing = 0.0
+    @GestureState private var trimAlone = false
+    private var dragOffset: CGFloat { ownOffset != 0 ? ownOffset : follow?.offset ?? 0 }
+    private var leadingDelta: Double { ownLeading != 0 ? ownLeading : follow?.leading ?? 0 }
+    private var trailingDelta: Double { ownTrailing != 0 ? ownTrailing : follow?.trailing ?? 0 }
     @GestureState private var fadeInPreview: Double?
     @GestureState private var fadeOutPreview: Double?
     @State private var fadeGestureClip: TimelineClip?
@@ -417,10 +448,13 @@ private struct TimelineClipView: View {
                 }
             }
             .onChange(of: interactionActive) { _, active in interactionChanged(active) }
+            .onChange(of: [Double(ownOffset), ownLeading, ownTrailing, trimAlone ? 1 : 0]) { _, _ in
+                dragChanged(ownOffset, ownLeading, ownTrailing, trimAlone)
+            }
             .onTapGesture(perform: select)
             .gesture(DragGesture(minimumDistance: 3, coordinateSpace: .global)
                 .updating($interactionActive) { _, state, _ in state = true }
-                .updating($dragOffset) { value, state, _ in
+                .updating($ownOffset) { value, state, _ in
                     state = (proposedMove(clip.timelineStart.seconds + value.translation.width / pixelsPerSecond) - clip.timelineStart.seconds) * pixelsPerSecond
                 }
                 .onChanged { _ in select() }
@@ -439,8 +473,8 @@ private struct TimelineClipView: View {
             }
             .offset(x: dragOffset + leadingDelta * pixelsPerSecond)
             .help(clip.requiredTrackKind == .audio
-                ? "Drag to move; drag side handles to trim; drag yellow handles to fade this audio component"
-                : "Drag to move; drag the edge handles to trim linked clips; drag yellow handles to fade the picture or onto the next clip to dissolve")
+                ? "Drag to move; drag side handles to trim linked clips (Option-drag trims this clip alone); drag yellow handles to fade this audio component"
+                : "Drag to move; drag the edge handles to trim linked clips (Option-drag trims this clip alone); drag yellow handles to fade the picture or onto the next clip to dissolve")
     }
 
     /// Volume keyframes as an orange line; full height is +6 dB, the bottom is silence.
@@ -535,12 +569,17 @@ private struct TimelineClipView: View {
             .contentShape(Rectangle())
             .highPriorityGesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
                 .updating($interactionActive) { _, state, _ in state = true }
-                .updating(edge == .leading ? $leadingDelta : $trailingDelta) { value, state, _ in
-                    state = proposedTrim(edge, value.translation.width / pixelsPerSecond)
+                .updating($trimAlone) { _, state, _ in state = NSEvent.modifierFlags.contains(.option) }
+                .updating(edge == .leading ? $ownLeading : $ownTrailing) { value, state, _ in
+                    state = proposedTrim(edge, value.translation.width / pixelsPerSecond, NSEvent.modifierFlags.contains(.option))
                 }
                 .onChanged { _ in select() }
-                .onEnded { value in trim(edge, proposedTrim(edge, value.translation.width / pixelsPerSecond)) })
-            .help(edge == .leading ? "Trim clip start" : "Trim clip end")
+                .onEnded { value in
+                    let alone = NSEvent.modifierFlags.contains(.option)
+                    trim(edge, proposedTrim(edge, value.translation.width / pixelsPerSecond, alone), alone)
+                })
+            .help(edge == .leading ? "Trim clip start; Option-drag to trim only this clip, keeping its link"
+                                   : "Trim clip end; Option-drag to trim only this clip, keeping its link")
     }
 }
 

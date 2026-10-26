@@ -7,6 +7,9 @@ public enum EditCommand: Sendable {
     case move(clipID: UUID, trackID: UUID, start: RationalTime)
     /// Linked components receive equal source/timeline deltas; source-bound failures roll back the whole group.
     case trim(clipID: UUID, sourceRange: TimeRange, timelineStart: RationalTime)
+    /// Trim one component without its linked components, keeping the link. The offset this
+    /// creates is kept by later linked trims and moves, which apply equal deltas.
+    case trimAlone(clipID: UUID, sourceRange: TimeRange, timelineStart: RationalTime)
     /// A linked split requires the cut to be inside every component. Both resulting halves remain linked.
     /// Cuts inside active fades are rejected because an edge fade cannot preserve a partial envelope.
     case split(clipID: UUID, at: RationalTime)
@@ -312,8 +315,9 @@ public struct TimelineEditEngine: Sendable {
                 clip.timelineStart = try clip.timelineStart.adding(delta)
                 try place(clip, on: clip.id == clipID ? trackID : component.trackID, in: &project)
             }
-        case .trim(let clipID, let range, let start):
-            let components = try linked(to: clipID, in: project)
+        case .trim(let clipID, let range, let start), .trimAlone(let clipID, let range, let start):
+            var components = try linked(to: clipID, in: project)
+            if case .trimAlone = command { components.removeAll { $0.clip.id != clipID } }
             let selected = components.first { $0.clip.id == clipID }!
             let sourceDelta = try range.start.subtracting(selected.clip.sourceRange.start)
             let durationDelta = try range.duration.subtracting(selected.clip.sourceRange.duration)

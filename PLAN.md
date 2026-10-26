@@ -122,6 +122,10 @@ express it.
   to within 1e-4 per sample (`AudioDynamicsTests`). The tap restores the 3 dB the system
   mixer takes from stereo before compressing and metering, so preview compression matches
   the model exactly and meters read true levels.
+- [x] Linked drags: linked components follow a clip's live move or trim while dragging,
+  not only after the drop. Option-dragging an edge trims that component alone
+  (`trimAlone`) and keeps the link; linked trims and moves apply equal deltas, so the
+  offset survives (`TimelineEditEngineTests`).
 - [x] Preview gain and routing: the preview tap restores gain above 0 dB (volume ramps are
   scaled by the loudest point and the tap multiplies it back before EQ and dynamics) and
   maps a stereo stream's selected channels onto the stereo outputs as export's `pan` does,

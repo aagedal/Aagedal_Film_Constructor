@@ -33,7 +33,9 @@ and Gatekeeper assesses it as "Notarized Developer ID".
    press **Append** (⌘E) to add it to the timeline.
 4. Click the timeline to switch the viewer to Sequence. Space plays and pauses;
    J/K/L also work. Drag clips to move them, drag edges to trim, use ⌘B to split
-   and ⌘⌫ to delete. Undo and redo with ⌘Z and ⇧⌘Z. Every shortcut can be
+   and ⌘⌫ to delete. Linked picture and sound move and trim together while you
+   drag. Option-drag an edge to trim only that clip (for J and L cuts); it stays
+   linked, and later trims and moves keep the offset. Undo and redo with ⌘Z and ⇧⌘Z. Every shortcut can be
    remapped in Settings.
 5. Select a clip and press ⌘T to add a transition at its edit nearest the
    playhead: picture cross dissolves and sound crossfades into the next clip on
