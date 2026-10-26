@@ -357,6 +357,72 @@ enum AcceptanceDriver {
                                "proxiesReady": proxiesReady, "representation": store.playbackRepresentation.rawValue,
                                "clips": clips().count, "error": store.errorMessage ?? ""])
 
+            // Finishing tools through real key events: ⌘T, ⌃T, volume, insert (,), overwrite (.),
+            // ⌘C/⌘V, ⌘D and ⇧⌘⌫. Each is one undoable edit; counts confirm each took effect.
+            @MainActor func dissolves() -> Int {
+                store.project.audioCrossfades.filter { relation in clips().first { $0.id == relation.outgoingClipID }?.requiredTrackKind == .video }.count
+            }
+            @MainActor func edgeFades() -> Int { clips().filter { $0.requiredTrackKind == .video && ($0.fadeIn.duration.numerator > 0 || $0.fadeOut.duration.numerator > 0) }.count }
+            var features: [String: Any] = [:]
+            if let picture = clips().filter({ $0.requiredTrackKind == .video }).min(by: { $0.timelineStart.seconds < $1.timelineStart.seconds }) {
+                store.selectTimelineClip(picture.id)
+                store.seek(to: picture.timelineStart.seconds + picture.sourceRange.duration.seconds - 0.1)
+                let before = (dissolves(), edgeFades())
+                press(.addTransition, "t", keyCode: 17, modifiers: [.command])
+                _ = await wait(3) { (dissolves(), edgeFades()) != before }
+                features["transition"] = ["dissolves": dissolves(), "fadedPictures": edgeFades(), "changed": (dissolves(), edgeFades()) != before]
+            }
+            store.seek(to: 0.5)
+            let titleAssets = store.project.assets.filter { $0.title != nil }.count
+            press(.addTitle, "t", keyCode: 17, modifiers: [.control])
+            let titled = await wait(5) { store.project.assets.filter { $0.title != nil }.count > titleAssets }
+            if titled, let asset = store.project.assets.last(where: { $0.title != nil }) {
+                store.updateTitle(assetID: asset.id, to: TitleDefinition(text: "Acceptance title", position: .center, background: true))
+            }
+            features["title"] = ["added": titled, "text": store.project.assets.last(where: { $0.title != nil })?.title?.text ?? "",
+                                 "frontTrack": store.project.tracks.first?.displayName(in: store.project) ?? ""]
+            if let sound = clips().first(where: { $0.requiredTrackKind == .audio }) {
+                store.selectTimelineClip(sound.id)
+                store.setSelectedClipVolume(decibels: "-6")
+                features["volume"] = ["gain": clips().first { $0.id == sound.id }?.gain ?? 0]
+            }
+            if let source = store.project.assets.first(where: { $0.title == nil && $0.streams.contains { $0.kind == .video } }) {
+                store.selectAsset(source.id)
+                store.clearSourceMarks()
+                store.seek(to: 2)
+                let durationBefore = store.duration
+                press(.insertSource, ",", keyCode: 43)
+                _ = await wait(3) { store.duration > durationBefore + 0.5 }
+                let inserted = store.duration - durationBefore
+                store.selectAsset(source.id)
+                store.seek(to: 1)
+                let clipsBeforeOverwrite = clips().count
+                press(.overwriteSource, ".", keyCode: 47)
+                _ = await wait(3) { clips().count != clipsBeforeOverwrite }
+                features["insert"] = ["secondsAdded": inserted]
+                features["overwrite"] = ["clipsBefore": clipsBeforeOverwrite, "clipsAfter": clips().count, "error": store.errorMessage ?? ""]
+            }
+            if let picture = clips().first(where: { $0.requiredTrackKind == .video && store.asset(id: $0.assetID)?.title == nil }) {
+                store.selectTimelineClip(picture.id)
+                let before = clips().count
+                pressKey("c", keyCode: 8, modifiers: [.command])
+                store.seek(to: store.duration)
+                pressKey("v", keyCode: 9, modifiers: [.command])
+                let pasted = await wait(3) { clips().count > before }
+                let afterPaste = clips().count
+                pressKey("d", keyCode: 2, modifiers: [.command])
+                let duplicated = await wait(3) { clips().count > afterPaste }
+                let afterDuplicate = clips().count, durationBefore = store.duration
+                press(.rippleDelete, "\u{7f}", keyCode: 51, modifiers: [.command, .shift])
+                let rippled = await wait(3) { clips().count < afterDuplicate && store.duration < durationBefore }
+                features["clipboard"] = ["copiedAndPasted": pasted, "duplicated": duplicated, "rippleDeleted": rippled,
+                                         "clipboardEntries": store.clipboard?.entries.count ?? 0, "error": store.errorMessage ?? ""]
+            }
+            features["undoAvailable"] = store.canUndo
+            record("finishing_tools", features)
+            try? await Task.sleep(for: .seconds(1))
+            snapshot("02b-finishing-tools", window: workspaceWindow())
+
             if !store.showSequenceMonitor { press(.toggleViewer, "\t", keyCode: 48) }
             let monitoring = await wait(5) { store.showSequenceMonitor && store.sequencePlayback != nil }
             let prepared = await wait(30) { store.sequencePlayback?.isPreparing == false }

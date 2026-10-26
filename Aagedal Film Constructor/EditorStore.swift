@@ -567,6 +567,78 @@ final class EditorStore: ObservableObject {
         } catch { report(error) }
     }
 
+    /// Insert opens a gap at the playhead on every track; overwrite replaces the
+    /// destination tracks there. Both use the source marks and keep the playhead
+    /// after the new clip, ready for the next edit.
+    func placeSelectedSourceAtPlayhead(mode: PlacementMode) {
+        guard let asset = selectedAsset else { return }
+        do {
+            let frames = (playheadSeconds * project.settings.frameRate.value.seconds).rounded()
+            let start = try project.settings.frameRate.time(forFrames: Int64(max(0, frames)))
+            let range = try selectedSourceRange ?? asset.defaultPlacementRange()
+            var ids: [UUID] = []
+            try change { ids = try $0.placeAsset(asset.id, at: start, sourceRange: range, mode: mode) }
+            selectedClipID = ids.first
+            seek(to: try start.adding(range.duration).seconds)
+            statusMessage = mode == .insert ? "Inserted at the playhead; later clips moved." : "Overwrote the sequence at the playhead."
+        } catch let error as EditorCoreError {
+            if case .invalidModel(let message) = error, message.contains("Audio layout") {
+                errorMessage = "This source's audio needs an explicit channel selection. Use Append with audio selection…, then move the clip."
+            } else { report(error) }
+        } catch { report(error) }
+    }
+    @Published private(set) var clipboard: ClipClipboard?
+    func copySelectedClip() {
+        guard let id = selectedClipID else { return }
+        do {
+            clipboard = try project.copyClips(linkedTo: id)
+            statusMessage = "Copied \(clipboard?.entries.count == 1 ? "the clip" : "the clip and its linked components")."
+        } catch { report(error) }
+    }
+    func cutSelectedClip() {
+        copySelectedClip()
+        if clipboard != nil { deleteSelectedClip() }
+    }
+    func pasteAtPlayhead() {
+        guard let clipboard else { return }
+        do {
+            let frames = (playheadSeconds * project.settings.frameRate.value.seconds).rounded()
+            try paste(clipboard, at: project.settings.frameRate.time(forFrames: Int64(max(0, frames))))
+        } catch { report(error) }
+    }
+    /// Pastes a copy straight after the selected clip and its linked components.
+    func duplicateSelectedClip() {
+        guard let id = selectedClipID else { return }
+        do {
+            let copy = try project.copyClips(linkedTo: id)
+            let start = try copy.entries.reduce(copy.entries[0].clip.timelineStart) { earliest, entry in
+                try entry.clip.timelineStart.compared(to: earliest) == .orderedAscending ? entry.clip.timelineStart : earliest
+            }
+            try paste(copy, at: start.adding(copy.duration))
+        } catch { report(error) }
+    }
+    private func paste(_ clipboard: ClipClipboard, at time: RationalTime) throws {
+        var ids: [UUID] = []
+        try change { ids = try $0.pasteClips(clipboard, at: time) }
+        selectedClipID = ids.first
+        focusSequenceViewer()
+        seek(to: try time.adding(clipboard.duration).seconds)
+        statusMessage = "Pasted at \(String(format: "%.2f", time.seconds)) s."
+    }
+    func rippleDeleteSelectedClip() {
+        guard let id = selectedClipID else { return }
+        do {
+            try change {
+                var engine = try TimelineEditEngine(project: $0)
+                try engine.rippleDelete(clipID: id)
+                $0 = engine.project
+            }
+            reconcileSelection()
+        } catch TimelineEditError.rippleTrimOverlap {
+            errorMessage = "Cannot ripple delete while another clip crosses this one. Use Delete to leave a gap, or move that clip first."
+        } catch { report(error) }
+    }
+
     func beginAudioAppend() {
         guard let asset = selectedAsset, asset.streams.contains(where: { $0.kind == .audio }) else { return }
         audioAppendAsset = asset

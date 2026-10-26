@@ -41,8 +41,14 @@ express it.
   gain in render and preview. Selecting a picture sets its linked audio. Split,
   trim and save keep it; consolidation requires equal volumes; FCPXML, OTIO and
   EDL refuse non-unity volume.
-- [ ] Ripple delete, and insert/overwrite edits at the playhead from the source.
-- [ ] Copy, paste and duplicate clips.
+- [x] Ripple delete (⇧⌘⌫) removes a clip with its linked components and closes the
+  gap on every track; clips crossing the gap refuse it, like ripple trim. Insert (,)
+  splits clips at the playhead and pushes later clips; overwrite (.) trims, splits or
+  removes what lies on the destination tracks. Both use the source marks, keep
+  transitions whose clips still meet, and leave the playhead after the new clip.
+- [x] Cut, copy and paste (⌘X/⌘C/⌘V) and Duplicate Clip (⌘D) act on the selected clip
+  and its linked components when no text field has focus. Pastes go to the original
+  tracks at the playhead with new identities, stacking on siblings over occupied time.
 
 ## Earlier priority: usable beta (2026-10-23)
 

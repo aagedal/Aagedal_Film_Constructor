@@ -77,6 +77,9 @@ final class EditorCommandRegistry: ObservableObject {
         case .splitClip: store.splitSelectedClip()
         case .addTransition: store.addTransitionAtPlayhead()
         case .addTitle: store.addTitle()
+        case .insertSource: store.placeSelectedSourceAtPlayhead(mode: .insert)
+        case .overwriteSource: store.placeSelectedSourceAtPlayhead(mode: .overwrite)
+        case .rippleDelete: store.rippleDeleteSelectedClip()
         case .previousFrame: store.stepPlayhead(frames: -1)
         case .nextFrame: store.stepPlayhead(frames: 1)
         case .deleteClip: store.deleteSelectedClip()
@@ -106,7 +109,8 @@ final class EditorCommandRegistry: ObservableObject {
         case .appendSource: return store.selectedAsset != nil && !store.isImporting
         case .markSourceIn, .markSourceOut: return store.sourcePlayback != nil || store.pendingSourceTransport != nil
         case .clearSourceMarks: return store.selectedAssetID.map { store.sourceRanges[$0] != nil } ?? false
-        case .splitClip, .deleteClip, .addTransition: return store.selectedClip != nil
+        case .splitClip, .deleteClip, .addTransition, .rippleDelete: return store.selectedClip != nil
+        case .insertSource, .overwriteSource: return store.selectedAsset != nil && !store.isImporting
         case .previousFrame, .nextFrame, .addTitle: return true
         case .playReverse: return store.sequencePlayback == nil && store.sourcePlayback != nil
         case .togglePlayback:

@@ -20,6 +20,7 @@ swiftc -module-cache-path "$smoke_root/module-cache" -parse-as-library \
   "$repo_root/Aagedal Film Constructor/MediaConversionService.swift" \
   "$repo_root/Aagedal Film Constructor/SourcePlaybackBackend.swift" \
   "$repo_root/Aagedal Film Constructor/EditorStore.swift" \
+  "$repo_root/Aagedal Film Constructor/TitleRenderer.swift" \
   "$repo_root/Aagedal Film Constructor/AVFoundationSequenceBackend.swift" \
   "$repo_root/Aagedal Film Constructor/SystemStillPreview.swift" \
   "$repo_root/Aagedal Film Constructor/SequencePlaybackController.swift" \

@@ -6,7 +6,8 @@
 # The app comes to the front for about a minute: it imports the media onto the
 # timeline (converting formats AVFoundation cannot open), overlaps a second placement,
 # applies fades and a crossfade, relinks one original, generates proxies and prefers
-# them, remaps Play / Pause and presses it, switches to the Sequence
+# them, adds a dissolve (⌘T) and a title (⌃T), sets clip volume, inserts (,) and
+# overwrites (.) from the source, copies, pastes, duplicates and ripple deletes, remaps Play / Pause and presses it, switches to the Sequence
 # viewer with Tab, plays and pauses with Space, opens Render Sequence with ⇧⌘E and
 # renders H.264 through the sheet's folder panel and ProRes 422 HQ, saves the
 # project with ⌘S through the save panel, then closes and reopens it. Snapshots, renders and acceptance.json are kept
@@ -53,6 +54,7 @@ def one(name): return steps.get(name, [{}])[0]
 imp, seq, space, sheet = one('import'), one('sequence_viewer'), one('space_transport'), one('export_sheet')
 ui, save, reopen = one('export_via_sheet'), one('save'), one('reopen')
 edit, shortcut, done = one('editing'), one('custom_shortcut'), one('done')
+tools = one('finishing_tools')
 checks = [
     ('media imported without errors', imp.get('finished') and not imp.get('error') and imp.get('clips', 0) > 0),
     ('overlapping placement created sibling tracks', edit.get('overlappingTracks')),
@@ -60,6 +62,12 @@ checks = [
     ('source audio changed to other streams of a multitrack original', edit.get('sourceAudioChanged') or (not edit.get('multitrackAvailable') and 'skip')),
     ('media relinked to a moved copy', edit.get('relinked')),
     ('proxies generated and Prefer Proxy active', edit.get('proxiesReady', 0) > 0 and edit.get('representation') == 'proxy'),
+    ('⌘T added a dissolve or picture fade at the nearest edit', tools.get('transition', {}).get('changed')),
+    ('⌃T added a title on the front Titles track and its text was edited', tools.get('title', {}).get('added') and tools.get('title', {}).get('text') == 'Acceptance title' and tools.get('title', {}).get('frontTrack', '').startswith('Titles')),
+    ('clip volume set to −6 dB', abs(tools.get('volume', {}).get('gain', 0) - 0.501187) < 0.001),
+    (', inserted the source and moved later clips', tools.get('insert', {}).get('secondsAdded', 0) > 0.5),
+    ('. overwrote the sequence at the playhead', tools.get('overwrite', {}).get('clipsAfter', 0) > 0 and not tools.get('overwrite', {}).get('error')),
+    ('⌘C/⌘V pasted, ⌘D duplicated and ⇧⌘⌫ ripple deleted', tools.get('clipboard', {}).get('copiedAndPasted') and tools.get('clipboard', {}).get('duplicated') and tools.get('clipboard', {}).get('rippleDeleted')),
     ('remapped Play / Pause shortcut works and was restored', shortcut.get('remapped') and shortcut.get('plays') and shortcut.get('pauses') and shortcut.get('restored')),
     ('Tab switched to a prepared Sequence viewer', seq.get('tabSwitchedToSequence') and seq.get('prepared')),
     ('Space started playback and the playhead advanced', space.get('startedPlaying') and space.get('playheadWhilePlaying', 0) > 0.5),

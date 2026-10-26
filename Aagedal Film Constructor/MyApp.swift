@@ -227,10 +227,28 @@ private struct EditorCommands: Commands {
             .disabled(store == nil)
     }
 
+    private func pasteboard(_ textAction: Selector, clips: (EditorStore) -> Void) {
+        if let store, !(NSApp.keyWindow?.firstResponder is NSText) { clips(store) }
+        else { NSApp.sendAction(textAction, to: nil, from: nil) }
+    }
+
     var body: some Commands {
         CommandGroup(replacing: .undoRedo) {
             command(.undo)
             command(.redo)
+        }
+        // Text fields keep the standard pasteboard actions; elsewhere they act on timeline clips.
+        CommandGroup(replacing: .pasteboard) {
+            Button("Cut") { pasteboard(#selector(NSText.cut(_:))) { $0.cutSelectedClip() } }
+                .keyboardShortcut("x")
+            Button("Copy") { pasteboard(#selector(NSText.copy(_:))) { $0.copySelectedClip() } }
+                .keyboardShortcut("c")
+            Button("Paste") { pasteboard(#selector(NSText.paste(_:))) { $0.pasteAtPlayhead() } }
+                .keyboardShortcut("v")
+            Button("Duplicate Clip") { store?.duplicateSelectedClip() }
+                .keyboardShortcut("d").disabled(store?.selectedClip == nil)
+            Button("Select All") { NSApp.sendAction(#selector(NSResponder.selectAll(_:)), to: nil, from: nil) }
+                .keyboardShortcut("a")
         }
         CommandGroup(after: .newItem) {
             command(.importMedia)
@@ -263,6 +281,8 @@ private struct EditorCommands: Commands {
         }
         CommandMenu("Timeline") {
             command(.appendSource)
+            command(.insertSource)
+            command(.overwriteSource)
             command(.splitClip)
             command(.addTransition)
             command(.addTitle)
@@ -274,6 +294,7 @@ private struct EditorCommands: Commands {
             command(.nextFrame)
             Divider()
             command(.deleteClip)
+            command(.rippleDelete)
         }
     }
 }

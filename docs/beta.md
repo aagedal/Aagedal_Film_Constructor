@@ -47,6 +47,25 @@ and Gatekeeper assesses it as "Notarized Developer ID".
 
 [Basic workspace testing](basic-workspace.md) describes every editing control.
 
+## Editing at the playhead
+
+| Key | Action |
+| --- | --- |
+| ⌘E | Append the source (or its marked range) to the end of the sequence |
+| , | Insert the source at the playhead, pushing later clips on every track |
+| . | Overwrite the sequence at the playhead on the source's tracks |
+| ⌘B | Split the selected clip at the playhead |
+| ⌘⌫ | Delete the selected clip, leaving a gap |
+| ⇧⌘⌫ | Ripple delete: remove the clip and close the gap on every track |
+| Q / W | Ripple trim the clip start or end to the playhead |
+| ⌘C ⌘X ⌘V | Copy, cut, and paste at the playhead (clip and linked components) |
+| ⌘D | Duplicate the selected clip after itself |
+
+Insert and overwrite are also buttons beside **Append** under the media bin.
+Insert refuses to split inside a fade or transition, and ripple delete refuses
+when another clip crosses the gap; move or trim that clip first. Pasting over
+occupied time stacks the copy on a new sibling track rather than overwriting.
+
 ## Transitions
 
 - **⌘T (Add Transition)** works on the selected clip and its linked components in

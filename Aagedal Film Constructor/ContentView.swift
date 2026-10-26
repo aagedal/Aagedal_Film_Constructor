@@ -238,6 +238,10 @@ struct ContentView: View {
                 Button(action: store.importMedia) { Label("Import media", systemImage: "plus.rectangle.on.folder") }
                     .labelStyle(.iconOnly).help("Import into this bin").disabled(store.isImporting)
                 Spacer()
+                Button { store.placeSelectedSourceAtPlayhead(mode: .insert) } label: { Label("Insert at playhead", systemImage: "arrow.right.to.line.compact") }
+                    .labelStyle(.iconOnly).help("Insert at the playhead, moving later clips (,)").disabled(store.selectedAsset == nil || store.isImporting)
+                Button { store.placeSelectedSourceAtPlayhead(mode: .overwrite) } label: { Label("Overwrite at playhead", systemImage: "rectangle.portrait.on.rectangle.portrait") }
+                    .labelStyle(.iconOnly).help("Overwrite the sequence at the playhead (.)").disabled(store.selectedAsset == nil || store.isImporting)
                 Button(action: store.appendSelectedAsset) { Label("Append to timeline", systemImage: "text.badge.plus") }
                     .labelStyle(.iconOnly).help("Append selected media to timeline").disabled(store.selectedAsset == nil || store.isImporting)
             }.padding(10)
