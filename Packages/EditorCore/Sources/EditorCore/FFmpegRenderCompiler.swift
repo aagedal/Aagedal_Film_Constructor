@@ -214,6 +214,12 @@ public enum FFmpegRenderCompiler {
                     // Gaussian blur in pixels of the sequence height, before placement scaling.
                     arrangement += ",gblur=sigma=\(component.color.blur * Double(settings.height))"
                 }
+                if component.color.hasLevels {
+                    // Levels on RGB, as the preview applies them; alpha passes through.
+                    let c = component.color
+                    let curve = "255*pow(clip((val/255-(\(c.blackPoint)))/(\(c.whitePoint - c.blackPoint)),0,1),\(1 / c.gamma))"
+                    arrangement += ",format=gbrap,lutrgb=r='\(curve)':g='\(curve)':b='\(curve)',format=yuva444p"
+                }
                 if !component.color.isColorNeutral {
                     // 8-bit video range: luma 16–235 about mid grey, chroma about 128.
                     let c = component.color

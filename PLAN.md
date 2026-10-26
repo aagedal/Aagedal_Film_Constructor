@@ -101,6 +101,9 @@ express it.
   field and lists, jumps to and removes them; the timeline draws the envelope. Export
   levels (`VolumeKeyframeTests`) and preview levels (`system-transition-smoke.sh`)
   measure 1 : 0.625 : 0.25 at the expected points.
+- [x] Levels: black point, white point and gamma per picture on RGB (export `lutrgb` between
+  `gbrap` conversions; preview `CIColorMatrix`, clamp and `CIGammaAdjust`). Export greys are
+  checked in `LevelsTests`; preview matches export within 4 levels.
 - [x] Blur: a Gaussian blur on the fitted, frame-sized picture before placement (export
   `gblur`, preview `CIGaussianBlur` on the same canvas). Export pixels are checked in
   `BlurTests`; preview and export edge profiles agree within 18 levels.

@@ -147,23 +147,35 @@ public struct ColorAdjustment: Equatable, Codable, Sendable {
     public var saturation: Double
     /// Gaussian blur standard deviation as a fraction of the frame height; zero is sharp.
     public var blur: Double
-    public init(brightness: Double = 0, contrast: Double = 1, saturation: Double = 1, blur: Double = 0) {
+    /// Levels on each RGB channel: input black and white points (0–1) and gamma, applied before
+    /// brightness, contrast and saturation: out = ((in − black) / (white − black))^(1/gamma).
+    public var blackPoint: Double
+    public var whitePoint: Double
+    public var gamma: Double
+    public init(brightness: Double = 0, contrast: Double = 1, saturation: Double = 1, blur: Double = 0,
+                blackPoint: Double = 0, whitePoint: Double = 1, gamma: Double = 1) {
         self.brightness = brightness; self.contrast = contrast; self.saturation = saturation; self.blur = blur
+        self.blackPoint = blackPoint; self.whitePoint = whitePoint; self.gamma = gamma
     }
-    private enum CodingKeys: String, CodingKey { case brightness, contrast, saturation, blur }
+    public var hasLevels: Bool { blackPoint != 0 || whitePoint != 1 || gamma != 1 }
+    private enum CodingKeys: String, CodingKey { case brightness, contrast, saturation, blur, blackPoint, whitePoint, gamma }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.init(brightness: try c.decode(Double.self, forKey: .brightness), contrast: try c.decode(Double.self, forKey: .contrast),
-                  saturation: try c.decode(Double.self, forKey: .saturation), blur: try c.decodeIfPresent(Double.self, forKey: .blur) ?? 0)
+                  saturation: try c.decode(Double.self, forKey: .saturation), blur: try c.decodeIfPresent(Double.self, forKey: .blur) ?? 0,
+                  blackPoint: try c.decodeIfPresent(Double.self, forKey: .blackPoint) ?? 0,
+                  whitePoint: try c.decodeIfPresent(Double.self, forKey: .whitePoint) ?? 1,
+                  gamma: try c.decodeIfPresent(Double.self, forKey: .gamma) ?? 1)
     }
     /// Whether only blur is set, with neutral colour.
     public var isColorNeutral: Bool { brightness == 0 && contrast == 1 && saturation == 1 }
     public static let neutral = ColorAdjustment()
     public var isNeutral: Bool { self == .neutral }
     public func validate() throws {
-        guard [brightness, contrast, saturation, blur].allSatisfy(\.isFinite), (-1...1).contains(brightness),
-              (0...3).contains(contrast), (0...3).contains(saturation), (0...0.1).contains(blur) else {
-            throw EditorCoreError.invalidModel("Brightness must be −100 to +100, contrast and saturation 0–300%, blur 0–10%")
+        guard [brightness, contrast, saturation, blur, blackPoint, whitePoint, gamma].allSatisfy(\.isFinite), (-1...1).contains(brightness),
+              (0...3).contains(contrast), (0...3).contains(saturation), (0...0.1).contains(blur),
+              (0...0.9).contains(blackPoint), (0.1...1).contains(whitePoint), whitePoint - blackPoint >= 0.1, (0.2...5).contains(gamma) else {
+            throw EditorCoreError.invalidModel("Brightness must be −100 to +100, contrast and saturation 0–300%, blur 0–10%, levels black below white by 10% or more, gamma 0.2–5")
         }
     }
 }

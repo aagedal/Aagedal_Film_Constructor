@@ -116,7 +116,7 @@ import EditorCore
         // Colour correction switches the preview to the CoreImage compositor: repeat the dissolve
         // and fades with a brighter, half-saturated first shot, and a greyed picture in picture.
         var coloured = engine.project
-        coloured.tracks[0].clips[coloured.tracks[0].clips.firstIndex { $0.id == a.id }!].color = ColorAdjustment(brightness: 0.1, saturation: 0.5)
+        coloured.tracks[0].clips[coloured.tracks[0].clips.firstIndex { $0.id == a.id }!].color = ColorAdjustment(brightness: 0.1, saturation: 0.5, blackPoint: 0.05, whitePoint: 0.9, gamma: 1.2)
         var colouredPip = pip
         colouredPip.tracks[0].clips[0].color = ColorAdjustment(brightness: 0.2, contrast: 1.2, saturation: 0)
         // A blurred lower layer: its flat colour is unchanged, so blur shows only at edges.

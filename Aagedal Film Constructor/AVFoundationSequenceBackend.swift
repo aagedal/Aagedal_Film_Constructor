@@ -391,6 +391,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                                          opacity: Self.opacityCurve(component), brightness: component.color.brightness,
                                          contrast: component.color.contrast, saturation: component.color.saturation,
                                          blur: component.color.blur * Double(plan.settings.height),
+                                         levels: component.color.hasLevels ? (component.color.blackPoint, component.color.whitePoint, component.color.gamma) : nil,
                                          reveal: component.reveal.map { ($0.start.seconds, $0.duration.seconds, $0.fromLeft) })
                         }, canvas: canvas)
                 }

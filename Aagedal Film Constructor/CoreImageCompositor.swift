@@ -43,6 +43,8 @@ final class CoreImageInstruction: NSObject, AVVideoCompositionInstructionProtoco
         let brightness: Double, contrast: Double, saturation: Double
         /// Blur standard deviation in canvas pixels before placement scaling.
         let blur: Double
+        /// Levels: input black and white points and gamma on each RGB channel.
+        let levels: (black: Double, white: Double, gamma: Double)?
         /// A wipe uncovering the picture: start and length in seconds, from the left or right edge.
         let reveal: (start: Double, duration: Double, fromLeft: Bool)?
         var isNeutral: Bool { brightness == 0 && contrast == 1 && saturation == 1 }
@@ -98,6 +100,14 @@ final class CoreImageCompositor: NSObject, AVVideoCompositing, @unchecked Sendab
             if let reveal = layer.reveal {
                 let shown = bounds.width * min(1, max(0, (seconds - reveal.start) / reveal.duration))
                 picture = picture.cropped(to: CGRect(x: reveal.fromLeft ? 0 : bounds.width - shown, y: 0, width: shown, height: bounds.height))
+            }
+            if let levels = layer.levels {
+                let scale = 1 / (levels.white - levels.black), bias = -levels.black * scale
+                picture = picture.applyingFilter("CIColorMatrix", parameters: [
+                    "inputRVector": CIVector(x: scale, y: 0, z: 0, w: 0), "inputGVector": CIVector(x: 0, y: scale, z: 0, w: 0),
+                    "inputBVector": CIVector(x: 0, y: 0, z: scale, w: 0), "inputBiasVector": CIVector(x: bias, y: bias, z: bias, w: 0)])
+                    .applyingFilter("CIColorClamp")
+                    .applyingFilter("CIGammaAdjust", parameters: ["inputPower": 1 / levels.gamma])
             }
             if !layer.isNeutral {
                 picture = picture.applyingFilter("CIColorControls", parameters: [

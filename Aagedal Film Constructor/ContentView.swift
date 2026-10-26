@@ -942,15 +942,19 @@ private struct ColorControls: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Colour and blur").font(.subheadline.bold())
+                Text("Colour, levels and blur").font(.subheadline.bold())
                 Spacer()
                 Button("Reset colour", systemImage: "arrow.counterclockwise") { draft = .neutral; apply(.neutral) }
-                    .labelStyle(.iconOnly).help("Reset brightness, contrast, saturation and blur").disabled(color.isNeutral)
+                    .labelStyle(.iconOnly).help("Reset brightness, contrast, saturation, blur and levels").disabled(color.isNeutral)
             }
             slider("Brightness", value: $draft.brightness, range: -1...1, label: String(format: "%+.0f", draft.brightness * 100))
             slider("Contrast", value: $draft.contrast, range: 0...2, label: String(format: "%.0f%%", draft.contrast * 100))
             slider("Saturation", value: $draft.saturation, range: 0...2, label: String(format: "%.0f%%", draft.saturation * 100))
             slider("Blur", value: $draft.blur, range: 0...0.05, label: String(format: "%.1f", draft.blur * 100))
+            Text("Levels").font(.caption.bold()).padding(.top, 4)
+            slider("Black", value: $draft.blackPoint, range: 0...0.5, label: String(format: "%.0f", draft.blackPoint * 255))
+            slider("White", value: $draft.whitePoint, range: 0.5...1, label: String(format: "%.0f", draft.whitePoint * 255))
+            slider("Gamma", value: $draft.gamma, range: 0.3...3, label: String(format: "%.2f", draft.gamma))
         }
         .onChange(of: color) { _, value in draft = value }
     }

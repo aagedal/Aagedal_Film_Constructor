@@ -30,8 +30,9 @@ height with y up, uniform scale, keyframed `position` and `scale` params) and
 clip's source time. Equal-power fades are written as ease fades. These elements validate
 against Apple's FCPXML 1.10 DTD (bundled with Final Cut Pro). A first import into Final
 Cut Pro (2026-10-26) imported the file but ignored every keyframed param because the
-keyframes carried `interp`; keyframes now carry only `curve="linear"`. Re-import of the
-corrected file and Resolve's interpretation are still to be checked.
+keyframes carried `interp`; keyframes now carry only `curve="linear"`. The corrected file imported without
+warnings (2026-10-26): picture fades start at 0% opacity and volume keyframes appear on
+the audio clip. Resolve's interpretation is still to be checked.
 
 ## Validation and remaining qualification
 
