@@ -138,6 +138,12 @@ final class EditorStore: ObservableObject {
                     if stale { mediaBookmarks[id] = try url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) }
                 } catch { statusMessage = "Some media needs relinking. Select it in the bin and choose Relink." }
             }
+            // Title images are derived; redraw any that are missing (for example on another Mac).
+            if let title = project.assets[index].title,
+               project.assets[index].originalURL.map({ !FileManager.default.fileExists(atPath: $0.path) }) ?? true,
+               let url = try? TitleRenderer.render(title, width: project.settings.width, height: project.settings.height, assetID: id) {
+                project.assets[index].originalURL = url
+            }
         }
         refreshSourcePreview()
     }
@@ -561,6 +567,78 @@ final class EditorStore: ObservableObject {
         } catch { report(error) }
     }
 
+    /// Insert opens a gap at the playhead on every track; overwrite replaces the
+    /// destination tracks there. Both use the source marks and keep the playhead
+    /// after the new clip, ready for the next edit.
+    func placeSelectedSourceAtPlayhead(mode: PlacementMode) {
+        guard let asset = selectedAsset else { return }
+        do {
+            let frames = (playheadSeconds * project.settings.frameRate.value.seconds).rounded()
+            let start = try project.settings.frameRate.time(forFrames: Int64(max(0, frames)))
+            let range = try selectedSourceRange ?? asset.defaultPlacementRange()
+            var ids: [UUID] = []
+            try change { ids = try $0.placeAsset(asset.id, at: start, sourceRange: range, mode: mode) }
+            selectedClipID = ids.first
+            seek(to: try start.adding(range.duration).seconds)
+            statusMessage = mode == .insert ? "Inserted at the playhead; later clips moved." : "Overwrote the sequence at the playhead."
+        } catch let error as EditorCoreError {
+            if case .invalidModel(let message) = error, message.contains("Audio layout") {
+                errorMessage = "This source's audio needs an explicit channel selection. Use Append with audio selection…, then move the clip."
+            } else { report(error) }
+        } catch { report(error) }
+    }
+    @Published private(set) var clipboard: ClipClipboard?
+    func copySelectedClip() {
+        guard let id = selectedClipID else { return }
+        do {
+            clipboard = try project.copyClips(linkedTo: id)
+            statusMessage = "Copied \(clipboard?.entries.count == 1 ? "the clip" : "the clip and its linked components")."
+        } catch { report(error) }
+    }
+    func cutSelectedClip() {
+        copySelectedClip()
+        if clipboard != nil { deleteSelectedClip() }
+    }
+    func pasteAtPlayhead() {
+        guard let clipboard else { return }
+        do {
+            let frames = (playheadSeconds * project.settings.frameRate.value.seconds).rounded()
+            try paste(clipboard, at: project.settings.frameRate.time(forFrames: Int64(max(0, frames))))
+        } catch { report(error) }
+    }
+    /// Pastes a copy straight after the selected clip and its linked components.
+    func duplicateSelectedClip() {
+        guard let id = selectedClipID else { return }
+        do {
+            let copy = try project.copyClips(linkedTo: id)
+            let start = try copy.entries.reduce(copy.entries[0].clip.timelineStart) { earliest, entry in
+                try entry.clip.timelineStart.compared(to: earliest) == .orderedAscending ? entry.clip.timelineStart : earliest
+            }
+            try paste(copy, at: start.adding(copy.duration))
+        } catch { report(error) }
+    }
+    private func paste(_ clipboard: ClipClipboard, at time: RationalTime) throws {
+        var ids: [UUID] = []
+        try change { ids = try $0.pasteClips(clipboard, at: time) }
+        selectedClipID = ids.first
+        focusSequenceViewer()
+        seek(to: try time.adding(clipboard.duration).seconds)
+        statusMessage = "Pasted at \(String(format: "%.2f", time.seconds)) s."
+    }
+    func rippleDeleteSelectedClip() {
+        guard let id = selectedClipID else { return }
+        do {
+            try change {
+                var engine = try TimelineEditEngine(project: $0)
+                try engine.rippleDelete(clipID: id)
+                $0 = engine.project
+            }
+            reconcileSelection()
+        } catch TimelineEditError.rippleTrimOverlap {
+            errorMessage = "Cannot ripple delete while another clip crosses this one. Use Delete to leave a gap, or move that clip first."
+        } catch { report(error) }
+    }
+
     func beginAudioAppend() {
         guard let asset = selectedAsset, asset.streams.contains(where: { $0.kind == .audio }) else { return }
         audioAppendAsset = asset
@@ -644,6 +722,12 @@ final class EditorStore: ObservableObject {
     func renameTrackFamily(_ id: UUID, name: String) {
         do { try change { try $0.renameTrackFamily(id: id, name: name) } } catch { report(error) }
     }
+    func setTrackMuted(_ id: UUID, muted: Bool) {
+        do { try change { try $0.setTrackMuted(id: id, muted: muted) } } catch { report(error) }
+    }
+    func setTrackSoloed(_ id: UUID, soloed: Bool) {
+        do { try change { try $0.setTrackSoloed(id: id, soloed: soloed) } } catch { report(error) }
+    }
     func setTrackRetention(_ id: UUID, retained: Bool) {
         do { try change { try $0.setTrackRetention(id: id, retained: retained) } } catch { report(error) }
     }
@@ -653,6 +737,274 @@ final class EditorStore: ObservableObject {
             return
         }
         do { try change { try $0.setTrackGain(id: id, gain: pow(10, value / 20)) } } catch { report(error) }
+    }
+    /// The selected audio component, or every audio component linked to the selected picture.
+    var selectedVolumeClips: [TimelineClip] {
+        guard let clip = selectedClip else { return [] }
+        if clip.requiredTrackKind == .audio { return [clip] }
+        guard let group = clip.linkGroupID else { return [] }
+        return project.tracks.flatMap(\.clips).filter { $0.linkGroupID == group && $0.requiredTrackKind == .audio }
+    }
+    func setSelectedClipVolume(decibels: String) {
+        let clips = selectedVolumeClips
+        guard !clips.isEmpty else { return }
+        guard let value = Double(decibels.replacingOccurrences(of: "−", with: "-")), !value.isNaN, value <= 24 else {
+            errorMessage = "Enter a clip volume of +24 dB or less. Use −inf or −100 for silence."
+            return
+        }
+        // Volumes below −96 dB are treated as silence.
+        let gain = value <= -96 ? 0 : pow(10, value / 20)
+        edit(.setGain(clipIDs: clips.map(\.id), gain: gain))
+        if errorMessage == nil { statusMessage = "Set clip volume to \(gain == 0 ? "silence" : String(format: "%+.1f dB", value))." }
+    }
+    /// Adds a title at the playhead on the front Titles track and selects it.
+    func addTitle() {
+        do {
+            let assetID = UUID()
+            let title = TitleDefinition()
+            let url = try TitleRenderer.render(title, width: project.settings.width, height: project.settings.height, assetID: assetID)
+            let frames = (playheadSeconds * project.settings.frameRate.value.seconds).rounded()
+            let start = try project.settings.frameRate.time(forFrames: Int64(max(0, frames)))
+            var clipID: UUID?
+            try change { clipID = try $0.addTitle(title, imageURL: url, at: start, assetID: assetID) }
+            selectedClipID = clipID
+            focusSequenceViewer()
+            statusMessage = "Added a title. Edit its text in the inspector."
+        } catch { report(error) }
+    }
+    func updateTitle(assetID: UUID, to title: TitleDefinition) {
+        do {
+            try title.validate()
+            let url = try TitleRenderer.render(title, width: project.settings.width, height: project.settings.height, assetID: assetID)
+            try change { try $0.updateTitle(assetID: assetID, to: title, imageURL: url) }
+            mediaPreviewRevision = UUID()
+            statusMessage = "Updated the title."
+        } catch { errorMessage = audioEditErrorMessage(error) }
+    }
+    /// Percent speed for the selected clip and its linked components; 100 restores normal speed.
+    func setSelectedClipSpeed(percent text: String) {
+        guard let clip = selectedClip else { return }
+        guard let percent = Double(text.replacingOccurrences(of: "%", with: "").trimmingCharacters(in: .whitespaces)),
+              percent.isFinite, (10...1000).contains(percent) else {
+            errorMessage = "Enter a speed from 10% to 1000%."
+            return
+        }
+        do {
+            let speed = try RationalTime(Int64((percent * 10).rounded()), 1000)
+            edit(.setSpeed(clipID: clip.id, speed: speed))
+            if errorMessage == nil {
+                statusMessage = percent == 100 ? "Restored normal speed." : "Set speed to \(String(format: "%g", percent))%; sound keeps its pitch."
+            }
+        } catch { report(error) }
+    }
+    /// Keyframes the selected picture's scale and position (percent) at the playhead.
+    func addTransformKeyframeAtPlayhead(scale: String, x: String, y: String, opacity: String = "100") {
+        guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
+        func fraction(_ text: String) -> Double? {
+            Double(text.replacingOccurrences(of: "%", with: "").replacingOccurrences(of: "−", with: "-").trimmingCharacters(in: .whitespaces)).map { $0 / 100 }
+        }
+        guard let s = fraction(scale), let px = fraction(x), let py = fraction(y), let o = fraction(opacity) else {
+            errorMessage = "Enter scale, position and opacity as percentages."
+            return
+        }
+        let offset = playheadSeconds - clip.timelineStart.seconds
+        guard offset >= 0, offset <= clip.sourceRange.duration.seconds else {
+            errorMessage = "Move the playhead inside the clip to add a keyframe."
+            return
+        }
+        do {
+            let at = try clip.sourceTime(atTimelineOffset: time(offset))
+            var keyframes = clip.transformKeyframes.filter { abs($0.time.seconds - at.seconds) > 0.0005 }
+            keyframes.append(TransformKeyframe(time: at, scale: s, offsetX: px, offsetY: py, opacity: o))
+            keyframes.sort { $0.time.seconds < $1.time.seconds }
+            edit(.setTransformKeyframes(clipID: clip.id, keyframes: keyframes))
+            if errorMessage == nil { statusMessage = "Added a keyframe. Move the playhead and add another to animate scale, position and opacity." }
+        } catch { report(error) }
+    }
+    enum MotionPreset: String, CaseIterable, Identifiable {
+        case slideInLeft = "Slide in from left", riseFromBelow = "Rise from below", slowZoom = "Slow zoom in", drift = "Drift left to right"
+        var id: String { rawValue }
+    }
+    /// Keyframes a common move from the clip's current scale and position.
+    func applyMotionPreset(_ preset: MotionPreset) {
+        guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
+        let base = clip.transform
+        let length = clip.sourceRange.duration.seconds
+        let entrance = min(0.6, length / 2)
+        func key(_ timelineOffset: Double, scale: Double? = nil, x: Double? = nil, y: Double? = nil) throws -> TransformKeyframe {
+            TransformKeyframe(time: try clip.sourceTime(atTimelineOffset: time(timelineOffset)), scale: scale ?? base.scale,
+                              offsetX: x ?? base.offsetX, offsetY: y ?? base.offsetY)
+        }
+        do {
+            let keyframes: [TransformKeyframe]
+            switch preset {
+            case .slideInLeft: keyframes = [try key(0, x: base.offsetX - 1), try key(entrance)]
+            case .riseFromBelow: keyframes = [try key(0, y: base.offsetY + 0.6), try key(entrance)]
+            case .slowZoom: keyframes = [try key(0), try key(length, scale: base.scale * 1.15)]
+            case .drift: keyframes = [try key(0, scale: base.scale * 1.1, x: base.offsetX - 0.04), try key(length, scale: base.scale * 1.1, x: base.offsetX + 0.04)]
+            }
+            edit(.setTransformKeyframes(clipID: clip.id, keyframes: keyframes))
+            if errorMessage == nil { statusMessage = "Applied \(preset.rawValue.lowercased())." }
+        } catch { report(error) }
+    }
+    func setSelectedTransformKeyframes(_ keyframes: [TransformKeyframe]) {
+        guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
+        edit(.setTransformKeyframes(clipID: clip.id, keyframes: keyframes))
+    }
+    @Published private(set) var isStabilising = false
+    /// Stabilises the selected picture: makes a stabilised copy of the source it plays (with a
+    /// second of margin for trims) and points the picture at it in one undoable edit.
+    /// Linked sound keeps playing the original.
+    func stabiliseSelectedClip() {
+        guard !isStabilising, let clip = selectedClip, case .video = clip.selection,
+              let asset = asset(id: clip.assetID), let original = asset.originalURL else { return }
+        guard let ffmpeg = Bundle.main.resourceURL?.appendingPathComponent("Helpers/ffmpeg"),
+              FileManager.default.isExecutableFile(atPath: ffmpeg.path) else {
+            errorMessage = "Stabilising needs the bundled FFmpeg helper."
+            return
+        }
+        do {
+            let margin = try RationalTime(1)
+            let start = try clip.sourceRange.start.compared(to: margin) == .orderedDescending ? clip.sourceRange.start.subtracting(margin) : .zero
+            let end = try clip.sourceEnd().adding(margin)
+            let stop = try end.compared(to: asset.duration) == .orderedDescending ? asset.duration : end
+            let duration = try stop.subtracting(start)
+            let clipID = clip.id, epoch = mediaEpoch
+            isStabilising = true
+            statusMessage = "Stabilising \(asset.name)… This takes a while for long or 4K shots."
+            Task {
+                defer { isStabilising = false }
+                do {
+                    let url = try await StabilisationService.stabilise(source: original, start: start.seconds, duration: duration.seconds,
+                                                                       ffmpeg: ffmpeg, into: StabilisationService.directory())
+                    guard epoch == mediaEpoch else { return }
+                    let imported = try await MediaImporter.inspect(url: url, displayName: asset.name + " (stabilised)")
+                    guard let stream = imported.asset.streams.first(where: { $0.kind == .video }) else { throw EditorCoreError.invalidModel("The stabilised copy has no picture") }
+                    try change(bookmarkUpdates: [imported.asset.id: imported.bookmark]) { project in
+                        try project.addAsset(imported.asset)
+                        var engine = try TimelineEditEngine(project: project)
+                        try engine.apply(.replacePictureMedia(clipID: clipID, assetID: imported.asset.id, streamIndex: stream.index, sourceOffset: start))
+                        project = engine.project
+                    }
+                    mediaPreviewRevision = UUID()
+                    statusMessage = "Stabilised \(asset.name). Undo returns to the original."
+                } catch { errorMessage = "Could not stabilise: \(audioEditErrorMessage(error))" }
+            }
+        } catch { report(error) }
+    }
+    @Published private(set) var isReducingNoise = false
+    /// Replaces the selected sound (or a picture's linked sound) with noise-reduced copies of
+    /// its channels, plus a second of margin for trims, in one undoable edit.
+    func reduceNoiseOnSelectedAudio(amount: Double = 12) {
+        let clips = selectedVolumeClips
+        guard !isReducingNoise, !clips.isEmpty else { return }
+        guard let ffmpeg = Bundle.main.resourceURL?.appendingPathComponent("Helpers/ffmpeg"),
+              FileManager.default.isExecutableFile(atPath: ffmpeg.path) else {
+            errorMessage = "Noise reduction needs the bundled FFmpeg helper."
+            return
+        }
+        isReducingNoise = true
+        statusMessage = "Reducing noise…"
+        let epoch = mediaEpoch
+        Task {
+            defer { isReducingNoise = false }
+            do {
+                var results: [(clipID: UUID, imported: ImportedMedia, stream: Int, offset: RationalTime)] = []
+                for clip in clips {
+                    guard case .audio(let selection) = clip.selection, let asset = asset(id: clip.assetID), let original = asset.originalURL else { continue }
+                    let margin = try RationalTime(1)
+                    let start = try clip.sourceRange.start.compared(to: margin) == .orderedDescending ? clip.sourceRange.start.subtracting(margin) : .zero
+                    let end = try clip.sourceEnd().adding(margin)
+                    let stop = try end.compared(to: asset.duration) == .orderedDescending ? asset.duration : end
+                    let url = try await NoiseReductionService.reduce(source: original, channels: selection.channels.map { ($0.streamIndex, $0.channelIndex) },
+                        amount: amount, start: start.seconds, duration: try stop.subtracting(start).seconds,
+                        ffmpeg: ffmpeg, into: NoiseReductionService.directory())
+                    let imported = try await MediaImporter.inspect(url: url, displayName: asset.name + " (noise reduced)")
+                    guard let stream = imported.asset.streams.first(where: { $0.kind == .audio }) else { throw EditorCoreError.invalidModel("The cleaned copy has no sound") }
+                    results.append((clip.id, imported, stream.index, start))
+                }
+                guard epoch == mediaEpoch, !results.isEmpty else { return }
+                try change(bookmarkUpdates: Dictionary(uniqueKeysWithValues: results.map { ($0.imported.asset.id, $0.imported.bookmark) })) { project in
+                    var engine = try TimelineEditEngine(project: project)
+                    for result in results {
+                        var candidate = engine.project
+                        try candidate.addAsset(result.imported.asset)
+                        engine = try TimelineEditEngine(project: candidate)
+                        try engine.apply(.replaceAudioMedia(clipID: result.clipID, assetID: result.imported.asset.id,
+                                                            streamIndex: result.stream, sourceOffset: result.offset))
+                    }
+                    project = engine.project
+                }
+                mediaPreviewRevision = UUID()
+                statusMessage = "Reduced noise. Undo returns to the original sound."
+            } catch { errorMessage = "Could not reduce noise: \(audioEditErrorMessage(error))" }
+        }
+    }
+    func setSelectedClipKey(_ key: ChromaKey?) {
+        guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
+        edit(.setKey(clipID: clip.id, key: key))
+        if errorMessage == nil { statusMessage = key == nil ? "Removed the key." : "Updated the key; layers below show through." }
+    }
+    func setSelectedClipColor(_ color: ColorAdjustment) {
+        guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
+        edit(.setColor(clipID: clip.id, color: color))
+        if errorMessage == nil { statusMessage = color.isNeutral ? "Reset the picture's colour." : "Updated the picture's colour." }
+    }
+    /// Percentages: scale, position as a share of the frame (right/down positive) and opacity.
+    func setSelectedClipTransform(scale: String, x: String, y: String, opacity: String) {
+        guard let clip = selectedClip, clip.requiredTrackKind == .video else { return }
+        func percent(_ text: String) -> Double? {
+            Double(text.replacingOccurrences(of: "%", with: "").replacingOccurrences(of: "−", with: "-").trimmingCharacters(in: .whitespaces)).map { $0 / 100 }
+        }
+        guard let s = percent(scale), let px = percent(x), let py = percent(y), let o = percent(opacity) else {
+            errorMessage = "Enter scale, position and opacity as percentages."
+            return
+        }
+        let transform = PictureTransform(scale: s, offsetX: px, offsetY: py, opacity: o)
+        do { try transform.validate() } catch { errorMessage = audioEditErrorMessage(error); return }
+        edit(.setTransform(clipID: clip.id, transform: transform))
+        if errorMessage == nil { statusMessage = transform.isIdentity ? "Reset the picture's transform." : "Updated the picture's scale, position and opacity." }
+    }
+    /// Adds (or replaces) a volume keyframe at the playhead on the selected audio, or a
+    /// picture's linked audio. The playhead must be inside the clip.
+    func addVolumeKeyframeAtPlayhead(decibels: String) {
+        let clips = selectedVolumeClips
+        guard let clip = clips.first else { return }
+        guard let value = Double(decibels.replacingOccurrences(of: "−", with: "-")), !value.isNaN, value <= 24 else {
+            errorMessage = "Enter a keyframe volume of +24 dB or less."
+            return
+        }
+        let offset = playheadSeconds - clip.timelineStart.seconds
+        guard offset >= 0, offset <= clip.sourceRange.duration.seconds else {
+            errorMessage = "Move the playhead inside the clip to add a volume keyframe."
+            return
+        }
+        do {
+            let at = try clip.sourceRange.start.adding(time(offset))
+            var keyframes = clip.volumeKeyframes.filter { abs($0.time.seconds - at.seconds) > 0.0005 }
+            keyframes.append(VolumeKeyframe(time: at, gain: value <= -96 ? 0 : pow(10, value / 20)))
+            keyframes.sort { $0.time.seconds < $1.time.seconds }
+            edit(.setVolumeKeyframes(clipIDs: clips.map(\.id), keyframes: keyframes))
+            if errorMessage == nil { statusMessage = "Added a volume keyframe. Add another to ramp between them." }
+        } catch { report(error) }
+    }
+    func setSelectedDynamics(_ dynamics: AudioDynamics?) {
+        let clips = selectedVolumeClips
+        guard !clips.isEmpty else { return }
+        edit(.setDynamics(clipIDs: clips.map(\.id), dynamics: dynamics))
+        if errorMessage == nil { statusMessage = dynamics == nil ? "Removed compression." : "Updated compression." }
+    }
+    /// EQ for the selected audio, or a picture's linked audio.
+    func setSelectedEQ(_ eq: AudioEQ) {
+        let clips = selectedVolumeClips
+        guard !clips.isEmpty else { return }
+        edit(.setEQ(clipIDs: clips.map(\.id), eq: eq))
+        if errorMessage == nil { statusMessage = eq.isFlat ? "Reset EQ." : "Updated EQ." }
+    }
+    func setSelectedVolumeKeyframes(_ keyframes: [VolumeKeyframe]) {
+        let clips = selectedVolumeClips
+        guard !clips.isEmpty else { return }
+        edit(.setVolumeKeyframes(clipIDs: clips.map(\.id), keyframes: keyframes))
     }
     func deleteSelectedClip() {
         guard let id = selectedClipID else { return }
@@ -712,7 +1064,7 @@ final class EditorStore: ObservableObject {
         do {
             let bounded = TimelineGesture.trimDelta(delta, edge: edge, clip: clip, project: project, quantum: gestureQuantum(for: clip))
             let change = try editTime(bounded)
-            let range = try TimeRange(start: edge == .leading ? clip.sourceRange.start.adding(change) : clip.sourceRange.start,
+            let range = try TimeRange(start: edge == .leading ? clip.sourceTime(atTimelineOffset: change) : clip.sourceRange.start,
                                       duration: edge == .leading ? clip.sourceRange.duration.subtracting(change) : clip.sourceRange.duration.adding(change))
             edit(.trim(clipID: clip.id, sourceRange: range, timelineStart: edge == .leading ? try clip.timelineStart.adding(change) : clip.timelineStart))
         } catch { report(error) }
@@ -760,61 +1112,89 @@ final class EditorStore: ObservableObject {
     func setAudioLayoutConfirmation(_ enabled: Bool) {
         do { try change { $0.preferences.askBeforeAudioTrackLayoutChanges = enabled } } catch { report(error) }
     }
-    /// Fades use the audio sample grid even when their clip is linked to picture.
-    private func audioFadeTime(_ seconds: Double, clip: TimelineClip) throws -> RationalTime {
-        guard seconds.isFinite else { throw EditorCoreError.invalidTime }
-        let rate = Int64(project.settings.audioSampleRate)
-        let extent = try clip.sourceRange.duration.multiplied(by: rate)
-        let maximum = extent.numerator / extent.denominator
-        let samples = min(Double(maximum), max(0, seconds * Double(rate))).rounded()
-        guard samples.isFinite, samples < Double(Int64.max) else { throw EditorCoreError.invalidTime }
-        return try RationalTime(min(maximum, Int64(samples)), rate)
+    /// Audio fades use the sample grid even when linked to picture; picture fades use frames.
+    private func transitionGrid(for clip: TimelineClip) throws -> RationalTime {
+        clip.requiredTrackKind == .video ? project.settings.frameRate.value : try RationalTime(Int64(project.settings.audioSampleRate))
     }
-    func proposedAudioFadeDuration(clip: TimelineClip, seconds: Double) -> Double {
-        (try? audioFadeTime(seconds, clip: clip).seconds) ?? 0
+    private func fadeTime(_ seconds: Double, clip: TimelineClip) throws -> RationalTime {
+        guard seconds.isFinite else { throw EditorCoreError.invalidTime }
+        let grid = try transitionGrid(for: clip)
+        let extent = try clip.sourceRange.duration.multiplied(by: grid)
+        let maximum = extent.numerator / extent.denominator
+        let units = min(Double(maximum), max(0, seconds * grid.seconds)).rounded()
+        guard units.isFinite, units < Double(Int64.max) else { throw EditorCoreError.invalidTime }
+        return try RationalTime(min(maximum, Int64(units))).divided(by: grid)
+    }
+    func proposedFadeDuration(clip: TimelineClip, seconds: Double) -> Double {
+        (try? fadeTime(seconds, clip: clip).seconds) ?? 0
     }
     /// Offer only pairs that the edit engine can link, including source-handle validation.
+    /// Audio pairs crossfade; pictures on one track dissolve.
     func audioCrossfadeTargets(for clip: TimelineClip) -> [TimelineClip] {
-        guard clip.requiredTrackKind == .audio else { return [] }
+        let isPicture = clip.requiredTrackKind == .video
         return project.tracks.flatMap(\.clips).filter { candidate in
-            guard candidate.id != clip.id, candidate.requiredTrackKind == .audio else { return false }
+            guard candidate.id != clip.id, candidate.requiredTrackKind == clip.requiredTrackKind else { return false }
             let overlap = clip.timelineStart.seconds + clip.sourceRange.duration.seconds - candidate.timelineStart.seconds
-            let seconds = overlap > 0 ? overlap : 1 / Double(project.settings.audioSampleRate)
+            let unit = isPicture ? 1 / project.settings.frameRate.value.seconds : 1 / Double(project.settings.audioSampleRate)
             return (try? previewAudioCrossfade(outgoingClipID: clip.id, incomingClipID: candidate.id,
-                                              seconds: seconds, curve: .equalPower)) != nil
+                                              seconds: overlap > 0 ? overlap : unit, curve: isPicture ? .linear : .equalPower)) != nil
         }.sorted { $0.timelineStart.seconds < $1.timelineStart.seconds }
     }
-    private func crossfadeTime(_ seconds: Double) throws -> RationalTime {
-        let rate = Int64(project.settings.audioSampleRate)
-        let samples = (seconds * Double(rate)).rounded()
-        guard seconds.isFinite, seconds > 0, samples.isFinite, samples >= 1, samples < Double(Int64.max) else {
-            throw EditorCoreError.invalidModel("Enter a positive crossfade duration of at least one audio sample.")
+    private func crossfadeTime(_ seconds: Double, clip: TimelineClip) throws -> RationalTime {
+        let grid = try transitionGrid(for: clip)
+        let units = (seconds * grid.seconds).rounded()
+        guard seconds.isFinite, seconds > 0, units.isFinite, units >= 1, units < Double(Int64.max) else {
+            throw EditorCoreError.invalidModel(clip.requiredTrackKind == .video ? "Enter a dissolve duration of at least one frame."
+                                               : "Enter a positive crossfade duration of at least one audio sample.")
         }
-        return try RationalTime(Int64(samples), rate)
+        return try RationalTime(Int64(units)).divided(by: grid)
     }
     func previewAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, seconds: Double,
-                               curve: AudioFadeCurve) throws -> Project {
+                               curve: AudioFadeCurve, style: TransitionStyle? = nil) throws -> Project {
+        guard let outgoing = project.tracks.flatMap(\.clips).first(where: { $0.id == outgoingClipID }) else { throw TimelineEditError.missingClip }
+        let isPicture = outgoing.requiredTrackKind == .video
         let existing = project.audioCrossfades.first { $0.outgoingClipID == outgoingClipID && $0.incomingClipID == incomingClipID }
-        let time = existing?.duration.seconds == seconds ? existing!.duration : try crossfadeTime(seconds)
+        let time = existing?.duration.seconds == seconds ? existing!.duration : try crossfadeTime(seconds, clip: outgoing)
         var engine = try TimelineEditEngine(project: project)
         do {
             try engine.apply(.setAudioCrossfade(outgoingClipID: outgoingClipID, incomingClipID: incomingClipID,
-                                               duration: time, curve: curve))
+                                               duration: time, curve: isPicture ? .linear : curve, style: isPicture ? style : nil))
         } catch TimelineEditError.invalidAudioCrossfade {
-            throw EditorCoreError.invalidModel("Cannot link this audio pair. Use adjacent cuts with enough source handles or a duration matching the existing overlap. Audio layouts and output routing must match, and the linked edges must have no standalone fade.")
+            throw EditorCoreError.invalidModel(isPicture
+                ? "Cannot join these clips. Both must be on the same video track, meet at a cut or overlap by exactly the transition duration, and have enough source beyond the cut. The joined edges must have no standalone fade, and slides and pushes need pictures without their own scale, position or keyframes."
+                : "Cannot link this audio pair. Use adjacent cuts with enough source handles or a duration matching the existing overlap. Audio layouts and output routing must match, and the linked edges must have no standalone fade.")
         }
         return engine.project
     }
+    /// Dissolve or crossfade the selected clip's nearest cut, or fade a free edge, with linked components.
+    func addTransitionAtPlayhead(seconds: Double = 1) {
+        guard let clip = selectedClip else { return }
+        do {
+            let at = try time(playheadSeconds), duration = try time(seconds)
+            var result = TransitionResult()
+            try change {
+                var engine = try TimelineEditEngine(project: $0)
+                result = try engine.addTransition(clipID: clip.id, near: at, duration: duration)
+                $0 = engine.project
+            }
+            statusMessage = result.dips > 0
+                ? "No media lies beyond this cut, so the clips dip through black and silence. Trim the clips to leave handles for a dissolve."
+                : result.total == 1 ? "Added a transition." : "Added \(result.total) transitions."
+        } catch TimelineEditError.invalidAudioCrossfade {
+            errorMessage = "No transition fits at this edit point. Existing transitions are kept, and joining clips need source beyond the cut."
+        } catch { report(error) }
+    }
     func applyAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, seconds: Double,
-                             curve: AudioFadeCurve, expectedProject: Project) throws {
+                             curve: AudioFadeCurve, style: TransitionStyle? = nil, expectedProject: Project) throws {
         guard project == expectedProject else {
             throw EditorCoreError.invalidModel("The project changed while editing the crossfade. Review the current clips and try again.")
         }
         let draft = try previewAudioCrossfade(outgoingClipID: outgoingClipID, incomingClipID: incomingClipID,
-                                              seconds: seconds, curve: curve)
+                                              seconds: seconds, curve: curve, style: style)
         try change { $0 = draft }
         selectedClipID = outgoingClipID
-        statusMessage = "Updated linked audio crossfade."
+        statusMessage = project.tracks.flatMap(\.clips).first { $0.id == outgoingClipID }?.requiredTrackKind == .video
+            ? "Updated cross dissolve." : "Updated linked audio crossfade."
     }
     func removeAudioCrossfade(_ id: UUID, expectedProject: Project) throws {
         guard project == expectedProject else {
@@ -825,33 +1205,34 @@ final class EditorStore: ObservableObject {
             try engine.apply(.removeAudioCrossfade(crossfadeID: id))
             $0 = engine.project
         }
-        statusMessage = "Removed linked audio crossfade."
+        statusMessage = "Removed transition."
     }
     func audioEditErrorMessage(_ error: Error) -> String {
         if case EditorCoreError.invalidModel(let message) = error { return message }
         return (error as? LocalizedError)?.errorDescription ?? String(describing: error)
     }
-    func applyAudioFades(clipID: UUID, fadeInSeconds: Double, fadeInCurve: AudioFadeCurve,
+    func applyFades(clipID: UUID, fadeInSeconds: Double, fadeInCurve: AudioFadeCurve,
                          fadeOutSeconds: Double, fadeOutCurve: AudioFadeCurve, expectedClip: TimelineClip) throws {
         guard fadeInSeconds.isFinite, fadeOutSeconds.isFinite, fadeInSeconds >= 0, fadeOutSeconds >= 0 else {
             throw EditorCoreError.invalidTime
         }
-        guard let clip = project.tracks.flatMap(\.clips).first(where: { $0.id == clipID }), clip == expectedClip,
-              clip.requiredTrackKind == .audio else {
-            throw EditorCoreError.invalidModel("The audio clip changed while editing fades. Review its current settings and try again.")
+        guard let clip = project.tracks.flatMap(\.clips).first(where: { $0.id == clipID }), clip == expectedClip else {
+            throw EditorCoreError.invalidModel("The clip changed while editing fades. Review its current settings and try again.")
         }
+        let isPicture = clip.requiredTrackKind == .video
         // Preserve exact persisted times on the untouched edge, including imported rational values.
-        let inTime = fadeInSeconds == clip.fadeIn.duration.seconds ? clip.fadeIn.duration : try audioFadeTime(fadeInSeconds, clip: clip)
-        let outTime = fadeOutSeconds == clip.fadeOut.duration.seconds ? clip.fadeOut.duration : try audioFadeTime(fadeOutSeconds, clip: clip)
-        let fadeIn = AudioFade(duration: inTime, curve: fadeInCurve)
-        let fadeOut = AudioFade(duration: outTime, curve: fadeOutCurve)
+        let inTime = fadeInSeconds == clip.fadeIn.duration.seconds ? clip.fadeIn.duration : try fadeTime(fadeInSeconds, clip: clip)
+        let outTime = fadeOutSeconds == clip.fadeOut.duration.seconds ? clip.fadeOut.duration : try fadeTime(fadeOutSeconds, clip: clip)
+        // Pictures fade their opacity linearly.
+        let fadeIn = AudioFade(duration: inTime, curve: isPicture ? .linear : fadeInCurve)
+        let fadeOut = AudioFade(duration: outTime, curve: isPicture ? .linear : fadeOutCurve)
         try change {
             var engine = try TimelineEditEngine(project: $0)
-            try engine.apply(.setAudioFades(clipID: clipID, fadeIn: fadeIn, fadeOut: fadeOut))
+            try engine.apply(.setFades(clipID: clipID, fadeIn: fadeIn, fadeOut: fadeOut))
             $0 = engine.project
         }
         selectedClipID = clipID
-        statusMessage = "Updated audio fades."
+        statusMessage = isPicture ? "Updated picture fades." : "Updated audio fades."
     }
     /// Validate a draft on a copy before the inspector asks to commit a track change.
     func previewAudioSelection(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting], replacingClipIDs: [UUID] = []) throws -> Project {

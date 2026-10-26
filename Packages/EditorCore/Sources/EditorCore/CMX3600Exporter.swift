@@ -89,6 +89,14 @@ public enum CMX3600Exporter {
             let label = "Clip \(clip.id.uuidString) (\(asset.name))"
             let priorReasonCount = reasons.count
             if clip.fadeIn.duration != .zero || clip.fadeOut.duration != .zero { reasons.append("\(label): fades are not supported.") }
+            if clip.gain != 1 { reasons.append("\(label): clip volume must be unity.") }
+            if clip.dynamics != nil { reasons.append("\(label): compression is not supported.") }
+            if clip.key != nil { reasons.append("\(label): keying is not supported.") }
+            if !clip.eq.isFlat { reasons.append("\(label): EQ is not supported.") }
+            if !clip.volumeKeyframes.isEmpty { reasons.append("\(label): volume keyframes are not supported.") }
+            if clip.speed != .one { reasons.append("\(label): speed changes are not supported.") }
+            if !clip.color.isNeutral { reasons.append("\(label): colour correction is not supported.") }
+            if !clip.transform.isIdentity || !clip.transformKeyframes.isEmpty { reasons.append("\(label): scale, position and opacity are not supported.") }
             if !lineText(asset.name) { reasons.append("\(label): the clip name must be nonempty printable ASCII on one line.") }
             guard let timing = sourceTiming[asset.id] else {
                 reasons.append("\(label): verified source frame rate, start timecode and reel identity are required.")

@@ -35,13 +35,152 @@ and Gatekeeper assesses it as "Notarized Developer ID".
    J/K/L also work. Drag clips to move them, drag edges to trim, use ⌘B to split
    and ⌘⌫ to delete. Undo and redo with ⌘Z and ⇧⌘Z. Every shortcut can be
    remapped in Settings.
-5. Set the sequence resolution, frame rate, audio rate and start timecode in the
+5. Select a clip and press ⌘T to add a transition at its edit nearest the
+   playhead: picture cross dissolves and sound crossfades into the next clip on
+   the same track, or a free edge fades from or to black and silence. See
+   [Transitions](#transitions).
+6. Set the sequence resolution, frame rate, audio rate and start timecode in the
    inspector. The first picture you add can match the sequence to its source.
-6. Choose **File → Render Sequence…** (⇧⌘E), pick a format, check any warnings,
+7. Choose **File → Render Sequence…** (⇧⌘E), pick a format, check any warnings,
    then choose a folder.
-7. Save with ⌘S. Projects reference your media; they don't copy it.
+8. Save with ⌘S. Projects reference your media; they don't copy it.
 
 [Basic workspace testing](basic-workspace.md) describes every editing control.
+
+## Editing at the playhead
+
+| Key | Action |
+| --- | --- |
+| ⌘E | Append the source (or its marked range) to the end of the sequence |
+| , | Insert the source at the playhead, pushing later clips on every track |
+| . | Overwrite the sequence at the playhead on the source's tracks |
+| ⌘B | Split the selected clip at the playhead |
+| ⌘⌫ | Delete the selected clip, leaving a gap |
+| ⇧⌘⌫ | Ripple delete: remove the clip and close the gap on every track |
+| Q / W | Ripple trim the clip start or end to the playhead |
+| ⌘C ⌘X ⌘V | Copy, cut, and paste at the playhead (clip and linked components) |
+| ⌘D | Duplicate the selected clip after itself |
+
+Insert and overwrite are also buttons beside **Append** under the media bin.
+Insert refuses to split inside a fade or transition, and ripple delete refuses
+when another clip crosses the gap; move or trim that clip first. Pasting over
+occupied time stacks the copy on a new sibling track rather than overwriting.
+
+## Transitions
+
+- **⌘T (Add Transition)** works on the selected clip and its linked components in
+  one undoable edit. It uses the clip edge nearest the playhead. Where another clip
+  meets that edge on the same track, picture gets a one-second cross dissolve and
+  sound an equal-power crossfade. A dissolve centres on the cut and uses source
+  beyond it, shrinking to fit the source that is available. When no media lies
+  beyond the cut (whole clips placed end to end), the clips dip through black and
+  silence instead. An edge with no neighbour fades the picture from or to black
+  (or the layers below) and fades the sound. Edges that already have a
+  transition are left as they are.
+- In the inspector's **Transition to next clip**, choose a **Style**: cross dissolve,
+  slide in from the right or left, push left or right, or wipe left to right or right
+  to left. Slides move the next clip in over this one; pushes move both; wipes uncover
+  it with a moving edge. They need full-frame clips without their own
+  scale, position or keyframes.
+- Picture clips have fade handles like audio clips: drag the yellow handle inward
+  to fade, or drop it onto the neighbouring clip to dissolve. The inspector sets
+  exact fade and dissolve durations and removes dissolves.
+- Picture fades and dissolves are linear and snap to whole frames. Exports render
+  them exactly. For Rec. 709 media, preview and export match within a few levels.
+- FCPXML writes fades as adjustments; FCPXML, OTIO and EDL refuse transitions rather
+  than dropping them.
+
+## Scale, position and opacity
+
+Select a picture clip and use **Transform** in the inspector: scale and opacity in
+percent, and position as a percentage of the frame (positive X moves right, positive
+Y down). The picture-in-picture button shrinks the clip to a third in the lower right
+corner, and reset restores it. Layers below show around and through a transformed
+picture. Interchange exports refuse transformed clips.
+
+## Motion
+
+To animate a picture or title, set **Scale**, **Position** and **Opacity** under
+Transform, move the playhead and click the diamond to add a keyframe; repeat at
+another time. The picture moves, scales and fades between keyframes. **Motion presets** (the wand) add a
+slide in from the left, a rise from below, a slow zoom or a drift in one step. The
+inspector lists keyframes to jump to or remove.
+
+## Speed
+
+Select a clip and enter **Speed (%)** in the inspector (10–1000%), or pick a preset.
+The clip keeps its source in and plays the same media faster or slower, so it gets
+shorter or longer; linked sound changes with it and keeps its pitch. A longer clip
+never overwrites the next one; it moves to a track above. Interchange exports
+refuse speed changes.
+
+## Colour
+
+Select a picture clip and drag **Brightness**, **Contrast**, **Saturation**, **Blur**
+or the **Levels** sliders (black point, white point, gamma) under **Colour, levels and
+blur** in the inspector; each release is one undoable change, and the reset
+button restores the original. Sequences with colour correction preview through a
+CoreImage compositor; preview colours are within a few levels of the export.
+
+## Chroma key
+
+Put a green- or blue-screen clip on a track above the background, select it and turn on
+**Chroma key** in the inspector. Pick the screen colour, raise **Similarity** until the
+background clears and use **Blend** to soften edges. Preview and export key the same way.
+
+## Stabilise
+
+Select a shaky picture clip and click **Stabilise** in the inspector. The app makes a
+stabilised copy of the media the clip plays (plus a second either side for trims) in its
+Application Support "Stabilised" folder and points the clip at it, so preview and export
+show the same steadied frames. Linked sound keeps the original. Undo returns to the
+original media. Expect about real time or slower for 4K shots.
+
+## Titles
+
+Press ⌃T (or the **T** button in the timeline toolbar) to add a five-second title at
+the playhead. It goes on a **Titles** track in front of the picture. Select it to
+edit the text, font, alignment, size, position, colour, weight and an optional background band in
+the inspector, then click **Apply title**. Trim, move, fade and dissolve titles
+like any other clip. Titles are drawn as transparent images in the app's
+Application Support "Titles" folder and redrawn if missing. Interchange exports
+reference those images as stills.
+
+## Compressor, limiter and noise reduction
+
+Select an audio clip (or a picture with linked sound) and turn on **Compressor** in the
+inspector: set **Threshold**, **Ratio** and **Makeup**, and optionally a **Limiter**
+ceiling. The preview runs the same compressor as the export, sample for sample.
+**Reduce noise** makes a noise-reduced copy of the clip's sound (about 10 dB less steady
+hiss, using its quietest half second as the noise floor) and points the clip at it;
+undo returns to the original.
+
+## EQ
+
+Select an audio clip (or a picture with linked sound) and drag **Low** (120 Hz shelf),
+**Mid** (1 kHz) or **High** (8 kHz shelf) under **EQ** in the inspector, ±24 dB. The
+preview and the export run the same filters.
+
+## Volume, keyframes, mute and solo
+
+Choose **Panels → Mixer** (or View → Show Mixer) for a mixer beside the inspector:
+each audio track has mute, solo, a gain fader and a meter that shows its post-fader
+peak while the sequence plays.
+
+To ride a level (for example ducking music under speech), select the clip, move the
+playhead to where the change starts, enter a volume and click the diamond to add a
+keyframe; add another where it should end. Volume ramps linearly between keyframes
+and holds before the first and after the last. The orange line on the clip shows it;
+the inspector lists keyframes to jump to or remove.
+
+Each track header has quick controls: the eye hides a video track, **M** mutes an
+audio track and **S** solos it (while any track is soloed, only soloed audio
+plays). Hidden and muted tracks are left out of preview and every export.
+
+Select a clip and enter **Clip volume (dB)** in the inspector (up to +24 dB; −inf
+silences it). With a picture selected, the field sets its linked audio. Clip
+volume multiplies the track gain set in the track header. The preview plays gain
+above 0 dB at 0 dB; the export applies it in full.
 
 ## Media support
 
@@ -84,7 +223,9 @@ these warnings into refusals, for when exact decoded parity matters more than
 convenience.
 
 FCPXML, OpenTimelineIO and track EDL exports are also available from the File
-menu. DaVinci Resolve 21 imports both with media linked and every clip at the exact
+menu. FCPXML also carries volume, fades, scale, position,
+opacity and their keyframes as Final Cut adjustments (DTD-valid; editor import of
+these adjustments is not yet verified). DaVinci Resolve 21 imports both with media linked and every clip at the exact
 frame, source offset and layer. Resolve's renders of the imported timelines match
 the app's own render. Media with embedded timecode (most camera and broadcast
 files) is referenced in its own timecode clock, as editors expect. FCPXML writes
@@ -107,8 +248,7 @@ notice appears under the viewer, but playback continues:
 
 ## Known limitations
 
-- Effects, titles, transitions other than audio crossfades, keyframes and a mixer
-  are not part of this version.
+- Full curves and tracking-based stabilisation (levels, chroma key and deshake stabilisation are included), title animation beyond position, scale and opacity, transitions other than dissolves, slides, pushes, wipes, dips and crossfades, and audio effects beyond EQ, compression, limiting and noise reduction are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
 - 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed
@@ -149,11 +289,21 @@ with Space, and opens Render Sequence with ⇧⌘E. Finally it renders H.264 and
 ProRes 422 HQ, then saves, closes and reopens the project. It prints PASS/FAIL
 for each step and keeps window snapshots, renders and the project in the printed
 folder. Use media outside Desktop, Documents and Downloads, or macOS asks for
-folder access. Short extra launches check that ⌘I opens the real Import panel and
+folder access. With `AFC_ACCEPTANCE_PANEL_PROBES=1`, short extra launches check that ⌘I opens the real Import panel and
 that Return in Render Sequence opens the real folder panel. They also check that
 the folder panel round-trips: it navigates, confirms, returns the destination to
 the app (export starts) and cancels cleanly. The main run exports and saves
-through the same calls the panels make.
+through the same calls the panels make. The probes are off by default: an unsigned build can be refused by the
+system panel service, which leaves an "open file operation failed" alert to dismiss.
+
+To watch the app cut a short film from your own shots (marks, dissolves, slow motion,
+grade, title, music bed with ducking, playback, export and save), run:
+
+```sh
+scripts/story-edit.sh "/path/to/Aagedal Film Constructor.app" "shot1.mov@8-13" "shot2.mov@20-25" "shot3.mov@5-9" "shot4.mov@60-66"
+```
+
+Each argument is a file and its source in/out in seconds; the third shot plays at 50%.
 
 ## Reporting problems
 

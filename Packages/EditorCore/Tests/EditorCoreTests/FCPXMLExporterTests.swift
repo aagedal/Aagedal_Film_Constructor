@@ -111,13 +111,32 @@ final class FCPXMLExporterTests: XCTestCase {
         }
     }
 
-    func testRejectsFadesCrossfadesAndGainInsteadOfDroppingThem() throws {
+    /// Volume, fades, placement and keyframes become Final Cut adjustments; crossfades are still refused.
+    func adjustedFixture() throws -> Project {
         var project = try fixture()
         project.tracks[2].clips[0].fadeIn = .init(duration: try RationalTime(1))
         project.tracks[2].template.gain = 0.5
-        let errors = try reasons(project)
-        XCTAssertTrue(errors.contains { $0.contains("fades") })
-        XCTAssertTrue(errors.contains { $0.contains("gain") })
+        project.tracks[2].clips[0].volumeKeyframes = [VolumeKeyframe(time: try RationalTime(2), gain: 1), VolumeKeyframe(time: try RationalTime(3), gain: 0.25)]
+        let picture = project.tracks.firstIndex { $0.kind == .video }!
+        project.tracks[picture].clips[0].transform = PictureTransform(scale: 0.5, offsetX: 0.25, offsetY: 0.25, opacity: 0.8)
+        project.tracks[picture].clips[0].transformKeyframes = [
+            TransformKeyframe(time: project.tracks[picture].clips[0].sourceRange.start, scale: 0.5, offsetX: 0.25, offsetY: 0.25, opacity: 0),
+            TransformKeyframe(time: try project.tracks[picture].clips[0].sourceRange.start.adding(RationalTime(1)), scale: 0.5, offsetX: 0, offsetY: 0)]
+        project.tracks[picture].clips[0].fadeOut = .init(duration: try RationalTime(1, 2))
+        return project
+    }
+
+    func testWritesVolumeFadesPlacementAndKeyframesAndRefusesCrossfades() throws {
+        let xml = try FCPXMLExporter.export(project: adjustedFixture()).xml
+        XCTAssertTrue(xml.contains("<adjust-volume amount=\"-6.0206dB\">"))
+        XCTAssertTrue(xml.contains("<fadeIn type=\"linear\" duration=\"1s\"/>"))
+        XCTAssertTrue(xml.contains("value=\"-18.0618dB\""))
+        XCTAssertTrue(xml.contains("<adjust-transform position=\"44.4444 -25\" scale=\"0.5 0.5\">"), "Position in percent of frame height, y up")
+        XCTAssertTrue(xml.contains("<param name=\"position\">"))
+        XCTAssertTrue(xml.contains("<param name=\"scale\">"), "Scale keyframes are written alongside position")
+        XCTAssertFalse(xml.contains("interp="), "Final Cut Pro ignores keyframed params that carry interp")
+        XCTAssertTrue(xml.contains("<adjust-blend amount=\"0.8\">"))
+        XCTAssertTrue(xml.contains("<fadeOut type=\"linear\" duration=\"1/2s\"/>"))
         var audio = try DemoProjectFactory.musicCollision()
         audio.assets[0].originalURL = URL(fileURLWithPath: "/tmp/audio.wav")
         audio.tracks[0].template.gain = 1
@@ -212,6 +231,7 @@ final class FCPXMLExporterTests: XCTestCase {
         channels.tracks[2].clips[0].selection = .audio(AudioSourceSelection(channels: [SourceChannel(streamIndex: 2, channelIndex: 1), SourceChannel(streamIndex: 2, channelIndex: 0)], layout: .stereo))
         var projects = try [FrameRate(24), FrameRate(24000, 1001), FrameRate(30000, 1001), FrameRate(60000, 1001)].map { try fixture(rate: $0) }
         projects.append(channels)  // audio-channel-source selection
+        projects.append(try adjustedFixture())  // volume, fades, placement and keyframes
         for project in projects {
             let result = try FCPXMLExporter.export(project: project)
             let document = try XMLDocument(xmlString: result.xml)

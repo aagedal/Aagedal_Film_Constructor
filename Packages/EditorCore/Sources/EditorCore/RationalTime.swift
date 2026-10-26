@@ -22,6 +22,7 @@ extension EditorCoreError: LocalizedError {
 public struct RationalTime: Hashable, Codable, Sendable {
     public let numerator: Int64
     public let denominator: Int64
+    public static let one = try! RationalTime(1)
     public static let zero = try! RationalTime(0)
     public init(_ numerator: Int64, _ denominator: Int64 = 1) throws {
         guard denominator != 0, denominator != .min else { throw EditorCoreError.invalidTime }

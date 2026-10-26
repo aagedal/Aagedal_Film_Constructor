@@ -20,7 +20,12 @@ swiftc -module-cache-path "$smoke_root/module-cache" -parse-as-library \
   "$repo_root/Aagedal Film Constructor/MediaConversionService.swift" \
   "$repo_root/Aagedal Film Constructor/SourcePlaybackBackend.swift" \
   "$repo_root/Aagedal Film Constructor/EditorStore.swift" \
+  "$repo_root/Aagedal Film Constructor/TitleRenderer.swift" \
+  "$repo_root/Aagedal Film Constructor/StabilisationService.swift" \
+  "$repo_root/Aagedal Film Constructor/NoiseReductionService.swift" \
   "$repo_root/Aagedal Film Constructor/AVFoundationSequenceBackend.swift" \
+  "$repo_root/Aagedal Film Constructor/CoreImageCompositor.swift" \
+  "$repo_root/Aagedal Film Constructor/AudioMeters.swift" \
   "$repo_root/Aagedal Film Constructor/SystemStillPreview.swift" \
   "$repo_root/Aagedal Film Constructor/SequencePlaybackController.swift" \
   "$repo_root/Aagedal Film Constructor/EditorExport.swift" \

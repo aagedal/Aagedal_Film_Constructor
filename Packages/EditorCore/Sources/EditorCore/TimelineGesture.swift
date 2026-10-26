@@ -25,12 +25,12 @@ public enum TimelineGesture {
         for component in components(of: clip, in: project) {
             switch edge {
             case .leading:
-                lower = max(lower, -component.sourceRange.start.seconds, -component.timelineStart.seconds)
+                lower = max(lower, -component.sourceRange.start.seconds / component.speed.seconds, -component.timelineStart.seconds)
                 upper = min(upper, component.sourceRange.duration.seconds - quantum)
             case .trailing:
                 lower = max(lower, quantum - component.sourceRange.duration.seconds)
                 if let asset = project.assets.first(where: { $0.id == component.assetID }) {
-                    upper = min(upper, asset.duration.seconds - component.sourceRange.start.seconds - component.sourceRange.duration.seconds)
+                    upper = min(upper, (asset.duration.seconds - ((try? component.sourceEnd().seconds) ?? .infinity)) / component.speed.seconds)
                 }
             }
         }

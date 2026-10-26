@@ -109,6 +109,7 @@ public struct NativePlaybackPlan: Equatable, Sendable {
                 throw EditorCoreError.invalidModel("Native playback requires an absolute local original URL")
             }
             try component.fadeIn.validate(duration: component.sourceRange.duration)
+            guard component.volumeKeyframes.isEmpty, component.speed == .one, component.eq.isFlat, component.dynamics == nil else { throw EditorCoreError.invalidModel("The native runtime does not render volume keyframes") }
             try component.fadeOut.validate(duration: component.sourceRange.duration)
             try component.sourceRange.validate()
             try component.timelineRange.validate()
@@ -153,8 +154,8 @@ public struct NativePlaybackPlan: Equatable, Sendable {
                     streamIndex = index
                     _ = try sourceStream(streamIndex, kind: .video)
                 }
-                guard component.fadeIn.duration == .zero && component.fadeOut.duration == .zero else {
-                    throw EditorCoreError.invalidModel("Only audio clips support fades")
+                guard component.fadeIn.duration == .zero && component.fadeOut.duration == .zero, !component.hasPlacement, component.color.isNeutral else {
+                    throw EditorCoreError.invalidModel("The native runtime does not render picture fades, transforms or colour")
                 }
                 guard component.routing.outputChannels.isEmpty else {
                     throw EditorCoreError.invalidModel("Video component has audio routing")

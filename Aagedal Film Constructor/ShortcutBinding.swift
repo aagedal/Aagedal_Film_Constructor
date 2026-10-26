@@ -3,7 +3,7 @@ import Foundation
 enum EditorCommandScope: String, Codable { case document, source, timeline }
 
 enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
-    case togglePlayback, zoomTimelineToFit, rippleTrimStart, rippleTrimEnd, toggleViewer, undo, redo, importMedia, appendSource, markSourceIn, markSourceOut, clearSourceMarks, splitClip, previousFrame, nextFrame, deleteClip, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO
+    case togglePlayback, zoomTimelineToFit, rippleTrimStart, rippleTrimEnd, toggleViewer, undo, redo, importMedia, appendSource, markSourceIn, markSourceOut, clearSourceMarks, splitClip, addTransition, addTitle, insertSource, overwriteSource, previousFrame, nextFrame, deleteClip, rippleDelete, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -20,6 +20,11 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .markSourceOut: "Mark Source Out (Exclusive)"
         case .clearSourceMarks: "Clear Source Marks"
         case .splitClip: "Split at Playhead"
+        case .addTransition: "Add Transition at Nearest Edit"
+        case .addTitle: "New Title at Playhead"
+        case .insertSource: "Insert Source at Playhead"
+        case .overwriteSource: "Overwrite Source at Playhead"
+        case .rippleDelete: "Ripple Delete Selected Clip"
         case .previousFrame: "Previous Frame"
         case .nextFrame: "Next Frame"
         case .deleteClip: "Delete Selected Clip"
@@ -35,7 +40,7 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
     var isPlayback: Bool { [.togglePlayback, .playReverse, .pausePlayback, .playForward].contains(self) }
     var scope: EditorCommandScope {
         switch self {
-        case .toggleViewer, .undo, .redo, .importMedia, .exportSequence, .exportFCPXML, .exportEDL, .exportOTIO: .document
+        case .toggleViewer, .undo, .redo, .importMedia, .insertSource, .overwriteSource, .exportSequence, .exportFCPXML, .exportEDL, .exportOTIO: .document
         case .appendSource, .markSourceIn, .markSourceOut, .clearSourceMarks, .playReverse, .pausePlayback, .playForward: .source
         default: .timeline
         }
@@ -55,6 +60,11 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .markSourceOut: ShortcutBinding(key: "o")
         case .clearSourceMarks: ShortcutBinding(key: "x", option: true)
         case .splitClip: ShortcutBinding(key: "b", command: true)
+        case .addTransition: ShortcutBinding(key: "t", command: true)
+        case .addTitle: ShortcutBinding(key: "t", control: true)
+        case .insertSource: ShortcutBinding(key: ",")
+        case .overwriteSource: ShortcutBinding(key: ".")
+        case .rippleDelete: ShortcutBinding(key: "delete", command: true, shift: true)
         case .previousFrame: ShortcutBinding(key: "left", command: true, option: true)
         case .nextFrame: ShortcutBinding(key: "right", command: true, option: true)
         case .deleteClip: ShortcutBinding(key: "delete", command: true)
@@ -92,7 +102,7 @@ struct ShortcutBinding: Codable, Equatable {
         guard namedKeys.contains(candidate.key) || (candidate.key.count == 1 && candidate.key.unicodeScalars.allSatisfy { !$0.properties.isWhitespace && !CharacterSet.controlCharacters.contains($0) }) else {
             return "Enter one character or left, right, up, down, delete, return, escape, space, or tab."
         }
-        guard commandID.isPlayback || [.toggleViewer, .markSourceIn, .markSourceOut, .clearSourceMarks, .zoomTimelineToFit, .rippleTrimStart, .rippleTrimEnd].contains(commandID) || candidate.command || candidate.option || candidate.control else {
+        guard commandID.isPlayback || [.toggleViewer, .markSourceIn, .markSourceOut, .clearSourceMarks, .zoomTimelineToFit, .rippleTrimStart, .rippleTrimEnd, .insertSource, .overwriteSource].contains(commandID) || candidate.command || candidate.option || candidate.control else {
             return "Include Command, Option, or Control to preserve text entry."
         }
         if candidate.command && !candidate.option && !candidate.control && ["q", "w", "n", "o", "s", "h", "m", ",", "c", "v", "x", "a", "f"].contains(candidate.key) {

@@ -17,7 +17,136 @@ publication and opt-in helper packaging; FCPXML has a validated structural subse
 This plan records the intended product and implementation order; unchecked
 items remain planned capabilities.
 
-## Current priority: usable beta (2026-10-23)
+## Current priority: usable editor (2026-10-26)
+
+The beta assembles, previews and exports cuts. These are the remaining everyday
+editing tools needed before the editor is usable for finished pieces. Each item
+renders exactly in export, previews through the system backend, persists, undoes
+as one step, and is refused (never dropped) by interchange exports that cannot
+express it.
+
+- [x] Picture fades and cross dissolves: linear opacity fades on video and still
+  clips; dissolves between pictures meeting on one track reuse the paired
+  crossfade relation on the frame grid with centred source handles. ⌘T adds a
+  dissolve/crossfade (or edge fades) to the selected clip and its linked
+  components. Decoded-pixel checks: `VideoTransitionRenderTests` (export, with
+  `AFC_FFMPEG`) and `scripts/system-transition-smoke.sh` (preview vs export).
+- [x] Titles: ⌃T adds a title at the playhead on a Titles track in front of all
+  pictures. The asset stores its text and style (size, colour, position, weight,
+  background band); the app draws it to a transparent PNG at the sequence raster,
+  so render, preview, thumbnails, fades and interchange treat it as a still.
+  Missing images are redrawn on open. Any installed font family (missing fonts fall
+  back to the system font) and left/centre/right alignment. `scripts/title-smoke.sh`
+  checks export and preview composite the text, fonts and alignment.
+- [x] Per-clip audio volume in dB (up to +24, or silence), multiplied with track
+  gain in render and preview. Selecting a picture sets its linked audio. Split,
+  trim and save keep it; consolidation requires equal volumes; FCPXML, OTIO and
+  EDL refuse non-unity volume.
+- [x] Ripple delete (⇧⌘⌫) removes a clip with its linked components and closes the
+  gap on every track; clips crossing the gap refuse it, like ripple trim. Insert (,)
+  splits clips at the playhead and pushes later clips; overwrite (.) trims, splits or
+  removes what lies on the destination tracks. Both use the source marks, keep
+  transitions whose clips still meet, and leave the playhead after the new clip.
+- [x] Picture transform: per-clip scale (1–1000%), position (fractions of the frame)
+  and opacity after the scaling mode, with a picture-in-picture preset. Transformed
+  pictures reveal lower layers in render and preview; split, copy and save keep it;
+  interchange and stream copy refuse it. `PictureTransformTests` checks decoded export
+  pixels; `scripts/system-transition-smoke.sh` compares preview and export.
+- [x] Position keyframes and motion presets: picture scale and position keyframes in source
+  time, linear between points (opacity stays static), with slide-in, rise, slow-zoom and
+  drift presets that also animate titles. Export uses time-based `scale`/`overlay`
+  expressions; the system preview uses transform ramps and the CoreImage compositor
+  evaluates the same placement per frame. `TransformKeyframeTests` measures the decoded
+  inset's position and size; the preview matches export at the keyframes and between.
+- [x] Editorial run on real footage (2026-10-26, `scripts/story-edit.sh`): the real app cut a
+  24-second film from four 4K25 H.264 drone shots: marked source ranges appended with
+  ⌘E, a fade up, three dissolves with source handles, one shot at 50%, a grade on every
+  shot, a rising two-line title, and a music bed faded in and out and ducked by 10 dB with
+  keyframes. It played in the sequence viewer, exported a verified 600-frame 1080p H.264
+  with no warnings and saved. Frames and per-second loudness of the export match the edit.
+- [x] FCPXML adjustments: volume, fades, scale, position, opacity and their keyframes are
+  written as `adjust-volume`, `adjust-transform` and `adjust-blend` with params; an
+  adjusted fixture validates against Apple's 1.10 DTD. Import into Final Cut Pro and
+  Resolve is still to be checked. Transitions, EQ, speed, colour and wipes stay refused.
+- [x] Opacity keyframes: each transform keyframe carries opacity (multiplying the static
+  opacity). Export scales alpha with a time-based `geq` only for such clips; the system
+  preview ramps opacity through the same curve and the CoreImage compositor evaluates it
+  per frame. Export pixels are checked in `OpacityKeyframeTests`; previews agree within
+  3 levels.
+- [x] Slide and push transitions: an optional style on the transition relation; the render
+  plan turns it into keyframes on the incoming (and, for pushes, outgoing) picture, so
+  export and both preview compositors animate it. Decoded export and preview agree on
+  the picture split at 25%, 50% and 75% of a push.
+- [x] Wipes: the incoming picture carries a reveal; export builds a sliding white-on-black
+  mask and `alphamerge`s it, the system preview ramps the layer crop rectangle and the
+  CoreImage compositor crops the placed picture. Export and both previews agree exactly
+  at 25%, 50% and 75%.
+- [x] Clip speed (10–1000%): `sourceRange.duration` stays timeline time and the clip plays
+  `duration × speed` of source; splits, trims, overwrite, transition handles, volume
+  keyframes and thumbnails map through the speed. Export retimes picture in a fine
+  timebase and sound with pitch-preserving `atempo`; preview scales the inserted source
+  with spectral pitch correction. `ClipSpeedTests` checks decoded frame numbers, exact
+  sample counts and pitch; the preview matches export frame for frame.
+- [x] Preview measurement fix: the smokes read preview frames in their own colour space
+  (drawing into device RGB had lifted greys by up to ~13 levels).
+- [x] Colour correction: per-picture brightness, contrast and saturation on encoded values
+  (export: `lutyuv` in video range; preview: a CoreImage custom compositor without colour
+  management, used only when a sequence has colour, which also reproduces transforms,
+  opacity, fades and dissolves). Export pixels are checked in `ColorAdjustmentTests`;
+  preview matches export within 5 levels (`system-transition-smoke.sh`), and real-window
+  acceptance plays and exports a colour-corrected timeline.
+- [x] Volume keyframes: audio clips carry source-anchored volume points (linear between
+  points, held outside), multiplied with clip volume and fades. Trims and splits keep
+  them on the same sound. The inspector adds a keyframe at the playhead with the volume
+  field and lists, jumps to and removes them; the timeline draws the envelope. Export
+  levels (`VolumeKeyframeTests`) and preview levels (`system-transition-smoke.sh`)
+  measure 1 : 0.625 : 0.25 at the expected points.
+- [x] Stabilise: FFmpeg deshake renders a stabilised HEVC copy of the clip's source range
+  (±1 s) into Application Support; one undoable edit adds it and points the picture at it
+  (`replacePictureMedia`, keyframes shifted with the source), leaving linked sound on the
+  original. `scripts/stabilise-smoke.sh` measures 43% less frame-to-frame motion on shaky
+  synthetic footage.
+- [x] Chroma key: per-picture key colour, similarity and blend. Export runs FFmpeg
+  `chromakey` on the picture's chroma before padding; the preview applies a 32³ colour cube
+  built from the same formula (Rec. 709 chroma of the picture against FFmpeg's BT.601 key
+  chroma) in the CoreImage compositor. `ChromaKeyTests` checks a keyed composite; preview
+  matches export within 3 levels.
+- [x] Levels: black point, white point and gamma per picture on RGB (export `lutrgb` between
+  `gbrap` conversions; preview `CIColorMatrix`, clamp and `CIGammaAdjust`). Export greys are
+  checked in `LevelsTests`; preview matches export within 4 levels.
+- [x] Blur: a Gaussian blur on the fitted, frame-sized picture before placement (export
+  `gblur`, preview `CIGaussianBlur` on the same canvas). Export pixels are checked in
+  `BlurTests`; preview and export edge profiles agree within 18 levels.
+- [x] Compressor and limiter per audio component: export runs FFmpeg `acompressor` (peak,
+  hard knee, linked) after volume; the preview tap runs a Swift port that matches FFmpeg
+  to within 1e-4 per sample (`AudioDynamicsTests`). The tap restores the 3 dB the system
+  mixer takes from stereo before compressing and metering, so preview compression matches
+  the model exactly and meters read true levels.
+- [x] Noise reduction: a noise-reduced copy of the component's channels (afftdn, 12 dB, noise
+  floor from the quietest half second) replaces its media in one undoable edit. The smoke
+  measures about 10 dB less hiss with the tone unchanged.
+- [x] Three-band EQ per audio component (120 Hz low shelf, 1 kHz peak, 8 kHz high shelf,
+  ±24 dB): EditorCore computes RBJ biquads; export runs them with FFmpeg `biquad`, the
+  preview tap runs them per channel. Decoded export changes match the computed response
+  within 0.3 dB; the preview within 0.001 dB.
+- [x] Mixer panel: per-track mute, solo, gain fader and a post-fader peak meter fed by
+  MTAudioProcessingTap taps on the preview's audio tracks (falling peak hold). The
+  smoke checks the meter reports a known tone; acceptance checks it moves in playback.
+- [x] Track mute/solo: the eye hides a video track; M mutes and S solos audio tracks.
+  The render plan (preview and every export) leaves them out; collision siblings
+  inherit the state.
+- [x] Real-window acceptance (2026-10-26, `scripts/app-acceptance.sh … generate`): ⌘T,
+  ⌃T and title editing, clip volume, insert, overwrite, ⌘C/⌘V, ⌘D and ⇧⌘⌫ pass
+  alongside the beta steps; H.264 and ProRes renders of the edited timeline verify.
+  It found and fixed: ⌘T failing whole-clip cuts (now a dip through black when no
+  media lies beyond the cut), ⌘T refusing everything when one linked edge already had
+  a transition (that edge is now left alone), and clipboard keys depending on stale
+  menu focus (now routed by the keyboard router).
+- [x] Cut, copy and paste (⌘X/⌘C/⌘V) and Duplicate Clip (⌘D) act on the selected clip
+  and its linked components when no text field has focus. Pastes go to the original
+  tracks at the playhead with new identities, stacking on siblings over occupied time.
+
+## Earlier priority: usable beta (2026-10-23)
 
 Prioritize everyday usability over further qualification proofs. Unqualified
 sources now render or preview with visible approximations instead of refusing;

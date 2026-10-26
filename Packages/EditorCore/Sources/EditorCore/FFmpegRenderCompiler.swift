@@ -104,10 +104,7 @@ public enum FFmpegRenderCompiler {
         var videoLabel = "base"
         var audioLabels = ["silence"]
         // Composite back to front: track zero is frontmost in the canonical plan.
-        let components = plan.components.sorted {
-            if $0.layerOrder != $1.layerOrder { return $0.layerOrder > $1.layerOrder }
-            return $0.clipID.uuidString < $1.clipID.uuidString
-        }
+        let components = plan.components.sorted { TimelineRenderPlan.Component.isInFront($1, of: $0) }
         for (index, component) in components.enumerated() {
             guard let url = component.originalURL, url.isFileURL, !aliases(url, outputURL) else {
                 throw EditorCoreError.invalidModel("Missing original or output aliases a source")
@@ -132,8 +129,8 @@ public enum FFmpegRenderCompiler {
             }
             switch component.selection {
             case .still, .video:
-                guard component.fadeIn.duration == .zero && component.fadeOut.duration == .zero else {
-                    throw EditorCoreError.invalidModel("Only audio clips support fades")
+                guard component.fadeIn.curve == .linear, component.fadeOut.curve == .linear else {
+                    throw EditorCoreError.invalidModel("Picture fades are linear")
                 }
                 let isStill = component.selection == .still
                 // Edit points snap to the nearest sequence frame. Shared boundaries round
@@ -145,10 +142,13 @@ public enum FFmpegRenderCompiler {
                 let end = try RationalTime(start).adding(RationalTime(count)).numerator
                 let scaling: String
                 let w = settings.width, h = settings.height
+                // Transformed pictures reveal lower layers outside their own picture area.
+                let transformed = component.hasPlacement
+                let clearPad = isStill || transformed
                 switch component.scalingMode {
-                case .fit: scaling = "scale=\(w):\(h):force_original_aspect_ratio=decrease,pad=\(w):\(h):(ow-iw)/2:(oh-ih)/2\(isStill ? ":color=black@0" : "")"
+                case .fit: scaling = "scale=\(w):\(h):force_original_aspect_ratio=decrease,pad=\(w):\(h):(ow-iw)/2:(oh-ih)/2\(clearPad ? ":color=black@0" : "")"
                 case .fill: scaling = "scale=\(w):\(h):force_original_aspect_ratio=increase,crop=\(w):\(h)"
-                case .none: scaling = "pad='max(iw,\(w))':'max(ih,\(h))':(ow-iw)/2:(oh-ih)/2\(isStill ? ":color=black@0" : ""),crop=\(w):\(h)"
+                case .none: scaling = "pad='max(iw,\(w))':'max(ih,\(h))':(ow-iw)/2:(oh-ih)/2\(clearPad ? ":color=black@0" : ""),crop=\(w):\(h)"
                 }
                 let source: String
                 let timing: String
@@ -190,18 +190,81 @@ public enum FFmpegRenderCompiler {
                     // fps pads or drops from zero so trim frame numbers remain asset frames.
                     let origin = offset == .zero ? "setpts=PTS-STARTPTS,fps=\(rate):round=near"
                         : "setpts=PTS-STARTPTS+(\(offset.numerator)/\(offset.denominator))/TB,fps=\(rate):round=near:start_time=0"
-                    timing = "\(sdr)\(origin),trim=start_frame=\(start):end_frame=\(end),setpts=PTS-STARTPTS+\(placement)"
+                    if component.speed == .one {
+                        timing = "\(sdr)\(origin),trim=start_frame=\(start):end_frame=\(end),setpts=PTS-STARTPTS+\(placement)"
+                    } else {
+                        // Retime in a fine timebase, then take whole sequence frames again.
+                        let speed = component.speed
+                        let sourceFrames = try ceiling(RationalTime(count).multiplied(by: speed)) + 1
+                        timing = "\(sdr)\(origin),trim=start_frame=\(start):end_frame=\(start + sourceFrames),settb=AVTB,"
+                            + "setpts=(PTS-STARTPTS)*\(speed.denominator)/\(speed.numerator),fps=\(rate):round=near,trim=end_frame=\(count),"
+                            + "setpts=PTS-STARTPTS+\(placement)"
+                    }
                 }
                 // Full-range movies (screen recordings, some cameras) are normalized to video range
                 // so overlays and encoders receive one consistent range.
                 // Anamorphic movies are widened to square pixels first; square sources keep their exact width.
                 let squarePixels = "scale=w='if(eq(sar,1),iw,trunc(iw*sar/2)*2)':h=ih:out_range=tv,setsar=1"
-                let geometry = isStill ? "format=yuva444p,\(scaling),setsar=1" : "\(squarePixels),\(scaling),setsar=1,format=yuv444p"
-                graph.append("\(source)\(timing),\(geometry)[v\(index)]")
+                let fades = try pictureFades(component, placement: placement, count: count, rate: settings.frameRate.value)
+                // A key works on the picture's own chroma, before fitting adds transparent padding.
+                let keying = component.key.flatMap { key in key.rgb.map {
+                    ",chromakey=color=\(String(format: "0x%02X%02X%02X", $0.red, $0.green, $0.blue)):similarity=\(key.similarity):blend=\(key.blend)"
+                } } ?? ""
+                let geometry = isStill ? "format=yuva444p\(keying),\(scaling),setsar=1"
+                    : transformed ? "\(squarePixels),format=yuva444p\(keying),\(scaling),setsar=1"
+                    : "\(squarePixels),\(scaling),setsar=1,format=\(fades.isEmpty ? "yuv444p" : "yuva444p")"
+                var arrangement = ""
+                if component.color.blur > 0 {
+                    // Gaussian blur in pixels of the sequence height, before placement scaling.
+                    arrangement += ",gblur=sigma=\(component.color.blur * Double(settings.height))"
+                }
+                if component.color.hasLevels {
+                    // Levels on RGB, as the preview applies them; alpha passes through.
+                    let c = component.color
+                    let curve = "255*pow(clip((val/255-(\(c.blackPoint)))/(\(c.whitePoint - c.blackPoint)),0,1),\(1 / c.gamma))"
+                    arrangement += ",format=gbrap,lutrgb=r='\(curve)':g='\(curve)':b='\(curve)',format=yuva444p"
+                }
+                if !component.color.isColorNeutral {
+                    // 8-bit video range: luma 16–235 about mid grey, chroma about 128.
+                    let c = component.color
+                    arrangement += ",lutyuv=y='clip(16+219*(((val-16)/219-0.5)*\(c.contrast)+0.5+(\(c.brightness))),16,235)'"
+                        + ":u='clip(128+(val-128)*\(c.contrast * c.saturation),16,240)':v='clip(128+(val-128)*\(c.contrast * c.saturation),16,240)'"
+                }
+                if transformed {
+                    let t = component.transform
+                    if !component.transformKeyframes.isEmpty {
+                        let scale = animation(component, \.scale)
+                        arrangement += ",scale=w='max(1,round(iw*(\(scale))))':h='max(1,round(ih*(\(scale))))':eval=frame"
+                    } else if t.scale != 1 { arrangement += ",scale=w='max(1,round(iw*\(t.scale)))':h='max(1,round(ih*\(t.scale)))'" }
+                    if t.opacity != 1 { arrangement += ",lut=a='val*\(t.opacity)'" }
+                    if component.transformKeyframes.contains(where: { $0.opacity != 1 }) {
+                        // Animated opacity scales alpha by a time expression (T is the frame time in seconds).
+                        let opacity = animation(component, \.opacity, time: "T")
+                        arrangement += ",geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':a='alpha(X,Y)*(\(opacity))'"
+                    }
+                }
+                graph.append("\(source)\(timing),\(geometry)\(arrangement)\(fades)[v\(index)]")
+                var layerLabel = "v\(index)"
+                if let reveal = component.reveal {
+                    // A white bar slides over black across the wipe; its luma becomes the picture's alpha.
+                    let progress = "clip((t-\(reveal.start.seconds))/\(reveal.duration.seconds),0,1)"
+                    let x = reveal.fromLeft ? "-main_w+main_w*\(progress)" : "main_w-main_w*\(progress)"
+                    let frames = "r=\(rate),trim=end_frame=\(count),setpts=PTS-STARTPTS+\(placement)"
+                    graph.append("color=c=black:s=\(w)x\(h):\(frames)[mb\(index)]")
+                    graph.append("color=c=white:s=\(w)x\(h):\(frames)[mw\(index)]")
+                    graph.append("[mb\(index)][mw\(index)]overlay=x='\(x)':eval=frame,format=gray[m\(index)]")
+                    graph.append("[v\(index)][m\(index)]alphamerge[vr\(index)]")
+                    layerLabel = "vr\(index)"
+                }
                 // Explicit half-open visibility also prevents framesync holding a layer past its cut.
                 let visibleEnd = try RationalTime(placement).adding(RationalTime(count)).numerator
                 let enabled = "gte(n,\(placement))*lt(n,\(visibleEnd))"
-                graph.append("[\(videoLabel)][v\(index)]overlay=eof_action=repeat:repeatlast=1:format=yuv444:enable='\(enabled)'[layer\(index)]")
+                // A transformed layer is centred, then offset in fractions of the frame.
+                let offsetX = component.transformKeyframes.isEmpty ? "\(component.transform.offsetX)" : "(\(animation(component, \.offsetX)))"
+                let offsetY = component.transformKeyframes.isEmpty ? "\(component.transform.offsetY)" : "(\(animation(component, \.offsetY)))"
+                let position = transformed
+                    ? ":x='(main_w-overlay_w)/2+\(offsetX)*main_w':y='(main_h-overlay_h)/2+\(offsetY)*main_h':eval=frame" : ""
+                graph.append("[\(videoLabel)][\(layerLabel)]overlay=eof_action=repeat:repeatlast=1:format=yuv444\(position):enable='\(enabled)'[layer\(index)]")
                 videoLabel = "layer\(index)"
             case .audio(let selection):
                 try selection.layout.validate()
@@ -216,7 +279,23 @@ public enum FFmpegRenderCompiler {
                 let delay = try nearest(component.timelineRange.start.multiplied(by: Int64(settings.audioSampleRate)))
                 let end = try start + nearest(component.timelineRange.end().multiplied(by: Int64(settings.audioSampleRate))) - delay
                 guard end > start else { continue }
-                let envelope = try audioEnvelope(component, sampleCount: end - start, sampleRate: settings.audioSampleRate, layout: layout)
+                // Retimed sound keeps its pitch (atempo works from 0.5× up, so chain below that)
+                // and is padded or cut to the exact timeline sample count.
+                let sourceEnd = component.speed == .one ? end : try start + nearest(RationalTime(end - start).multiplied(by: component.speed))
+                // After volume and fades, as the preview tap applies them.
+                let dynamics = component.dynamics.map { "," + $0.ffmpegFilters } ?? ""
+                // The same biquads the preview tap runs, at the sequence rate.
+                let equaliser = component.eq.biquads(sampleRate: Double(settings.audioSampleRate)).map {
+                    "biquad=b0=\($0.b0):b1=\($0.b1):b2=\($0.b2):a0=1:a1=\($0.a1):a2=\($0.a2),"
+                }.joined()
+                var tempo = ""
+                if component.speed != .one {
+                    var factor = component.speed.seconds
+                    while factor < 0.5 { tempo += "atempo=0.5,"; factor /= 0.5 }
+                    tempo += "atempo=\(factor),apad,atrim=end_sample=\(end - start),"
+                }
+                let envelope = try audioEnvelope(component, sampleCount: end - start, sourceStartSample: start,
+                                                 sampleRate: settings.audioSampleRate, layout: layout)
                 for (channel, sourceChannel) in selection.channels.enumerated() {
                     guard let stream = component.sourceStreams.first(where: { $0.index == sourceChannel.streamIndex }), let sourceLayout = stream.audioLayout,
                           sourceLayout.channels.indices.contains(sourceChannel.channelIndex) else { throw EditorCoreError.invalidModel("Invalid source channel") }
@@ -228,7 +307,7 @@ public enum FFmpegRenderCompiler {
                     let skip = max(0, -offsetSamples)
                     let map = settings.audioLayout.channels.indices.map { "c\($0)=\($0 == routing[channel] ? "c\(sourceChannel.channelIndex)" : "0*c\(sourceChannel.channelIndex)")" }.joined(separator: "|")
                     let label = "a\(index)c\(channel)"
-                    graph.append("\(source)aresample=\(settings.audioSampleRate),\(pad)atrim=start_sample=\(start + skip):end_sample=\(end + skip),asetpts=PTS-STARTPTS,pan=\(layout)|\(map),aformat=sample_fmts=flt,volume=\(component.gain):precision=float\(envelope),adelay=\(delay)S:all=1[\(label)]")
+                    graph.append("\(source)aresample=\(settings.audioSampleRate),\(pad)atrim=start_sample=\(start + skip):end_sample=\(sourceEnd + skip),asetpts=PTS-STARTPTS,\(tempo)\(equaliser)pan=\(layout)|\(map),aformat=sample_fmts=flt,volume=\(component.gain):precision=float\(envelope)\(dynamics),adelay=\(delay)S:all=1[\(label)]")
                     audioLabels.append(label)
                 }
             }
@@ -241,9 +320,38 @@ public enum FFmpegRenderCompiler {
             + ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-ar", String(settings.audioSampleRate), "-ac", String(settings.audioLayout.channels.count), "-video_track_timescale", String(settings.frameRate.value.numerator), "-timecode", try settings.startTimecode.formatted(rate: settings.frameRate), outputURL.path]
         return FFmpegRenderCommand(inputs: inputs, arguments: arguments, filterGraph: filterGraph, videoFrames: frames, audioSamples: samples)
     }
+    /// A keyframed value as a piecewise-linear expression in the frame time `t` (timeline seconds).
+    private static func animation(_ component: TimelineRenderPlan.Component, _ value: KeyPath<TransformKeyframe, Double>, time t: String = "t") -> String {
+        let points = component.transformKeyframes.map { (component.timelineSeconds(ofSource: $0.time), $0[keyPath: value]) }
+        guard let first = points.first, let last = points.last else { return "1" }
+        var expression = "\(last.1)"
+        for (a, b) in zip(points, points.dropFirst()).reversed() {
+            let slope = b.0 > a.0 ? (b.1 - a.1) / (b.0 - a.0) : 0
+            expression = "if(lt(\(t),\(b.0)),\(a.1)+(\(slope))*(\(t)-(\(a.0))),\(expression))"
+        }
+        return "if(lt(\(t),\(first.0)),\(first.1),\(expression))"
+    }
+
+    /// Linear opacity ramps in timeline seconds; frames carry timeline timestamps here.
+    /// A frame at the start of a fade in is transparent; the last frame of a fade out
+    /// keeps 1/n of its opacity, matching a ramp that reaches zero at the cut.
+    private static func pictureFades(_ component: TimelineRenderPlan.Component, placement: Int64,
+                                     count: Int64, rate: RationalTime) throws -> String {
+        func seconds(_ frames: Int64) throws -> RationalTime { try RationalTime(frames).divided(by: rate) }
+        func decimal(_ time: RationalTime) -> String { String(format: "%.9f", time.seconds) }
+        var result = ""
+        if component.fadeIn.duration != .zero {
+            result += ",fade=t=in:st=\(decimal(try seconds(placement))):d=\(decimal(component.fadeIn.duration)):alpha=1"
+        }
+        if component.fadeOut.duration != .zero {
+            let start = try seconds(placement + count).subtracting(component.fadeOut.duration)
+            result += ",fade=t=out:st=\(decimal(start)):d=\(decimal(component.fadeOut.duration)):alpha=1"
+        }
+        return result
+    }
     /// aeval's n begins at zero after trim, before timeline delay. The rational
     /// denominators retain sub-sample fade durations without rounding either edge.
-    private static func audioEnvelope(_ component: TimelineRenderPlan.Component, sampleCount: Int64,
+    private static func audioEnvelope(_ component: TimelineRenderPlan.Component, sampleCount: Int64, sourceStartSample: Int64,
                                       sampleRate: Int, layout: String) throws -> String {
         func edge(_ fade: AudioFade, position: String) throws -> String? {
             guard fade.duration != .zero else { return nil }
@@ -254,8 +362,22 @@ public enum FFmpegRenderCompiler {
             case .equalPower: return "sin(PI/2*(\(progress)))"
             }
         }
+        // Keyframes become a piecewise-linear expression in the clip's sample index.
+        func automation() throws -> String? {
+            let points = try component.volumeKeyframes.map { keyframe -> (Double, Double) in
+                let sample = try keyframe.time.multiplied(by: Int64(sampleRate))
+                return ((Double(sample.numerator) / Double(sample.denominator) - Double(sourceStartSample)) / component.speed.seconds, keyframe.gain)
+            }
+            guard let first = points.first, let last = points.last else { return nil }
+            var expression = "\(last.1)"
+            for (a, b) in zip(points, points.dropFirst()).reversed() {
+                let slope = b.0 > a.0 ? (b.1 - a.1) / (b.0 - a.0) : 0
+                expression = "if(lt(n,\(b.0)),\(a.1)+(\(slope))*(n-(\(a.0))),\(expression))"
+            }
+            return "if(lt(n,\(first.0)),\(first.1),\(expression))"
+        }
         let edges = try [edge(component.fadeIn, position: "n"),
-                         edge(component.fadeOut, position: "\(sampleCount)-n")].compactMap { $0 }
+                         edge(component.fadeOut, position: "\(sampleCount)-n"), automation()].compactMap { $0 }
         guard !edges.isEmpty else { return "" }
         let expression = edges.joined(separator: "*")
         let channels = layout == "mono" ? 1 : layout == "stereo" ? 2 : 6

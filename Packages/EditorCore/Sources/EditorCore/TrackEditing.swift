@@ -24,6 +24,17 @@ extension Project {
         }
     }
 
+    public mutating func setTrackMuted(id: UUID, muted: Bool) throws {
+        guard let index = tracks.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingTrack }
+        tracks[index].muted = muted
+    }
+
+    public mutating func setTrackSoloed(id: UUID, soloed: Bool) throws {
+        guard let index = tracks.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingTrack }
+        guard tracks[index].kind == .audio else { throw EditorCoreError.invalidModel("Only audio tracks can be soloed.") }
+        tracks[index].soloed = soloed
+    }
+
     /// Linear amplitude, including zero for silence. Existing siblings remain independent.
     public mutating func setTrackGain(id: UUID, gain: Double) throws {
         guard let index = tracks.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingTrack }

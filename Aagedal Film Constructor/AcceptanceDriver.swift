@@ -129,6 +129,11 @@ enum AcceptanceDriver {
         }
         guard let output = outputDirectory, !started else { return }
         started = true
+        if ProcessInfo.processInfo.environment["AFC_STORY"] == "1" {
+            let entries = (ProcessInfo.processInfo.environment["AFC_ACCEPTANCE_MEDIA"] ?? "").split(separator: "|").map(String.init)
+            StoryDriver.run(store: store, output: output, media: entries)
+            return
+        }
         let requestedMedia = (ProcessInfo.processInfo.environment["AFC_ACCEPTANCE_MEDIA"] ?? "")
             .split(whereSeparator: { $0 == "\n" || $0 == "|" }).map { path -> URL in
                 // Relative paths name media bundled into Resources, readable inside the sandbox.
@@ -186,7 +191,8 @@ enum AcceptanceDriver {
                     }
                 } else {
                     dispatchPaths.append("\(command.rawValue):registry")
-                    let scope: EditorCommandScope = store.showSequenceMonitor ? .timeline : .source
+                    // The scope EditorKeyboardRouter uses for a key press.
+                    let scope: EditorCommandScope = command.scope == .source && store.showSequenceMonitor ? .timeline : .document
                     if registry.isEnabled(command, store: store, scope: scope) {
                         registry.perform(command, store: store, scope: scope)
                     } else { dispatchPaths.append("\(command.rawValue):disabled") }
@@ -274,6 +280,11 @@ enum AcceptanceDriver {
                                             "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-ac", "2", "-shortest"]),
                     ("generated-prores.mov", ["-f", "lavfi", "-i", "smptehdbars=s=1920x1080:r=25:d=6", "-f", "lavfi", "-i", "sine=frequency=880:sample_rate=48000:duration=6",
                                               "-c:v", "prores_ks", "-profile:v", "0", "-c:a", "pcm_s16le", "-ac", "2", "-shortest"]),
+                    // Broadcast-style multitrack: picture and four mono streams at different pitches.
+                    ("generated-multitrack.mov", ["-f", "lavfi", "-i", "testsrc=s=1280x720:r=25:d=6"]
+                        + [220, 330, 440, 550].flatMap { ["-f", "lavfi", "-i", "sine=frequency=\($0):sample_rate=48000:duration=6"] }
+                        + ["-map", "0:v"] + (1...4).flatMap { ["-map", "\($0):a"] }
+                        + ["-c:v", "prores_ks", "-profile:v", "0", "-c:a", "pcm_s24le", "-shortest"]),
                 ]
                 var generated: [URL] = []
                 for (name, arguments) in fixtures {
@@ -319,7 +330,7 @@ enum AcceptanceDriver {
             }
             // Fades on a clip the crossfade doesn't use (a crossfade replaces those fade edges).
             if let audio = clips().last(where: { $0.requiredTrackKind == .audio && !crossfaded.contains($0.id) }) {
-                fadeApplied = (try? store.applyAudioFades(clipID: audio.id, fadeInSeconds: 0.5, fadeInCurve: .linear,
+                fadeApplied = (try? store.applyFades(clipID: audio.id, fadeInSeconds: 0.5, fadeInCurve: .linear,
                     fadeOutSeconds: 0.5, fadeOutCurve: .equalPower, expectedClip: audio)) != nil
             }
             // Source audio change: pick two other mono streams of a multitrack source as left/right.
@@ -357,17 +368,159 @@ enum AcceptanceDriver {
                                "proxiesReady": proxiesReady, "representation": store.playbackRepresentation.rawValue,
                                "clips": clips().count, "error": store.errorMessage ?? ""])
 
+            // Finishing tools through real key events: ⌘T, ⌃T, volume, insert (,), overwrite (.),
+            // ⌘C/⌘V, ⌘D and ⇧⌘⌫. Each is one undoable edit; counts confirm each took effect.
+            @MainActor func dissolves() -> Int {
+                store.project.audioCrossfades.filter { relation in clips().first { $0.id == relation.outgoingClipID }?.requiredTrackKind == .video }.count
+            }
+            @MainActor func edgeFades() -> Int { clips().filter { $0.requiredTrackKind == .video && ($0.fadeIn.duration.numerator > 0 || $0.fadeOut.duration.numerator > 0) }.count }
+            var features: [String: Any] = [:]
+            if let picture = clips().filter({ $0.requiredTrackKind == .video }).min(by: { $0.timelineStart.seconds < $1.timelineStart.seconds }) {
+                store.selectTimelineClip(picture.id)
+                store.seek(to: picture.timelineStart.seconds + picture.sourceRange.duration.seconds - 0.1)
+                let before = (dissolves(), edgeFades())
+                press(.addTransition, "t", keyCode: 17, modifiers: [.command])
+                _ = await wait(3) { (dissolves(), edgeFades()) != before }
+                // Whole clips have no handles, so ⌘T makes a dip. Make a handle by ripple trimming a
+                // clip's end, then wipe from it into the clip that now meets it.
+                if !store.project.audioCrossfades.contains(where: { r in clips().first { $0.id == r.outgoingClipID }?.requiredTrackKind == .video }),
+                   let track = store.project.tracks.first(where: { $0.kind == .video && $0.clips.count > 1 }) {
+                    let ordered = track.clips.sorted { $0.timelineStart.seconds < $1.timelineStart.seconds }
+                    for (outgoing, incoming) in zip(ordered, ordered.dropFirst())
+                    where abs(outgoing.timelineStart.seconds + outgoing.sourceRange.duration.seconds - incoming.timelineStart.seconds) < 0.001
+                        && outgoing.sourceRange.duration.seconds > 2 {
+                        store.selectTimelineClip(outgoing.id)
+                        store.seek(to: outgoing.timelineStart.seconds + outgoing.sourceRange.duration.seconds - 1)
+                        store.rippleTrimSelectedClip(edge: .trailing)
+                        try? store.applyAudioCrossfade(outgoingClipID: outgoing.id, incomingClipID: incoming.id, seconds: 0.5,
+                                                       curve: .linear, style: .wipeRight, expectedProject: store.project)
+                        if store.project.audioCrossfades.contains(where: { $0.style == .wipeRight }) { break }
+                    }
+                }
+                // Turn a created dissolve into a wipe, so the renders include one.
+                if let relation = store.project.audioCrossfades.first(where: { r in clips().first { $0.id == r.outgoingClipID }?.requiredTrackKind == .video }) {
+                    try? store.applyAudioCrossfade(outgoingClipID: relation.outgoingClipID, incomingClipID: relation.incomingClipID,
+                        seconds: relation.duration.seconds, curve: .linear, style: .wipeRight, expectedProject: store.project)
+                    features["wipe"] = ["applied": store.project.audioCrossfades.contains { $0.style == .wipeRight }]
+                }
+                features["transition"] = ["dissolves": dissolves(), "fadedPictures": edgeFades(), "changed": (dissolves(), edgeFades()) != before,
+                                          "status": store.statusMessage, "error": store.errorMessage ?? "",
+                                          "selected": store.selectedClipID == picture.id, "playhead": store.playheadSeconds]
+            }
+            store.seek(to: 0.5)
+            let titleAssets = store.project.assets.filter { $0.title != nil }.count
+            press(.addTitle, "t", keyCode: 17, modifiers: [.control])
+            let titled = await wait(5) { store.project.assets.filter { $0.title != nil }.count > titleAssets }
+            if titled, let asset = store.project.assets.last(where: { $0.title != nil }) {
+                store.updateTitle(assetID: asset.id, to: TitleDefinition(text: "Acceptance title", position: .center, background: true))
+            }
+            features["title"] = ["added": titled, "text": store.project.assets.last(where: { $0.title != nil })?.title?.text ?? "",
+                                 "frontTrack": store.project.tracks.first?.displayName(in: store.project) ?? ""]
+            if let sound = clips().first(where: { $0.requiredTrackKind == .audio }) {
+                store.selectTimelineClip(sound.id)
+                store.setSelectedClipVolume(decibels: "-6")
+                features["volume"] = ["gain": clips().first { $0.id == sound.id }?.gain ?? 0]
+            }
+            if let source = store.project.assets.first(where: { $0.title == nil && $0.streams.contains { $0.kind == .video } }) {
+                store.selectAsset(source.id)
+                store.clearSourceMarks()
+                // At zero nothing crosses the playhead, so every clip moves later.
+                store.seek(to: 0)
+                let durationBefore = store.duration
+                press(.insertSource, ",", keyCode: 43)
+                _ = await wait(3) { store.duration > durationBefore + 0.5 }
+                let inserted = store.duration - durationBefore
+                let insertError = store.errorMessage ?? ""
+                store.selectAsset(source.id)
+                store.seek(to: 1)
+                let clipsBeforeOverwrite = clips().count
+                press(.overwriteSource, ".", keyCode: 47)
+                _ = await wait(3) { clips().count != clipsBeforeOverwrite }
+                features["insert"] = ["secondsAdded": inserted, "error": insertError]
+                features["overwrite"] = ["clipsBefore": clipsBeforeOverwrite, "clipsAfter": clips().count, "error": store.errorMessage ?? ""]
+            }
+            if let picture = clips().first(where: { $0.requiredTrackKind == .video && store.asset(id: $0.assetID)?.title == nil }) {
+                store.selectTimelineClip(picture.id)
+                let before = clips().count
+                // Menu key equivalents need the key window; otherwise run the menu items' actions.
+                let keyed = workspaceWindow()?.isKeyWindow == true && NSApp.isActive
+                @MainActor func menuKey(_ characters: String, _ keyCode: UInt16, _ action: () -> Void) {
+                    if keyed { pressKey(characters, keyCode: keyCode, modifiers: [.command]) } else { action() }
+                }
+                menuKey("c", 8) { store.copySelectedClip() }
+                store.seek(to: store.duration)
+                menuKey("v", 9) { store.pasteAtPlayhead() }
+                let pasted = await wait(3) { clips().count > before }
+                let afterPaste = clips().count
+                menuKey("d", 2) { store.duplicateSelectedClip() }
+                let duplicated = await wait(3) { clips().count > afterPaste }
+                let afterDuplicate = clips().count, durationBefore = store.duration
+                press(.rippleDelete, "\u{7f}", keyCode: 51, modifiers: [.command, .shift])
+                let rippled = await wait(3) { clips().count < afterDuplicate && store.duration < durationBefore }
+                features["clipboard"] = ["menuKeys": keyed, "copiedAndPasted": pasted, "duplicated": duplicated, "rippleDeleted": rippled,
+                                         "clipboardEntries": store.clipboard?.entries.count ?? 0, "error": store.errorMessage ?? ""]
+            }
+            if let picture = clips().first(where: { $0.requiredTrackKind == .video && store.asset(id: $0.assetID)?.title == nil }) {
+                store.selectTimelineClip(picture.id)
+                store.setSelectedClipTransform(scale: "33", x: "30", y: "30", opacity: "80")
+                // Colour switches preview to the CoreImage compositor for the playback and export steps.
+                store.setSelectedClipColor(ColorAdjustment(brightness: 0.1, contrast: 1.2, saturation: 0.5, blur: 0.01))
+                // The picture's linked sound gets an EQ, which the preview tap and export both apply.
+                store.setSelectedEQ(AudioEQ(low: -6, mid: 3, high: 2))
+                features["eq"] = ["applied": store.selectedVolumeClips.allSatisfy { !$0.eq.isFlat } && !store.selectedVolumeClips.isEmpty]
+                features["color"] = ["applied": !(clips().first { $0.id == picture.id }?.color.isNeutral ?? true),
+                                     "blur": clips().first { $0.id == picture.id }?.color.blur ?? 0]
+                let transform = clips().first { $0.id == picture.id }?.transform
+                features["transform"] = ["scale": transform?.scale ?? 0, "opacity": transform?.opacity ?? 0]
+            }
+            if let sound = clips().filter({ $0.requiredTrackKind == .audio && $0.sourceRange.duration.seconds > 2 }).max(by: { $0.timelineStart.seconds < $1.timelineStart.seconds }) {
+                store.selectTimelineClip(sound.id)
+                store.seek(to: sound.timelineStart.seconds + 0.5); store.addVolumeKeyframeAtPlayhead(decibels: "0")
+                store.seek(to: sound.timelineStart.seconds + 1.5); store.addVolumeKeyframeAtPlayhead(decibels: "-12")
+                features["keyframes"] = ["count": clips().first { $0.id == sound.id }?.volumeKeyframes.count ?? 0, "error": store.errorMessage ?? ""]
+            }
+            if let track = store.project.tracks.first(where: { $0.kind == .audio }) {
+                let before = (try? TimelineRenderPlan(project: store.project).components.count) ?? 0
+                store.setTrackMuted(track.id, muted: true)
+                let muted = (try? TimelineRenderPlan(project: store.project).components.count) ?? 0
+                store.setTrackMuted(track.id, muted: false)
+                features["mute"] = ["fewerComponentsWhileMuted": muted < before, "restored": ((try? TimelineRenderPlan(project: store.project).components.count) ?? 0) == before]
+            }
+            if let movie = clips().first(where: { $0.requiredTrackKind == .video && store.asset(id: $0.assetID)?.title == nil }) {
+                store.selectTimelineClip(movie.id)
+                let before = movie.sourceRange.duration.seconds
+                store.setSelectedClipSpeed(percent: "50")
+                let after = clips().first { $0.id == movie.id }?.sourceRange.duration.seconds ?? 0
+                features["speed"] = ["doubled": abs(after - 2 * before) < 0.05, "error": store.errorMessage ?? ""]
+            }
+            if let titleClip = clips().first(where: { store.asset(id: $0.assetID)?.title != nil }) {
+                store.selectTimelineClip(titleClip.id)
+                store.applyMotionPreset(.slideInLeft)
+                store.seek(to: titleClip.timelineStart.seconds + 3)
+                store.addTransformKeyframeAtPlayhead(scale: "120", x: "0", y: "0")
+                features["motion"] = ["keyframes": clips().first { $0.id == titleClip.id }?.transformKeyframes.count ?? 0, "error": store.errorMessage ?? ""]
+            }
+            features["undoAvailable"] = store.canUndo
+            store.seek(to: 0)
+            record("finishing_tools", features)
+            try? await Task.sleep(for: .seconds(1))
+            snapshot("02b-finishing-tools", window: workspaceWindow())
+
             if !store.showSequenceMonitor { press(.toggleViewer, "\t", keyCode: 48) }
             let monitoring = await wait(5) { store.showSequenceMonitor && store.sequencePlayback != nil }
             let prepared = await wait(30) { store.sequencePlayback?.isPreparing == false }
             record("sequence_viewer", ["tabSwitchedToSequence": monitoring, "prepared": prepared,
                                        "message": store.sequencePlayback?.message ?? ""])
+            // Show the mixer for the playback check; the user's choice is restored at the end.
+            let previousMixer = UserDefaults.standard.object(forKey: "workspace.showMixer")
+            UserDefaults.standard.set(true, forKey: "workspace.showMixer")
             let before = store.playheadSeconds
             press(.togglePlayback, " ", keyCode: 49)
             let playing = await wait(10) { store.sequencePlayback?.isPlaying == true }
             try? await Task.sleep(for: .seconds(2))
             snapshot("03-playing", window: workspaceWindow())
             let during = store.playheadSeconds
+            let meterPeak = AudioMeters.shared.levels.values.max() ?? -120
             press(.togglePlayback, " ", keyCode: 49)
             let paused = await wait(5) { store.sequencePlayback?.isPlaying == false }
             try? await Task.sleep(for: .milliseconds(500))
@@ -375,7 +528,7 @@ enum AcceptanceDriver {
             try? await Task.sleep(for: .milliseconds(500))
             record("space_transport", ["startedPlaying": playing, "paused": paused,
                                        "playheadBefore": before, "playheadWhilePlaying": during,
-                                       "playheadAfterPause": after, "playheadStable": abs(store.playheadSeconds - after) < 0.001,
+                                       "playheadAfterPause": after, "meterPeak": meterPeak, "playheadStable": abs(store.playheadSeconds - after) < 0.001,
                                        "notice": store.sequencePlayback?.message ?? ""])
 
             // Customized shortcut: remap Play / Pause to P, press it, then restore the user's binding.
@@ -483,6 +636,7 @@ enum AcceptanceDriver {
             snapshot("06-reopened", window: workspaceWindow())
             record("reopen", ["reopened": reopened, "windowShown": shown, "clipsBefore": clipsBefore, "clipsInFile": savedClips,
                               "title": workspaceWindow()?.title ?? ""])
+            UserDefaults.standard.set(previousMixer, forKey: "workspace.showMixer")
             record("done", ["dispatch": dispatchPaths])
             exit(0)
         }

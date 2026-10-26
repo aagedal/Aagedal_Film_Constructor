@@ -94,7 +94,9 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             return false
         }
         var layers: [Int: AVMutableVideoCompositionLayerInstruction] = [:]
+        var placements: [Int: (track: CMPersistentTrackID, placement: LayerPlacement)] = [:]
         var mixes: [AVAudioMixInputParameters] = []
+        var meterReadings: [UUID: [MeterReading]] = [:]
         var assets: [URL: AVURLAsset] = [:]
         defer {
             withExtendedLifetime(assets) {}
@@ -225,12 +227,13 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     throw Self.unsupported("Could not prepare still-image sequence preview.")
                 }
             } else {
-                range = try CMTimeRange(start: time(component.sourceRange.start), duration: time(component.sourceRange.duration))
+                // A retimed clip inserts the source it consumes, then scales to its timeline length.
+                range = try CMTimeRange(start: time(component.sourceRange.start), duration: time(component.sourceExtent()))
             }
             do {
                 let start = try time(component.timelineRange.start)
                 try track.insertTimeRange(range, of: source, at: start)
-                if component.selection == .still {
+                if component.selection == .still || component.speed != .one {
                     track.scaleTimeRange(CMTimeRange(start: start, duration: range.duration),
                         toDuration: try time(component.timelineRange.duration))
                 }
@@ -262,18 +265,50 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     offsetX = offsetX.rounded(.towardZero)
                     offsetY = offsetY.rounded(.towardZero)
                 }
-                let transform = orientation
+                // The clip's own scale is about the frame centre, then offset in frame fractions;
+                // keyframes animate them between their timeline times.
+                let fit = orientation
                     .concatenating(CGAffineTransform(translationX: -bounds.minX, y: -bounds.minY))
                     .concatenating(CGAffineTransform(scaleX: factor, y: factor))
                     .concatenating(CGAffineTransform(translationX: offsetX, y: offsetY))
+                let static_ = component.transform
+                let points: [LayerPlacement.Point] = component.transformKeyframes.isEmpty
+                    ? (static_.isIdentity ? [] : [.init(time: 0, scale: static_.scale, offsetX: static_.offsetX, offsetY: static_.offsetY)])
+                    : component.transformKeyframes.map {
+                        .init(time: component.timelineSeconds(ofSource: $0.time), scale: $0.scale, offsetX: $0.offsetX, offsetY: $0.offsetY)
+                    }
+                let placement = LayerPlacement(base: fit, canvas: canvas, points: points)
                 let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
-                layer.setTransform(transform, at: .zero)
+                let start = component.timelineRange.start.seconds, end = try component.timelineRange.end().seconds
+                layer.setTransform(placement.transform(at: start), at: .zero)
+                // Linear matrix ramps equal linear scale and offset ramps for this placement.
+                let times = ([start] + points.map(\.time).filter { $0 > start && $0 < end } + [end])
+                for (a, b) in zip(times, times.dropFirst()) where points.count > 1 && b > a {
+                    layer.setTransformRamp(fromStart: placement.transform(at: a), toEnd: placement.transform(at: b),
+                                           timeRange: CMTimeRange(start: rampTime(a), end: rampTime(b)))
+                }
+                if let reveal = component.reveal {
+                    // Wipe: the crop (in the source's own coordinates) widens from one edge.
+                    let start = rampTime(reveal.start.seconds), finish = rampTime(try reveal.start.adding(reveal.duration).seconds)
+                    let hidden = CGRect(x: reveal.fromLeft ? 0 : size.width, y: 0, width: 0, height: size.height)
+                    layer.setCropRectangle(hidden, at: .zero)
+                    layer.setCropRectangleRamp(fromStartCropRectangle: hidden, toEndCropRectangle: CGRect(origin: .zero, size: size),
+                                               timeRange: CMTimeRange(start: start, end: finish))
+                }
+                try applyOpacityFades(component, to: layer)
                 layers[componentIndex] = layer
+                placements[componentIndex] = (track.trackID, placement)
             } else {
                 if component.gain > 1 {
                     addQualificationNotice("Gain above 0 dB plays at 0 dB in preview; export applies the full gain.")
                 }
                 let parameters = AVMutableAudioMixInputParameters(track: track)
+                // A post-fader tap feeds the mixer's meter for this editorial track.
+                let reading = MeterReading()
+                if let tap = MeterTap.make(for: reading, eq: component.eq, dynamics: component.dynamics) {
+                    parameters.audioTapProcessor = tap
+                    meterReadings[component.trackID, default: []].append(reading)
+                }
                 let start = component.timelineRange.start.seconds
                 let ramps = try AudioFadeRampPlan(duration: component.timelineRange.duration,
                     fadeIn: component.fadeIn, fadeOut: component.fadeOut, gain: min(component.gain, 1))
@@ -285,10 +320,31 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 if ramps.isNonlinear {
                     addQualificationNotice("Curved or overlapping audio fades are approximate in system preview.")
                 }
+                // Volume keyframes multiply the fade ramps at their own times.
+                var points = ramps.points.map { (seconds: $0.seconds, volume: $0.volume) }
+                if !component.volumeKeyframes.isEmpty {
+                    let sourceStart = component.sourceRange.start.seconds, length = component.timelineRange.duration.seconds
+                    let speed = component.speed.seconds
+                    func fade(at t: Double) -> Double {
+                        guard let next = points.firstIndex(where: { $0.seconds >= t }) else { return points.last?.volume ?? 1 }
+                        guard next > 0 else { return points[0].volume }
+                        let a = points[next - 1], b = points[next]
+                        return b.seconds > a.seconds ? a.volume + (b.volume - a.volume) * (t - a.seconds) / (b.seconds - a.seconds) : b.volume
+                    }
+                    let times = Set(points.map(\.seconds) + component.volumeKeyframes.map { ($0.time.seconds - sourceStart) / speed }
+                        .filter { $0 > 0 && $0 < length }).sorted()
+                    points = times.map { t in
+                        let automation = VolumeEnvelope.gain(atSourceSeconds: sourceStart + t * speed, keyframes: component.volumeKeyframes)
+                        if automation * min(component.gain, 1) > 1 {
+                            addQualificationNotice("Gain above 0 dB plays at 0 dB in preview; export applies the full gain.")
+                        }
+                        return (t, min(1, fade(at: t) * automation))
+                    }
+                }
                 // Establish initial gain before delayed media begins; otherwise the
                 // system can smooth from its default unity volume at the cut.
-                parameters.setVolume(Float(ramps.points[0].volume), at: .zero)
-                for (a, b) in zip(ramps.points, ramps.points.dropFirst()) {
+                parameters.setVolume(Float(points[0].volume), at: .zero)
+                for (a, b) in zip(points, points.dropFirst()) {
                     let rampStart = rampTime(start + a.seconds)
                     let rampEnd = rampTime(start + b.seconds)
                     guard rampStart.isNumeric, rampEnd.isNumeric, CMTimeCompare(rampEnd, rampStart) > 0 else {
@@ -301,7 +357,10 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             }
         }
         let item = AVPlayerItem(asset: composition)
+        // Retimed sound keeps its pitch, as in export.
+        if plan.components.contains(where: { $0.speed != .one }) { item.audioTimePitchAlgorithm = .spectral }
         let mix = AVMutableAudioMix(); mix.inputParameters = mixes; item.audioMix = mix
+        AudioMeters.shared.attach(meterReadings)
         if hasVideo {
             let videoComposition = AVMutableVideoComposition()
             videoComposition.renderSize = CGSize(width: plan.settings.width, height: plan.settings.height)
@@ -318,11 +377,110 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 }
                 return instruction
             }
+            // Colour correction needs per-layer filters, which only a custom compositor can apply.
+            if plan.components.contains(where: { !$0.color.isNeutral || $0.key != nil }) {
+                var cubes: [ChromaKey: (data: Data, size: Int)] = [:]
+                for key in Set(plan.components.compactMap(\.key)) { cubes[key] = Self.keyCube(key) }
+                let canvas = videoComposition.renderSize
+                videoComposition.customVideoCompositorClass = CoreImageCompositor.self
+                videoComposition.instructions = try picturePlan.instructions.map { segment in
+                    try CoreImageInstruction(
+                        timeRange: CMTimeRange(start: time(segment.timeRange.start), duration: time(segment.timeRange.duration)),
+                        layers: segment.componentIndices.map { index in
+                            guard let placement = placements[index] else { throw Self.unsupported("Missing sequence preview layer.") }
+                            let component = plan.components[index]
+                            return .init(trackID: placement.track, placement: placement.placement,
+                                         opacity: Self.opacityCurve(component), brightness: component.color.brightness,
+                                         contrast: component.color.contrast, saturation: component.color.saturation,
+                                         blur: component.color.blur * Double(plan.settings.height),
+                                         keyCube: component.key.flatMap { cubes[$0] },
+                                         levels: component.color.hasLevels ? (component.color.blackPoint, component.color.whitePoint, component.color.gamma) : nil,
+                                         reveal: component.reveal.map { ($0.start.seconds, $0.duration.seconds, $0.fromLeft) })
+                        }, canvas: canvas)
+                }
+            }
             item.videoComposition = videoComposition
         }
         try Task.checkCancellation()
         guard !closed else { throw CancellationError() }
         return item
+    }
+
+    /// Linear opacity ramps for picture fades and dissolves, matching the export's alpha fades.
+    /// Overlapping fade in and fade out multiply; that product is followed with short segments.
+    /// A 32³ premultiplied colour cube giving the key's alpha for each encoded RGB colour.
+    static func keyCube(_ key: ChromaKey) -> (data: Data, size: Int) {
+        let size = 32
+        var values = [Float](repeating: 0, count: size * size * size * 4)
+        for b in 0..<size { for g in 0..<size { for r in 0..<size {
+            let red = Double(r) / Double(size - 1), green = Double(g) / Double(size - 1), blue = Double(b) / Double(size - 1)
+            let alpha = key.alpha(red: red, green: green, blue: blue)
+            let index = ((b * size + g) * size + r) * 4
+            values[index] = Float(red * alpha); values[index + 1] = Float(green * alpha)
+            values[index + 2] = Float(blue * alpha); values[index + 3] = Float(alpha)
+        } } }
+        return (values.withUnsafeBufferPointer { Data(buffer: $0) }, size)
+    }
+
+    /// Opacity at a sequence time in seconds: fades times the clip's static opacity times any
+    /// keyframed opacity (interpolated in timeline time).
+    static func opacityCurve(_ component: TimelineRenderPlan.Component) -> @Sendable (Double) -> Double {
+        let fadeIn = component.fadeIn.duration.seconds, fadeOut = component.fadeOut.duration.seconds
+        let start = component.timelineRange.start.seconds, duration = component.timelineRange.duration.seconds
+        let level = component.transform.opacity
+        let keys = component.transformKeyframes.map { (time: component.timelineSeconds(ofSource: $0.time), opacity: $0.opacity) }
+        return { time in
+            let t = time - start
+            let rising = fadeIn > 0 ? min(1, max(0, t / fadeIn)) : 1
+            let falling = fadeOut > 0 ? min(1, max(0, (duration - t) / fadeOut)) : 1
+            var keyed = 1.0
+            if let first = keys.first, let last = keys.last {
+                if time <= first.time { keyed = first.opacity }
+                else if time >= last.time { keyed = last.opacity }
+                else {
+                    let next = keys.firstIndex { $0.time > time }!
+                    let a = keys[next - 1], b = keys[next]
+                    keyed = a.opacity + (b.opacity - a.opacity) * (time - a.time) / (b.time - a.time)
+                }
+            }
+            return rising * falling * level * keyed
+        }
+    }
+
+    private func applyOpacityFades(_ component: TimelineRenderPlan.Component, to layer: AVMutableVideoCompositionLayerInstruction) throws {
+        let fadeIn = component.fadeIn.duration.seconds, fadeOut = component.fadeOut.duration.seconds
+        let start = component.timelineRange.start.seconds, duration = component.timelineRange.duration.seconds
+        let keyed = component.transformKeyframes.contains { $0.opacity != 1 }
+        let opacity = Self.opacityCurve(component)
+        guard fadeIn > 0 || fadeOut > 0 || keyed else {
+            if component.transform.opacity != 1 { layer.setOpacity(Float(component.transform.opacity), at: .zero) }
+            return
+        }
+        // Ramps between every change point; products of changing terms get finer steps.
+        var times = Set([0, duration, min(fadeIn, duration), max(0, duration - fadeOut)])
+        if keyed {
+            for key in component.transformKeyframes {
+                let t = component.timelineSeconds(ofSource: key.time) - start
+                if t > 0 && t < duration { times.insert(t) }
+            }
+        }
+        if fadeIn + fadeOut > duration || (keyed && (fadeIn > 0 || fadeOut > 0)) {
+            let sorted = times.sorted()
+            for (a, b) in zip(sorted, sorted.dropFirst()) where b > a {
+                for step in 1..<16 { times.insert(a + (b - a) * Double(step) / 16) }
+            }
+        }
+        let points = times.sorted()
+        layer.setOpacity(Float(opacity(start)), at: rampTime(start))
+        for (a, b) in zip(points, points.dropFirst()) where b > a {
+            let from = opacity(start + a), to = opacity(start + b)
+            let rampStart = rampTime(start + a), rampEnd = rampTime(start + b)
+            guard rampStart.isNumeric, rampEnd.isNumeric, CMTimeCompare(rampEnd, rampStart) > 0 else {
+                throw Self.unsupported("Picture fade timing exceeds system preview precision.")
+            }
+            layer.setOpacityRamp(fromStartOpacity: Float(from), toEndOpacity: Float(to),
+                                 timeRange: CMTimeRange(start: rampStart, duration: CMTimeSubtract(rampEnd, rampStart)))
+        }
     }
 
     private func prepare() async throws {
@@ -388,6 +546,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
     }
     func pause() { player?.pause() }
     func close() async {
+        AudioMeters.shared.detach()
         closed = true; pause(); polling?.cancel(); polling = nil
         player?.replaceCurrentItem(with: nil); player = nil; output = nil
         stillMovies.removeAll(); stillMovieBytes = 0

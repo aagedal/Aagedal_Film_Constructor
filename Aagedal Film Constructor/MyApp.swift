@@ -218,6 +218,7 @@ private struct EditorCommands: Commands {
     @AppStorage("workspace.showMediaBin") private var showMediaBin = true
     @AppStorage("workspace.showInspector") private var showInspector = true
     @AppStorage("workspace.showTimeline") private var showTimeline = true
+    @AppStorage("workspace.showMixer") private var showMixer = false
 
     private var scope: EditorCommandScope { focusedScope ?? .document }
     private func command(_ id: EditorCommandID) -> some View {
@@ -227,10 +228,29 @@ private struct EditorCommands: Commands {
             .disabled(store == nil)
     }
 
+    private func pasteboard(_ textAction: Selector, clips: (EditorStore) -> Void) {
+        if let store = store ?? EditorKeyboardRouter.shared.store(for: NSApp.keyWindow),
+           !(NSApp.keyWindow?.firstResponder is NSText) { clips(store) }
+        else { NSApp.sendAction(textAction, to: nil, from: nil) }
+    }
+
     var body: some Commands {
         CommandGroup(replacing: .undoRedo) {
             command(.undo)
             command(.redo)
+        }
+        // Text fields keep the standard pasteboard actions; elsewhere they act on timeline clips.
+        CommandGroup(replacing: .pasteboard) {
+            Button("Cut") { pasteboard(#selector(NSText.cut(_:))) { $0.cutSelectedClip() } }
+                .keyboardShortcut("x")
+            Button("Copy") { pasteboard(#selector(NSText.copy(_:))) { $0.copySelectedClip() } }
+                .keyboardShortcut("c")
+            Button("Paste") { pasteboard(#selector(NSText.paste(_:))) { $0.pasteAtPlayhead() } }
+                .keyboardShortcut("v")
+            Button("Duplicate Clip") { (store ?? EditorKeyboardRouter.shared.store(for: NSApp.keyWindow))?.duplicateSelectedClip() }
+                .keyboardShortcut("d")
+            Button("Select All") { NSApp.sendAction(#selector(NSResponder.selectAll(_:)), to: nil, from: nil) }
+                .keyboardShortcut("a")
         }
         CommandGroup(after: .newItem) {
             command(.importMedia)
@@ -244,6 +264,7 @@ private struct EditorCommands: Commands {
             Toggle("Show Media Bin", isOn: $showMediaBin)
             Toggle("Show Inspector", isOn: $showInspector)
             Toggle("Show Timeline", isOn: $showTimeline)
+            Toggle("Show Mixer", isOn: $showMixer)
             Button("Show All Workspace Panels") {
                 showMediaBin = true; showInspector = true; showTimeline = true
             }
@@ -263,7 +284,11 @@ private struct EditorCommands: Commands {
         }
         CommandMenu("Timeline") {
             command(.appendSource)
+            command(.insertSource)
+            command(.overwriteSource)
             command(.splitClip)
+            command(.addTransition)
+            command(.addTitle)
             command(.rippleTrimStart)
             command(.rippleTrimEnd)
             command(.zoomTimelineToFit)
@@ -272,6 +297,7 @@ private struct EditorCommands: Commands {
             command(.nextFrame)
             Divider()
             command(.deleteClip)
+            command(.rippleDelete)
         }
     }
 }

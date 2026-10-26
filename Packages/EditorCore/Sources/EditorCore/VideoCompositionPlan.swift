@@ -11,7 +11,7 @@ public struct VideoCompositionPlan: Equatable, Sendable {
     }
     public struct Instruction: Equatable, Sendable {
         public var timeRange: TimeRange
-        /// Front to back; stills reveal lower layers, motion video is opaque.
+        /// Front to back; stills and fading or transformed pictures reveal lower layers, other motion video is opaque.
         public let componentIndices: [Int]
     }
     /// Ordered by timeline start, so scaling a still hold cannot shift later inserts.
@@ -25,22 +25,25 @@ public struct VideoCompositionPlan: Equatable, Sendable {
             case .still, .video: true
             case .audio: false
             }
-        }.sorted {
-            let a = plan.components[$0], b = plan.components[$1]
-            if a.layerOrder != b.layerOrder { return a.layerOrder < b.layerOrder }
-            return a.clipID.uuidString < b.clipID.uuidString
-        }
+        }.sorted { TimelineRenderPlan.Component.isInFront(plan.components[$0], of: plan.components[$1]) }
         guard !pictures.isEmpty else {
             placements = []; trackCount = 0; instructions = []
             return
         }
         let ends = try pictures.map { try plan.components[$0].timelineRange.end() }
-        let boundaries = try Set([.zero, plan.duration] + ends + pictures.map {
+        // Opacity is full between the end of the fade in and the start of the fade out.
+        let opaqueStarts = try pictures.map {
+            try plan.components[$0].timelineRange.start.adding(plan.components[$0].fadeIn.duration)
+        }
+        let opaqueEnds = try pictures.indices.map { try ends[$0].subtracting(plan.components[pictures[$0]].fadeOut.duration) }
+        let boundaries = try Set([.zero, plan.duration] + ends + opaqueStarts + opaqueEnds + pictures.map {
             plan.components[$0].timelineRange.start
         }).sorted { try $0.compared(to: $1) == .orderedAscending }
         let boundaryIndices = Dictionary(uniqueKeysWithValues: boundaries.enumerated().map { ($1, $0) })
         let starts = pictures.map { boundaryIndices[plan.components[$0].timelineRange.start]! }
         let finishes = ends.map { boundaryIndices[$0]! }
+        let opaqueFrom = opaqueStarts.map { boundaryIndices[$0]! }
+        let opaqueUntil = opaqueEnds.map { boundaryIndices[$0]! }
         let chronological = pictures.indices.sorted {
             starts[$0] == starts[$1] ? $0 < $1 : starts[$0] < starts[$1]
         }
@@ -81,7 +84,8 @@ public struct VideoCompositionPlan: Equatable, Sendable {
             while let rank = active.first {
                 if finishes[rank] <= boundary { _ = active.pop(); continue }
                 visible.append(pictures[rank])
-                if case .video = plan.components[pictures[rank]].selection { break }
+                if case .video = plan.components[pictures[rank]].selection, !plan.components[pictures[rank]].hasPlacement,
+                   opaqueFrom[rank] <= boundary, boundary < opaqueUntil[rank] { break }
                 transparent.append(active.pop()!)
             }
             for rank in transparent { active.push(rank) }
@@ -100,6 +104,7 @@ public struct VideoCompositionPlan: Equatable, Sendable {
 private struct CompositionHeap<Element> {
     private var values: [Element] = []
     let precedes: (Element, Element) -> Bool
+    init(precedes: @escaping (Element, Element) -> Bool) { self.precedes = precedes }
     var first: Element? { values.first }
     mutating func push(_ value: Element) {
         values.append(value)

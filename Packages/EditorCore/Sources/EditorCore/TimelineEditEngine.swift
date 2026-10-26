@@ -15,9 +15,36 @@ public enum EditCommand: Sendable {
     case rippleTrim(clipID: UUID, edge: TimelineTrimEdge, at: RationalTime)
     case delete(clipID: UUID)
     /// Change only the selected audio component, preserving linked components.
-    case setAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, duration: RationalTime, curve: AudioFadeCurve = .equalPower)
+    case setAudioCrossfade(outgoingClipID: UUID, incomingClipID: UUID, duration: RationalTime, curve: AudioFadeCurve = .equalPower, style: TransitionStyle? = nil)
     case removeAudioCrossfade(crossfadeID: UUID)
-    case setAudioFades(clipID: UUID, fadeIn: AudioFade, fadeOut: AudioFade)
+    /// Audio components take any curve; pictures fade their opacity linearly.
+    case setFades(clipID: UUID, fadeIn: AudioFade, fadeOut: AudioFade)
+    /// Set the linear volume of the listed audio components; other kinds are refused.
+    case setGain(clipIDs: [UUID], gain: Double)
+    /// Set (or remove) the compressor and limiter of the listed audio components.
+    case setDynamics(clipIDs: [UUID], dynamics: AudioDynamics?)
+    /// Set the EQ of the listed audio components.
+    case setEQ(clipIDs: [UUID], eq: AudioEQ)
+    /// Replace the volume automation of the listed audio components.
+    case setVolumeKeyframes(clipIDs: [UUID], keyframes: [VolumeKeyframe])
+    /// Change the speed of a clip and its linked components, keeping their source in and the
+    /// source they play. Timeline length changes; overlaps move to sibling tracks.
+    case setSpeed(clipID: UUID, speed: RationalTime)
+    /// Replace the scale and position animation of one picture component.
+    case setTransformKeyframes(clipID: UUID, keyframes: [TransformKeyframe])
+    /// Point one picture component at other media covering the same moments (for example a
+    /// stabilised copy that starts `sourceOffset` into the original), keeping timeline timing.
+    case replacePictureMedia(clipID: UUID, assetID: UUID, streamIndex: Int, sourceOffset: RationalTime)
+    /// Point one audio component at a processed copy (for example noise-reduced) whose
+    /// `streamIndex` holds the component's selected channels in order, starting `sourceOffset`
+    /// into the original. Timing, fades, volume and links are kept.
+    case replaceAudioMedia(clipID: UUID, assetID: UUID, streamIndex: Int, sourceOffset: RationalTime)
+    /// Key a colour out of one picture component, or remove its key.
+    case setKey(clipID: UUID, key: ChromaKey?)
+    /// Colour-correct one picture component.
+    case setColor(clipID: UUID, color: ColorAdjustment)
+    /// Place one picture component; linked components keep their own transforms.
+    case setTransform(clipID: UUID, transform: PictureTransform)
     /// Replace one audio component with explicitly mapped components, preserving linked picture/timing.
     case selectAudioSource(clipID: UUID, selections: [AudioSourceSelection], routing: [AudioRouting])
     /// Replace explicitly chosen, aligned linked audio components with one mapped component.
@@ -66,6 +93,8 @@ public struct TimelineEditEngine: Sendable {
         try Self.perform(command, in: &candidate)
         switch command {
         case .setAudioCrossfade, .removeAudioCrossfade: break
+        // Swapping a picture's media (stabilising) keeps transitions the new media still supports.
+        case .replacePictureMedia, .replaceAudioMedia: Self.dissolveInvalidCrossfades(in: &candidate, previous: project, keepingMediaChanges: true)
         default: Self.dissolveInvalidCrossfades(in: &candidate, previous: project)
         }
         try commit(candidate)
@@ -90,16 +119,15 @@ public struct TimelineEditEngine: Sendable {
     /// Dissolution removes only derived paired envelopes/handles. Standalone edge fades are preserved.
     /// Source remapping dissolves the relation even if timing remains compatible; unchanged mappings
     /// and jointly moved linked endpoints retain it while its geometry remains valid.
-    private static func dissolveInvalidCrossfades(in candidate: inout Project, previous: Project) {
+    private static func dissolveInvalidCrossfades(in candidate: inout Project, previous: Project, keepingMediaChanges: Bool = false) {
         guard !candidate.audioCrossfades.isEmpty else { return }
         let oldClips = Dictionary(previous.tracks.flatMap(\.clips).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let context = candidate.audioCrossfadeContext()
         var geometries: [UUID: AudioCrossfadeGeometry] = [:]
         let surviving = candidate.audioCrossfades.filter { relation in
             for id in [relation.outgoingClipID, relation.incomingClipID] {
-                guard let old = oldClips[id],
-                      let new = context.endpoints[id]?.clip,
-                      old.selection == new.selection, old.assetID == new.assetID else { return false }
+                guard let old = oldClips[id], let new = context.endpoints[id]?.clip,
+                      keepingMediaChanges || (old.selection == new.selection && old.assetID == new.assetID) else { return false }
             }
             guard let geometry = try? candidate.audioCrossfadeGeometry(for: relation, context: context) else { return false }
             geometries[relation.id] = geometry
@@ -120,7 +148,7 @@ public struct TimelineEditEngine: Sendable {
         candidate.audioCrossfades.removeAll { conflicts.contains($0.id) }
     }
 
-    private mutating func commit(_ proposed: Project) throws {
+    mutating func commit(_ proposed: Project) throws {
         var candidate = proposed
         if candidate.preferences.automaticallyRemoveEmptyTracks {
             candidate.tracks.removeAll { $0.clips.isEmpty && !$0.retained }
@@ -176,7 +204,7 @@ public struct TimelineEditEngine: Sendable {
         }) {
             project.tracks[siblingIndex].clips.append(clip)
         } else {
-            let sibling = TimelineTrack(familyID: target.familyID, template: target.template, clips: [clip])
+            let sibling = TimelineTrack(familyID: target.familyID, template: target.template, clips: [clip], muted: target.muted, soloed: target.soloed)
             project.tracks.insert(sibling, at: targetIndex + 1)
         }
     }
@@ -249,7 +277,7 @@ public struct TimelineEditEngine: Sendable {
                 var template = origin.template
                 template.audioLayout = pair.0.layout
                 template.routing = pair.1
-                let sibling = TimelineTrack(familyID: origin.familyID, template: template, clips: [clip])
+                let sibling = TimelineTrack(familyID: origin.familyID, template: template, clips: [clip], muted: origin.muted, soloed: origin.soloed)
                 let insertion = project.tracks.firstIndex(where: { $0.id == origin.id }).map { $0 + 1 } ?? project.tracks.count
                 project.tracks.insert(sibling, at: insertion)
             }
@@ -329,7 +357,7 @@ public struct TimelineEditEngine: Sendable {
                     var clip = project.tracks[ti].clips[ci]
                     if ids.contains(clip.id) {
                         clip.sourceRange = try TimeRange(
-                            start: edge == .leading ? clip.sourceRange.start.adding(removed.duration) : clip.sourceRange.start,
+                            start: edge == .leading ? clip.sourceTime(atTimelineOffset: removed.duration) : clip.sourceRange.start,
                             duration: clip.sourceRange.duration.subtracting(removed.duration))
                         // The remaining picture starts at the old cut after a leading ripple.
                         if try clip.fadeIn.duration.compared(to: clip.sourceRange.duration) == .orderedDescending { clip.fadeIn.duration = clip.sourceRange.duration }
@@ -374,27 +402,125 @@ public struct TimelineEditEngine: Sendable {
                 right.id = UUID()
                 right.linkGroupID = rightGroup
                 right.timelineStart = at
-                right.sourceRange = try TimeRange(start: left.sourceRange.start.adding(leftDuration), duration: left.sourceRange.duration.subtracting(leftDuration))
+                right.sourceRange = try TimeRange(start: left.sourceTime(atTimelineOffset: leftDuration), duration: left.sourceRange.duration.subtracting(leftDuration))
                 left.sourceRange = try TimeRange(start: left.sourceRange.start, duration: leftDuration)
                 try place(left, on: component.trackID, in: &project)
                 try place(right, on: component.trackID, in: &project)
             }
-        case .setAudioCrossfade(let outgoingID, let incomingID, let duration, let curve):
+        case .setAudioCrossfade(let outgoingID, let incomingID, let duration, let curve, let style):
+            let stored = style == .dissolve ? nil : style
             if let index = project.audioCrossfades.firstIndex(where: { $0.outgoingClipID == outgoingID && $0.incomingClipID == incomingID }) {
                 project.audioCrossfades[index].duration = duration
                 project.audioCrossfades[index].curve = curve
+                project.audioCrossfades[index].style = stored
             } else {
-                project.audioCrossfades.append(AudioCrossfade(outgoingClipID: outgoingID, incomingClipID: incomingID, duration: duration, curve: curve))
+                project.audioCrossfades.append(AudioCrossfade(outgoingClipID: outgoingID, incomingClipID: incomingID, duration: duration, curve: curve, style: stored))
             }
         case .removeAudioCrossfade(let id):
             guard let index = project.audioCrossfades.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingAudioCrossfade }
             project.audioCrossfades.remove(at: index)
-        case .setAudioFades(let clipID, let fadeIn, let fadeOut):
+        case .setFades(let clipID, let fadeIn, let fadeOut):
             guard let trackIndex = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
                   let clipIndex = project.tracks[trackIndex].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
-            guard project.tracks[trackIndex].clips[clipIndex].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
             project.tracks[trackIndex].clips[clipIndex].fadeIn = fadeIn
             project.tracks[trackIndex].clips[clipIndex].fadeOut = fadeOut
+        case .setGain(let clipIDs, let gain):
+            guard !clipIDs.isEmpty else { throw TimelineEditError.missingClip }
+            for id in clipIDs {
+                guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == id } }),
+                      let c = project.tracks[t].clips.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingClip }
+                guard project.tracks[t].clips[c].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
+                project.tracks[t].clips[c].gain = gain
+            }
+        case .setDynamics(let clipIDs, let dynamics):
+            guard !clipIDs.isEmpty else { throw TimelineEditError.missingClip }
+            for id in clipIDs {
+                guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == id } }),
+                      let c = project.tracks[t].clips.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingClip }
+                guard project.tracks[t].clips[c].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
+                project.tracks[t].clips[c].dynamics = dynamics
+            }
+        case .setEQ(let clipIDs, let eq):
+            guard !clipIDs.isEmpty else { throw TimelineEditError.missingClip }
+            for id in clipIDs {
+                guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == id } }),
+                      let c = project.tracks[t].clips.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingClip }
+                guard project.tracks[t].clips[c].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
+                project.tracks[t].clips[c].eq = eq
+            }
+        case .setVolumeKeyframes(let clipIDs, let keyframes):
+            guard !clipIDs.isEmpty else { throw TimelineEditError.missingClip }
+            for id in clipIDs {
+                guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == id } }),
+                      let c = project.tracks[t].clips.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingClip }
+                guard project.tracks[t].clips[c].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
+                project.tracks[t].clips[c].volumeKeyframes = keyframes
+            }
+        case .setSpeed(let clipID, let speed):
+            let components = try linked(to: clipID, in: project)
+            // Keep picture lengths on whole frames, else whole audio samples.
+            let grid = components.contains { $0.clip.requiredTrackKind == .video } ? project.settings.frameRate.value : try RationalTime(Int64(project.settings.audioSampleRate))
+            let selected = components.first { $0.clip.id == clipID }!.clip
+            let extent = try selected.sourceExtent().divided(by: speed).multiplied(by: grid)
+            let units = max(1, extent.numerator / extent.denominator)
+            let duration = try RationalTime(units).divided(by: grid)
+            remove(Set(components.map { $0.clip.id }), from: &project)
+            for component in components {
+                var clip = component.clip
+                guard clip.selection != .still else { throw EditorCoreError.invalidModel("Stills have no speed") }
+                clip.speed = speed
+                clip.sourceRange.duration = duration
+                if try clip.fadeIn.duration.compared(to: duration) == .orderedDescending { clip.fadeIn.duration = duration }
+                if try clip.fadeOut.duration.compared(to: duration) == .orderedDescending { clip.fadeOut.duration = duration }
+                try place(clip, on: component.trackID, in: &project)
+            }
+        case .setTransformKeyframes(let clipID, let keyframes):
+            guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
+                  let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
+            guard project.tracks[t].clips[c].requiredTrackKind == .video else { throw TimelineEditError.incompatibleTrack }
+            project.tracks[t].clips[c].transformKeyframes = keyframes
+        case .replacePictureMedia(let clipID, let assetID, let streamIndex, let offset):
+            guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
+                  let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
+            guard case .video = project.tracks[t].clips[c].selection,
+                  project.assets.contains(where: { $0.id == assetID && $0.streams.contains { $0.index == streamIndex && $0.kind == .video } }) else {
+                throw TimelineEditError.incompatibleTrack
+            }
+            var clip = project.tracks[t].clips[c]
+            clip.assetID = assetID
+            clip.selection = .video(streamIndex: streamIndex)
+            clip.sourceRange.start = try clip.sourceRange.start.subtracting(offset)
+            // Keyframes are anchored to source time, so they move with the media.
+            clip.transformKeyframes = try clip.transformKeyframes.map { var k = $0; k.time = try k.time.subtracting(offset); return k }
+            project.tracks[t].clips[c] = clip
+        case .replaceAudioMedia(let clipID, let assetID, let streamIndex, let offset):
+            guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
+                  let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
+            guard case .audio(let selection) = project.tracks[t].clips[c].selection,
+                  let stream = project.assets.first(where: { $0.id == assetID })?.streams.first(where: { $0.index == streamIndex && $0.kind == .audio }),
+                  stream.audioLayout?.channels.count == selection.channels.count else { throw TimelineEditError.invalidAudioSelection }
+            var clip = project.tracks[t].clips[c]
+            clip.assetID = assetID
+            clip.selection = .audio(AudioSourceSelection(channels: selection.channels.indices.map { SourceChannel(streamIndex: streamIndex, channelIndex: $0) },
+                                                         layout: selection.layout))
+            clip.sourceRange.start = try clip.sourceRange.start.subtracting(offset)
+            clip.volumeKeyframes = try clip.volumeKeyframes.map { var k = $0; k.time = try k.time.subtracting(offset); return k }
+            project.tracks[t].clips[c] = clip
+        case .setKey(let clipID, let key):
+            guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
+                  let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
+            guard project.tracks[t].clips[c].requiredTrackKind == .video else { throw TimelineEditError.incompatibleTrack }
+            project.tracks[t].clips[c].key = key
+        case .setColor(let clipID, let color):
+            guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
+                  let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
+            guard project.tracks[t].clips[c].requiredTrackKind == .video else { throw TimelineEditError.incompatibleTrack }
+            project.tracks[t].clips[c].color = color
+        case .setTransform(let clipID, let transform):
+            guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
+                  let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
+            guard project.tracks[t].clips[c].requiredTrackKind == .video else { throw TimelineEditError.incompatibleTrack }
+            project.tracks[t].clips[c].transform = transform
         case .delete(let clipID):
             let components = try linked(to: clipID, in: project)
             remove(Set(components.map { $0.clip.id }), from: &project)

@@ -68,7 +68,7 @@ public struct StreamCopyEvidence: Equatable, Sendable {
 
 public enum StreamCopyReason: String, Equatable, Sendable {
     case missingStream, multipleComponents, generatedGapOrTimingChange, missingOriginal
-    case stillImage, missingSourceStream, nonzeroStreamOffset, audioProcessing, channelRemapping
+    case stillImage, missingSourceStream, nonzeroStreamOffset, audioProcessing, videoProcessing, channelRemapping
     case missingEvidence, ambiguousEvidence, evidenceDoesNotMatch, missingMetadata
     case videoGeometryChange, frameRateChange, audioFormatChange
     case inexactPacketBoundaries, unprovenRandomAccess, incompleteOutgoingDependencies
@@ -107,9 +107,14 @@ public struct StreamCopyAssessment: Equatable, Sendable {
                 component.sourceRange.duration != component.timelineRange.duration { reject(.generatedGapOrTimingChange) }
             if component.originalURL?.isFileURL != true { reject(.missingOriginal) }
             let streamIndex: Int?
+            if component.speed != .one { reject(.generatedGapOrTimingChange) }
             switch component.selection {
             case .still: streamIndex = nil; reject(.stillImage)
-            case .video(let index): streamIndex = index
+            case .video(let index):
+                streamIndex = index
+                if component.hasPlacement || !component.color.isNeutral || component.fadeIn.duration != .zero || component.fadeOut.duration != .zero {
+                    reject(.videoProcessing)
+                }
             case .audio(let selection):
                 let indices = Set(selection.channels.map(\.streamIndex))
                 streamIndex = indices.count == 1 ? indices.first : nil
@@ -123,7 +128,7 @@ public struct StreamCopyAssessment: Equatable, Sendable {
                     (!component.routing.outputChannels.isEmpty && component.routing.outputChannels != Array(whole.indices)) {
                     reject(.channelRemapping)
                 }
-                if component.gain != 1 || component.fadeIn.duration != .zero || component.fadeOut.duration != .zero {
+                if component.gain != 1 || component.fadeIn.duration != .zero || component.fadeOut.duration != .zero || !component.volumeKeyframes.isEmpty || !component.eq.isFlat || component.dynamics != nil {
                     reject(.audioProcessing)
                 }
             }

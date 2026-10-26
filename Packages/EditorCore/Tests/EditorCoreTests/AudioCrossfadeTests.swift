@@ -127,7 +127,7 @@ final class AudioCrossfadeTests: XCTestCase {
         for command in [EditCommand.move(clipID: b, trackID: project.tracks[0].id, start: try time(8)),
                         .delete(clipID: a),
                         .trim(clipID: a, sourceRange: try TimeRange(start: .zero, duration: time(3)), timelineStart: .zero),
-                        .setAudioFades(clipID: a, fadeIn: .init(), fadeOut: AudioFade(duration: try time(1)))] {
+                        .setFades(clipID: a, fadeIn: .init(), fadeOut: AudioFade(duration: try time(1)))] {
             var engine = try TimelineEditEngine(project: project)
             try create(&engine, a, b)
             let paired = engine.project
