@@ -44,6 +44,14 @@ track and report notes before saving and handle the resulting EDL as a track
 interchange document. Native Final Cut Pro/Resolve import and media conform remain
 unqualified; no rendered picture/audio equivalence is claimed.
 
+## Markers
+
+Sequence markers inside the selected track's events become Avid-style locator comments
+under the event that contains them: `* LOC: <record timecode> <colour> <name - note>`.
+Orange becomes RED and purple and pink become MAGENTA, the nearest of the eight classic
+locator colours. Markers off the frame grid, after the track's final clip, or with text
+that is not printable ASCII are refused. Receiving-editor import of locators is unqualified.
+
 ## App workflow
 
 Choose **Export track EDL…** in the toolbar Export menu or File menu. The sheet

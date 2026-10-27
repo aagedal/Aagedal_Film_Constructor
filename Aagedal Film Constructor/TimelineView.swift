@@ -62,6 +62,8 @@ struct TimelineView: View {
                     .disabled(store.selectedClip == nil)
                 Button(action: store.addTitle) { Label("New title", systemImage: "textformat") }
                     .labelStyle(.iconOnly).help("Add a title at the playhead (⌃T)")
+                Button(action: store.addMarkerAtPlayhead) { Label("Add marker", systemImage: "bookmark") }
+                    .labelStyle(.iconOnly).help("Add a marker at the playhead (M); ⇧M and ⌥M jump between markers")
                 Button(action: store.deleteSelectedClip) { Label("Delete clip", systemImage: "trash") }
                     .labelStyle(.iconOnly).help("Delete selected clip").disabled(store.selectedClip == nil)
                 Toggle(isOn: $store.snappingEnabled) { Image(systemName: "magnet") }
@@ -215,7 +217,13 @@ struct TimelineView: View {
                     Rectangle().fill(.secondary.opacity(0.4)).frame(width: 1, height: 8)
                 }.offset(x: seconds * pixelsPerSecond + 3, y: 3)
             }
-            playhead(height: 30)
+            ForEach(store.project.markers) { marker in
+                TimelineMarkerFlag(marker: marker, selected: store.selectedMarkerID == marker.id, pixelsPerSecond: pixelsPerSecond,
+                                   select: { store.selectMarker(marker.id) },
+                                   move: { store.moveMarker(marker.id, to: $0) })
+                    .contextMenu { markerMenu(marker) }
+            }
+            playhead(height: 30).allowsHitTesting(false)
         }
         .frame(width: canvasWidth, height: 30)
         .contentShape(Rectangle())
@@ -319,8 +327,28 @@ struct TimelineView: View {
                 .offset(x: clip.timelineStart.seconds * pixelsPerSecond, y: 6)
                 .contextMenu { clipMenu(clip) }
             }
+            markerLines(height: 64)
             playhead(height: 64).allowsHitTesting(false)
         }.frame(width: canvasWidth, height: 64)
+    }
+
+    private func markerLines(height: CGFloat) -> some View {
+        ForEach(store.project.markers) { marker in
+            Rectangle().fill(marker.color.swatch.opacity(store.selectedMarkerID == marker.id ? 0.7 : 0.35)).frame(width: 1, height: height)
+                .offset(x: marker.time.seconds * pixelsPerSecond)
+        }.allowsHitTesting(false)
+    }
+
+    @ViewBuilder private func markerMenu(_ marker: SequenceMarker) -> some View {
+        Button("Edit Marker…") { store.selectMarker(marker.id) }
+        Menu("Colour") {
+            ForEach(MarkerColor.allCases, id: \.self) { color in
+                Button(color.rawValue.capitalized) { store.updateMarker(marker.id, name: marker.name, note: marker.note, color: color) }
+                    .disabled(color == marker.color)
+            }
+        }
+        Divider()
+        Button("Delete Marker") { store.removeMarker(marker.id) }
     }
 
     /// Retime mode shows on the selected clip and its linked components.
@@ -436,6 +464,64 @@ struct TimelineView: View {
     private func timeLabel(_ seconds: Double) -> String {
         if seconds >= 60 { return "\(Int(seconds) / 60):\(String(format: "%02d", Int(seconds) % 60))" }
         return "\(Int(seconds))s"
+    }
+}
+
+/// A marker's flag on the ruler. Click selects it; dragging moves it to another frame.
+private struct TimelineMarkerFlag: View {
+    let marker: SequenceMarker
+    let selected: Bool
+    let pixelsPerSecond: Double
+    let select: () -> Void
+    let move: (Double) -> Void
+    @State private var dragOffset: CGFloat = 0
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Rectangle().fill(marker.color.swatch).frame(width: 11, height: 8)
+            Triangle().fill(marker.color.swatch).frame(width: 11, height: 5)
+        }
+        .overlay { if selected { RoundedRectangle(cornerRadius: 1).stroke(Color.primary, lineWidth: 1).padding(-1) } }
+        .padding(.horizontal, 3)
+        .contentShape(Rectangle())
+        .help(marker.note.isEmpty ? marker.name : "\(marker.name) — \(marker.note)")
+        .accessibilityElement()
+        .accessibilityLabel("Marker \(marker.name)")
+        .accessibilityAddTraits(.isButton)
+        .offset(x: marker.time.seconds * pixelsPerSecond - 8.5 + dragOffset, y: 17)
+        .gesture(DragGesture(minimumDistance: 0)
+            .onChanged { dragOffset = $0.translation.width }
+            .onEnded { value in
+                dragOffset = 0
+                if abs(value.translation.width) < 2 { select() }
+                else { move(marker.time.seconds + value.translation.width / pixelsPerSecond) }
+            })
+    }
+
+    private struct Triangle: Shape {
+        func path(in rect: CGRect) -> Path {
+            Path { path in
+                path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+                path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+                path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+                path.closeSubpath()
+            }
+        }
+    }
+}
+
+extension MarkerColor {
+    var swatch: Color {
+        switch self {
+        case .red: .red
+        case .orange: .orange
+        case .yellow: .yellow
+        case .green: .green
+        case .cyan: .cyan
+        case .blue: .blue
+        case .purple: .purple
+        case .pink: .pink
+        }
     }
 }
 

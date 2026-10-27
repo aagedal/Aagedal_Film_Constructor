@@ -14,16 +14,22 @@ final class EditorCommandRegistry: ObservableObject {
         var resolved = Dictionary(uniqueKeysWithValues: EditorCommandID.allCases.map { ($0, $0.defaultBinding) })
         if let data = defaults.data(forKey: Self.storageKey),
            let saved = try? JSONDecoder().decode([String: ShortcutBinding].self, from: data) {
+            // Maps saved before only changes were stored hold every default of their day;
+            // a former default there is not a choice, so the current default replaces it.
+            var custom: Set<EditorCommandID> = []
             for command in EditorCommandID.allCases {
-                if let value = saved[command.rawValue] { resolved[command] = value.normalized }
+                if let value = saved[command.rawValue]?.normalized, !command.formerDefaultBindings.contains(value) {
+                    resolved[command] = value
+                    custom.insert(command)
+                }
             }
-            // Newly introduced defaults must not erase an existing custom map.
-            // Leave a new command unbound if its default is already in use.
-            for command in EditorCommandID.allCases where saved[command.rawValue] == nil {
+            // New or changed defaults must not erase an existing custom map.
+            // Leave such a command unbound if its default is already in use.
+            for command in EditorCommandID.allCases where !custom.contains(command) {
                 let binding = resolved[command]!
-                if !binding.isEmpty && EditorCommandID.allCases.contains(where: {
-                    $0 != command && saved[$0.rawValue] != nil && resolved[$0] == binding
-                }) { resolved[command] = ShortcutBinding(key: "") }
+                if !binding.isEmpty && custom.contains(where: { $0 != command && resolved[$0] == binding }) {
+                    resolved[command] = ShortcutBinding(key: "")
+                }
             }
             // Validate the complete restored map, including conflicts with defaults.
             if EditorCommandID.allCases.contains(where: { resolved[$0]?.validationError(for: $0, bindings: resolved) != nil }) {
@@ -44,8 +50,9 @@ final class EditorCommandRegistry: ObservableObject {
         bindings = Dictionary(uniqueKeysWithValues: EditorCommandID.allCases.map { ($0, $0.defaultBinding) })
         defaults.removeObject(forKey: Self.storageKey)
     }
+    /// Only changed shortcuts are stored, so later changes to the defaults reach every user.
     private func persist() {
-        let saved = Dictionary(uniqueKeysWithValues: bindings.map { ($0.key.rawValue, $0.value) })
+        let saved = Dictionary(uniqueKeysWithValues: bindings.filter { $0.value != $0.key.defaultBinding }.map { ($0.key.rawValue, $0.value) })
         if let data = try? JSONEncoder().encode(saved) { defaults.set(data, forKey: Self.storageKey) }
     }
     func perform(_ command: EditorCommandID, store: EditorStore?, scope: EditorCommandScope) {
@@ -94,6 +101,11 @@ final class EditorCommandRegistry: ObservableObject {
         case .exportEDL: store.beginEDLExport()
         case .exportOTIO: store.exportOTIO()
         case .toggleRetime: store.toggleRetimeMode()
+        case .addMarker: store.addMarkerAtPlayhead()
+        case .previousMarker: store.jumpToMarker(forward: false)
+        case .nextMarker: store.jumpToMarker(forward: true)
+        case .previousEdit: store.jumpToEditPoint(forward: false)
+        case .nextEdit: store.jumpToEditPoint(forward: true)
         }
     }
     func isEnabled(_ command: EditorCommandID, store: EditorStore?, scope: EditorCommandScope) -> Bool {
@@ -113,7 +125,9 @@ final class EditorCommandRegistry: ObservableObject {
         case .splitClip, .deleteClip, .addTransition, .rippleDelete: return store.selectedClip != nil
         case .toggleRetime: return store.retimeMode || (store.selectedClip.map { $0.selection != .still } ?? false)
         case .insertSource, .overwriteSource: return store.selectedAsset != nil && !store.isImporting
-        case .previousFrame, .nextFrame, .addTitle: return true
+        case .previousFrame, .nextFrame, .addTitle, .addMarker: return true
+        case .previousMarker, .nextMarker: return !store.project.markers.isEmpty
+        case .previousEdit, .nextEdit: return store.project.tracks.contains { !$0.clips.isEmpty }
         case .playReverse:
             if let sequence = store.sequencePlayback { return sequence.available && !sequence.isPreparing && store.duration > 0 }
             return store.sourcePlayback != nil
@@ -224,6 +238,9 @@ final class EditorKeyboardRouter {
         guard let registry, let window = event.window, let store = stores.object(forKey: window),
               window.attachedSheet == nil, let pressed = Self.binding(for: event) else { return false }
         if handleClipboard(pressed, store: store, window: window) { return true }
+        // A focused list (the media bin) moves its selection with the arrow keys.
+        if window.firstResponder is NSTableView, ["up", "down", "left", "right"].contains(pressed.key),
+           !pressed.command, !pressed.option, !pressed.control { return false }
         guard let command = EditorCommandID.allCases.first(where: { registry.binding(for: $0) == pressed && !registry.binding(for: $0).isEmpty })
         else { return false }
         if event.isARepeat && command == .togglePlayback { return true }

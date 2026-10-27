@@ -90,6 +90,12 @@ public enum OTIOExporter {
                 reasons.append("\(label): available media duration exceeds OTIO's exact integer range.")
             }
         }
+        for marker in project.markers {
+            let label = "Marker “\(marker.name)”"
+            if try !aligned(marker.time, clock: settings.frameRate.value) { reasons.append("\(label) must fall on a sequence frame boundary.") }
+            else if try marker.time.multiplied(by: settings.frameRate.value).numerator > largestExactInteger { reasons.append("\(label): time exceeds OTIO's exact integer range.") }
+            if try marker.time.compared(to: plan.duration) != .orderedAscending { reasons.append("\(label) lies after the end of the sequence.") }
+        }
         guard reasons.isEmpty else { throw OTIOExportError.unsupported(reasons) }
 
         var tracks: [[String: Any]] = []
@@ -132,9 +138,17 @@ public enum OTIOExporter {
             object["metadata"] = ["aagedal_film_constructor": ["track_id": track.id.uuidString]]
             tracks.append(object)
         }
+        var stack = composition(schema: "Stack.1", name: "Tracks", children: tracks)
+        // Sequence markers belong to the stack, one frame long, in sequence time from zero.
+        stack["markers"] = try project.markers.map { marker -> [String: Any] in
+            ["OTIO_SCHEMA": "Marker.2", "name": marker.name, "comment": marker.note, "color": marker.color.rawValue.uppercased(),
+             "metadata": ["aagedal_film_constructor": ["marker_id": marker.id.uuidString, "time": exactTime(marker.time)]],
+             "marked_range": ["OTIO_SCHEMA": "TimeRange.1", "start_time": try time(marker.time, clock: settings.frameRate.value),
+                              "duration": try time(settings.frameRate.time(forFrames: 1), clock: settings.frameRate.value)]]
+        }
         let timeline: [String: Any] = ["OTIO_SCHEMA": "Timeline.1", "name": projectName,
             "global_start_time": ["OTIO_SCHEMA": "RationalTime.1", "value": settings.startTimecode.frameCount, "rate": settings.frameRate.value.seconds],
-            "tracks": composition(schema: "Stack.1", name: "Tracks", children: tracks),
+            "tracks": stack,
             "metadata": ["aagedal_film_constructor": ["export_subset": "cuts-and-gaps-v1",
                 "frame_rate": exactTime(settings.frameRate.value), "start_timecode_frames": settings.startTimecode.frameCount,
                 "timecode_mode": settings.startTimecode.mode.rawValue, "width": settings.width, "height": settings.height,

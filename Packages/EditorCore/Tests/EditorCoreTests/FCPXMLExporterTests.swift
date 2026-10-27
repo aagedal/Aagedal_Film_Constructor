@@ -222,6 +222,28 @@ final class FCPXMLExporterTests: XCTestCase {
         XCTAssertFalse(result.xml.contains("Unused"))
     }
 
+    func testSequenceMarkersSitOnTheBedAndOffFrameMarkersAreRefused() throws {
+        var project = try fixture()
+        try project.addMarker(at: RationalTime(1))
+        try project.addMarker(at: RationalTime(3, 2), name: "Second <beat>")
+        try project.updateMarker(id: project.markers[0].id, name: "Chorus", note: "Lift & hold", color: .red)
+        let document = try XMLDocument(xmlString: FCPXMLExporter.export(project: project).xml)
+        let markers = try document.nodes(forXPath: "//spine/gap/marker").compactMap { $0 as? XMLElement }
+        XCTAssertEqual(markers.map { $0.attribute(forName: "start")?.stringValue }, ["1s", "3/2s"])
+        XCTAssertEqual(markers.map { $0.attribute(forName: "duration")?.stringValue }, ["1/24s", "1/24s"])
+        XCTAssertEqual(markers.map { $0.attribute(forName: "value")?.stringValue }, ["Chorus", "Second <beat>"])
+        XCTAssertEqual(markers[0].attribute(forName: "note")?.stringValue, "Lift & hold")
+        XCTAssertNil(markers[1].attribute(forName: "note"))
+        // Markers follow every anchored clip, as the DTD requires.
+        XCTAssertEqual(try document.nodes(forXPath: "//spine/gap/*[last()]").first?.name, "marker")
+
+        try project.addMarker(at: RationalTime(1, 100))
+        try project.addMarker(at: RationalTime(10))
+        let refused = try reasons(project)
+        XCTAssertTrue(refused.contains { $0.contains("frame boundary") && $0.contains("Marker 3") })
+        XCTAssertTrue(refused.contains { $0.contains("after the end") && $0.contains("Marker 4") })
+    }
+
     /// Opt in with a locally downloaded Apple DTD. The DTD is intentionally not bundled
     /// or fetched by tests, and passing this check does not establish native import support.
     func testAgainstLocalAppleDTDWhenProvided() throws {
@@ -232,6 +254,10 @@ final class FCPXMLExporterTests: XCTestCase {
         var projects = try [FrameRate(24), FrameRate(24000, 1001), FrameRate(30000, 1001), FrameRate(60000, 1001)].map { try fixture(rate: $0) }
         projects.append(channels)  // audio-channel-source selection
         projects.append(try adjustedFixture())  // volume, fades, placement and keyframes
+        var marked = try fixture()
+        try marked.addMarker(at: RationalTime(1))
+        try marked.updateMarker(id: marked.markers[0].id, name: "Chorus", note: "Lift & hold", color: .red)
+        projects.append(marked)  // sequence markers
         for project in projects {
             let result = try FCPXMLExporter.export(project: project)
             let document = try XMLDocument(xmlString: result.xml)

@@ -18,8 +18,11 @@ public struct Project: Equatable, Codable, Sendable {
     public var storedSequences: [StoredSequence]
     /// Sequences without an assignment live at the root of the media browser.
     public var sequenceBinAssignments: [UUID: UUID]
+    /// The open sequence's markers, in time order.
+    public var markers: [SequenceMarker]
     public init(settings: SequenceSettings, assets: [MediaAsset] = [], families: [TrackFamily] = [], tracks: [TimelineTrack] = [], preferences: EditorPreferences = .init(), audioCrossfades: [AudioCrossfade] = [], mediaBins: [MediaBin] = [], assetBinAssignments: [UUID: UUID] = [:],
-                sequenceID: UUID = Project.defaultSequenceID, sequenceName: String = Project.defaultSequenceName, storedSequences: [StoredSequence] = [], sequenceBinAssignments: [UUID: UUID] = [:]) {
+                sequenceID: UUID = Project.defaultSequenceID, sequenceName: String = Project.defaultSequenceName, storedSequences: [StoredSequence] = [], sequenceBinAssignments: [UUID: UUID] = [:], markers: [SequenceMarker] = []) {
+        self.markers = markers
         self.mediaBins = mediaBins; self.assetBinAssignments = assetBinAssignments
         self.sequenceID = sequenceID; self.sequenceName = sequenceName; self.storedSequences = storedSequences; self.sequenceBinAssignments = sequenceBinAssignments
         self.settings = settings; self.assets = assets; self.families = families; self.tracks = tracks; self.preferences = preferences; self.audioCrossfades = audioCrossfades
@@ -35,6 +38,7 @@ public struct Project: Equatable, Codable, Sendable {
         let familiesByID = Dictionary(uniqueKeysWithValues: families.map { ($0.id, $0) })
         try validateMediaBins()
         try validateSequences()
+        try validateMarkers()
         try validateAudioCrossfades()
         for asset in assets {
             guard asset.duration.numerator > 0, Set(asset.streams.map(\.index)).count == asset.streams.count else { throw EditorCoreError.invalidModel("Invalid asset duration or stream identities") }
@@ -131,14 +135,15 @@ public struct Project: Equatable, Codable, Sendable {
             guard template.audioLayout == settings.audioLayout else { throw EditorCoreError.invalidModel("An explicit output map is required for differing layouts") }
         }
     }
-    private enum CodingKeys: String, CodingKey { case settings, assets, families, tracks, preferences, audioCrossfades, mediaBins, assetBinAssignments, sequenceID, sequenceName, storedSequences, sequenceBinAssignments }
+    private enum CodingKeys: String, CodingKey { case settings, assets, families, tracks, preferences, audioCrossfades, mediaBins, assetBinAssignments, sequenceID, sequenceName, storedSequences, sequenceBinAssignments, markers }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.init(settings: try c.decode(SequenceSettings.self, forKey: .settings), assets: try c.decode([MediaAsset].self, forKey: .assets), families: try c.decode([TrackFamily].self, forKey: .families), tracks: try c.decode([TimelineTrack].self, forKey: .tracks), preferences: try c.decode(EditorPreferences.self, forKey: .preferences), audioCrossfades: try c.decodeIfPresent([AudioCrossfade].self, forKey: .audioCrossfades) ?? [], mediaBins: try c.decodeIfPresent([MediaBin].self, forKey: .mediaBins) ?? [], assetBinAssignments: try c.decodeIfPresent([UUID: UUID].self, forKey: .assetBinAssignments) ?? [:],
                   sequenceID: try c.decodeIfPresent(UUID.self, forKey: .sequenceID) ?? Self.defaultSequenceID,
                   sequenceName: try c.decodeIfPresent(String.self, forKey: .sequenceName) ?? Self.defaultSequenceName,
                   storedSequences: try c.decodeIfPresent([StoredSequence].self, forKey: .storedSequences) ?? [],
-                  sequenceBinAssignments: try c.decodeIfPresent([UUID: UUID].self, forKey: .sequenceBinAssignments) ?? [:])
+                  sequenceBinAssignments: try c.decodeIfPresent([UUID: UUID].self, forKey: .sequenceBinAssignments) ?? [:],
+                  markers: try c.decodeIfPresent([SequenceMarker].self, forKey: .markers) ?? [])
         try validate()
     }
 }

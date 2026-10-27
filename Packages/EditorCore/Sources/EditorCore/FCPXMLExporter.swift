@@ -86,7 +86,13 @@ public enum FCPXMLExporter {
             }
         }
         if try !frameAligned(plan.duration, rate: settings.frameRate) { reasons.append("The sequence end must fall on a sequence frame boundary; export does not round or pad it.") }
-        let times = [frameDuration, tcStart, plan.duration] + assets.map(\.duration) + assets.compactMap(\.sourceTimecodeStart) + plan.components.flatMap {
+        for marker in project.markers {
+            let label = "Marker “\(marker.name)”"
+            if !validXMLText(marker.name) || !validXMLText(marker.note) { reasons.append("\(label) has text that XML 1.0 cannot represent.") }
+            if try !frameAligned(marker.time, rate: settings.frameRate) { reasons.append("\(label) must fall on a sequence frame boundary.") }
+            if try marker.time.compared(to: plan.duration) != .orderedAscending { reasons.append("\(label) lies after the end of the sequence.") }
+        }
+        let times = [frameDuration, tcStart, plan.duration] + project.markers.map(\.time) + assets.map(\.duration) + assets.compactMap(\.sourceTimecodeStart) + plan.components.flatMap {
             [$0.sourceRange.start, $0.sourceRange.duration, $0.timelineRange.start]
         }
         if times.contains(where: { $0.denominator > Int64(Int32.max) }) { reasons.append("An exact time denominator exceeds the FCPXML 32-bit limit.") }
@@ -152,12 +158,17 @@ public enum FCPXMLExporter {
                 lines.append("              </asset-clip>")
             }
         }
+        // Sequence markers sit on the bed, after its anchored clips, one frame long as Final Cut writes them.
+        for marker in project.markers {
+            lines.append("              <marker start=\"\(time(marker.time))\" duration=\"\(time(frameDuration))\" value=\"\(attribute(marker.name))\"\(marker.note.isEmpty ? "" : " note=\"\(attribute(marker.note))\"")/>")
+        }
         lines += ["            </gap>", "          </spine>", "        </sequence>", "      </project>", "    </event>", "  </library>", "</fcpxml>", ""]
         return FCPXMLExportResult(xml: lines.joined(separator: "\n"), report: FCPXMLExportReport(clipCount: plan.components.count, assetCount: assets.count, notes: [
             "FCPXML 1.10 subset: original file references, exact sequence timing, layered video, and audio channel selections (audio-channel-source, channels numbered across the source's audio streams).",
             "Source raster, frame rate, orientation, pixel aspect, color metadata, and sample rate are inspected from original media by the receiving editor; mixed-rate and spatial conform equivalence have not been qualified.",
             "Linked picture and sound with identical timing are written as one A/V clip. DaVinci Resolve 21 and Final Cut Pro 11 import this subset with exact timing. Track families and editor preferences are not interchange metadata.",
-            "Volume, fades, scale, position, opacity and their keyframes are written as Final Cut adjustments (position in percent of frame height, y up). They match Apple's DTD; their interpretation by receiving editors has not been verified. Equal-power fades are written as ease fades."
+            "Volume, fades, scale, position, opacity and their keyframes are written as Final Cut adjustments (position in percent of frame height, y up). They match Apple's DTD; their interpretation by receiving editors has not been verified. Equal-power fades are written as ease fades.",
+            "Sequence markers are written as one-frame markers on the sequence bed with their name and note; marker colours are not part of FCPXML."
         ]))
     }
 

@@ -7,7 +7,8 @@
 # timeline (converting formats AVFoundation cannot open), overlaps a second placement,
 # applies fades and a crossfade, relinks one original, generates proxies and prefers
 # them, adds a dissolve (⌘T) and a title (⌃T), sets clip volume, inserts (,) and
-# overwrites (.) from the source, copies, pastes, duplicates and ripple deletes, remaps Play / Pause and presses it, switches to the Sequence
+# overwrites (.) from the source, copies, pastes, duplicates and ripple deletes (⌫), adds and
+# jumps between markers (M, ⇧M, ⌥M) and cuts (↓, ↑), remaps Play / Pause and presses it, switches to the Sequence
 # viewer with Tab, plays and pauses with Space, opens Render Sequence with ⇧⌘E and
 # renders H.264 through the sheet's folder panel and ProRes 422 HQ, saves the
 # project with ⌘S through the save panel, then closes and reopens it. Snapshots, renders and acceptance.json are kept
@@ -78,7 +79,9 @@ checks = [
     ('clip volume set to −6 dB', abs(tools.get('volume', {}).get('gain', 0) - 0.501187) < 0.001),
     (', inserted the source and moved later clips', tools.get('insert', {}).get('secondsAdded', 0) > 0.5),
     ('. overwrote the sequence at the playhead', tools.get('overwrite', {}).get('clipsAfter', 0) > 0 and not tools.get('overwrite', {}).get('error')),
-    ('⌘C/⌘V pasted, ⌘D duplicated and ⇧⌘⌫ ripple deleted', tools.get('clipboard', {}).get('copiedAndPasted') and tools.get('clipboard', {}).get('duplicated') and tools.get('clipboard', {}).get('rippleDeleted')),
+    ('⌘C/⌘V pasted, ⌘D duplicated and ⌫ ripple deleted', tools.get('clipboard', {}).get('copiedAndPasted') and tools.get('clipboard', {}).get('duplicated') and tools.get('clipboard', {}).get('rippleDeleted')),
+    ('M added a marker, which was named; ⇧M and ⌥M jumped to markers', tools.get('markers', {}).get('added') and tools.get('markers', {}).get('named') and tools.get('markers', {}).get('nextMarker') and tools.get('markers', {}).get('previousMarker')),
+    ('↓ and ↑ moved the playhead to the next and previous cut', tools.get('markers', {}).get('nextEdit') and tools.get('markers', {}).get('previousEdit')),
     ('picture-in-picture transform applied (33%, 80% opacity)', tools.get('transform', {}).get('scale') == 0.33 and tools.get('transform', {}).get('opacity') == 0.8),
     ('colour correction applied (preview uses the CoreImage compositor)', tools.get('color', {}).get('applied')),
     ('50% speed doubled a clip with its linked sound', tools.get('speed', {}).get('doubled')),
@@ -96,6 +99,7 @@ checks = [
     ('⇧⌘E opened Render Sequence', sheet.get('openedByShortcut')),
     ('Render Sequence H.264 export verified', ui.get('buttonPressed') and ui.get('completed') and ui.get('bytes', 0) > 0),
     ('project saved with every clip (⌘S panel, or NSDocument save-as when panels are skipped)', save.get('saved') and save.get('clipsInFile') == save.get('clipsInWorkspace') and save.get('clipsInFile', 0) > 0),
+    ('markers saved with the project', save.get('markersInFile', -1) == save.get('markersInWorkspace') and save.get('markersInFile', 0) > 0),
     ('saved project reopened in a workspace window', reopen.get('reopened') and reopen.get('windowShown')),
 ] + [(f"{e['format']} export verified ({e.get('frames')} frames)", 'error' not in e and e.get('frames', 0) > 0) for e in steps.get('export', [])]
 if not steps.get('export'): checks.append(('exports ran', False))

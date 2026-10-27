@@ -58,6 +58,15 @@ def validate(path):
             # a trim starting exactly at the media start is valid here.
             assert reference.available_range.start_time.to_seconds() <= child.source_range.start_time.to_seconds() + 1e-10
             assert reference.available_range.end_time_exclusive().to_seconds() + 1e-10 >= child.source_range.end_time_exclusive().to_seconds()
+    raw_markers = exported["tracks"].get("markers", [])
+    assert len(timeline.tracks.markers) == len(raw_markers)
+    for marker, original in zip(timeline.tracks.markers, raw_markers):
+        assert isinstance(marker, otio.schema.Marker)
+        assert marker.name == original["name"]
+        assert marker.comment == original["comment"]
+        assert marker.color == original["color"]
+        equal_time(marker.marked_range.start_time, seconds(original["metadata"]["aagedal_film_constructor"]["time"]))
+        assert marker.marked_range.start_time.to_seconds() < duration
     # Serialize using the official core and read it again; compare all schema fields.
     rewritten = otio.adapters.write_to_string(timeline, adapter_name="otio_json")
     restored = otio.adapters.read_from_string(rewritten, adapter_name="otio_json")

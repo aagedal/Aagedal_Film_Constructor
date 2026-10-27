@@ -3,7 +3,7 @@ import Foundation
 enum EditorCommandScope: String, Codable { case document, source, timeline }
 
 enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
-    case togglePlayback, zoomTimelineToFit, rippleTrimStart, rippleTrimEnd, toggleViewer, undo, redo, importMedia, appendSource, markSourceIn, markSourceOut, clearSourceMarks, splitClip, addTransition, addTitle, insertSource, overwriteSource, previousFrame, nextFrame, deleteClip, rippleDelete, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO, toggleRetime
+    case togglePlayback, zoomTimelineToFit, rippleTrimStart, rippleTrimEnd, toggleViewer, undo, redo, importMedia, appendSource, markSourceIn, markSourceOut, clearSourceMarks, splitClip, addTransition, addTitle, insertSource, overwriteSource, previousFrame, nextFrame, deleteClip, rippleDelete, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO, toggleRetime, addMarker, previousMarker, nextMarker, previousEdit, nextEdit
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -36,6 +36,11 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .exportEDL: "Export Track EDL…"
         case .exportOTIO: "Export OpenTimelineIO…"
         case .toggleRetime: "Retime Controls"
+        case .addMarker: "Add Marker at Playhead"
+        case .previousMarker: "Previous Marker"
+        case .nextMarker: "Next Marker"
+        case .previousEdit: "Previous Edit Point"
+        case .nextEdit: "Next Edit Point"
         }
     }
     var isPlayback: Bool { [.togglePlayback, .playReverse, .pausePlayback, .playForward].contains(self) }
@@ -44,6 +49,14 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .toggleViewer, .undo, .redo, .importMedia, .insertSource, .overwriteSource, .exportSequence, .exportFCPXML, .exportEDL, .exportOTIO: .document
         case .appendSource, .markSourceIn, .markSourceOut, .clearSourceMarks, .playReverse, .pausePlayback, .playForward: .source
         default: .timeline
+        }
+    }
+    /// Defaults from earlier versions, which full saved maps may still hold.
+    var formerDefaultBindings: [ShortcutBinding] {
+        switch self {
+        case .rippleDelete: [ShortcutBinding(key: "delete", command: true, shift: true)]
+        case .deleteClip: [ShortcutBinding(key: "delete", command: true)]
+        default: []
         }
     }
     var defaultBinding: ShortcutBinding {
@@ -75,6 +88,11 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .exportSequence: ShortcutBinding(key: "e", command: true, shift: true)
         case .exportFCPXML, .exportEDL, .exportOTIO: ShortcutBinding(key: "")
         case .toggleRetime: ShortcutBinding(key: "r", command: true)
+        case .addMarker: ShortcutBinding(key: "m")
+        case .previousMarker: ShortcutBinding(key: "m", option: true)
+        case .nextMarker: ShortcutBinding(key: "m", shift: true)
+        case .previousEdit: ShortcutBinding(key: "up")
+        case .nextEdit: ShortcutBinding(key: "down")
         }
     }
 }
@@ -104,7 +122,7 @@ struct ShortcutBinding: Codable, Equatable {
         guard namedKeys.contains(candidate.key) || (candidate.key.count == 1 && candidate.key.unicodeScalars.allSatisfy { !$0.properties.isWhitespace && !CharacterSet.controlCharacters.contains($0) }) else {
             return "Enter one character or left, right, up, down, delete, return, escape, space, or tab."
         }
-        guard commandID.isPlayback || [.toggleViewer, .markSourceIn, .markSourceOut, .clearSourceMarks, .zoomTimelineToFit, .rippleTrimStart, .rippleTrimEnd, .insertSource, .overwriteSource, .rippleDelete, .deleteClip].contains(commandID) || candidate.command || candidate.option || candidate.control else {
+        guard commandID.isPlayback || [.toggleViewer, .markSourceIn, .markSourceOut, .clearSourceMarks, .zoomTimelineToFit, .rippleTrimStart, .rippleTrimEnd, .insertSource, .overwriteSource, .rippleDelete, .deleteClip, .addMarker, .nextMarker, .previousEdit, .nextEdit].contains(commandID) || candidate.command || candidate.option || candidate.control else {
             return "Include Command, Option, or Control to preserve text entry."
         }
         if candidate.command && !candidate.option && !candidate.control && ["q", "w", "n", "o", "s", "h", "m", ",", "c", "v", "x", "a", "f"].contains(candidate.key) {

@@ -38,6 +38,13 @@ import Foundation
         precondition(defaults[.exportOTIO]?.isEmpty == true && EditorCommandID.exportOTIO.scope == .document)
         precondition(ShortcutBinding(key: "j").validationError(for: .playForward, bindings: defaults)?.contains("Backwards") == true)
         precondition(ShortcutBinding(key: "p").validationError(for: .pausePlayback, bindings: defaults) == nil)
+        precondition(defaults[.addMarker] == ShortcutBinding(key: "m") && defaults[.nextMarker] == ShortcutBinding(key: "m", shift: true))
+        precondition(defaults[.previousMarker] == ShortcutBinding(key: "m", option: true))
+        precondition(defaults[.previousEdit] == ShortcutBinding(key: "up") && defaults[.nextEdit] == ShortcutBinding(key: "down"))
+        precondition(ShortcutBinding(key: "m").validationError(for: .previousMarker, bindings: defaults) != nil)
+        // A former default is never also the current one, or saved maps could not tell them apart.
+        for command in EditorCommandID.allCases { precondition(!command.formerDefaultBindings.contains(command.defaultBinding)) }
+        precondition(EditorCommandID.rippleDelete.formerDefaultBindings == [ShortcutBinding(key: "delete", command: true, shift: true)])
         let customized = ShortcutBinding(key: "k", command: true, shift: true)
         precondition(customized.validationError(for: .splitClip, bindings: defaults) == nil)
         let restored = try JSONDecoder().decode(ShortcutBinding.self, from: JSONEncoder().encode(customized))

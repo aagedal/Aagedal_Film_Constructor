@@ -26,7 +26,7 @@ final class EditorStore: ObservableObject {
     @Published var showSequenceMonitor = false
     @Published var selectedMediaBinID: UUID?
     /// What the inspector shows: the last clicked clip, sequence or bin media.
-    enum InspectorFocus { case clip, sequence, asset }
+    enum InspectorFocus { case clip, sequence, asset, marker }
     @Published var inspectorFocus = InspectorFocus.clip
     @Published var selectedAssetIDs: Set<UUID> = []
     @Published var proxyCreationDraft: ProxyCreationDraft?
@@ -42,6 +42,7 @@ final class EditorStore: ObservableObject {
     @Published var sourceRanges: [UUID: TimeRange] = [:]
     @Published var selectedAssetID: UUID?
     @Published var selectedClipID: UUID?
+    @Published var selectedMarkerID: UUID?
     @Published var audioAppendAsset: MediaAsset?
     @Published var renderExportDraft: SequenceExportDraft?
     @Published var edlExportDraft: EDLExportDraft?
@@ -405,6 +406,7 @@ final class EditorStore: ObservableObject {
     private func sequenceOpened() {
         sequencePlayback?.pause()
         selectedClipID = nil
+        selectedMarkerID = nil
         playheadSeconds = 0
     }
 
@@ -735,6 +737,7 @@ final class EditorStore: ObservableObject {
     private func reconcileSelection() {
         if let id = selectedMediaBinID, !project.mediaBins.contains(where: { $0.id == id }) { selectedMediaBinID = nil }
         if selectedClip == nil { selectedClipID = nil }
+        if let id = selectedMarkerID, !project.markers.contains(where: { $0.id == id }) { selectedMarkerID = nil }
         selectedAssetIDs.formIntersection(Set(project.assets.map(\.id)))
         if selectedAsset == nil {
             selectedAssetID = nil
@@ -1220,7 +1223,7 @@ final class EditorStore: ObservableObject {
     }
     private func snapTargets(excluding clip: TimelineClip, alone: Bool = false) -> [Double] {
         let excluded = Set(TimelineGesture.components(of: clip, in: project, alone: alone).map(\.id))
-        return [0, playheadSeconds] + project.tracks.flatMap(\.clips).filter { !excluded.contains($0.id) }.flatMap {
+        return [0, playheadSeconds] + project.markers.map(\.time.seconds) + project.tracks.flatMap(\.clips).filter { !excluded.contains($0.id) }.flatMap {
             [$0.timelineStart.seconds, $0.timelineStart.seconds + $0.sourceRange.duration.seconds]
         }
     }
@@ -1258,8 +1261,10 @@ final class EditorStore: ObservableObject {
         } catch { report(error) }
     }
     func seek(to seconds: Double) { playheadSeconds = max(0, min(seconds, duration)) }
-    var playheadTimecode: String {
-        let position = playheadSeconds * project.settings.frameRate.value.seconds
+    var playheadTimecode: String { timecode(forSeconds: playheadSeconds) }
+    /// Sequence timecode of a sequence time, counting from the start timecode.
+    func timecode(forSeconds seconds: Double) -> String {
+        let position = seconds * project.settings.frameRate.value.seconds
         let nearest = position.rounded()
         let frames = abs(position - nearest) < 1e-8 ? nearest : floor(position)
         guard frames.isFinite, frames >= 0, frames < Double(Int64.max) else { return "00:00:00:00" }
@@ -1286,6 +1291,86 @@ final class EditorStore: ObservableObject {
         let target = aligned ? nearest + Double(frames) : (frames < 0 ? ceil(position) : floor(position)) + Double(frames)
         seek(to: target / project.settings.frameRate.value.seconds)
     }
+    // MARK: Markers and edit navigation
+
+    var selectedMarker: SequenceMarker? { selectedMarkerID.flatMap { id in project.markers.first { $0.id == id } } }
+    /// The playhead on the sequence frame grid, rounded to the nearest frame.
+    private func playheadFrameTime() throws -> RationalTime {
+        let frames = (playheadSeconds * project.settings.frameRate.value.seconds).rounded()
+        guard frames.isFinite, frames >= 0, frames < Double(Int64.max) else { throw EditorCoreError.invalidTime }
+        return try project.settings.frameRate.time(forFrames: Int64(frames))
+    }
+    func selectMarker(_ id: UUID) {
+        guard let marker = project.markers.first(where: { $0.id == id }) else { return }
+        focusSequenceViewer()
+        selectedMarkerID = id
+        inspectorFocus = .marker
+        seek(to: marker.time.seconds)
+    }
+    /// Adds a marker on the frame at the playhead, or selects the one already there.
+    func addMarkerAtPlayhead() {
+        do {
+            let time = try playheadFrameTime()
+            if let existing = project.markers.first(where: { $0.time == time }) {
+                selectMarker(existing.id)
+                statusMessage = "A marker is already at the playhead."
+                return
+            }
+            var id: UUID?
+            try change { id = try $0.addMarker(at: time) }
+            if let id {
+                selectedMarkerID = id
+                inspectorFocus = .marker
+                statusMessage = "Added \(selectedMarker?.name ?? "a marker"). Name it in the inspector."
+            }
+        } catch { report(error) }
+    }
+    func updateMarker(_ id: UUID, name: String, note: String, color: MarkerColor) {
+        do { try change { try $0.updateMarker(id: id, name: name, note: note, color: color) } } catch { report(error) }
+    }
+    /// Moves a marker to the frame nearest the given time.
+    func moveMarker(_ id: UUID, to seconds: Double) {
+        let rate = project.settings.frameRate.value.seconds
+        let frames = (max(0, seconds) * rate).rounded()
+        guard frames.isFinite, frames < Double(Int64.max) else { return }
+        do {
+            let time = try project.settings.frameRate.time(forFrames: Int64(frames))
+            guard project.markers.first(where: { $0.id == id })?.time != time else { return }
+            try change { try $0.moveMarker(id: id, to: time) }
+        } catch { report(error) }
+    }
+    func removeMarker(_ id: UUID) {
+        do {
+            try change { try $0.removeMarker(id: id) }
+            if selectedMarkerID == id {
+                selectedMarkerID = nil
+                if inspectorFocus == .marker { inspectorFocus = .sequence }
+            }
+        } catch { report(error) }
+    }
+    func removeSelectedMarker() { if let id = selectedMarkerID { removeMarker(id) } }
+    /// The first of the sorted times beyond the playhead; times within half a microsecond of it are where it already is.
+    private func next(of times: [Double], forward: Bool) -> Double? {
+        forward ? times.first { $0 > playheadSeconds + 0.0000005 } : times.last { $0 < playheadSeconds - 0.0000005 }
+    }
+    func jumpToMarker(forward: Bool) {
+        let times = project.markers.map(\.time.seconds)
+        guard let time = next(of: times, forward: forward), let marker = project.markers.first(where: { $0.time.seconds == time })
+        else { NSSound.beep(); return }
+        // Highlights the marker without taking the inspector away from the clip being edited.
+        focusSequenceViewer()
+        selectedMarkerID = marker.id
+        seek(to: time)
+    }
+    /// Moves the playhead to the next or previous cut on any track.
+    func jumpToEditPoint(forward: Bool) {
+        do {
+            guard let time = next(of: try project.editPoints.map(\.seconds), forward: forward) else { NSSound.beep(); return }
+            focusSequenceViewer()
+            seek(to: time)
+        } catch { report(error) }
+    }
+
     func setAutomaticTrackCleanup(_ enabled: Bool) {
         do { try change { $0.preferences.automaticallyRemoveEmptyTracks = enabled } } catch { report(error) }
     }
