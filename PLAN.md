@@ -154,6 +154,19 @@ express it.
 - [x] Cut, copy and paste (⌘X/⌘C/⌘V) and Duplicate Clip (⌘D) act on the selected clip
   and its linked components when no text field has focus. Pastes go to the original
   tracks at the playhead with new identities, stacking on siblings over occupied time.
+- [x] Sequence markers (2026-10-27): M adds a marker on the playhead's frame, ⇧M/⌥M jump
+  between markers and ↓/↑ between cuts on any track. Markers are flags on the ruler (click to
+  edit name, note and colour in the inspector, drag to move, right-click to recolour or
+  delete), are snap targets, stay at their sequence time when clips move, belong to their
+  sequence and save with it. FCPXML writes them on the bed (validated against Apple's 1.10
+  DTD), OTIO as stack `Marker.2` (official OTIO 0.18.1 reads and round-trips them), and track
+  EDLs as `* LOC:` comments; off-frame markers, markers past the end and (EDL) non-ASCII text
+  are refused. `MarkerTests` and the exporter tests cover them; real-window acceptance adds,
+  names, jumps between and saves a marker and jumps between cuts.
+- [x] Shortcut defaults reach customised maps (2026-10-27): acceptance found ⌫ no longer ripple
+  deleted for anyone who had remapped any shortcut, because the whole map was stored and froze
+  the old ⇧⌘⌫ default. Only changed shortcuts are now stored, and saved former defaults
+  (⇧⌘⌫ ripple delete, ⌘⌫ delete) load as the current ones.
 
 ## Earlier priority: usable beta (2026-10-23)
 

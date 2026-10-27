@@ -145,6 +145,21 @@ public enum CMX3600Exporter {
             cursor = endSum.partialValue
         }
         if events.count > 999 { reasons.append("The selected track exceeds 999 CMX3600 events, including gap events.") }
+        // Sequence markers become locator comments under the event that contains them.
+        var locators: [Int: [(record: Int64, color: String, text: String)]] = [:]
+        for marker in project.markers {
+            let label = "Marker “\(marker.name)”"
+            let text = marker.note.isEmpty ? marker.name : "\(marker.name) - \(marker.note)"
+            if !text.isEmpty && !lineText(text) { reasons.append("\(label): marker names and notes must be printable ASCII on one line.") }
+            guard let offset = try frames(marker.time, rate: rate) else {
+                reasons.append("\(label) must fall on a sequence frame boundary."); continue
+            }
+            let recordTime = try record(offset)
+            guard let index = events.firstIndex(where: { $0.recordIn <= recordTime && recordTime < $0.recordOut }) else {
+                reasons.append("\(label) lies after the selected track's final clip."); continue
+            }
+            locators[index, default: []].append((recordTime, marker.color.cmxLocatorColor, text))
+        }
         guard reasons.isEmpty else { throw CMX3600ExportError.unsupported(reasons) }
         func timecode(_ count: Int64) throws -> String {
             // CMX uses the FCM header to declare counting mode and colon-separated labels.
@@ -156,13 +171,17 @@ public enum CMX3600Exporter {
             let reel = event.reel.padding(toLength: 8, withPad: " ", startingAt: 0)
             lines.append("\(number)  \(reel) \(channel)  C        \(try timecode(event.sourceIn)) \(try timecode(event.sourceOut)) \(try timecode(event.recordIn)) \(try timecode(event.recordOut))")
             if let name = event.name { lines.append("* FROM CLIP NAME: \(name)") }
+            for locator in locators[index] ?? [] {
+                lines.append("* LOC: \(try timecode(locator.record)) \(locator.color.padding(toLength: 7, withPad: " ", startingAt: 0)) \(locator.text)")
+            }
             lines.append("")
         }
         return CMX3600ExportResult(edl: lines.joined(separator: "\n"), report: CMX3600ExportReport(trackID: trackID, clipCount: clips.count, gapCount: gapCount, eventCount: events.count, notes: [
             "One selected track only: cuts and explicit BL gaps through its final clip; other tracks and the sequence tail are excluded.",
             "Configure the receiving editor to the exact sequence frame rate \(rate.value.numerator)/\(rate.value.denominator). CMX3600 does not encode an exact rational rate.",
             "Reel identities and clip-name comments aid manual media matching; paths, geometry, track families and link groups are not preserved.",
-            "Native editor import and media conform have not been qualified."
+            "Native editor import and media conform have not been qualified.",
+            "Sequence markers are written as Avid-style * LOC: comments at record timecode under the event that contains them; orange, purple and pink use the nearest locator colour."
         ]))
     }
     private static func frames(_ time: RationalTime, rate: FrameRate) throws -> Int64? {
@@ -178,5 +197,19 @@ public enum CMX3600Exporter {
     }
     private static func validReel(_ value: String) -> Bool {
         (1...8).contains(value.utf8.count) && value != "BL" && value.utf8.allSatisfy { (65...90).contains($0) || (48...57).contains($0) }
+    }
+}
+
+private extension MarkerColor {
+    /// The classic eight Avid locator colours.
+    var cmxLocatorColor: String {
+        switch self {
+        case .red, .orange: "RED"
+        case .yellow: "YELLOW"
+        case .green: "GREEN"
+        case .cyan: "CYAN"
+        case .blue: "BLUE"
+        case .purple, .pink: "MAGENTA"
+        }
     }
 }

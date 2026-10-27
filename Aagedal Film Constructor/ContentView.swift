@@ -542,6 +542,8 @@ private struct ProjectInspector: View {
     private enum Tab: Hashable { case video, audio }
     @State private var tab = Tab.video
     @State private var sequenceName = ""
+    @State private var markerName = ""
+    @State private var markerNote = ""
     @State private var recordedRate = ""
     @State private var playRate = ""
 
@@ -554,13 +556,16 @@ private struct ProjectInspector: View {
                     clipInspector(clip)
                 } else if store.inspectorFocus == .asset, let asset = store.selectedAsset {
                     assetInspector(asset)
+                } else if store.inspectorFocus == .marker, let marker = store.selectedMarker {
+                    markerInspector(marker)
                 } else {
                     Text("Inspector").font(.headline)
                     Text("Select a timeline clip, a sequence or media in the bin to inspect it.").font(.callout).foregroundStyle(.secondary)
                 }
             }.padding(12)
         }
-        .onAppear { refreshClip(); refreshSettings() }
+        .onAppear { refreshClip(); refreshSettings(); refreshMarker() }
+        .onChange(of: store.selectedMarker) { _, _ in refreshMarker() }
         .onChange(of: store.selectedClip) { _, _ in refreshClip() }
         .onChange(of: store.selectedClipID) { _, _ in
             if let clip = store.selectedClip { tab = clip.requiredTrackKind == .video ? .video : .audio }
@@ -806,6 +811,79 @@ private struct ProjectInspector: View {
         }
     }
 
+    private func refreshMarker() {
+        markerName = store.selectedMarker?.name ?? ""
+        markerNote = store.selectedMarker?.note ?? ""
+    }
+    private func saveMarker(_ marker: SequenceMarker, color: MarkerColor? = nil) {
+        store.updateMarker(marker.id, name: markerName, note: markerNote, color: color ?? marker.color)
+    }
+
+    @ViewBuilder private func markerInspector(_ marker: SequenceMarker) -> some View {
+        HStack {
+            Image(systemName: "bookmark.fill").foregroundStyle(marker.color.swatch)
+            Text(marker.name.isEmpty ? "Marker" : marker.name).font(.headline).lineLimit(2)
+        }
+        GroupBox("Marker") {
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Name").font(.caption).foregroundStyle(.secondary)
+                    TextField("Name", text: $markerName).textFieldStyle(.roundedBorder)
+                        .onSubmit { saveMarker(marker) }
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Note").font(.caption).foregroundStyle(.secondary)
+                    TextField("Note", text: $markerNote, axis: .vertical).lineLimit(2...5).textFieldStyle(.roundedBorder)
+                        .onSubmit { saveMarker(marker) }
+                }
+                HStack(spacing: 6) {
+                    ForEach(MarkerColor.allCases, id: \.self) { color in
+                        Button { saveMarker(marker, color: color) } label: {
+                            Circle().fill(color.swatch).frame(width: 14, height: 14)
+                                .overlay { if color == marker.color { Circle().stroke(Color.primary, lineWidth: 2).padding(-2) } }
+                        }
+                        .buttonStyle(.plain).help(color.rawValue.capitalized).accessibilityLabel("\(color.rawValue.capitalized) marker")
+                    }
+                }
+                HStack {
+                    Button(store.timecode(forSeconds: marker.time.seconds)) { store.seek(to: marker.time.seconds) }
+                        .font(.system(.caption, design: .monospaced)).help("Move the playhead to this marker")
+                    Spacer()
+                    Button("Save marker", systemImage: "checkmark") { saveMarker(marker) }
+                        .labelStyle(.iconOnly).help("Save name and note")
+                        .disabled(markerName.trimmingCharacters(in: .whitespacesAndNewlines) == marker.name && markerNote == marker.note)
+                    Button("Delete marker", systemImage: "trash") { store.removeMarker(marker.id) }
+                        .labelStyle(.iconOnly).help("Delete marker")
+                }
+                Text("Drag the marker's flag on the ruler to move it. Markers stay at their sequence time when clips move around them.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }.padding(5)
+        }
+        markerList
+    }
+
+    @ViewBuilder private var markerList: some View {
+        if !store.project.markers.isEmpty {
+            GroupBox("Markers") {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(store.project.markers) { marker in
+                        Button { store.selectMarker(marker.id) } label: {
+                            HStack {
+                                Image(systemName: "bookmark.fill").foregroundStyle(marker.color.swatch)
+                                Text(store.timecode(forSeconds: marker.time.seconds)).font(.system(.caption, design: .monospaced))
+                                Text(marker.name).lineLimit(1)
+                                Spacer()
+                            }.contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 2).padding(.horizontal, 4)
+                        .background(store.selectedMarkerID == marker.id ? Color.accentColor.opacity(0.18) : .clear, in: RoundedRectangle(cornerRadius: 4))
+                    }
+                }.font(.callout).frame(maxWidth: .infinity, alignment: .leading).padding(5)
+            }
+        }
+    }
+
     @ViewBuilder private var sequenceInspector: some View {
         Text(store.project.sequenceName).font(.headline)
         GroupBox("Sequence") {
@@ -863,6 +941,7 @@ private struct ProjectInspector: View {
                 ))
             }.font(.callout).frame(maxWidth: .infinity, alignment: .leading).padding(5)
         }
+        markerList
     }
 
     @ViewBuilder private func matchButtons(_ asset: MediaAsset) -> some View {

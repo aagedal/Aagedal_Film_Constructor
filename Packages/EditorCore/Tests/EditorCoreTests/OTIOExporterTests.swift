@@ -147,7 +147,9 @@ final class OTIOExporterTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         for (n, d): (Int64, Int64) in [(24, 1), (25, 1), (24000, 1001), (30000, 1001), (60000, 1001)] {
-            let project = try fixture(rate: FrameRate(n, d))
+            var project = try fixture(rate: FrameRate(n, d))
+            try project.addMarker(at: project.settings.frameRate.time(forFrames: 30), color: .purple)
+            try project.updateMarker(id: project.markers[0].id, name: "Chorus 雪", note: "Lift & hold", color: .purple)
             let file = directory.appendingPathComponent("\(n)-\(d).otio")
             try OTIOExporter.export(project: project).write(to: file, atomically: true, encoding: .utf8)
             let process = Process()
@@ -185,5 +187,26 @@ final class OTIOExporterTests: XCTestCase {
             let available = ((reference["available_range"] as! [String: Any])["start_time"] as! [String: Any])
             XCTAssertEqual((available["value"] as! NSNumber).doubleValue / (available["rate"] as! NSNumber).doubleValue, 3600)
         }
+    }
+    func testSequenceMarkersAreWrittenOnTheStack() throws {
+        var project = try fixture()
+        try project.addMarker(at: RationalTime(2))
+        try project.updateMarker(id: project.markers[0].id, name: "Chorus", note: "Lift", color: .green)
+        let timeline = try object(OTIOExporter.export(project: project))
+        let stack = try XCTUnwrap(timeline["tracks"] as? [String: Any])
+        let markers = try XCTUnwrap(stack["markers"] as? [[String: Any]])
+        XCTAssertEqual(markers.count, 1)
+        XCTAssertEqual(markers[0]["OTIO_SCHEMA"] as? String, "Marker.2")
+        XCTAssertEqual(markers[0]["name"] as? String, "Chorus")
+        XCTAssertEqual(markers[0]["comment"] as? String, "Lift")
+        XCTAssertEqual(markers[0]["color"] as? String, "GREEN")
+        let range = try XCTUnwrap(markers[0]["marked_range"] as? [String: Any])
+        let start = try XCTUnwrap(range["start_time"] as? [String: Any])
+        XCTAssertEqual((start["value"] as? NSNumber)?.int64Value, 48)
+        XCTAssertEqual((start["rate"] as? NSNumber)?.doubleValue, 24)
+        XCTAssertEqual(((range["duration"] as? [String: Any])?["value"] as? NSNumber)?.int64Value, 1)
+
+        try project.addMarker(at: RationalTime(1, 100))
+        XCTAssertTrue(try reasons(project).contains { $0.contains("frame boundary") })
     }
 }

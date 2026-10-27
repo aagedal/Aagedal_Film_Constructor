@@ -12,6 +12,11 @@
 
 Available media ranges encode exact seconds as integer numerator/denominator, without inventing a source frame rate. Their OTIO rate is an encoding clock, not measured source fps. Source frame rate, raster, orientation, sample rate, and pixel aspect are not retained in the native core. A receiving editor must inspect original media.
 
+Sequence markers are written as one-frame `Marker.2` objects on the top-level stack
+with name, comment (the note), colour and the exact time in namespaced metadata. Markers
+off the frame grid or at or after the sequence end are refused. The official core reads
+and round-trips them.
+
 ## Refused features
 
 Audio fades/crossfades and nonunity gain; partial/reordered audio channels; multiple audio streams; nonidentity output routing; differing source/sequence layouts; selecting among multiple video streams; source stream offsets; still images; fill/unscaled geometry; nonlocal/missing original references; nonzero source timecode without a known source rate; unsupported sequence audio layouts; empty sequences; subframe video edits; subsample audio edits; and values or source/record endpoints beyond the conservative exact IEEE-754 integer range (2^53).

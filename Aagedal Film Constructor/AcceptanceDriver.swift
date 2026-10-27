@@ -458,7 +458,38 @@ enum AcceptanceDriver {
                 press(.rippleDelete, "\u{7f}", keyCode: 51, modifiers: [])
                 let rippled = await wait(3) { clips().count < afterDuplicate && store.duration < durationBefore }
                 features["clipboard"] = ["menuKeys": keyed, "copiedAndPasted": pasted, "duplicated": duplicated, "rippleDeleted": rippled,
-                                         "clipboardEntries": store.clipboard?.entries.count ?? 0, "error": store.errorMessage ?? ""]
+                                         "clipboardEntries": store.clipboard?.entries.count ?? 0, "error": store.errorMessage ?? "",
+                                         "rippleDeleteShortcut": registry.binding(for: .rippleDelete).display]
+            }
+            do {
+                // M adds a marker on the playhead's frame; ⇧M / ⌥M jump between markers and ↓ / ↑ between cuts.
+                let frame = 1 / store.project.settings.frameRate.value.seconds
+                store.seek(to: 1)
+                let markersBefore = store.project.markers.count
+                press(.addMarker, "m", keyCode: 46)
+                let added = await wait(3) { store.project.markers.count > markersBefore }
+                if let marker = store.selectedMarker { store.updateMarker(marker.id, name: "Acceptance marker", note: "Check here", color: .green) }
+                store.seek(to: 0)
+                press(.nextMarker, "M", keyCode: 46, modifiers: [.shift])
+                let jumpedForward = await wait(3) { abs(store.playheadSeconds - 1) < frame }
+                store.seek(to: store.duration)
+                press(.previousMarker, "m", keyCode: 46, modifiers: [.option])
+                let jumpedBack = await wait(3) { store.project.markers.contains { abs($0.time.seconds - store.playheadSeconds) < 0.000001 } }
+                let cuts = (try? store.project.editPoints.map(\.seconds)) ?? []
+                // The bin keeps the arrow keys while its list has focus, as after the earlier media selections;
+                // clicking the timeline takes focus from it.
+                if workspaceWindow()?.firstResponder is NSTableView { workspaceWindow()?.makeFirstResponder(nil) }
+                store.seek(to: 0)
+                press(.nextEdit, "\u{F701}", keyCode: 125)
+                let firstCut = cuts.first { $0 > 0 } ?? -1
+                let nextEdit = await wait(3) { abs(store.playheadSeconds - firstCut) < 0.000001 }
+                store.seek(to: store.duration)
+                press(.previousEdit, "\u{F700}", keyCode: 126)
+                let previousCut = cuts.last { $0 < store.duration - 0.000001 } ?? -1
+                let previousEdit = await wait(3) { abs(store.playheadSeconds - previousCut) < 0.000001 }
+                features["markers"] = ["added": added, "named": store.project.markers.contains { $0.name == "Acceptance marker" && $0.color == .green },
+                                       "nextMarker": jumpedForward, "previousMarker": jumpedBack, "nextEdit": nextEdit, "previousEdit": previousEdit,
+                                       "count": store.project.markers.count, "playhead": store.playheadSeconds, "error": store.errorMessage ?? ""]
             }
             if let picture = clips().first(where: { $0.requiredTrackKind == .video && store.asset(id: $0.assetID)?.title == nil }) {
                 store.selectTimelineClip(picture.id)
@@ -619,13 +650,15 @@ enum AcceptanceDriver {
                 try? await document.save(to: projectURL, ofType: document.fileType ?? "", for: .saveAsOperation)
                 saved = await wait(10) { FileManager.default.fileExists(atPath: projectURL.path) && document.fileURL != nil }
             }
-            var savedClips = -1
+            var savedClips = -1, savedMarkers = -1
             if let data = try? Data(contentsOf: projectURL), let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let model = root["project"] as? [String: Any], let tracks = model["tracks"] as? [[String: Any]] {
                 savedClips = tracks.reduce(0) { $0 + (($1["clips"] as? [Any])?.count ?? 0) }
+                savedMarkers = (model["markers"] as? [Any])?.count ?? 0
             }
             record("save", ["saved": saved, "clipsInFile": savedClips, "savePanel": savePanel,
-                            "clipsInWorkspace": store.project.tracks.reduce(0) { $0 + $1.clips.count }])
+                            "clipsInWorkspace": store.project.tracks.reduce(0) { $0 + $1.clips.count },
+                            "markersInFile": savedMarkers, "markersInWorkspace": store.project.markers.count])
             // Close and reopen from disk; the reopened workspace must show the same timeline.
             let clipsBefore = store.project.tracks.reduce(0) { $0 + $1.clips.count }
             if let window = workspaceWindow(), let document = NSDocumentController.shared.document(for: window) { document.close() }

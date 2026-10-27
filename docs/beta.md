@@ -73,6 +73,19 @@ and Gatekeeper assesses it as "Notarized Developer ID".
 | Q / W | Ripple trim the clip start or end to the playhead |
 | ⌘C ⌘X ⌘V | Copy, cut, and paste at the playhead (clip and linked components) |
 | ⌘D | Duplicate the selected clip after itself |
+| ↓ / ↑ | Move the playhead to the next or previous cut on any track |
+| M | Add a marker at the playhead (or select the one already there) |
+| ⇧M / ⌥M | Jump to the next or previous marker |
+
+Markers are flags on the timeline ruler. Click one to name it, add a note and pick
+a colour in the inspector; drag it to move it to another frame; right-click it to
+change its colour or delete it. The sequence inspector lists every marker. Markers stay
+at their sequence time when clips move, ripple or are inserted around them. FCPXML and
+OTIO exports include them, and track EDLs write them as `* LOC:` locator comments.
+
+Shortcut changes in Settings store only what you changed, so later default changes
+(such as ⌫ for ripple delete) reach you. A saved earlier default such as ⇧⌘⌫ for
+ripple delete is treated as the current default.
 
 Insert and overwrite are also buttons beside **Append** under the media bin.
 Insert refuses to split inside a fade or transition, and ripple delete refuses

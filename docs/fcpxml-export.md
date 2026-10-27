@@ -34,6 +34,14 @@ keyframes carried `interp`; keyframes now carry only `curve="linear"`. The corre
 warnings (2026-10-26): picture fades start at 0% opacity and volume keyframes appear on
 the audio clip. Resolve's interpretation is still to be checked.
 
+## Markers
+
+Sequence markers are written as one-frame `marker` elements on the sequence bed gap,
+after its anchored clips as the DTD requires, with the name as `value` and the note as
+`note`. FCPXML markers have no colour, so colours are not written. Markers off the
+sequence frame grid or at or after the sequence end are refused. A marked fixture
+validates against Apple's FCPXML 1.10 DTD; import into Final Cut Pro is still to be checked.
+
 ## Validation and remaining qualification
 
 Eight `FCPXMLExporterTests` cover exact 24/25/23.976/29.97/59.94 timing, sequence start timecode, DF/NDF mode, lane order, source offsets, escaped names/URLs, reused media resources, mono audio, unused assets, and rejection of unsupported edits.

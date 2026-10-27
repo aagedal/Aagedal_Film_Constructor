@@ -181,3 +181,27 @@ private func edlReasons(_ project: Project, _ track: UUID, _ timing: [UUID: CMX3
     evidence[project.assets[0].id] = .init(frameRate: project.settings.frameRate, startTimecode: .init(mode: .dropFrame), reelName: "CAM001", streamIndex: 0, constantFrameRate: true)
     #expect(try edlReasons(project, track, evidence).contains { $0.contains("modes must match") })
 }
+
+@Test func cmxMarkersBecomeLocatorsUnderTheirEvent() throws {
+    var (project, track, timing) = try edlFixture()
+    let rate = project.settings.frameRate
+    try project.addMarker(at: rate.time(forFrames: 6), color: .orange)
+    try project.addMarker(at: rate.time(forFrames: 20), color: .green)
+    try project.updateMarker(id: project.markers[1].id, name: "Look", note: "Hold here", color: .green)
+    let edl = try CMX3600Exporter.export(project: project, trackID: track, sourceTiming: timing).edl
+    #expect(edl.contains("""
+    001  BL       V  C        00:00:00:00 00:00:00:12 01:00:00:00 01:00:00:12
+    * LOC: 01:00:00:06 RED     Marker 1
+
+    002  CAM001   V  C        02:00:02:00 02:00:03:00 01:00:00:12 01:00:01:12
+    * FROM CLIP NAME: camera.mov
+    * LOC: 01:00:00:20 GREEN   Look - Hold here
+    """))
+    try project.addMarker(at: rate.time(forFrames: 80))
+    try project.addMarker(at: RationalTime(1, 100), name: "Off frame")
+    try project.addMarker(at: rate.time(forFrames: 30), name: "Snö")
+    let reasons = try edlReasons(project, track, timing)
+    #expect(reasons.contains { $0.contains("after the selected track's final clip") })
+    #expect(reasons.contains { $0.contains("Off frame") && $0.contains("frame boundary") })
+    #expect(reasons.contains { $0.contains("Snö") && $0.contains("ASCII") })
+}
