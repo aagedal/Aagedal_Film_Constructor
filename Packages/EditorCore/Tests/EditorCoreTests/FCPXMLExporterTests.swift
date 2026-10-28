@@ -24,12 +24,10 @@ final class FCPXMLExporterTests: XCTestCase {
         ])
     }
 
+    /// The refusal reasons, or the warnings of an export that left something out.
     private func reasons(_ project: Project) throws -> [String] {
-        do {
-            _ = try FCPXMLExporter.export(project: project)
-            XCTFail("Unsupported project was exported")
-            return []
-        } catch FCPXMLExportError.unsupported(let reasons) { return reasons }
+        do { return try FCPXMLExporter.export(project: project).report.warnings }
+        catch FCPXMLExportError.unsupported(let reasons) { return reasons }
     }
 
     func testLinkedPictureAndSoundBecomeOneAVClip() throws {
@@ -126,7 +124,7 @@ final class FCPXMLExporterTests: XCTestCase {
         return project
     }
 
-    func testWritesVolumeFadesPlacementAndKeyframesAndRefusesCrossfades() throws {
+    func testWritesVolumeFadesPlacementKeyframesAndCrossfades() throws {
         let xml = try FCPXMLExporter.export(project: adjustedFixture()).xml
         XCTAssertTrue(xml.contains("<adjust-volume amount=\"-6.0206dB\">"))
         XCTAssertTrue(xml.contains("<fadeIn type=\"linear\" duration=\"1s\"/>"))
@@ -141,7 +139,10 @@ final class FCPXMLExporterTests: XCTestCase {
         audio.assets[0].originalURL = URL(fileURLWithPath: "/tmp/audio.wav")
         audio.tracks[0].template.gain = 1
         audio.audioCrossfades = [AudioCrossfade(outgoingClipID: audio.tracks[0].clips[0].id, incomingClipID: audio.tracks[0].clips[1].id, duration: try RationalTime(2))]
-        XCTAssertTrue(try reasons(audio).contains { $0.contains("crossfades") })
+        // A crossfade puts the track in a connected storyline with an Audio Crossfade transition.
+        let crossfaded = try FCPXMLExporter.export(project: audio).xml
+        XCTAssertTrue(crossfaded.contains("<spine lane=\"-1\" offset=\"0s\""), crossfaded)
+        XCTAssertTrue(crossfaded.contains("<transition name=\"Audio Crossfade\" offset=\"4s\" duration=\"2s\">"), crossfaded)
     }
 
     func testExpressesChannelSelectionsAndRejectsRouting() throws {
@@ -169,21 +170,27 @@ final class FCPXMLExporterTests: XCTestCase {
         XCTAssertTrue(try reasons(project).contains { $0.contains("multiple video streams") })
     }
 
-    func testRejectsMissingOriginalAndUnsupportedGeometry() throws {
+    func testLeavesOutMissingOriginalsAndWarnsOfUnscaledGeometry() throws {
         var project = try fixture()
         project.assets[0].originalURL = nil
-        project.tracks[0].clips[0].scalingMode = .none
-        let errors = try reasons(project)
-        XCTAssertTrue(errors.contains { $0.contains("original local file") })
-        XCTAssertTrue(errors.contains { $0.contains("geometry") })
+        // With every clip left out there is nothing to export.
+        XCTAssertThrowsError(try FCPXMLExporter.export(project: project))
+        XCTAssertTrue(try reasons(project).contains { $0.contains("original local file") })
         project.assets[0].originalURL = URL(string: "https://example.com/film.mov")
         XCTAssertTrue(try reasons(project).contains { $0.contains("original local file") })
         project = try fixture()
+        project.tracks[0].clips[0].scalingMode = .none
+        let unscaled = try FCPXMLExporter.export(project: project)
+        XCTAssertTrue(unscaled.xml.contains("<adjust-conform type=\"none\"/>"))
+        XCTAssertTrue(unscaled.report.warnings.contains { $0.contains("“none” conform") })
+        project = try fixture()
         project.assets[0].streams[0].timeOffset = try RationalTime(1, 2)
+        let offset = try FCPXMLExporter.export(project: project)
+        XCTAssertTrue(offset.report.warnings.contains { $0.contains("source stream offsets") })
+        XCTAssertEqual(offset.report.clipCount, 1, "The sound clip is still exported")
+        project = try fixture()
         project.assets[0].sourceTimecode = Timecode(frameCount: 100)
-        let otherErrors = try reasons(project)
-        XCTAssertTrue(otherErrors.contains { $0.contains("source stream offsets") })
-        XCTAssertTrue(otherErrors.contains { $0.contains("source timecode") })
+        XCTAssertTrue(try reasons(project).contains { $0.contains("source timecode") })
     }
 
     func testRejectsTimingRoundingInvalidXMLAndEmptySequences() throws {
@@ -222,7 +229,7 @@ final class FCPXMLExporterTests: XCTestCase {
         XCTAssertFalse(result.xml.contains("Unused"))
     }
 
-    func testSequenceMarkersSitOnTheBedAndOffFrameMarkersAreRefused() throws {
+    func testSequenceMarkersSitOnTheBedAndOffFrameMarkersAreLeftOut() throws {
         var project = try fixture()
         try project.addMarker(at: RationalTime(1))
         try project.addMarker(at: RationalTime(3, 2), name: "Second <beat>")
@@ -239,9 +246,10 @@ final class FCPXMLExporterTests: XCTestCase {
 
         try project.addMarker(at: RationalTime(1, 100))
         try project.addMarker(at: RationalTime(10))
-        let refused = try reasons(project)
-        XCTAssertTrue(refused.contains { $0.contains("frame boundary") && $0.contains("Marker 3") })
-        XCTAssertTrue(refused.contains { $0.contains("after the end") && $0.contains("Marker 4") })
+        let result = try FCPXMLExporter.export(project: project)
+        XCTAssertTrue(result.report.warnings.contains { $0.contains("frame grid") && $0.contains("Marker 3") })
+        XCTAssertTrue(result.report.warnings.contains { $0.contains("after the end") && $0.contains("Marker 4") })
+        XCTAssertEqual(result.xml.components(separatedBy: "<marker ").count - 1, 2)
     }
 
     /// Opt in with a locally downloaded Apple DTD. The DTD is intentionally not bundled

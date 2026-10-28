@@ -102,7 +102,7 @@ final class AudioBusTests: XCTestCase {
         XCTAssertEqual(project.mixBuses.count, 1)
         try project.openSequence(id: first)
         XCTAssertEqual(project.mainBuses.count, 2)
-        XCTAssertThrowsError(try FCPXMLExporter.export(project: { var p = project; try! p.setTrackEffects(id: track, effects: [.compressor()]); return p }()))
+        XCTAssertTrue(try FCPXMLExporter.export(project: { var p = project; p.assets[0].originalURL = URL(fileURLWithPath: "/private/tmp/mix.wav"); try! p.setTrackEffects(id: track, effects: [.compressor()]); return p }()).report.warnings.contains { $0.hasPrefix("Track effects") })
     }
 
     func testPlainMixKeepsSingleSumAndStreamsCompile() throws {

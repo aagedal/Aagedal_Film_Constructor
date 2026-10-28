@@ -23,7 +23,8 @@ final class OTIOExporterTests: XCTestCase {
         ])
     }
     private func reasons(_ project: Project) throws -> [String] {
-        do { _ = try OTIOExporter.export(project: project); XCTFail("Expected unsupported sequence"); return [] }
+        // The refusal reasons, or the warnings of an export that left something out.
+        do { return try OTIOExporter.export(project: project).warnings }
         catch OTIOExportError.unsupported(let reasons) { return reasons }
     }
     private func object(_ text: String) throws -> [String: Any] {
@@ -36,7 +37,7 @@ final class OTIOExporterTests: XCTestCase {
     }
     func testLayerOrderGapsSourceRangesAndOriginalReferences() throws {
         let project = try fixture()
-        let json = try OTIOExporter.export(project: project, projectName: "Assembly & 雪")
+        let json = try OTIOExporter.export(project: project, projectName: "Assembly & 雪").json
         let timeline = try object(json)
         XCTAssertEqual(timeline["name"] as? String, "Assembly & 雪")
         let tracks = try children(XCTUnwrap(timeline["tracks"] as? [String: Any]))
@@ -61,12 +62,12 @@ final class OTIOExporterTests: XCTestCase {
         let refs = try XCTUnwrap(front[1]["media_references"] as? [String: [String: Any]])
         XCTAssertEqual(refs["DEFAULT_MEDIA"]?["target_url"] as? String, project.assets[0].originalURL?.absoluteString)
         XCTAssertEqual(front[1]["name"] as? String, project.assets[0].name)
-        XCTAssertEqual(try OTIOExporter.export(project: project, projectName: "Assembly & 雪"), json)
+        XCTAssertEqual(try OTIOExporter.export(project: project, projectName: "Assembly & 雪").json, json)
     }
     func testFractionalFrameRatesAndDropFrameMetadata() throws {
         for (n, d): (Int64, Int64) in [(24, 1), (25, 1), (24000, 1001), (30000, 1001), (60000, 1001)] {
             let project = try fixture(rate: FrameRate(n, d))
-            let timeline = try object(OTIOExporter.export(project: project))
+            let timeline = try object(OTIOExporter.export(project: project).json)
             let start = try XCTUnwrap(timeline["global_start_time"] as? [String: Any])
             XCTAssertEqual(start["value"] as? Int, 86400)
             XCTAssertEqual(start["rate"] as? Double, Double(n) / Double(d))
@@ -88,35 +89,36 @@ final class OTIOExporterTests: XCTestCase {
         project.assets[0].originalURL = URL(string: "https://example.com/media.mov")
         XCTAssertTrue(try reasons(project).contains { $0.contains("local file") })
     }
-    func testRefusesAudioEffectsAndLossySelections() throws {
+    func testLeavesOutAudioEffectsAndLossySelections() throws {
         var project = try fixture()
         project.tracks[2].template.gain = 0.5
         project.tracks[2].clips[0].fadeIn = .init(duration: try RationalTime(1, 4))
         project.tracks[2].template.routing.outputChannels = [1, 0]
         let errors = try reasons(project)
         XCTAssertTrue(errors.contains { $0.contains("gain") })
-        XCTAssertTrue(errors.contains { $0.contains("fades") })
+        XCTAssertTrue(errors.contains { $0.contains("Fades") })
+        // The sound clip is still exported, without them.
+        XCTAssertEqual(try OTIOExporter.export(project: project).json.components(separatedBy: "\"Clip.2\"").count - 1, 3)
         XCTAssertTrue(errors.contains { $0.contains("routing") })
         project = try fixture()
         project.tracks[2].clips[0].selection = .audio(.init(channels: [.init(streamIndex: 1, channelIndex: 1), .init(streamIndex: 1, channelIndex: 0)], layout: .stereo))
         XCTAssertTrue(try reasons(project).contains { $0.contains("reordered") })
         project = try fixture()
         project.assets[0].streams.append(.init(index: 2, kind: .audio, audioLayout: .stereo))
-        XCTAssertTrue(try reasons(project).contains { $0.contains("complete audio stream") })
-        project = try DemoProjectFactory.musicCollision()
-        project.assets[0].originalURL = URL(fileURLWithPath: "/tmp/music.wav")
-        project.audioCrossfades = [.init(outgoingClipID: project.tracks[0].clips[0].id, incomingClipID: project.tracks[0].clips[1].id, duration: try RationalTime(2))]
-        XCTAssertTrue(try reasons(project).contains { $0.contains("crossfades") })
+        XCTAssertTrue(try reasons(project).contains { $0.contains("multiple audio streams") })
     }
-    func testRefusesUnknownSourceTimecodeGeometryAndStreamOffsets() throws {
+    func testLeavesOutUnknownSourceTimecodeGeometryAndStreamOffsets() throws {
         var project = try fixture()
         project.assets[0].sourceTimecode = .init(frameCount: 1)
+        XCTAssertTrue(try reasons(project).contains { $0.contains("source timecode") })
+        project = try fixture()
         project.tracks[0].clips[0].scalingMode = .fill
         project.assets[0].streams[0].timeOffset = try RationalTime(1)
-        let errors = try reasons(project)
-        XCTAssertTrue(errors.contains { $0.contains("source timecode") })
-        XCTAssertTrue(errors.contains { $0.contains("geometry") })
-        XCTAssertTrue(errors.contains { $0.contains("offsets") })
+        let warnings = try OTIOExporter.export(project: project).warnings
+        XCTAssertTrue(warnings.contains { $0.hasPrefix("Clips left out: source stream offsets") }, "\(warnings)")
+        XCTAssertFalse(warnings.contains { $0.contains("geometry") }, "Only the sound clip remains")
+        project.assets[0].streams[0].timeOffset = .zero
+        XCTAssertTrue(try reasons(project).contains { $0.contains("geometry") })
         project = try fixture()
         project.assets[0].streams.append(.init(index: 2, kind: .video))
         XCTAssertTrue(try reasons(project).contains { $0.contains("multiple video") })
@@ -151,7 +153,7 @@ final class OTIOExporterTests: XCTestCase {
             try project.addMarker(at: project.settings.frameRate.time(forFrames: 30), color: .purple)
             try project.updateMarker(id: project.markers[0].id, name: "Chorus 雪", note: "Lift & hold", color: .purple)
             let file = directory.appendingPathComponent("\(n)-\(d).otio")
-            try OTIOExporter.export(project: project).write(to: file, atomically: true, encoding: .utf8)
+            try OTIOExporter.export(project: project).json.write(to: file, atomically: true, encoding: .utf8)
             let process = Process()
             process.executableURL = URL(fileURLWithPath: python)
             process.arguments = [root.appendingPathComponent("scripts/validate-otio.py").path, file.path]
@@ -169,7 +171,7 @@ final class OTIOExporterTests: XCTestCase {
         project.assets[0].originalURL = URL(fileURLWithPath: "/private/tmp/otio-timecode.wav")
         project.tracks[0].template.gain = 1
         project.assets[0].sourceTimecodeStart = try RationalTime(3600)
-        let json = try OTIOExporter.export(project: project)
+        let json = try OTIOExporter.export(project: project).json
         let root = try JSONSerialization.jsonObject(with: Data(json.utf8)) as! [String: Any]
         func clips(_ object: Any) -> [[String: Any]] {
             if let dict = object as? [String: Any] {
@@ -192,7 +194,7 @@ final class OTIOExporterTests: XCTestCase {
         var project = try fixture()
         try project.addMarker(at: RationalTime(2))
         try project.updateMarker(id: project.markers[0].id, name: "Chorus", note: "Lift", color: .green)
-        let timeline = try object(OTIOExporter.export(project: project))
+        let timeline = try object(OTIOExporter.export(project: project).json)
         let stack = try XCTUnwrap(timeline["tracks"] as? [String: Any])
         let markers = try XCTUnwrap(stack["markers"] as? [[String: Any]])
         XCTAssertEqual(markers.count, 1)
@@ -207,6 +209,7 @@ final class OTIOExporterTests: XCTestCase {
         XCTAssertEqual(((range["duration"] as? [String: Any])?["value"] as? NSNumber)?.int64Value, 1)
 
         try project.addMarker(at: RationalTime(1, 100))
-        XCTAssertTrue(try reasons(project).contains { $0.contains("frame boundary") })
+        XCTAssertTrue(try reasons(project).contains { $0.contains("frame grid are left out") })
+        XCTAssertEqual(try object(OTIOExporter.export(project: project).json).count, timeline.count)
     }
 }

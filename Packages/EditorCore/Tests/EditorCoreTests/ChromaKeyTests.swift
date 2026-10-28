@@ -34,7 +34,7 @@ final class ChromaKeyTests: XCTestCase {
                                         TimelineClip(assetID: blueAsset.id, sourceRange: range, selection: .video(streamIndex: 0))])])
         let plan = try TimelineRenderPlan(project: project)
         XCTAssertEqual(try VideoCompositionPlan(plan).instructions.first?.componentIndices.count, 2, "A keyed picture reveals the layer below")
-        XCTAssertThrowsError(try FCPXMLExporter.export(project: project))
+        XCTAssertTrue(try FCPXMLExporter.export(project: project).report.warnings.contains { $0.hasPrefix("Keying") })
         let output = directory.appendingPathComponent("keyed.mov")
         _ = try run(try FFmpegRenderCompiler.compile(plan, outputURL: output).arguments)
         func pixel(_ x: Int, _ y: Int) throws -> [UInt8] {

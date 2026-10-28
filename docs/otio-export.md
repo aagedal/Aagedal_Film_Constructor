@@ -1,6 +1,6 @@
 # OpenTimelineIO sequence export
 
-`OTIOExporter.export(project:projectName:)` creates `.otio` JSON using the canonical OTIO schemas. Export validates the native project and refuses edits outside the supported editorial subset before returning a document. No Python runtime or OTIO package is shipped in the app.
+`OTIOExporter.export(project:projectName:)` creates `.otio` JSON using the canonical OTIO schemas. Export validates the native project. Edits outside the supported editorial subset are left out and listed in the result's `warnings`, which the app shows before the save panel. Timing is never rounded: a clip off the grid is left out rather than moved. No Python runtime or OTIO package is shipped in the app.
 
 ## Supported subset
 
@@ -14,20 +14,43 @@ Available media ranges encode exact seconds as integer numerator/denominator, wi
 
 Sequence markers are written as one-frame `Marker.2` objects on the top-level stack
 with name, comment (the note), colour and the exact time in namespaced metadata. Markers
-off the frame grid or at or after the sequence end are refused. The official core reads
+off the frame grid or at or after the sequence end are left out with a warning. The official core reads
 and round-trips them.
 
-## Refused features
+## Transitions and speed
 
-Audio fades/crossfades and nonunity gain; partial/reordered audio channels; multiple audio streams; nonidentity output routing; differing source/sequence layouts; selecting among multiple video streams; source stream offsets; still images; fill/unscaled geometry; nonlocal/missing original references; nonzero source timecode without a known source rate; unsupported sequence audio layouts; empty sequences; subframe video edits; subsample audio edits; and values or source/record endpoints beyond the conservative exact IEEE-754 integer range (2^53).
+Cross dissolves and audio crossfades are written as `Transition.1` objects of type
+`SMPTE_Dissolve` between the two clips that meet at the cut. `in_offset` is the part before
+the cut and `out_offset` the part after; clips keep their editorial ranges and the
+transition uses their handles. Overlapping crossfades are cut at the middle of the overlap.
+The fade curve (linear or equal power) is kept in namespaced metadata.
 
-The sequence end must lie on a sequence frame boundary and, when any audio track exists, an audio sample boundary. This includes empty audio tracks: tail gaps cannot be rounded. Video uses default fit editorial intent; spatial conform is not qualified. Metadata does not make unsupported fades, routing, geometry, or stream selection portable, so these features fail instead of being encoded as ineffective effects.
+A clip at another speed has a `LinearTimeWarp.1` effect with `time_scalar` set to the speed.
+As in OTIO's adapters, its `source_range` starts at the media in point and keeps the clip's
+duration in the track. The exact rational speed is also kept in the clip's metadata.
+The official core validator checks transition offsets, that clips meet at each transition,
+that the handles lie within the media, and the time warp (`InterchangeTransitionTests`).
+
+## Left out, with a warning
+
+Each warning names the clips or markers it affects.
+
+- **Clips left out:** still images; media without a local original file; nonzero source timecode without a known source rate; source stream offsets; subframe video edits and subsample audio edits; and times beyond the conservative exact IEEE-754 integer range (2^53).
+- **Effects left out, clip exported:** audio and picture fades (dips to black), gain and volume keyframes, compression, keying, EQ, stabilisation, colour correction, scale, position and opacity, track and bus effects, and output routing. Partial or reordered channel selections reference the whole stream; with multiple audio or video streams the receiving editor picks one. Differing source and sequence layouts are not converted, and fill and unscaled geometry are fitted.
+- **Transitions:** slide, push and wipe transitions are written as SMPTE dissolves. Crossfades between clips on different tracks, transitions off the track's grid, and transitions whose other clip is left out, hidden or muted become cuts.
+- **Markers** off the frame grid, beyond the exact integer range, or at or after the sequence end are left out.
+
+Metadata does not make fades, routing, geometry or stream selection portable, so they are left out and reported rather than encoded as ineffective effects.
+
+## Refused
+
+Export is refused only when no file can be written: an empty sequence, one whose clips are all left out, an unsupported sequence audio layout, or a frame rate, start timecode or sequence end beyond OTIO's exact range. The sequence end must lie on a sequence frame boundary and, when any audio track exists, an audio sample boundary, because tail gaps cannot be rounded. Video uses default fit editorial intent; spatial conform is not qualified.
 
 Native project identities and exact timing metadata help inspect exported edits. Link groups, family templates, preferences, and editable project recovery remain features of the native project document; this adapter does not provide a native round trip.
 
 ## Official core validation
 
-`OTIOExporterTests` cover layered track order, empty tracks, leading/trailing gaps, exact source ranges, sample-position audio edits, original URLs and Unicode names, fractional frame rates/DF metadata, deterministic output, numeric endpoint bounds, and rejection of unsupported edits.
+`OTIOExporterTests` cover layered track order, empty tracks, leading/trailing gaps, exact source ranges, sample-position audio edits, original URLs and Unicode names, fractional frame rates/DF metadata, deterministic output, numeric endpoint bounds, warnings for edits left out, and refusal when nothing can be written.
 
 The optional qualification test runs `scripts/validate-otio.py` with official OpenTimelineIO Python bindings, which exercise OTIO's C++ core. It parses generated files, checks every child type/range and track duration, compares clip timing with native rational metadata, checks media references and bounds, and serializes/reparses with the official library to confirm schema equivalence. It covers 24, 25, 24000/1001, 30000/1001, and 60000/1001 fps.
 

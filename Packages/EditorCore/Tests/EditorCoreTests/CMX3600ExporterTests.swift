@@ -14,12 +14,10 @@ private func edlFixture(rate: FrameRate = try! FrameRate(24), mode: TimecodeMode
     return (Project(settings: settings, assets: [asset], families: [family], tracks: [track]), track.id, [asset.id: timing])
 }
 
+/// The refusal reasons, or the warnings of an export that left something out.
 private func edlReasons(_ project: Project, _ track: UUID, _ timing: [UUID: CMX3600SourceTiming]) throws -> [String] {
-    do {
-        _ = try CMX3600Exporter.export(project: project, trackID: track, sourceTiming: timing)
-        Issue.record("Expected EDL rejection")
-        return []
-    } catch CMX3600ExportError.unsupported(let reasons) { return reasons }
+    do { return try CMX3600Exporter.export(project: project, trackID: track, sourceTiming: timing).report.warnings }
+    catch CMX3600ExportError.unsupported(let reasons) { return reasons }
 }
 
 @Test func cmxCutsHaveExactExclusiveSourceAndRecordEndpointsAndBlackGaps() throws {
@@ -66,9 +64,9 @@ private func edlReasons(_ project: Project, _ track: UUID, _ timing: [UUID: CMX3
     let unqualified = CMX3600SourceTiming(frameRate: original.frameRate, startTimecode: original.startTimecode, reelName: original.reelName, streamIndex: 0)
     #expect(try edlReasons(project, track, [assetID: unqualified]).contains { $0.contains("constant-frame-rate") })
     let mismatch = CMX3600SourceTiming(frameRate: try FrameRate(25), startTimecode: original.startTimecode, reelName: original.reelName, streamIndex: 1, constantFrameRate: true)
-    let reasons = try edlReasons(project, track, [assetID: mismatch])
-    #expect(reasons.contains { $0.contains("match exactly") })
-    #expect(reasons.contains { $0.contains("matching timing evidence") })
+    #expect(try edlReasons(project, track, [assetID: mismatch]).contains { $0.contains("match exactly") })
+    let otherStream = CMX3600SourceTiming(frameRate: original.frameRate, startTimecode: original.startTimecode, reelName: original.reelName, streamIndex: 1, constantFrameRate: true)
+    #expect(try edlReasons(project, track, [assetID: otherStream]).contains { $0.contains("matching timing evidence") })
     var inconsistent = project
     inconsistent.assets[0].sourceTimecode = .init(frameCount: 1)
     #expect(try edlReasons(inconsistent, track, timing).contains { $0.contains("disagrees") })
@@ -145,11 +143,15 @@ private func edlReasons(_ project: Project, _ track: UUID, _ timing: [UUID: CMX3
         let timing = [asset.id: CMX3600SourceTiming(frameRate: settings.frameRate, startTimecode: .init(), reelName: "AUDIO1", streamIndex: 1)]
         let result = try CMX3600Exporter.export(project: project, trackID: track.id, sourceTiming: timing)
         #expect(result.edl.contains(layout == .stereo ? " AA  C " : " A  C "))
+        // A fade in is a dissolve from black; one off the frame grid is left out, not rounded.
         project.tracks[0].clips[0].fadeIn = AudioFade(duration: try RationalTime(1))
-        #expect(try edlReasons(project, track.id, timing).contains { $0.contains("fades") })
+        #expect(try CMX3600Exporter.export(project: project, trackID: track.id, sourceTiming: timing).edl.contains("  D    0"))
+        project.tracks[0].clips[0].fadeIn = AudioFade(duration: try RationalTime(1, 1000))
+        #expect(try edlReasons(project, track.id, timing).contains { $0.contains("Fades off the frame grid") })
+        #expect(try !CMX3600Exporter.export(project: project, trackID: track.id, sourceTiming: timing).edl.contains("  D    0"))
         project.tracks[0].clips[0].fadeIn = .init()
         project.tracks[0].template.gain = 0.5
-        #expect(try edlReasons(project, track.id, timing).contains { $0.contains("unity") })
+        #expect(try edlReasons(project, track.id, timing).contains { $0.contains("Track gain") })
         project.tracks[0].template.gain = 1
         if layout == .stereo {
             project.tracks[0].template.routing.outputChannels = [1, 0]
@@ -169,7 +171,12 @@ private func edlReasons(_ project: Project, _ track: UUID, _ timing: [UUID: CMX3
     var engine = try TimelineEditEngine(project: audio)
     try engine.apply(.setAudioCrossfade(outgoingClipID: audio.tracks[0].clips[0].id, incomingClipID: audio.tracks[0].clips[1].id, duration: RationalTime(2), curve: .equalPower))
     let timing = [audio.assets[0].id: CMX3600SourceTiming(frameRate: audio.settings.frameRate, startTimecode: .init(), reelName: "AUDIO1", streamIndex: 0)]
-    #expect(try edlReasons(engine.project, audio.tracks[0].id, timing).contains { $0.contains("crossfade") })
+    // A crossfade is a dissolve event; one with a clip on another track is written as a cut.
+    #expect(try CMX3600Exporter.export(project: engine.project, trackID: audio.tracks[0].id, sourceTiming: timing).edl.contains("  D    "))
+    var crossTrack = engine.project
+    let moved = crossTrack.tracks[0].clips.remove(at: 1)
+    crossTrack.tracks.append(TimelineTrack(familyID: crossTrack.tracks[0].familyID, template: crossTrack.tracks[0].template, clips: [moved]))
+    #expect(try edlReasons(crossTrack, audio.tracks[0].id, timing).contains { $0.contains("another track") })
     var (project, track, evidence) = try edlFixture()
     project.assets[0].streams[0].timeOffset = try RationalTime(1)
     #expect(try edlReasons(project, track, evidence).contains { $0.contains("offsets") })
@@ -202,6 +209,6 @@ private func edlReasons(_ project: Project, _ track: UUID, _ timing: [UUID: CMX3
     try project.addMarker(at: rate.time(forFrames: 30), name: "Snö")
     let reasons = try edlReasons(project, track, timing)
     #expect(reasons.contains { $0.contains("after the selected track's final clip") })
-    #expect(reasons.contains { $0.contains("Off frame") && $0.contains("frame boundary") })
+    #expect(reasons.contains { $0.contains("Off frame") && $0.contains("frame grid") })
     #expect(reasons.contains { $0.contains("Snö") && $0.contains("ASCII") })
 }

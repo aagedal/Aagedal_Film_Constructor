@@ -31,6 +31,7 @@ extension EditorStore {
         do {
             let snapshot = project
             let result = try FCPXMLExporter.export(project: snapshot)
+            guard Self.confirmOmissions(result.report.warnings, format: "FCPXML") else { return }
             // A save panel runs a nested event loop: the document can close or relink
             // while it is open. Retain access to the exact originals in the XML snapshot.
             let scopedSources = Set(snapshot.assets.compactMap(\.originalURL)).filter {
@@ -48,7 +49,7 @@ extension EditorStore {
             // Never replace any original, including through a symlink or hard link.
             try Self.validateInterchangeDestination(url, originals: snapshot.assets + project.assets)
             try Data(result.xml.utf8).write(to: url, options: .atomic)
-            statusMessage = "Exported FCPXML: \(url.lastPathComponent)."
+            statusMessage = "Exported FCPXML: \(url.lastPathComponent)\(Self.omissionSuffix(result.report.warnings))."
         } catch { errorMessage = error.localizedDescription }
     }
 
@@ -56,7 +57,8 @@ extension EditorStore {
         guard renderExportDraft == nil, edlExportDraft == nil, audioAppendAsset == nil else { return }
         do {
             let snapshot = project
-            let json = try OTIOExporter.export(project: snapshot)
+            let result = try OTIOExporter.export(project: snapshot)
+            guard Self.confirmOmissions(result.warnings, format: "OpenTimelineIO") else { return }
             // Keep the snapshot's original media accessible through the save panel's
             // nested event loop, even if the document closes or relinks meanwhile.
             let scopedSources = Set(snapshot.assets.compactMap(\.originalURL)).filter {
@@ -67,13 +69,13 @@ extension EditorStore {
             panel.title = "Export OpenTimelineIO"
             panel.nameFieldStringValue = "Sequence.otio"
             panel.allowedContentTypes = [UTType(filenameExtension: "otio") ?? .json]
-            panel.message = "Exports cuts and gaps with original media references. Media files are not copied. Spatial conform and receiving-editor import are unqualified."
+            panel.message = "Exports cuts, dissolves, speed changes and gaps with original media references. Media files are not copied. Spatial conform and receiving-editor import are unqualified."
             guard panel.runModal() == .OK, let url = panel.url else { return }
             let access = url.startAccessingSecurityScopedResource()
             defer { if access { url.stopAccessingSecurityScopedResource() } }
             try Self.validateInterchangeDestination(url, originals: snapshot.assets + project.assets)
-            try Data(json.utf8).write(to: url, options: .atomic)
-            statusMessage = "Exported OpenTimelineIO: \(url.lastPathComponent)."
+            try Data(result.json.utf8).write(to: url, options: .atomic)
+            statusMessage = "Exported OpenTimelineIO: \(url.lastPathComponent)\(Self.omissionSuffix(result.warnings))."
         } catch { errorMessage = error.localizedDescription }
     }
 
@@ -87,6 +89,7 @@ extension EditorStore {
     /// Validate before opening the save panel; retain the snapshot for alias protection
     /// even if a document edit or relink occurs in its nested event loop.
     func saveEDL(_ result: CMX3600ExportResult, snapshot: Project) throws -> Bool {
+        guard Self.confirmOmissions(result.report.warnings, format: "CMX3600 EDL") else { return false }
         let scopedSources = Set(snapshot.assets.compactMap(\.originalURL)).filter {
             $0.startAccessingSecurityScopedResource()
         }
@@ -101,8 +104,24 @@ extension EditorStore {
         defer { if access { url.stopAccessingSecurityScopedResource() } }
         try Self.validateInterchangeDestination(url, originals: snapshot.assets + project.assets)
         try Data(result.edl.utf8).write(to: url, options: .atomic)
-        statusMessage = "Exported track EDL: \(url.lastPathComponent)."
+        statusMessage = "Exported track EDL: \(url.lastPathComponent)\(Self.omissionSuffix(result.report.warnings))."
         return true
+    }
+
+    /// Lists the edits an interchange file leaves out and asks whether to export the rest.
+    static func confirmOmissions(_ warnings: [String], format: String) -> Bool {
+        guard !warnings.isEmpty else { return true }
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Some edits can't be exported to \(format)"
+        alert.informativeText = "The rest of the sequence can be exported without them.\n\n" + warnings.map { "• " + $0 }.joined(separator: "\n")
+        alert.addButton(withTitle: "Export Anyway")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    static func omissionSuffix(_ warnings: [String]) -> String {
+        warnings.isEmpty ? "" : ", without \(warnings.count == 1 ? "1 unsupported edit type" : "\(warnings.count) unsupported edit types")"
     }
 
     static func validateInterchangeDestination(_ url: URL, originals: [MediaAsset]) throws {

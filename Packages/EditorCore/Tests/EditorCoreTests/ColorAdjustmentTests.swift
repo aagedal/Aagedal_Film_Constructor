@@ -11,7 +11,7 @@ final class ColorAdjustmentTests: XCTestCase {
                         tracks: [TimelineTrack(familyID: family.id, template: family.template, clips: [clip])]), clip.id)
     }
 
-    func testColorValidatesPersistsAndIsRefusedByInterchange() throws {
+    func testColorValidatesPersistsAndIsLeftOutOfInterchange() throws {
         var (project, id) = try project(URL(fileURLWithPath: "/private/tmp/color.mov"))
         var engine = try TimelineEditEngine(project: project)
         try engine.apply(.setColor(clipID: id, color: ColorAdjustment(brightness: 0.1, contrast: 1.2, saturation: 0)))
@@ -19,7 +19,7 @@ final class ColorAdjustmentTests: XCTestCase {
         XCTAssertThrowsError(try engine.apply(.setColor(clipID: id, color: ColorAdjustment(saturation: -1))))
         project = engine.project
         XCTAssertEqual(try JSONDecoder().decode(Project.self, from: JSONEncoder().encode(project)), project)
-        XCTAssertThrowsError(try FCPXMLExporter.export(project: project))
+        XCTAssertTrue(try FCPXMLExporter.export(project: project).report.warnings.contains { $0.hasPrefix("Colour correction") })
         let command = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: URL(fileURLWithPath: "/private/tmp/color-out.mov"))
         XCTAssertTrue(command.filterGraph.contains("lutyuv=y="))
     }
