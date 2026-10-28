@@ -168,6 +168,39 @@ express it.
   the old ⇧⌘⌫ default. Only changed shortcuts are now stored, and saved former defaults
   (⇧⌘⌫ ripple delete, ⌘⌫ delete) load as the current ones.
 
+- [x] Live stabilisation (2026-10-28): "Analyse and stabilise" registers each frame against the
+  previous one with Vision on a 480-pixel copy (plus a second each side for trims) and stores the
+  content path on the clip in display-oriented frame fractions; nothing is rendered. Correction is
+  the Gaussian-smoothed path (smoothing 0.1–5 s) minus the path, with automatic or manual zoom
+  (100–150%) and shifts clamped so edges never show. The CoreImage compositor shifts and zooms the
+  fitted picture per frame; export crops a moving window through a per-frame `sendcmd` list and
+  scales it back up. Smoothing and zoom edits apply instantly. `StabilizationTests` and
+  `scripts/mix-stabilise-smoke.sh` hold a jittering box still in export, and preview matches export
+  within 2 pixels. The FFmpeg deshake copy stays available as an alternative.
+- [x] Track and bus insert effects: six-band parametric EQ (cuts, shelves, bells), linked
+  compressor and brickwall limiter (20:1 stage plus a clip at the ceiling), each bypassable and
+  ordered. Export runs FFmpeg `biquad`, `acompressor link=maximum` and an `aeval` clip; the Swift
+  `AudioEffectProcessor` matches them within 1e-4 per sample. Track inserts sit after the fader and
+  new siblings copy them.
+- [x] Buses: any number of main and submix buses per sequence (Resolve style). Tracks send to one
+  or more buses, submixes feed main buses, buses have faders, mutes and inserts. Export builds the
+  bus graph only when needed (a plain single main stays one `amix`); preview runs each clip's
+  track and bus chains in its tap and plays the monitored main bus, chosen in the mixer. Bus
+  compressors hear each clip separately in preview (noted); EQ and gains are exact.
+- [x] Loudness: BS.1770-4 / EBU R 128 momentary, short-term, gated integrated loudness, LRA and
+  peak per main bus in the mixer, fed by time-aligned sums of every tap's bus contribution. The
+  EBU reference tone reads −23.0 LUFS (`LoudnessTests`); preview reads −20.0 LUFS on a −20 dBFS
+  tone (`mix-stabilise-smoke.sh`).
+- [x] Multi-track audio export: Main 1 only, every main bus, or Main 1 plus a stem per track, each
+  a named audio stream that verification checks individually (`AudioBusTests`).
+- [x] Video scopes (⇧⌘W): waveform, RGB parade, vectorscope with 75% targets and skin line, and
+  histogram, one at a time or all four. SDR plots 0–100% of encoded Rec. 709; HDR plots
+  PQ-encoded luminance (0–10 000 nits, 1.0 linear = 100 nits) with a peak-nits readout. The source
+  viewer reads half-float decoded frames, so HDR media keeps its range; the sequence viewer reads
+  its SDR preview.
+- [x] Interchange (FCPXML, OTIO, EDL) and stream copy refuse stabilisation, track/bus effects and
+  extra buses.
+
 ## Earlier priority: usable beta (2026-10-23)
 
 Prioritize everyday usability over further qualification proofs. Unqualified

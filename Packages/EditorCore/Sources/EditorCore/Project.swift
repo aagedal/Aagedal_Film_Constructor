@@ -20,9 +20,11 @@ public struct Project: Equatable, Codable, Sendable {
     public var sequenceBinAssignments: [UUID: UUID]
     /// The open sequence's markers, in time order.
     public var markers: [SequenceMarker]
+    /// The open sequence's mix buses; empty means the single implicit main bus.
+    public var buses: [AudioBus]
     public init(settings: SequenceSettings, assets: [MediaAsset] = [], families: [TrackFamily] = [], tracks: [TimelineTrack] = [], preferences: EditorPreferences = .init(), audioCrossfades: [AudioCrossfade] = [], mediaBins: [MediaBin] = [], assetBinAssignments: [UUID: UUID] = [:],
-                sequenceID: UUID = Project.defaultSequenceID, sequenceName: String = Project.defaultSequenceName, storedSequences: [StoredSequence] = [], sequenceBinAssignments: [UUID: UUID] = [:], markers: [SequenceMarker] = []) {
-        self.markers = markers
+                sequenceID: UUID = Project.defaultSequenceID, sequenceName: String = Project.defaultSequenceName, storedSequences: [StoredSequence] = [], sequenceBinAssignments: [UUID: UUID] = [:], markers: [SequenceMarker] = [], buses: [AudioBus] = []) {
+        self.markers = markers; self.buses = buses
         self.mediaBins = mediaBins; self.assetBinAssignments = assetBinAssignments
         self.sequenceID = sequenceID; self.sequenceName = sequenceName; self.storedSequences = storedSequences; self.sequenceBinAssignments = sequenceBinAssignments
         self.settings = settings; self.assets = assets; self.families = families; self.tracks = tracks; self.preferences = preferences; self.audioCrossfades = audioCrossfades
@@ -38,6 +40,7 @@ public struct Project: Equatable, Codable, Sendable {
         let familiesByID = Dictionary(uniqueKeysWithValues: families.map { ($0.id, $0) })
         try validateMediaBins()
         try validateSequences()
+        try validateBuses()
         try validateMarkers()
         try validateAudioCrossfades()
         for asset in assets {
@@ -84,6 +87,10 @@ public struct Project: Equatable, Codable, Sendable {
                 try clip.eq.validate()
                 try clip.key?.validate()
                 try clip.dynamics?.validate()
+                try clip.stabilization?.validate()
+                if clip.stabilization != nil, case .video = clip.selection {} else if clip.stabilization != nil {
+                    throw EditorCoreError.invalidModel("Only movie pictures can be stabilised")
+                }
                 guard clip.requiredTrackKind == .audio || clip.dynamics == nil else { throw EditorCoreError.invalidModel("Pictures have no dynamics") }
                 guard clip.requiredTrackKind == .video || clip.key == nil else { throw EditorCoreError.invalidModel("Audio has no key") }
                 guard clip.requiredTrackKind == .audio || clip.eq.isFlat else { throw EditorCoreError.invalidModel("Pictures have no EQ") }
@@ -135,7 +142,7 @@ public struct Project: Equatable, Codable, Sendable {
             guard template.audioLayout == settings.audioLayout else { throw EditorCoreError.invalidModel("An explicit output map is required for differing layouts") }
         }
     }
-    private enum CodingKeys: String, CodingKey { case settings, assets, families, tracks, preferences, audioCrossfades, mediaBins, assetBinAssignments, sequenceID, sequenceName, storedSequences, sequenceBinAssignments, markers }
+    private enum CodingKeys: String, CodingKey { case settings, assets, families, tracks, preferences, audioCrossfades, mediaBins, assetBinAssignments, sequenceID, sequenceName, storedSequences, sequenceBinAssignments, markers, buses }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.init(settings: try c.decode(SequenceSettings.self, forKey: .settings), assets: try c.decode([MediaAsset].self, forKey: .assets), families: try c.decode([TrackFamily].self, forKey: .families), tracks: try c.decode([TimelineTrack].self, forKey: .tracks), preferences: try c.decode(EditorPreferences.self, forKey: .preferences), audioCrossfades: try c.decodeIfPresent([AudioCrossfade].self, forKey: .audioCrossfades) ?? [], mediaBins: try c.decodeIfPresent([MediaBin].self, forKey: .mediaBins) ?? [], assetBinAssignments: try c.decodeIfPresent([UUID: UUID].self, forKey: .assetBinAssignments) ?? [:],
@@ -143,7 +150,8 @@ public struct Project: Equatable, Codable, Sendable {
                   sequenceName: try c.decodeIfPresent(String.self, forKey: .sequenceName) ?? Self.defaultSequenceName,
                   storedSequences: try c.decodeIfPresent([StoredSequence].self, forKey: .storedSequences) ?? [],
                   sequenceBinAssignments: try c.decodeIfPresent([UUID: UUID].self, forKey: .sequenceBinAssignments) ?? [:],
-                  markers: try c.decodeIfPresent([SequenceMarker].self, forKey: .markers) ?? [])
+                  markers: try c.decodeIfPresent([SequenceMarker].self, forKey: .markers) ?? [],
+                  buses: try c.decodeIfPresent([AudioBus].self, forKey: .buses) ?? [])
         try validate()
     }
 }
@@ -181,6 +189,7 @@ public struct TimelineRenderPlan: Equatable, Sendable {
         public var eq: AudioEQ = .flat
         public var key: ChromaKey?
         public var dynamics: AudioDynamics?
+        public var stabilization: Stabilization.Resolved?
         /// Whether the picture is scaled, moved, animated or translucent rather than filling the frame as is.
         public var hasPlacement: Bool { !transform.isIdentity || !transformKeyframes.isEmpty || reveal != nil || key != nil }
         /// Keyframe times on the sequence timeline, in seconds.
@@ -202,6 +211,8 @@ public struct TimelineRenderPlan: Equatable, Sendable {
     public let settings: SequenceSettings
     public let components: [Component]
     public let duration: RationalTime
+    /// How tracks combine through buses into the main outputs.
+    public let mix: AudioMixPlan
     public init(project: Project) throws {
         try project.validate()
         settings = project.settings
@@ -266,10 +277,11 @@ public struct TimelineRenderPlan: Equatable, Sendable {
                                                TransformKeyframe(time: end, offsetX: target)]
                     }
                 }
-                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain * clip.gain, fadeIn: fadeIn, fadeOut: fadeOut, transform: clip.transform, volumeKeyframes: clip.volumeKeyframes, color: clip.color, speed: clip.speed, transformKeyframes: transformKeyframes, reveal: reveal, eq: clip.eq, key: clip.key, dynamics: clip.dynamics))
+                result.append(Component(clipID: clip.id, assetID: asset.id, originalURL: asset.originalURL, sourceStreams: asset.streams, sourceRange: sourceRange, timelineRange: renderRange, selection: clip.selection, scalingMode: clip.scalingMode, trackID: track.id, layerOrder: order, routing: track.template.routing, gain: track.template.gain * clip.gain, fadeIn: fadeIn, fadeOut: fadeOut, transform: clip.transform, volumeKeyframes: clip.volumeKeyframes, color: clip.color, speed: clip.speed, transformKeyframes: transformKeyframes, reveal: reveal, eq: clip.eq, key: clip.key, dynamics: clip.dynamics, stabilization: clip.stabilization?.resolved()))
             }
         }
         components = result; duration = end
+        mix = AudioMixPlan(project: project, includedTrackIDs: Set(result.map(\.trackID)).union(project.tracks.filter { !$0.muted && (!soloing || $0.soloed) }.map(\.id)))
     }
 }
 

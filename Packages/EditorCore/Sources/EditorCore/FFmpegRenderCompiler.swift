@@ -16,6 +16,34 @@ public struct FFmpegRenderCommand: Equatable, Codable, Sendable {
     public let filterGraph: String
     public let videoFrames: Int64
     public let audioSamples: Int64
+    /// Names of the audio streams, in output order.
+    public var audioStreamNames: [String] = ["Main 1"]
+    /// Files the caller writes before running FFmpeg (stabilisation command lists).
+    public var sidecars: [RenderSidecar] = []
+}
+
+/// A text file the filter graph reads.
+public struct RenderSidecar: Equatable, Codable, Sendable {
+    public let url: URL
+    public let contents: String
+}
+
+/// Which mixes a render writes as audio streams.
+public enum RenderAudioStreams: String, CaseIterable, Codable, Sendable, Identifiable {
+    /// The first main bus.
+    case main
+    /// Every main bus, each its own stream.
+    case mains
+    /// The first main bus, then each audio track after its effects and fader.
+    case mainAndTracks
+    public var id: String { rawValue }
+    public var displayName: String {
+        switch self {
+        case .main: return "Main 1"
+        case .mains: return "All main buses"
+        case .mainAndTracks: return "Main 1 and each track"
+        }
+    }
 }
 
 /// Rendered delivery formats. ProRes keeps PCM audio in MOV; delivery formats use
@@ -77,7 +105,8 @@ public enum FFmpegRenderCompiler {
     /// SDR Rec. 709 (tone mapped) and rotated explicitly, since hardware frames skip autorotation.
     public static func compile(_ plan: TimelineRenderPlan, outputURL: URL,
                                format: RenderOutputFormat = .proRes422HQ,
-                               toneMappedSources: [URL: Int] = [:]) throws -> FFmpegRenderCommand {
+                               toneMappedSources: [URL: Int] = [:], audioStreams: RenderAudioStreams = .main,
+                               sidecarDirectory: URL? = nil) throws -> FFmpegRenderCommand {
         try plan.settings.validate()
         guard outputURL.isFileURL, outputURL.pathExtension.lowercased() == format.fileExtension else {
             throw EditorCoreError.invalidModel("Export requires a local \(format.fileExtension.uppercased()) destination")
@@ -103,6 +132,9 @@ public enum FFmpegRenderCompiler {
         var inputIndex = 0
         var videoLabel = "base"
         var audioLabels = ["silence"]
+        var trackAudio: [UUID: [String]] = [:]
+        var sidecars: [RenderSidecar] = []
+        let sidecarFolder = sidecarDirectory ?? FileManager.default.temporaryDirectory
         // Composite back to front: track zero is frontmost in the canonical plan.
         let components = plan.components.sorted { TimelineRenderPlan.Component.isInFront($1, of: $0) }
         for (index, component) in components.enumerated() {
@@ -204,7 +236,33 @@ public enum FFmpegRenderCompiler {
                 // Full-range movies (screen recordings, some cameras) are normalized to video range
                 // so overlays and encoders receive one consistent range.
                 // Anamorphic movies are widened to square pixels first; square sources keep their exact width.
-                let squarePixels = "scale=w='if(eq(sar,1),iw,trunc(iw*sar/2)*2)':h=ih:out_range=tv,setsar=1"
+                var squarePixels = "scale=w='if(eq(sar,1),iw,trunc(iw*sar/2)*2)':h=ih:out_range=tv,setsar=1"
+                if let stabilizer = component.stabilization {
+                    // Crop a window 1/zoom of the picture, moved against the jitter frame by frame,
+                    // and scale it back up. Per-frame positions arrive through sendcmd.
+                    let name = "stab\(index)"
+                    let file = sidecarFolder.appendingPathComponent("afc-\(UUID().uuidString.prefix(8))-\(name).cmd")
+                    guard file.path.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "/._-".contains($0)) }) else {
+                        throw EditorCoreError.invalidModel("Stabilisation needs a temporary folder path without special characters")
+                    }
+                    let z = stabilizer.zoom
+                    func position(frame n: Int64) -> (x: String, y: String) {
+                        let t = Double(n) * (1 / settings.frameRate.value.seconds)
+                        let source = component.sourceRange.start.seconds + (t - component.timelineRange.start.seconds) * component.speed.seconds
+                        let c = stabilizer.correction(atSourceSeconds: source)
+                        return (String(format: "(iw-ow)/2-(%.6f)*iw", c.x), String(format: "(ih-oh)/2-(%.6f)*ih", c.y))
+                    }
+                    var lines: [String] = []
+                    lines.reserveCapacity(Int(count))
+                    for n in placement..<(placement + count) {
+                        let p = position(frame: n)
+                        let at = max(0, (Double(n) - 0.5) * (1 / settings.frameRate.value.seconds))
+                        lines.append(String(format: "%.6f", at) + " crop@\(name) x \(p.x), crop@\(name) y \(p.y);")
+                    }
+                    sidecars.append(RenderSidecar(url: file, contents: lines.joined(separator: "\n") + "\n"))
+                    let first = position(frame: placement)
+                    squarePixels += ",sendcmd=f=\(file.path),crop@\(name)=w=iw/\(z):h=ih/\(z):x='\(first.x)':y='\(first.y)',scale=w=iw*\(z):h=ih*\(z)"
+                }
                 let fades = try pictureFades(component, placement: placement, count: count, rate: settings.frameRate.value)
                 // A key works on the picture's own chroma, before fitting adds transparent padding.
                 let keying = component.key.flatMap { key in key.rgb.map {
@@ -309,16 +367,102 @@ public enum FFmpegRenderCompiler {
                     let label = "a\(index)c\(channel)"
                     graph.append("\(source)aresample=\(settings.audioSampleRate),\(pad)atrim=start_sample=\(start + skip):end_sample=\(sourceEnd + skip),asetpts=PTS-STARTPTS,\(tempo)\(equaliser)pan=\(layout)|\(map),aformat=sample_fmts=flt,volume=\(component.gain):precision=float\(envelope)\(dynamics),adelay=\(delay)S:all=1[\(label)]")
                     audioLabels.append(label)
+                    trackAudio[component.trackID, default: []].append(label)
                 }
             }
         }
         graph.append("[\(videoLabel)]trim=end_frame=\(frames),setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv[video]")
-        graph.append(audioLabels.map { "[\($0)]" }.joined() + "amix=inputs=\(audioLabels.count):normalize=0,atrim=end_sample=\(samples)[audio]")
+        let streams: [(label: String, name: String)]
+        if plan.mix.isPlainSum && audioStreams == .main {
+            graph.append(audioLabels.map { "[\($0)]" }.joined() + "amix=inputs=\(audioLabels.count):normalize=0,atrim=end_sample=\(samples)[audio]")
+            streams = [("audio", plan.mix.mains[0].name)]
+        } else {
+            streams = mixGraph(plan.mix, trackAudio: trackAudio, streams: audioStreams, layout: layout, samples: samples,
+                               sampleRate: settings.audioSampleRate, channels: settings.audioLayout.channels.count, graph: &graph)
+        }
         let filterGraph = graph.joined(separator: ";")
-        arguments += ["-filter_complex", filterGraph, "-map", "[video]", "-map", "[audio]", "-r", rate, "-fps_mode", "cfr"] + format.encoderArguments
+        arguments += ["-filter_complex", filterGraph, "-map", "[video]"] + streams.flatMap { ["-map", "[\($0.label)]"] }
+            + streams.enumerated().flatMap { ["-metadata:s:a:\($0.offset)", "title=\($0.element.name)"] }
+            + ["-r", rate, "-fps_mode", "cfr"] + format.encoderArguments
             // Sequences are SDR Rec. 709; tag every output so players apply the right matrix.
             + ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-ar", String(settings.audioSampleRate), "-ac", String(settings.audioLayout.channels.count), "-video_track_timescale", String(settings.frameRate.value.numerator), "-timecode", try settings.startTimecode.formatted(rate: settings.frameRate), outputURL.path]
-        return FFmpegRenderCommand(inputs: inputs, arguments: arguments, filterGraph: filterGraph, videoFrames: frames, audioSamples: samples)
+        return FFmpegRenderCommand(inputs: inputs, arguments: arguments, filterGraph: filterGraph, videoFrames: frames, audioSamples: samples,
+                                   audioStreamNames: streams.map(\.name), sidecars: sidecars)
+    }
+
+    /// Sums each track, runs its effects, sends it to its buses, runs submixes into main
+    /// buses and returns the labels of the requested output streams. Only mixes that reach
+    /// an output are built, so every filter output is consumed.
+    private static func mixGraph(_ mix: AudioMixPlan, trackAudio: [UUID: [String]], streams: RenderAudioStreams, layout: String,
+                                 samples: Int64, sampleRate: Int, channels: Int, graph: inout [String]) -> [(label: String, name: String)] {
+        let mains = mix.mains
+        let exported: [AudioBus] = streams == .mains ? mains : [mains[0]]
+        let byID = Dictionary(uniqueKeysWithValues: mix.buses.map { ($0.id, $0) })
+        func targets(of bus: AudioBus) -> [UUID] { bus.outputs.isEmpty ? [mains[0].id] : bus.outputs }
+        // A bus is needed when it is exported, or is an unmuted submix feeding a needed main.
+        let exportedIDs = Set(exported.map(\.id))
+        var needed = Set(exported.filter { !$0.muted }.map(\.id))
+        for bus in mix.submixes where !bus.muted && targets(of: bus).contains(where: needed.contains) { needed.insert(bus.id) }
+        var silenceCount = 0
+        func silence() -> String {
+            defer { silenceCount += 1 }
+            graph.append("anullsrc=r=\(sampleRate):cl=\(layout),atrim=end_sample=\(samples)[mz\(silenceCount)]")
+            return "mz\(silenceCount)"
+        }
+        func chain(_ effects: [AudioEffect]) -> String {
+            effects.flatMap { $0.ffmpegFilters(sampleRate: sampleRate, channels: channels) }.map { "," + $0 }.joined()
+        }
+        /// Splits a filter's output into labels; returns them.
+        func split(_ head: String, into count: Int, prefix: String) -> [String] {
+            let labels = (0..<count).map { "\(prefix)_\($0)" }
+            if count == 1 { graph.append("\(head)[\(labels[0])]") }
+            else { graph.append("\(head),asplit=\(count)" + labels.map { "[\($0)]" }.joined()) }
+            return labels
+        }
+        var busInputs: [UUID: [String]] = [:]
+        var stems: [(label: String, name: String)] = []
+        var consumed = Set<UUID>()
+        for (index, track) in mix.tracks.enumerated() {
+            let destinations = track.outputs.filter { needed.contains($0) && !(byID[$0]?.muted ?? true) }
+            let stem = streams == .mainAndTracks
+            let count = destinations.count + (stem ? 1 : 0)
+            guard count > 0 else { continue }
+            consumed.insert(track.id)
+            let inputs = (trackAudio[track.id] ?? []) + [silence()]
+            let head = inputs.map { "[\($0)]" }.joined() + "amix=inputs=\(inputs.count):normalize=0" + chain(track.effects)
+            var labels = split(head, into: count, prefix: "mt\(index)")
+            if stem {
+                let label = labels.removeLast()
+                graph.append("[\(label)]atrim=end_sample=\(samples)[stem\(index)]")
+                stems.append(("stem\(index)", track.name))
+            }
+            for (destination, label) in zip(destinations, labels) { busInputs[destination, default: []].append(label) }
+        }
+        // Sound from tracks that reach no output must still be consumed.
+        let unused = ["silence"] + mix.tracks.filter { !consumed.contains($0.id) }.flatMap { trackAudio[$0.id] ?? [] }
+            + trackAudio.filter { id, _ in !mix.tracks.contains { $0.id == id } }.flatMap(\.value)
+        graph.append(unused.map { "[\($0)]" }.joined() + "amix=inputs=\(unused.count):normalize=0,anullsink")
+        for (index, bus) in mix.submixes.enumerated() where needed.contains(bus.id) {
+            let destinations = targets(of: bus).filter { needed.contains($0) }
+            let inputs = (busInputs[bus.id] ?? []) + [silence()]
+            let head = inputs.map { "[\($0)]" }.joined() + "amix=inputs=\(inputs.count):normalize=0" + chain(bus.effects) + ",volume=\(bus.gain):precision=float"
+            for (destination, label) in zip(destinations, split(head, into: destinations.count, prefix: "ms\(index)")) {
+                busInputs[destination, default: []].append(label)
+            }
+        }
+        var outputs: [(label: String, name: String)] = []
+        for (index, bus) in exported.enumerated() {
+            let label = "audio\(index)"
+            if bus.muted || !exportedIDs.contains(bus.id) {
+                graph.append("anullsrc=r=\(sampleRate):cl=\(layout),atrim=end_sample=\(samples)[\(label)]")
+            } else {
+                let inputs = (busInputs[bus.id] ?? []) + [silence()]
+                graph.append(inputs.map { "[\($0)]" }.joined() + "amix=inputs=\(inputs.count):normalize=0" + chain(bus.effects)
+                             + ",volume=\(bus.gain):precision=float,atrim=end_sample=\(samples)[\(label)]")
+            }
+            outputs.append((label, bus.name))
+        }
+        return outputs + stems
     }
     /// A keyframed value as a piecewise-linear expression in the frame time `t` (timeline seconds).
     private static func animation(_ component: TimelineRenderPlan.Component, _ value: KeyPath<TransformKeyframe, Double>, time t: String = "t") -> String {

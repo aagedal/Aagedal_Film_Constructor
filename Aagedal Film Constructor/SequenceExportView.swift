@@ -15,6 +15,7 @@ struct SequenceExportView: View {
     @State private var filename = "Sequence.mov"
     @AppStorage("exportFormat") private var format: RenderOutputFormat = .proRes422HQ
     @AppStorage("exportStrictQualification") private var strictQualification = false
+    @AppStorage("exportAudioStreams") private var audioStreams: RenderAudioStreams = .main
     @State private var warnings: [String] = []
     @State private var isAssessing = false
 
@@ -41,6 +42,15 @@ struct SequenceExportView: View {
                 GridRow {
                     Text("Audio")
                     Text("\(draft.plan.settings.audioSampleRate) Hz · \(draft.plan.settings.audioLayout.channels.count) channels")
+                }
+                GridRow {
+                    Text("Audio tracks")
+                    Picker("Audio tracks", selection: $audioStreams) {
+                        ForEach(RenderAudioStreams.allCases) { Text($0.displayName).tag($0) }
+                    }
+                    .labelsHidden().fixedSize()
+                    .disabled(exportTask != nil || completedURL != nil)
+                    .help("Write one mix, every main bus, or the main mix plus a stem per track as separate audio streams")
                 }
                 GridRow {
                     Text("Start timecode")
@@ -130,7 +140,7 @@ struct SequenceExportView: View {
         }
     }
 
-    private var options: SequenceExportOptions { .init(format: format, strictQualification: strictQualification) }
+    private var options: SequenceExportOptions { .init(format: format, strictQualification: strictQualification, audioStreams: audioStreams) }
 
     private func startExport() {
         guard !filename.isEmpty, filename != ".", filename != "..",

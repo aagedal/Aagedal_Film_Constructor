@@ -56,6 +56,7 @@ public enum CMX3600Exporter {
         else {
             channel = track.audioLayout == .stereo ? "AA" : "A"
             if track.audioLayout != .mono && track.audioLayout != .stereo { reasons.append("Only complete mono or stereo audio tracks are supported.") }
+            if track.template.effects.contains(where: \.isActive) { reasons.append("Track effects are not supported.") }
             if let layout = track.audioLayout, !track.template.routing.isDefaultPlacement(of: layout, in: project.settings.audioLayout) {
                 reasons.append("Audio output channel remapping is not supported.")
             }
@@ -92,6 +93,7 @@ public enum CMX3600Exporter {
             if clip.dynamics != nil { reasons.append("\(label): compression is not supported.") }
             if clip.key != nil { reasons.append("\(label): keying is not supported.") }
             if !clip.eq.isFlat { reasons.append("\(label): EQ is not supported.") }
+            if clip.stabilization != nil { reasons.append("\(label): stabilisation is not supported.") }
             if !clip.volumeKeyframes.isEmpty { reasons.append("\(label): volume keyframes are not supported.") }
             if clip.speed != .one { reasons.append("\(label): speed changes are not supported.") }
             if !clip.color.isNeutral { reasons.append("\(label): colour correction is not supported.") }

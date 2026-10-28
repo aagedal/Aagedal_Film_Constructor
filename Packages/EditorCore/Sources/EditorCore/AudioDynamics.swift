@@ -52,14 +52,17 @@ nonisolated public struct Compressor: Sendable {
         ratio = settings.ratio; makeup = pow(10, settings.makeup / 20)
     }
 
-    public mutating func process(_ sample: Double) -> Double {
-        let level = abs(sample)
+    public mutating func process(_ sample: Double) -> Double { sample * gain(forLevel: abs(sample)) }
+
+    /// Advances the detector by one frame whose (linked) peak is `level` and returns the
+    /// gain to apply to that frame, including makeup.
+    public mutating func gain(forLevel level: Double) -> Double {
         slope += (level - slope) * (level > slope ? attackCoefficient : releaseCoefficient)
         var gain = 1.0
         if slope > threshold {
             let logSlope = log(slope)
             gain = exp((logSlope - logThreshold) / ratio + logThreshold - logSlope)
         }
-        return sample * gain * makeup
+        return gain * makeup
     }
 }

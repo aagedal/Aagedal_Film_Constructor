@@ -9,6 +9,7 @@ struct ContentView: View {
     @AppStorage("workspace.showInspector") private var showInspector = true
     @AppStorage("workspace.showTimeline") private var showTimeline = true
     @AppStorage("workspace.showMixer") private var showMixer = false
+    @AppStorage("workspace.showScopes") private var showScopes = false
     @State private var isMediaBinDropTargeted = false
     @State private var binName = ""
     @State private var creatingBin = false
@@ -27,6 +28,9 @@ struct ContentView: View {
                 }
                 monitor.frame(minWidth: 320, maxWidth: .infinity)
                     .focusedValue(\.editorCommandScope, store.showSequenceMonitor ? .timeline : .source)
+                if showScopes {
+                    ScopesPanel(store: store, sequence: sequencePlayback).frame(minWidth: 260, idealWidth: 340, maxWidth: 560)
+                }
                 if showInspector {
                     ProjectInspector(store: store).frame(minWidth: 240, idealWidth: 270, maxWidth: 340)
                 }
@@ -64,6 +68,7 @@ struct ContentView: View {
                     Toggle("Inspector", isOn: $showInspector)
                     Toggle("Timeline", isOn: $showTimeline)
                     Toggle("Mixer", isOn: $showMixer)
+                    Toggle("Scopes (⇧⌘W)", isOn: $showScopes)
                     Divider()
                     Button("Show all panels") {
                         showMediaBin = true; showInspector = true; showTimeline = true
@@ -683,16 +688,7 @@ private struct ProjectInspector: View {
         }
         if case .video = clip.selection {
             GroupBox("Stabilise") {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Button(store.isStabilising ? "Stabilising…" : "Stabilise", systemImage: "camera.metering.center.weighted") {
-                            store.stabiliseSelectedClip()
-                        }.disabled(store.isStabilising)
-                        if store.isStabilising { ProgressView().controlSize(.small) }
-                    }
-                    Text("Smooths camera shake by making a stabilised copy of this shot's media (plus a second each side for trims). Undo returns to the original.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }.frame(maxWidth: .infinity, alignment: .leading).padding(5)
+                StabilizationControls(store: store, stabilization: clip.stabilization).id(clip.id).padding(5)
             }
         }
         GroupBox("Fades") { fadeControls(clip).padding(5) }
@@ -1263,6 +1259,62 @@ private struct KeyControls: View {
 }
 
 /// Compressor (threshold, ratio, makeup) and optional limiter; sliders commit on release.
+private struct StabilizationControls: View {
+    @ObservedObject var store: EditorStore
+    let stabilization: Stabilization?
+    @State private var smoothing: Double?
+    @State private var zoom: Double?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Button(stabilization == nil ? "Analyse and stabilise" : "Re-analyse", systemImage: "camera.metering.center.weighted") {
+                    store.stabiliseSelectedClip()
+                }.disabled(store.isStabilising)
+                if store.isStabilising { ProgressView(value: store.stabilisationProgress).frame(width: 60) }
+                Spacer()
+                if stabilization != nil {
+                    Button("Remove", role: .destructive) { store.removeSelectedStabilization() }.disabled(store.isStabilising)
+                }
+            }
+            if let stabilization {
+                let resolved = stabilization.resolved()
+                HStack {
+                    Text("Smoothing").frame(width: 72, alignment: .leading)
+                    Slider(value: Binding(get: { smoothing ?? stabilization.smoothing }, set: { smoothing = $0 }), in: 0.1...5) { editing in
+                        guard !editing, let value = smoothing else { return }
+                        store.setSelectedStabilization(smoothing: value, zoom: stabilization.zoom)
+                        smoothing = nil
+                    }
+                    Text(String(format: "%.1f s", smoothing ?? stabilization.smoothing)).monospacedDigit().frame(width: 44, alignment: .trailing)
+                }
+                Toggle("Automatic zoom (\(Int((resolved.zoom * 100).rounded()))%)", isOn: Binding(get: { stabilization.zoom == nil }, set: { automatic in
+                    store.setSelectedStabilization(smoothing: stabilization.smoothing, zoom: automatic ? nil : resolved.zoom)
+                }))
+                if stabilization.zoom != nil {
+                    HStack {
+                        Text("Zoom").frame(width: 72, alignment: .leading)
+                        Slider(value: Binding(get: { zoom ?? resolved.zoom }, set: { zoom = $0 }), in: 1...1.5) { editing in
+                            guard !editing, let value = zoom else { return }
+                            store.setSelectedStabilization(smoothing: stabilization.smoothing, zoom: value)
+                            zoom = nil
+                        }
+                        Text("\(Int(((zoom ?? resolved.zoom) * 100).rounded()))%").monospacedDigit().frame(width: 44, alignment: .trailing)
+                    }
+                }
+                Text("Analysed \(stabilization.analysis.times.count) frames. Preview and export shift the picture live; no copy is rendered.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                Text("Measures camera motion (plus a second each side for trims) and steadies the shot live in preview and export.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button("Render a deshaken copy instead") { store.renderStabilisedCopyOfSelectedClip() }
+                    .buttonStyle(.link).font(.caption).disabled(store.isStabilising)
+                    .help("Makes a stabilised copy of the media with FFmpeg's deshake filter; undo returns to the original")
+            }
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 private struct DynamicsControls: View {
     let dynamics: AudioDynamics?
     let apply: (AudioDynamics?) -> Void

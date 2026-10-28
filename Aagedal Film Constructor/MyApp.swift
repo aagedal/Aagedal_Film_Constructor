@@ -219,6 +219,7 @@ private struct EditorCommands: Commands {
     @AppStorage("workspace.showInspector") private var showInspector = true
     @AppStorage("workspace.showTimeline") private var showTimeline = true
     @AppStorage("workspace.showMixer") private var showMixer = false
+    @AppStorage("workspace.showScopes") private var showScopes = false
 
     private var scope: EditorCommandScope { focusedScope ?? .document }
     private func command(_ id: EditorCommandID) -> some View {
@@ -265,6 +266,7 @@ private struct EditorCommands: Commands {
             Toggle("Show Inspector", isOn: $showInspector)
             Toggle("Show Timeline", isOn: $showTimeline)
             Toggle("Show Mixer", isOn: $showMixer)
+            command(.toggleScopes)
             Button("Show All Workspace Panels") {
                 showMediaBin = true; showInspector = true; showTimeline = true
             }

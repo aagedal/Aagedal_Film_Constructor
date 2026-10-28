@@ -106,6 +106,7 @@ final class EditorCommandRegistry: ObservableObject {
         case .nextMarker: store.jumpToMarker(forward: true)
         case .previousEdit: store.jumpToEditPoint(forward: false)
         case .nextEdit: store.jumpToEditPoint(forward: true)
+        case .toggleScopes: UserDefaults.standard.set(!UserDefaults.standard.bool(forKey: "workspace.showScopes"), forKey: "workspace.showScopes")
         }
     }
     func isEnabled(_ command: EditorCommandID, store: EditorStore?, scope: EditorCommandScope) -> Bool {
@@ -115,7 +116,7 @@ final class EditorCommandRegistry: ObservableObject {
         switch command {
         case .zoomTimelineToFit: return store.duration > 0
         case .rippleTrimStart, .rippleTrimEnd: return store.canRippleTrimSelectedClip
-        case .toggleViewer: return true
+        case .toggleViewer, .toggleScopes: return true
         case .undo: return store.canUndo
         case .redo: return store.canRedo
         case .importMedia: return !store.isImporting

@@ -22,6 +22,7 @@ nonisolated struct SequenceExportResult: Sendable {
 nonisolated struct SequenceExportOptions: Sendable {
     var format: RenderOutputFormat = .proRes422HQ
     var strictQualification = false
+    var audioStreams: RenderAudioStreams = .main
 }
 nonisolated enum SequenceExportError: LocalizedError {
     case unavailable, destination(String), process(String), verification(String)
@@ -62,7 +63,7 @@ actor SequenceExportService {
         let scoped = urls.filter { $0.startAccessingSecurityScopedResource() }
         defer { scoped.forEach { $0.stopAccessingSecurityScopedResource() } }
         let probeURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(options.format.fileExtension)
-        let command = try FFmpegRenderCompiler.compile(plan, outputURL: probeURL, format: options.format)
+        let command = try FFmpegRenderCompiler.compile(plan, outputURL: probeURL, format: options.format, audioStreams: options.audioStreams)
         return try await Self.preflight(plan: plan, command: command, ffprobe: ffprobeURL, strict: options.strictQualification).warnings
     }
     func export(plan: TimelineRenderPlan, to outputURL: URL, options: SequenceExportOptions = .init(),
@@ -92,12 +93,18 @@ actor SequenceExportService {
         try FileManager.default.createDirectory(at: stageDirectory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         defer { try? FileManager.default.removeItem(at: stageDirectory) }
         let staged = stageDirectory.appendingPathComponent("render." + format.fileExtension)
-        var command = try FFmpegRenderCompiler.compile(plan, outputURL: staged, format: format)
+        // Stabilisation command lists live in a private temporary folder with a plain path.
+        let sidecarDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("afc-render-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: sidecarDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sidecarDirectory) }
+        var command = try FFmpegRenderCompiler.compile(plan, outputURL: staged, format: format, audioStreams: options.audioStreams, sidecarDirectory: sidecarDirectory)
         progress(.init(fraction: 0, renderedSeconds: 0, stage: "Checking sources"))
         let (warnings, hdrSources) = try await preflight(plan: plan, command: command, ffprobe: ffprobe, strict: options.strictQualification)
         if !hdrSources.isEmpty {
-            command = try FFmpegRenderCompiler.compile(plan, outputURL: staged, format: format, toneMappedSources: hdrSources)
+            command = try FFmpegRenderCompiler.compile(plan, outputURL: staged, format: format, toneMappedSources: hdrSources,
+                                                       audioStreams: options.audioStreams, sidecarDirectory: sidecarDirectory)
         }
+        for sidecar in command.sidecars { try sidecar.contents.write(to: sidecar.url, atomically: true, encoding: .utf8) }
         let duration = Double(command.videoFrames) / plan.settings.frameRate.value.seconds
         var arguments = command.arguments
         arguments.insert(contentsOf: ["-progress", "pipe:1", "-nostats"], at: 0)
@@ -278,10 +285,14 @@ actor SequenceExportService {
                                            format: RenderOutputFormat, counted: String) throws {
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let streams = root["streams"] as? [[String: Any]],
-              let video = streams.first(where: { $0["codec_type"] as? String == "video" }),
-              let audio = streams.first(where: { $0["codec_type"] as? String == "audio" }) else {
+              let video = streams.first(where: { $0["codec_type"] as? String == "video" }) else {
             throw SequenceExportError.verification("Export verification found missing audio/video streams.")
         }
+        let audioStreams = streams.filter { $0["codec_type"] as? String == "audio" }
+        guard audioStreams.count == command.audioStreamNames.count else {
+            throw SequenceExportError.verification("Export verification found \(audioStreams.count) audio streams instead of \(command.audioStreamNames.count).")
+        }
+        for audio in audioStreams { try verifyAudio(audio, plan: plan, command: command, format: format) }
         func integer(_ value: Any?) -> Int64? {
             if let value = value as? String { return Int64(value) }
             return (value as? NSNumber)?.int64Value
@@ -297,13 +308,26 @@ actor SequenceExportService {
             ("raster", integer(video["width"]) == Int64(plan.settings.width) && integer(video["height"]) == Int64(plan.settings.height)),
             ("frame rate", video["r_frame_rate"] as? String == "\(rate.numerator)/\(rate.denominator)"),
             ("frame count \(integer(video[counted]).map(String.init) ?? "missing") ≠ \(command.videoFrames)", integer(video[counted]) == command.videoFrames),
+            ("timecode", (tags?["timecode"] as? String ?? formatTags?["timecode"] as? String) == timecode),
+        ]
+        let failed = checks.filter { !$0.1 }.map(\.0)
+        guard failed.isEmpty else {
+            throw SequenceExportError.verification("Rendered \(format.fileExtension.uppercased()) failed verification: \(failed.joined(separator: ", ")).")
+        }
+    }
+    nonisolated private static func verifyAudio(_ audio: [String: Any], plan: TimelineRenderPlan, command: FFmpegRenderCommand,
+                                                format: RenderOutputFormat) throws {
+        func integer(_ value: Any?) -> Int64? {
+            if let value = value as? String { return Int64(value) }
+            return (value as? NSNumber)?.int64Value
+        }
+        let checks: [(String, Bool)] = [
             ("audio codec", audio["codec_name"] as? String == format.audioCodecName),
             ("audio bit depth", !format.isProRes || integer(audio["bits_per_raw_sample"]) == 24),
             ("audio sample rate", integer(audio["sample_rate"]) == Int64(plan.settings.audioSampleRate)),
             ("audio channels", integer(audio["channels"]) == Int64(plan.settings.audioLayout.channels.count)),
             ("audio sample count \(integer(audio["duration_ts"]).map(String.init) ?? "missing") ≠ \(command.audioSamples)", integer(audio["duration_ts"]) == command.audioSamples),
             ("audio time base", audio["time_base"] as? String == "1/\(plan.settings.audioSampleRate)"),
-            ("timecode", (tags?["timecode"] as? String ?? formatTags?["timecode"] as? String) == timecode),
         ]
         let failed = checks.filter { !$0.1 }.map(\.0)
         guard failed.isEmpty else {
