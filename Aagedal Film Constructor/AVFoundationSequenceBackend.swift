@@ -27,6 +27,8 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
     private let stillDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("afc-system-stills-" + UUID().uuidString)
     private var stillMovies: [URL: URL] = [:]
     private var stillMovieBytes = 0
+    /// The main bus the preview plays; nil or a missing bus plays the first main bus.
+    static var monitoredMain: UUID?
 
     deinit { try? FileManager.default.removeItem(at: stillDirectory) }
 
@@ -104,6 +106,26 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
         }
         var sourceTracks: [URL: [AVAssetTrack]] = [:]
         var tapRoutes: [Int: [TapRoute]] = [:]
+        // Buses: every tap runs its track's effects and bus chains; the monitored main plays.
+        let mixPlan = plan.mix
+        let monitored = Self.monitoredMain.flatMap { id in mixPlan.mains.contains { $0.id == id } ? id : nil } ?? mixPlan.mains[0].id
+        let hub = MixMeterHub(buses: mixPlan.buses.map(\.id), channels: plan.settings.audioLayout == .mono ? 1 : 2,
+                              sampleRate: Double(plan.settings.audioSampleRate))
+        func tapMix(for trackID: UUID) -> TapMix {
+            let track = mixPlan.tracks.first { $0.id == trackID }
+            return TapMix(trackEffects: track?.effects ?? [], paths: mixPlan.paths(from: trackID).map { TapPath(main: $0.main, stages: $0.stages) },
+                          monitored: monitored, hub: hub)
+        }
+        let dynamicsEffects = (mixPlan.tracks.flatMap(\.effects) + mixPlan.buses.flatMap(\.effects)).contains {
+            if case .equalizer = $0.kind { return false }
+            return $0.isActive
+        }
+        if dynamicsEffects {
+            addQualificationNotice("Track and bus compressors and limiters hear each clip on its own in preview; export processes the mixed sound.")
+        }
+        if monitored != mixPlan.mains[0].id, let name = mixPlan.mains.first(where: { $0.id == monitored })?.name {
+            addQualificationNotice("Monitoring \(name).")
+        }
         for componentIndex in componentIndices {
             try Task.checkCancellation()
             let component = plan.components[componentIndex]
@@ -346,7 +368,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 // A post-fader tap feeds the mixer's meter for this editorial track.
                 let reading = MeterReading()
                 if let tap = MeterTap.make(for: reading, eq: component.eq, dynamics: component.dynamics,
-                                           makeup: makeup, routes: tapRoutes[componentIndex]) {
+                                           makeup: makeup, routes: tapRoutes[componentIndex], mix: tapMix(for: component.trackID)) {
                     parameters.audioTapProcessor = tap
                     meterReadings[component.trackID, default: []].append(reading)
                     points = points.map { ($0.seconds, $0.volume / makeup) }
@@ -376,7 +398,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
         // Retimed sound keeps its pitch, as in export.
         if plan.components.contains(where: { $0.speed != .one }) { item.audioTimePitchAlgorithm = .spectral }
         let mix = AVMutableAudioMix(); mix.inputParameters = mixes; item.audioMix = mix
-        AudioMeters.shared.attach(meterReadings)
+        AudioMeters.shared.attach(meterReadings, hub: hub, mains: mixPlan.mains.map(\.id))
         if hasVideo {
             let videoComposition = AVMutableVideoComposition()
             videoComposition.renderSize = CGSize(width: plan.settings.width, height: plan.settings.height)
@@ -393,8 +415,8 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                 }
                 return instruction
             }
-            // Colour correction needs per-layer filters, which only a custom compositor can apply.
-            if plan.components.contains(where: { !$0.color.isNeutral || $0.key != nil }) {
+            // Colour correction and stabilisation need per-layer filters, which only a custom compositor can apply.
+            if plan.components.contains(where: { !$0.color.isNeutral || $0.key != nil || $0.stabilization != nil }) {
                 var cubes: [ChromaKey: (data: Data, size: Int)] = [:]
                 for key in Set(plan.components.compactMap(\.key)) { cubes[key] = Self.keyCube(key) }
                 let canvas = videoComposition.renderSize
@@ -411,7 +433,8 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                                          blur: component.color.blur * Double(plan.settings.height),
                                          keyCube: component.key.flatMap { cubes[$0] },
                                          levels: component.color.hasLevels ? (component.color.blackPoint, component.color.whitePoint, component.color.gamma) : nil,
-                                         reveal: component.reveal.map { ($0.start.seconds, $0.duration.seconds, $0.fromLeft) })
+                                         reveal: component.reveal.map { ($0.start.seconds, $0.duration.seconds, $0.fromLeft) },
+                                         stabilization: Self.stabilizationCurve(component))
                         }, canvas: canvas)
                 }
             }
@@ -420,6 +443,16 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
         try Task.checkCancellation()
         guard !closed else { throw CancellationError() }
         return item
+    }
+
+    /// The stabiliser's zoom and shift at a sequence time, sampled at the source time shown then.
+    static func stabilizationCurve(_ component: TimelineRenderPlan.Component) -> (@Sendable (Double) -> (zoom: Double, x: Double, y: Double))? {
+        guard let stabilizer = component.stabilization else { return nil }
+        let timelineStart = component.timelineRange.start.seconds, sourceStart = component.sourceRange.start.seconds, speed = component.speed.seconds
+        return { time in
+            let c = stabilizer.correction(atSourceSeconds: sourceStart + (time - timelineStart) * speed)
+            return (stabilizer.zoom, c.x, c.y)
+        }
     }
 
     /// Linear opacity ramps for picture fades and dissolves, matching the export's alpha fades.

@@ -74,8 +74,8 @@ enum StoryDriver {
                 store.selectTimelineClip(pictures[1].id)
                 store.stabiliseSelectedClip()
                 _ = await wait(1200) { !store.isStabilising }
-                let stabilised = clips().first { $0.id == pictures[1].id }.flatMap { store.asset(id: $0.assetID) }?.name ?? ""
-                record("stabilised", ["asset": stabilised, "transitionsKept": store.project.audioCrossfades.count, "error": store.errorMessage ?? ""])
+                let stabilised = clips().first { $0.id == pictures[1].id }?.stabilization.map { "\($0.analysis.times.count) frames" } ?? ""
+                record("stabilised", ["analysis": stabilised, "transitionsKept": store.project.audioCrossfades.count, "error": store.errorMessage ?? ""])
             }
             // 5. A light grade on every shot.
             for picture in pictures {

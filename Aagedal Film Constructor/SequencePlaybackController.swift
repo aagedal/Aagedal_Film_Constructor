@@ -150,6 +150,15 @@ final class SequencePlaybackController: ObservableObject {
         startWorker()
     }
 
+    /// Rebuilds the preview from the current project, for settings outside the document
+    /// (such as the monitored bus).
+    func reload() {
+        guard let project = pendingProject else { return }
+        let representation = pendingRepresentation
+        pendingProject = nil; activeProject = nil
+        update(project: project, seconds: desiredSeconds, representation: representation)
+    }
+
     func activate(project: Project, seconds: Double, representation: PlaybackRepresentation = .original) {
         enabled = true
         update(project: project, seconds: seconds, representation: representation)

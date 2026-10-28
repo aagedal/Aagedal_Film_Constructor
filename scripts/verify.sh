@@ -18,6 +18,7 @@ python3 -m unittest discover -s "$repo_root/scripts" -p 'test_*.py'
 if [[ -n "${AFC_FFMPEG:-}" ]]; then
   "$repo_root/scripts/system-transition-smoke.sh" "$AFC_FFMPEG"
   "$repo_root/scripts/title-smoke.sh" "$AFC_FFMPEG"
+  "$repo_root/scripts/mix-stabilise-smoke.sh" "$AFC_FFMPEG"
 fi
 swift test --package-path "$repo_root/Packages/EditorCore" \
   --scratch-path "$build_root/editor-core" --cache-path "$build_root/package-cache" --disable-sandbox

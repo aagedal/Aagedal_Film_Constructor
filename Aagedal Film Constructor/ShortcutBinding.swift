@@ -3,7 +3,7 @@ import Foundation
 enum EditorCommandScope: String, Codable { case document, source, timeline }
 
 enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
-    case togglePlayback, zoomTimelineToFit, rippleTrimStart, rippleTrimEnd, toggleViewer, undo, redo, importMedia, appendSource, markSourceIn, markSourceOut, clearSourceMarks, splitClip, addTransition, addTitle, insertSource, overwriteSource, previousFrame, nextFrame, deleteClip, rippleDelete, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO, toggleRetime, addMarker, previousMarker, nextMarker, previousEdit, nextEdit
+    case togglePlayback, zoomTimelineToFit, rippleTrimStart, rippleTrimEnd, toggleViewer, undo, redo, importMedia, appendSource, markSourceIn, markSourceOut, clearSourceMarks, splitClip, addTransition, addTitle, insertSource, overwriteSource, previousFrame, nextFrame, deleteClip, rippleDelete, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO, toggleRetime, addMarker, previousMarker, nextMarker, previousEdit, nextEdit, toggleScopes
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -41,12 +41,13 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .nextMarker: "Next Marker"
         case .previousEdit: "Previous Edit Point"
         case .nextEdit: "Next Edit Point"
+        case .toggleScopes: "Show / Hide Video Scopes"
         }
     }
     var isPlayback: Bool { [.togglePlayback, .playReverse, .pausePlayback, .playForward].contains(self) }
     var scope: EditorCommandScope {
         switch self {
-        case .toggleViewer, .undo, .redo, .importMedia, .insertSource, .overwriteSource, .exportSequence, .exportFCPXML, .exportEDL, .exportOTIO: .document
+        case .toggleViewer, .undo, .redo, .importMedia, .insertSource, .overwriteSource, .exportSequence, .exportFCPXML, .exportEDL, .exportOTIO, .toggleScopes: .document
         case .appendSource, .markSourceIn, .markSourceOut, .clearSourceMarks, .playReverse, .pausePlayback, .playForward: .source
         default: .timeline
         }
@@ -93,6 +94,7 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .nextMarker: ShortcutBinding(key: "m", shift: true)
         case .previousEdit: ShortcutBinding(key: "up")
         case .nextEdit: ShortcutBinding(key: "down")
+        case .toggleScopes: ShortcutBinding(key: "w", command: true, shift: true)
         }
     }
 }
@@ -125,7 +127,9 @@ struct ShortcutBinding: Codable, Equatable {
         guard commandID.isPlayback || [.toggleViewer, .markSourceIn, .markSourceOut, .clearSourceMarks, .zoomTimelineToFit, .rippleTrimStart, .rippleTrimEnd, .insertSource, .overwriteSource, .rippleDelete, .deleteClip, .addMarker, .nextMarker, .previousEdit, .nextEdit].contains(commandID) || candidate.command || candidate.option || candidate.control else {
             return "Include Command, Option, or Control to preserve text entry."
         }
-        if candidate.command && !candidate.option && !candidate.control && ["q", "w", "n", "o", "s", "h", "m", ",", "c", "v", "x", "a", "f"].contains(candidate.key) {
+        // ⇧⌘W is the scopes shortcut; only plain ⌘W closes the window.
+        if candidate.command && !candidate.option && !candidate.control && ["q", "w", "n", "o", "s", "h", "m", ",", "c", "v", "x", "a", "f"].contains(candidate.key)
+            && !(candidate.shift && candidate.key == "w") {
             return "This shortcut is reserved for standard application or text commands."
         }
         if candidate.command && ((candidate.option && ["h", "m"].contains(candidate.key)) || (candidate.control && candidate.key == "f") || (candidate.shift && candidate.key == "/")) {

@@ -47,6 +47,8 @@ public enum EditCommand: Sendable {
     /// `streamIndex` holds the component's selected channels in order, starting `sourceOffset`
     /// into the original. Timing, fades, volume and links are kept.
     case replaceAudioMedia(clipID: UUID, assetID: UUID, streamIndex: Int, sourceOffset: RationalTime)
+    /// Stabilise one movie picture from its motion analysis, or remove stabilisation.
+    case setStabilization(clipID: UUID, stabilization: Stabilization?)
     /// Key a colour out of one picture component, or remove its key.
     case setKey(clipID: UUID, key: ChromaKey?)
     /// Colour-correct one picture component.
@@ -577,6 +579,8 @@ public struct TimelineEditEngine: Sendable {
             clip.sourceRange.start = try clip.sourceRange.start.subtracting(offset)
             // Keyframes are anchored to source time, so they move with the media.
             clip.transformKeyframes = try clip.transformKeyframes.map { var k = $0; k.time = try k.time.subtracting(offset); return k }
+            // Motion analysis describes the old media.
+            clip.stabilization = nil
             project.tracks[t].clips[c] = clip
         case .replaceAudioMedia(let clipID, let assetID, let streamIndex, let offset):
             guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
@@ -591,6 +595,11 @@ public struct TimelineEditEngine: Sendable {
             clip.sourceRange.start = try clip.sourceRange.start.subtracting(offset)
             clip.volumeKeyframes = try clip.volumeKeyframes.map { var k = $0; k.time = try k.time.subtracting(offset); return k }
             project.tracks[t].clips[c] = clip
+        case .setStabilization(let clipID, let stabilization):
+            guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
+                  let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
+            guard case .video = project.tracks[t].clips[c].selection else { throw TimelineEditError.incompatibleTrack }
+            project.tracks[t].clips[c].stabilization = stabilization
         case .setKey(let clipID, let key):
             guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == clipID } }),
                   let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }

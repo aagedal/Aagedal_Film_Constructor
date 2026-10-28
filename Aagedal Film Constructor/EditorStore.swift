@@ -797,6 +797,46 @@ final class EditorStore: ObservableObject {
         }
         do { try change { try $0.setTrackGain(id: id, gain: pow(10, value / 20)) } } catch { report(error) }
     }
+    // MARK: Buses and insert effects
+
+    func addBus(kind: AudioBus.Kind) {
+        do {
+            try change { try $0.addBus(kind: kind) }
+            statusMessage = kind == .main ? "Added a main bus. Send tracks to it from their output menus." : "Added a submix bus."
+        } catch { report(error) }
+    }
+    func removeBus(_ id: UUID) {
+        do { try change { try $0.removeBus(id: id) } } catch { errorMessage = audioEditErrorMessage(error) }
+    }
+    func renameBus(_ id: UUID, name: String) {
+        do { try change { try $0.updateBus(id: id) { $0.name = name } } } catch { errorMessage = audioEditErrorMessage(error) }
+    }
+    func setBusGain(_ id: UUID, decibels: Double) {
+        do { try change { try $0.updateBus(id: id) { $0.gain = decibels <= -60 ? 0 : pow(10, decibels / 20) } } } catch { errorMessage = audioEditErrorMessage(error) }
+    }
+    func setBusMuted(_ id: UUID, muted: Bool) {
+        do { try change { try $0.updateBus(id: id) { $0.muted = muted } } } catch { errorMessage = audioEditErrorMessage(error) }
+    }
+    func setBusOutputs(_ id: UUID, outputs: [UUID]) {
+        do { try change { try $0.updateBus(id: id) { $0.outputs = outputs } } } catch { errorMessage = audioEditErrorMessage(error) }
+    }
+    func setBusEffects(_ id: UUID, effects: [AudioEffect]) {
+        do { try change { try $0.updateBus(id: id) { $0.effects = effects } } } catch { errorMessage = audioEditErrorMessage(error) }
+    }
+    func setTrackBusOutputs(_ id: UUID, outputs: [UUID]) {
+        do { try change { try $0.setTrackBusOutputs(id: id, outputs: outputs) } } catch { errorMessage = audioEditErrorMessage(error) }
+    }
+    func setTrackEffects(_ id: UUID, effects: [AudioEffect]) {
+        do { try change { try $0.setTrackEffects(id: id, effects: effects) } } catch { errorMessage = audioEditErrorMessage(error) }
+    }
+    /// Which main bus the sequence preview plays. Not part of the document.
+    @Published private(set) var monitoredMainID: UUID?
+    func setMonitoredMain(_ id: UUID) {
+        monitoredMainID = id
+        AVFoundationSequenceBackend.monitoredMain = id
+        sequencePlayback?.reload()
+    }
+
     /// The selected audio component, or every audio component linked to the selected picture.
     var selectedVolumeClips: [TimelineClip] {
         guard let clip = selectedClip else { return [] }
@@ -1013,10 +1053,53 @@ final class EditorStore: ObservableObject {
         edit(.setTransformKeyframes(clipID: clip.id, keyframes: keyframes))
     }
     @Published private(set) var isStabilising = false
-    /// Stabilises the selected picture: makes a stabilised copy of the source it plays (with a
-    /// second of margin for trims) and points the picture at it in one undoable edit.
-    /// Linked sound keeps playing the original.
+    @Published private(set) var stabilisationProgress: Double = 0
+    /// Stabilises the selected picture live: measures its camera motion (plus a second each side
+    /// for trims) and stores the analysis on the clip in one undoable edit. Preview and export
+    /// shift the picture from it, so smoothing and zoom changes apply without rendering.
     func stabiliseSelectedClip() {
+        guard !isStabilising, let clip = selectedClip, case .video(let streamIndex) = clip.selection,
+              let asset = asset(id: clip.assetID), let original = asset.originalURL else { return }
+        do {
+            let margin = try RationalTime(1)
+            let start = try clip.sourceRange.start.compared(to: margin) == .orderedDescending ? clip.sourceRange.start.subtracting(margin) : .zero
+            let end = try clip.sourceEnd().adding(margin)
+            let stop = try end.compared(to: asset.duration) == .orderedDescending ? asset.duration : end
+            let clipID = clip.id, epoch = mediaEpoch, previous = clip.stabilization
+            isStabilising = true; stabilisationProgress = 0
+            statusMessage = "Analysing camera motion in \(asset.name)…"
+            Task {
+                defer { isStabilising = false }
+                do {
+                    let analysis = try await StabilizationAnalyzer.analyze(url: original, streamIndex: streamIndex, start: start.seconds,
+                                                                           duration: try stop.subtracting(start).seconds) { fraction in
+                        Task { @MainActor in self.stabilisationProgress = fraction }
+                    }
+                    guard epoch == mediaEpoch else { return }
+                    let stabilization = Stabilization(analysis: analysis, smoothing: previous?.smoothing ?? 1, zoom: previous?.zoom)
+                    edit(.setStabilization(clipID: clipID, stabilization: stabilization))
+                    if errorMessage == nil {
+                        statusMessage = "Stabilised \(asset.name) at \(Int((stabilization.resolved().zoom * 100).rounded()))% zoom. Adjust smoothing and zoom in the inspector."
+                    }
+                } catch is CancellationError {
+                } catch { errorMessage = "Could not analyse the shot: \(audioEditErrorMessage(error))" }
+            }
+        } catch { report(error) }
+    }
+    /// Smoothing in seconds and zoom (nil for automatic) for the selected picture's stabilisation.
+    func setSelectedStabilization(smoothing: Double, zoom: Double?) {
+        guard let clip = selectedClip, var stabilization = clip.stabilization else { return }
+        stabilization.smoothing = smoothing; stabilization.zoom = zoom
+        edit(.setStabilization(clipID: clip.id, stabilization: stabilization))
+    }
+    func removeSelectedStabilization() {
+        guard let clip = selectedClip, clip.stabilization != nil else { return }
+        edit(.setStabilization(clipID: clip.id, stabilization: nil))
+        if errorMessage == nil { statusMessage = "Removed stabilisation." }
+    }
+    /// Renders a stabilised copy with FFmpeg's deshake and points the picture at it in one
+    /// undoable edit. Linked sound keeps playing the original.
+    func renderStabilisedCopyOfSelectedClip() {
         guard !isStabilising, let clip = selectedClip, case .video = clip.selection,
               let asset = asset(id: clip.assetID), let original = asset.originalURL else { return }
         guard let ffmpeg = Bundle.main.resourceURL?.appendingPathComponent("Helpers/ffmpeg"),

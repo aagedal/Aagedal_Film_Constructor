@@ -33,8 +33,27 @@ nonisolated struct TapRoute: Equatable, Sendable {
     let output: Int
 }
 
+/// One way a track's sound reaches a main bus in preview: the buses it passes, each with its
+/// effects and fader gain.
+nonisolated struct TapPath: Sendable {
+    let main: UUID
+    let stages: [(bus: UUID, effects: [AudioEffect], gain: Double)]
+    var isTransparent: Bool { stages.allSatisfy { $0.effects.isEmpty && $0.gain == 1 } }
+}
+
+/// How a tap's track joins the mix: the track's insert effects, its routes to main buses,
+/// the main bus being monitored and the hub that gathers bus meters.
+nonisolated struct TapMix: Sendable {
+    var trackEffects: [AudioEffect] = []
+    var paths: [TapPath] = []
+    var monitored: UUID?
+    var hub: MixMeterHub?
+}
+
 /// What a preview audio tap does: makeup gain, optional EQ and dynamics per selected channel,
-/// channel routing, then metering of the result.
+/// channel routing, the track's effects and its bus chain, then metering of the result.
+/// Track and bus effects run on each clip's sound; for EQ and gain that equals processing
+/// the sum, while compressors hear each clip on its own (export compresses the sum).
 nonisolated final class TapContext: @unchecked Sendable {
     let reading: MeterReading
     let eq: AudioEQ
@@ -60,8 +79,23 @@ nonisolated final class TapContext: @unchecked Sendable {
     /// Where each delivered channel lives; reused so the audio thread does not allocate.
     private var lanes: [(data: UnsafeMutablePointer<Float>, stride: Int, frames: Int)] = []
     private var peaks = [Float](repeating: 0, count: MeterReading.maxChannels)
-    init(reading: MeterReading, eq: AudioEQ, dynamics: AudioDynamics?, makeup: Double = 1, routes: [TapRoute]? = nil) {
-        self.reading = reading; self.eq = eq; self.dynamics = dynamics; self.makeup = makeup; requestedRoutes = routes
+    private let mix: TapMix
+    private var sampleRate = 48000.0
+    private var trackEffects: AudioEffectProcessor?
+    /// Per path, per stage: a processor with its own state.
+    private var pathProcessors: [[AudioEffectProcessor]] = []
+    /// Which (path, stage) feeds each bus meter, so a submix shared by two paths meters once.
+    private var meterOwners: Set<[Int]> = []
+    private var frame: [Double] = [], work: [Double] = [], sum: [Double] = []
+    /// Interleaved bus contributions for this callback, by bus.
+    private var deposits: [UUID: [Float]] = [:]
+    init(reading: MeterReading, eq: AudioEQ, dynamics: AudioDynamics?, makeup: Double = 1, routes: [TapRoute]? = nil, mix: TapMix = .init()) {
+        self.reading = reading; self.eq = eq; self.dynamics = dynamics; self.makeup = makeup; requestedRoutes = routes; self.mix = mix
+    }
+    /// Whether the mix stage changes or meters anything.
+    var rate: Double { sampleRate }
+    private var mixes: Bool {
+        mix.hub != nil || !mix.trackEffects.isEmpty || !(mix.paths.count == 1 && mix.paths[0].main == mix.monitored && mix.paths[0].isTransparent)
     }
 
     func prepare(sampleRate: Double, channels: Int, maxFrames: Int) {
@@ -76,10 +110,23 @@ nonisolated final class TapContext: @unchecked Sendable {
         scratch = Array(repeating: Array(repeating: 0, count: max(1, maxFrames)), count: channels)
         lanes = []
         lanes.reserveCapacity(channels)
+        self.sampleRate = sampleRate
+        trackEffects = mix.trackEffects.isEmpty ? nil : AudioEffectProcessor(effects: mix.trackEffects, sampleRate: sampleRate, channels: channels)
+        pathProcessors = mix.paths.map { path in path.stages.map { AudioEffectProcessor(effects: $0.effects, sampleRate: sampleRate, channels: channels) } }
+        var metered = Set<UUID>(); meterOwners = []
+        for (p, path) in mix.paths.enumerated() {
+            for (s, stage) in path.stages.enumerated() where metered.insert(stage.bus).inserted { meterOwners.insert([p, s]) }
+        }
+        frame = Array(repeating: 0, count: channels); work = frame; sum = frame
+        deposits = [:]
+        if let hub = mix.hub {
+            for bus in metered { deposits[bus] = Array(repeating: 0, count: max(1, maxFrames) * hub.channels) }
+        }
     }
 
-    /// `frames` is the count the tap delivered; buffers may be larger.
-    func process(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames delivered: Int) {
+    /// `frames` is the count the tap delivered; buffers may be larger. `start` is the
+    /// composition sample index of the first frame, for time-aligned bus meters.
+    func process(_ buffers: UnsafeMutablePointer<AudioBufferList>, frames delivered: Int, start: Int64? = nil) {
         let list = UnsafeMutableAudioBufferListPointer(buffers)
         // Channel n lives in some buffer at a lane of its interleaving.
         lanes.removeAll(keepingCapacity: true)
@@ -120,12 +167,49 @@ nonisolated final class TapContext: @unchecked Sendable {
             }
         }
         let channels = min(lanes.count, peaks.count)
-        for (channel, lane) in lanes.prefix(channels).enumerated() {
-            var peak: Float = 0
-            for frame in 0..<lane.frames { peak = max(peak, abs(lane.data[frame * lane.stride]) * Float(levelScale)) }
-            peaks[channel] = peak
+        if mixes, !lanes.isEmpty, lanes.count == frame.count {
+            mixStage(start: start)
+        } else {
+            for (channel, lane) in lanes.prefix(channels).enumerated() {
+                var peak: Float = 0
+                for frame in 0..<lane.frames { peak = max(peak, abs(lane.data[frame * lane.stride]) * Float(levelScale)) }
+                peaks[channel] = peak
+            }
         }
         peaks.withUnsafeBufferPointer { reading.record(UnsafeBufferPointer(rebasing: $0.prefix(channels))) }
+    }
+
+    /// Track effects, the track meter, then every bus path: the monitored main's paths are
+    /// what plays, and each bus's contribution goes to its meter.
+    private func mixStage(start: Int64?) {
+        let count = lanes.count
+        let frames = lanes.map(\.frames).min() ?? 0
+        let hubChannels = mix.hub?.channels ?? 0
+        for c in 0..<min(count, peaks.count) { peaks[c] = 0 }
+        for f in 0..<frames {
+            for c in 0..<count { frame[c] = Double(lanes[c].data[f * lanes[c].stride]) * levelScale }
+            frame.withUnsafeMutableBufferPointer { trackEffects?.process($0.baseAddress!) }
+            for c in 0..<min(count, peaks.count) { peaks[c] = max(peaks[c], Float(abs(frame[c]))) }
+            for c in 0..<count { sum[c] = 0 }
+            for (p, path) in mix.paths.enumerated() {
+                for c in 0..<count { work[c] = frame[c] }
+                for (s, stage) in path.stages.enumerated() {
+                    work.withUnsafeMutableBufferPointer { pathProcessors[p][s].process($0.baseAddress!) }
+                    for c in 0..<count { work[c] *= stage.gain }
+                    if hubChannels > 0, meterOwners.contains([p, s]), deposits[stage.bus] != nil {
+                        // Mono taps play on every output, as the system mixer does.
+                        for h in 0..<hubChannels { deposits[stage.bus]![f * hubChannels + h] = Float(work[count == 1 ? 0 : min(h, count - 1)]) }
+                    }
+                }
+                if path.main == mix.monitored { for c in 0..<count { sum[c] += work[c] } }
+            }
+            for c in 0..<count { lanes[c].data[f * lanes[c].stride] = Float(sum[c] / levelScale) }
+        }
+        if let hub = mix.hub, let start {
+            for (bus, buffer) in deposits {
+                buffer.withUnsafeBufferPointer { hub.add(bus: bus, at: start, interleaved: $0.baseAddress!, frames: min(frames, $0.count / max(1, hubChannels))) }
+            }
+        }
     }
 }
 
@@ -134,8 +218,8 @@ nonisolated final class TapContext: @unchecked Sendable {
 /// the mixer's meter.
 nonisolated enum MeterTap {
     static func make(for reading: MeterReading, eq: AudioEQ = .flat, dynamics: AudioDynamics? = nil,
-                     makeup: Double = 1, routes: [TapRoute]? = nil) -> MTAudioProcessingTap? {
-        let context = TapContext(reading: reading, eq: eq, dynamics: dynamics, makeup: makeup, routes: routes)
+                     makeup: Double = 1, routes: [TapRoute]? = nil, mix: TapMix = .init()) -> MTAudioProcessingTap? {
+        let context = TapContext(reading: reading, eq: eq, dynamics: dynamics, makeup: makeup, routes: routes, mix: mix)
         var callbacks = MTAudioProcessingTapCallbacks(
             version: kMTAudioProcessingTapCallbacksVersion_0,
             clientInfo: UnsafeMutableRawPointer(Unmanaged.passRetained(context).toOpaque()),
@@ -147,8 +231,11 @@ nonisolated enum MeterTap {
             },
             unprepare: nil,
             process: { tap, frames, _, buffers, framesOut, flagsOut in
-                guard MTAudioProcessingTapGetSourceAudio(tap, frames, buffers, flagsOut, nil, framesOut) == noErr else { return }
-                Unmanaged<TapContext>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue().process(buffers, frames: Int(framesOut.pointee))
+                var range = CMTimeRange.invalid
+                guard MTAudioProcessingTapGetSourceAudio(tap, frames, buffers, flagsOut, &range, framesOut) == noErr else { return }
+                let context = Unmanaged<TapContext>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
+                let start = range.start.isNumeric ? Int64((range.start.seconds * context.rate).rounded()) : nil
+                context.process(buffers, frames: Int(framesOut.pointee), start: start)
             })
         var tap: MTAudioProcessingTap?
         guard MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PostEffects, &tap) == noErr else {
@@ -157,6 +244,70 @@ nonisolated enum MeterTap {
             return nil
         }
         return tap
+    }
+}
+
+/// Time-aligned sums of every tap's contribution to each bus. Taps add blocks at their
+/// composition sample position; the meters read everything older than a short latency, by
+/// which time all taps have delivered that stretch.
+nonisolated final class MixMeterHub: @unchecked Sendable {
+    let channels: Int
+    let sampleRate: Double
+    private let capacity: Int
+    private let lock = NSLock()
+    private var rings: [UUID: [Float]]
+    private var readPosition: Int64?
+    private var highWater: Int64 = 0
+
+    init(buses: [UUID], channels: Int, sampleRate: Double) {
+        self.channels = max(1, channels); self.sampleRate = sampleRate
+        capacity = Int(sampleRate * 2)
+        rings = Dictionary(uniqueKeysWithValues: buses.map { ($0, [Float](repeating: 0, count: Int(sampleRate * 2) * max(1, channels))) })
+    }
+
+    func add(bus: UUID, at start: Int64, interleaved: UnsafePointer<Float>, frames: Int) {
+        lock.lock(); defer { lock.unlock() }
+        guard rings[bus] != nil, frames > 0 else { return }
+        // A seek or a long stall starts over at the new position.
+        if let read = readPosition, start < read - Int64(capacity / 4) || start + Int64(frames) > read + Int64(capacity) { reset(at: start) }
+        if readPosition == nil { reset(at: start) }
+        let read = readPosition!
+        rings[bus]!.withUnsafeMutableBufferPointer { ring in
+            for f in 0..<frames {
+                let position = start + Int64(f)
+                guard position >= read else { continue }
+                let slot = Int(position % Int64(capacity)) * channels
+                for c in 0..<channels { ring[slot + c] += interleaved[f * channels + c] }
+            }
+        }
+        highWater = max(highWater, start + Int64(frames))
+    }
+
+    private func reset(at start: Int64) {
+        for key in rings.keys { rings[key] = [Float](repeating: 0, count: capacity * channels) }
+        readPosition = start; highWater = start
+    }
+
+    /// Interleaved frames per bus up to `latency` seconds before the newest delivery.
+    func drain(latency: Double = 0.15) -> [UUID: [Float]] {
+        lock.lock(); defer { lock.unlock() }
+        guard let read = readPosition else { return [:] }
+        let end = highWater - Int64(latency * sampleRate)
+        guard end > read else { return [:] }
+        let count = Int(min(end - read, Int64(capacity)))
+        var result: [UUID: [Float]] = [:]
+        for key in rings.keys {
+            var out = [Float](repeating: 0, count: count * channels)
+            rings[key]!.withUnsafeMutableBufferPointer { ring in
+                for f in 0..<count {
+                    let slot = Int((read + Int64(f)) % Int64(capacity)) * channels
+                    for c in 0..<channels { out[f * channels + c] = ring[slot + c]; ring[slot + c] = 0 }
+                }
+            }
+            result[key] = out
+        }
+        readPosition = read + Int64(count)
+        return result
     }
 }
 
@@ -169,19 +320,38 @@ final class AudioMeters: ObservableObject {
     @Published private(set) var levels: [UUID: Float] = [:]
     /// Each channel the track plays on, in output order.
     @Published private(set) var channelLevels: [UUID: [Float]] = [:]
+    /// Each bus's channels, post-fader, in dBFS with the same falling hold.
+    @Published private(set) var busLevels: [UUID: [Float]] = [:]
+    /// Loudness of each main bus while the sequence plays.
+    @Published private(set) var loudness: [UUID: LoudnessMeter.Reading] = [:]
     private var readings: [UUID: [MeterReading]] = [:]
+    private var hub: MixMeterHub?
+    private var mainBuses: Set<UUID> = []
+    private var loudnessMeters: [UUID: LoudnessMeter] = [:]
     private var timer: Timer?
 
-    /// Replaces the readings for a newly prepared preview.
-    func attach(_ readings: [UUID: [MeterReading]]) {
+    /// Replaces the readings for a newly prepared preview. Loudness keeps integrating across
+    /// preview rebuilds of the same bus until it is reset.
+    func attach(_ readings: [UUID: [MeterReading]], hub: MixMeterHub? = nil, mains: [UUID] = [], layout: ChannelLayout = .stereo) {
         self.readings = readings
-        levels = [:]; channelLevels = [:]
+        self.hub = hub; mainBuses = Set(mains)
+        let meterLayout = hub?.channels == 1 ? ChannelLayout.mono : .stereo
+        for main in mains where loudnessMeters[main]?.channels != meterLayout.channels.count {
+            loudnessMeters[main] = LoudnessMeter(sampleRate: hub?.sampleRate ?? 48000, layout: meterLayout)
+        }
+        levels = [:]; channelLevels = [:]; busLevels = [:]
         guard timer == nil else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
             MainActor.assumeIsolated { AudioMeters.shared.poll() }
         }
     }
-    func detach() { readings = [:]; levels = [:]; channelLevels = [:] }
+    func detach() { readings = [:]; hub = nil; levels = [:]; channelLevels = [:]; busLevels = [:] }
+
+    /// Starts loudness measurement over for every main bus.
+    func resetLoudness() {
+        loudnessMeters.values.forEach { $0.reset() }
+        loudness = loudnessMeters.mapValues(\.reading)
+    }
 
     func poll() {
         var next = channelLevels
@@ -205,6 +375,30 @@ final class AudioMeters: ObservableObject {
         if next != channelLevels {
             channelLevels = next
             levels = next.mapValues { $0.max() ?? -120 }
+        }
+        guard let hub else { return }
+        let blocks = hub.drain()
+        var buses = busLevels
+        for (bus, samples) in blocks {
+            var peaks = [Float](repeating: 0, count: hub.channels)
+            for (index, sample) in samples.enumerated() { peaks[index % hub.channels] = max(peaks[index % hub.channels], abs(sample)) }
+            let previous = busLevels[bus] ?? []
+            buses[bus] = peaks.enumerated().map { channel, peak in
+                let decibels: Float = peak > 0 ? 20 * log10(peak) : -120
+                return max(decibels, (channel < previous.count ? previous[channel] : -120) - 1.5)
+            }
+            if mainBuses.contains(bus), let meter = loudnessMeters[bus], meter.channels == hub.channels {
+                meter.add(interleaved: samples)
+            }
+        }
+        if blocks.isEmpty {
+            // Silence or pause: let the bus meters fall.
+            buses = buses.mapValues { $0.map { max(-120, $0 - 1.5) } }
+        }
+        if buses != busLevels { busLevels = buses }
+        if !blocks.isEmpty {
+            let readings = loudnessMeters.filter { mainBuses.contains($0.key) }.mapValues(\.reading)
+            if readings != loudness { loudness = readings }
         }
     }
 }

@@ -9,19 +9,21 @@ public struct StoredSequence: Identifiable, Equatable, Codable, Sendable {
     public var tracks: [TimelineTrack]
     public var audioCrossfades: [AudioCrossfade]
     public var markers: [SequenceMarker]
+    public var buses: [AudioBus]
 
     public init(id: UUID = UUID(), name: String, settings: SequenceSettings, families: [TrackFamily] = [],
-                tracks: [TimelineTrack] = [], audioCrossfades: [AudioCrossfade] = [], markers: [SequenceMarker] = []) {
-        self.id = id; self.name = name; self.settings = settings
+                tracks: [TimelineTrack] = [], audioCrossfades: [AudioCrossfade] = [], markers: [SequenceMarker] = [], buses: [AudioBus] = []) {
+        self.id = id; self.name = name; self.settings = settings; self.buses = buses
         self.families = families; self.tracks = tracks; self.audioCrossfades = audioCrossfades; self.markers = markers
     }
-    private enum CodingKeys: String, CodingKey { case id, name, settings, families, tracks, audioCrossfades, markers }
+    private enum CodingKeys: String, CodingKey { case id, name, settings, families, tracks, audioCrossfades, markers, buses }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.init(id: try c.decode(UUID.self, forKey: .id), name: try c.decode(String.self, forKey: .name),
                   settings: try c.decode(SequenceSettings.self, forKey: .settings), families: try c.decode([TrackFamily].self, forKey: .families),
                   tracks: try c.decode([TimelineTrack].self, forKey: .tracks), audioCrossfades: try c.decode([AudioCrossfade].self, forKey: .audioCrossfades),
-                  markers: try c.decodeIfPresent([SequenceMarker].self, forKey: .markers) ?? [])
+                  markers: try c.decodeIfPresent([SequenceMarker].self, forKey: .markers) ?? [],
+                  buses: try c.decodeIfPresent([AudioBus].self, forKey: .buses) ?? [])
     }
 }
 
@@ -61,7 +63,7 @@ public extension Project {
         candidate.sequenceID = UUID()
         candidate.sequenceName = trimmed
         candidate.settings = settings
-        candidate.families = []; candidate.tracks = []; candidate.audioCrossfades = []; candidate.markers = []
+        candidate.families = []; candidate.tracks = []; candidate.audioCrossfades = []; candidate.markers = []; candidate.buses = []
         candidate.sequenceBinAssignments[candidate.sequenceID] = binID
         try candidate.validate()
         self = candidate
@@ -77,7 +79,7 @@ public extension Project {
         candidate.storedSequences.removeAll { $0.id == id }
         candidate.sequenceID = stored.id; candidate.sequenceName = stored.name
         candidate.settings = stored.settings; candidate.families = stored.families
-        candidate.tracks = stored.tracks; candidate.audioCrossfades = stored.audioCrossfades; candidate.markers = stored.markers
+        candidate.tracks = stored.tracks; candidate.audioCrossfades = stored.audioCrossfades; candidate.markers = stored.markers; candidate.buses = stored.buses
         try candidate.validate()
         self = candidate
     }
@@ -134,12 +136,12 @@ public extension Project {
         }
         for stored in storedSequences {
             try Project(settings: stored.settings, assets: assets, families: stored.families, tracks: stored.tracks,
-                        preferences: preferences, audioCrossfades: stored.audioCrossfades, markers: stored.markers).validate()
+                        preferences: preferences, audioCrossfades: stored.audioCrossfades, markers: stored.markers, buses: stored.buses).validate()
         }
     }
 
     private mutating func storeOpenSequence() {
         storedSequences.append(StoredSequence(id: sequenceID, name: sequenceName, settings: settings, families: families,
-                                              tracks: tracks, audioCrossfades: audioCrossfades, markers: markers))
+                                              tracks: tracks, audioCrossfades: audioCrossfades, markers: markers, buses: buses))
     }
 }

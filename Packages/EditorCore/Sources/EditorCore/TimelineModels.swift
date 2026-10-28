@@ -280,8 +280,29 @@ public struct TrackTemplate: Equatable, Codable, Sendable {
     public var audioLayout: ChannelLayout?
     public var routing: AudioRouting
     public var gain: Double
-    public init(kind: TrackKind, audioLayout: ChannelLayout? = nil, routing: AudioRouting = .init(), gain: Double = 1) {
+    /// Insert effects on the track's summed sound, after its fader; new siblings copy them.
+    public var effects: [AudioEffect]
+    /// Buses the track feeds; empty feeds the first main bus.
+    public var busOutputs: [UUID]
+    public init(kind: TrackKind, audioLayout: ChannelLayout? = nil, routing: AudioRouting = .init(), gain: Double = 1,
+                effects: [AudioEffect] = [], busOutputs: [UUID] = []) {
         self.kind = kind; self.audioLayout = audioLayout; self.routing = routing; self.gain = gain
+        self.effects = effects; self.busOutputs = busOutputs
+    }
+    private enum CodingKeys: String, CodingKey { case kind, audioLayout, routing, gain, effects, busOutputs }
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(kind: try c.decode(TrackKind.self, forKey: .kind), audioLayout: try c.decodeIfPresent(ChannelLayout.self, forKey: .audioLayout),
+                  routing: try c.decode(AudioRouting.self, forKey: .routing), gain: try c.decode(Double.self, forKey: .gain),
+                  effects: try c.decodeIfPresent([AudioEffect].self, forKey: .effects) ?? [],
+                  busOutputs: try c.decodeIfPresent([UUID].self, forKey: .busOutputs) ?? [])
+    }
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(kind, forKey: .kind); try c.encodeIfPresent(audioLayout, forKey: .audioLayout)
+        try c.encode(routing, forKey: .routing); try c.encode(gain, forKey: .gain)
+        if !effects.isEmpty { try c.encode(effects, forKey: .effects) }
+        if !busOutputs.isEmpty { try c.encode(busOutputs, forKey: .busOutputs) }
     }
 }
 public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
@@ -310,6 +331,8 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
     public var key: ChromaKey?
     /// Compressor and limiter for audio components.
     public var dynamics: AudioDynamics?
+    /// Analysis-based stabilisation for movie pictures.
+    public var stabilization: Stabilization?
     /// Playback speed: the clip plays `sourceRange.duration × speed` of source in
     /// `sourceRange.duration` of timeline. `sourceRange.start` is in source time.
     public var speed: RationalTime
@@ -318,11 +341,11 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
     public func sourceEnd() throws -> RationalTime { try sourceRange.start.adding(sourceExtent()) }
     /// Source time reached `timelineOffset` into the clip.
     public func sourceTime(atTimelineOffset offset: RationalTime) throws -> RationalTime { try sourceRange.start.adding(offset.multiplied(by: speed)) }
-    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1, transform: PictureTransform = .identity, volumeKeyframes: [VolumeKeyframe] = [], color: ColorAdjustment = .neutral, speed: RationalTime = RationalTime.one, transformKeyframes: [TransformKeyframe] = [], eq: AudioEQ = .flat, key: ChromaKey? = nil, dynamics: AudioDynamics? = nil) {
+    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1, transform: PictureTransform = .identity, volumeKeyframes: [VolumeKeyframe] = [], color: ColorAdjustment = .neutral, speed: RationalTime = RationalTime.one, transformKeyframes: [TransformKeyframe] = [], eq: AudioEQ = .flat, key: ChromaKey? = nil, dynamics: AudioDynamics? = nil, stabilization: Stabilization? = nil) {
         self.id = id; self.assetID = assetID; self.sourceRange = sourceRange; self.timelineStart = timelineStart; self.selection = selection; self.scalingMode = scalingMode; self.linkGroupID = linkGroupID; self.fadeIn = fadeIn; self.fadeOut = fadeOut
-        self.gain = gain; self.transform = transform; self.volumeKeyframes = volumeKeyframes; self.color = color; self.speed = speed; self.transformKeyframes = transformKeyframes; self.eq = eq; self.key = key; self.dynamics = dynamics
+        self.gain = gain; self.transform = transform; self.volumeKeyframes = volumeKeyframes; self.color = color; self.speed = speed; self.transformKeyframes = transformKeyframes; self.eq = eq; self.key = key; self.dynamics = dynamics; self.stabilization = stabilization
     }
-    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain, transform, volumeKeyframes, color, speed, transformKeyframes, eq, key, dynamics }
+    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain, transform, volumeKeyframes, color, speed, transformKeyframes, eq, key, dynamics, stabilization }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.init(id: try c.decode(UUID.self, forKey: .id), assetID: try c.decode(UUID.self, forKey: .assetID),
@@ -339,7 +362,8 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
                   transformKeyframes: try c.decodeIfPresent([TransformKeyframe].self, forKey: .transformKeyframes) ?? [],
                   eq: try c.decodeIfPresent(AudioEQ.self, forKey: .eq) ?? .flat,
                   key: try c.decodeIfPresent(ChromaKey.self, forKey: .key),
-                  dynamics: try c.decodeIfPresent(AudioDynamics.self, forKey: .dynamics))
+                  dynamics: try c.decodeIfPresent(AudioDynamics.self, forKey: .dynamics),
+                  stabilization: try c.decodeIfPresent(Stabilization.self, forKey: .stabilization))
     }
     public var requiredTrackKind: TrackKind { if case .audio = selection { return .audio }; return .video }
     public var requiredAudioLayout: ChannelLayout? { if case .audio(let selection) = selection { return selection.layout }; return nil }

@@ -53,6 +53,8 @@ final class CoreImageInstruction: NSObject, AVVideoCompositionInstructionProtoco
         let levels: (black: Double, white: Double, gamma: Double)?
         /// A wipe uncovering the picture: start and length in seconds, from the left or right edge.
         let reveal: (start: Double, duration: Double, fromLeft: Bool)?
+        /// Stabilisation at a sequence time: zoom and the shift in picture fractions (x right, y down).
+        var stabilization: (@Sendable (Double) -> (zoom: Double, x: Double, y: Double))? = nil
         var isNeutral: Bool { brightness == 0 && contrast == 1 && saturation == 1 }
     }
     let timeRange: CMTimeRange
@@ -103,6 +105,17 @@ final class CoreImageCompositor: NSObject, AVVideoCompositing, @unchecked Sendab
             let flipCanvas = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: instruction.canvas.height)
             var picture = source.transformed(by: CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: height)
                 .concatenating(layer.placement.base).concatenating(flipCanvas))
+            if let stabilize = layer.stabilization {
+                // In display orientation, on the fitted picture: shift against the jitter, zoom about
+                // the centre and keep the picture's own bounds, as export crops a moving window of the
+                // rotated, square-pixel picture and scales it back up.
+                let s = stabilize(seconds), extent = picture.extent
+                picture = picture.transformed(by: CGAffineTransform(translationX: s.x * extent.width, y: -s.y * extent.height)
+                    .concatenating(CGAffineTransform(translationX: -extent.midX, y: -extent.midY))
+                    .concatenating(CGAffineTransform(scaleX: s.zoom, y: s.zoom))
+                    .concatenating(CGAffineTransform(translationX: extent.midX, y: extent.midY)))
+                    .cropped(to: extent)
+            }
             if layer.blur > 0 {
                 // As in export: blur the fitted, frame-sized layer (transparent around the picture,
                 // edges held at the frame border), then place it.

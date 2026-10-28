@@ -52,6 +52,7 @@ public enum FCPXMLExporter {
                 reasons.append("\(label) has source timecode without a known source frame rate.")
             }
         }
+        if !plan.mix.isPlainSum { reasons.append("Track effects, bus effects and extra buses are not supported.") }
         for component in plan.components {
             let asset = assets.first { $0.id == component.assetID }!
             let label = "Clip \(component.clipID.uuidString) (\(asset.name))"
@@ -59,6 +60,7 @@ public enum FCPXMLExporter {
             if component.dynamics != nil { reasons.append("\(label): compression is not supported.") }
             if component.key != nil { reasons.append("\(label): keying is not supported.") }
             if !component.eq.isFlat { reasons.append("\(label): EQ is not supported.") }
+            if component.stabilization != nil { reasons.append("\(label): stabilisation is not supported.") }
             if component.speed != .one { reasons.append("\(label): speed changes are not supported.") }
             if !component.color.isNeutral { reasons.append("\(label): colour correction and blur are not supported.") }
             if component.reveal != nil { reasons.append("\(label): wipes are not supported.") }
