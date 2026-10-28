@@ -37,7 +37,8 @@ final class ClipSpeedTests: XCTestCase {
         XCTAssertEqual(clip(ids[0], fast.project).sourceRange.duration, try RationalTime(1))
         XCTAssertEqual(try TimelineGesture.trimDelta(10, edge: .trailing, clip: clip(ids[0], fast.project), project: fast.project, quantum: 0.04), 3.48, accuracy: 1e-9,
                        "14 s of source remain: 3.5 s of timeline at 400%, floored to whole frames")
-        XCTAssertThrowsError(try FCPXMLExporter.export(project: fast.project))
+        // Interchange writes the speed as a time map.
+        XCTAssertTrue(try FCPXMLExporter.export(project: fast.project).xml.contains("<timeMap>"))
         let command = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: fast.project), outputURL: URL(fileURLWithPath: "/private/tmp/speed-out.mov"))
         XCTAssertTrue(command.filterGraph.contains("atempo=4.0"))
     }

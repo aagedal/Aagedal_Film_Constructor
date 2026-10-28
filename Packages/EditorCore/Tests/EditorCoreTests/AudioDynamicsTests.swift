@@ -56,6 +56,6 @@ final class AudioDynamicsRenderTests: XCTestCase {
         let graph = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: engine.project), outputURL: URL(fileURLWithPath: "/private/tmp/dynamics.mov")).filterGraph
         let volume = try XCTUnwrap(graph.range(of: "volume=0.8")), compressor = try XCTUnwrap(graph.range(of: "acompressor="))
         XCTAssertLessThan(volume.lowerBound, compressor.lowerBound, "Compression follows volume, as in the post-fader preview tap")
-        XCTAssertThrowsError(try FCPXMLExporter.export(project: engine.project))
+        XCTAssertTrue(try FCPXMLExporter.export(project: engine.project).report.warnings.contains { $0.hasPrefix("Compression") })
     }
 }

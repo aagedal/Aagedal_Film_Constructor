@@ -52,7 +52,7 @@ final class StabilizationTests: XCTestCase {
         XCTAssertEqual(command.sidecars.count, 2)
         XCTAssertTrue(command.filterGraph.contains("crop@stab"))
         XCTAssertEqual(command.sidecars[0].contents.split(separator: "\n").count, 50, "One command line per frame")
-        XCTAssertThrowsError(try FCPXMLExporter.export(project: project))
+        XCTAssertTrue(try FCPXMLExporter.export(project: project).report.warnings.contains { $0.hasPrefix("Stabilisation") })
     }
 
     /// A white box jitters horizontally; with its measured path as the analysis the export

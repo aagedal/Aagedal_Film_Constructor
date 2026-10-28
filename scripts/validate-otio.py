@@ -38,8 +38,28 @@ def validate(path):
         assert track.metadata["aagedal_film_constructor"]["track_id"] == raw["metadata"]["aagedal_film_constructor"]["track_id"]
         equal_time(track.duration(), duration)
         assert len(track) == len(raw["children"])
-        for child, original in zip(track, raw["children"]):
+        for position, (child, original) in enumerate(zip(track, raw["children"])):
             assert child.schema_name() == original["OTIO_SCHEMA"].split(".")[0]
+            if isinstance(child, otio.schema.Transition):
+                assert child.transition_type == otio.schema.TransitionTypes.SMPTE_Dissolve
+                for field in ("in_offset", "out_offset"):
+                    value = original[field]
+                    equal_time(getattr(child, field), value["value"] / value["rate"])
+                # A transition sits between two clips that meet at its cut.
+                before, after = track[position - 1], track[position + 1]
+                assert isinstance(before, otio.schema.Clip) and isinstance(after, otio.schema.Clip)
+                equal_time(before.range_in_parent().end_time_exclusive(), after.range_in_parent().start_time.to_seconds())
+                # Handles: the outgoing clip continues past its out point, the incoming one before its in point.
+                for clip, extra, forward in ((before, child.out_offset, True), (after, child.in_offset, False)):
+                    scalar = clip.effects[0].time_scalar if clip.effects else 1
+                    available = clip.media_reference.available_range
+                    if forward:
+                        end = clip.source_range.start_time.to_seconds() + (clip.source_range.duration + extra).to_seconds() * scalar
+                        assert end <= available.end_time_exclusive().to_seconds() + 1e-9, (clip.name, end)
+                    else:
+                        start = clip.source_range.start_time.to_seconds() - extra.to_seconds() * scalar
+                        assert start + 1e-9 >= available.start_time.to_seconds(), (clip.name, start)
+                continue
             for field in ("start_time", "duration"):
                 value = original["source_range"][field]
                 equal_time(getattr(child.source_range, field), value["value"] / value["rate"])
@@ -50,6 +70,12 @@ def validate(path):
             equal_time(child.range_in_parent().start_time, seconds(app["timeline_start"]))
             equal_time(child.source_range.start_time, seconds(app["source_start"]))
             equal_time(child.source_range.duration, seconds(app["duration"]))
+            speed = seconds(app["speed"])
+            if speed != 1:
+                assert len(child.effects) == 1 and isinstance(child.effects[0], otio.schema.LinearTimeWarp)
+                assert math.isclose(child.effects[0].time_scalar, speed, rel_tol=1e-12)
+            else:
+                assert not child.effects
             reference = child.media_reference
             assert isinstance(reference, otio.schema.ExternalReference)
             assert reference.target_url == original["media_references"]["DEFAULT_MEDIA"]["target_url"]
@@ -57,7 +83,9 @@ def validate(path):
             # TimeRange.contains(range) requires a strictly preceding start;
             # a trim starting exactly at the media start is valid here.
             assert reference.available_range.start_time.to_seconds() <= child.source_range.start_time.to_seconds() + 1e-10
-            assert reference.available_range.end_time_exclusive().to_seconds() + 1e-10 >= child.source_range.end_time_exclusive().to_seconds()
+            # A time-warped clip reads its duration times the scalar from the media.
+            source_end = child.source_range.start_time.to_seconds() + child.source_range.duration.to_seconds() * speed
+            assert reference.available_range.end_time_exclusive().to_seconds() + 1e-10 >= source_end
     raw_markers = exported["tracks"].get("markers", [])
     assert len(timeline.tracks.markers) == len(raw_markers)
     for marker, original in zip(timeline.tracks.markers, raw_markers):

@@ -113,8 +113,9 @@ occupied time stacks the copy on a new sibling track rather than overwriting.
   exact fade and dissolve durations and removes dissolves.
 - Picture fades and dissolves are linear and snap to whole frames. Exports render
   them exactly. For Rec. 709 media, preview and export match within a few levels.
-- FCPXML writes fades as adjustments; FCPXML, OTIO and EDL refuse transitions rather
-  than dropping them.
+- FCPXML, OTIO and track EDLs carry cross dissolves and crossfades as transitions at
+  their cuts. FCPXML also writes fades as adjustments, and EDLs write them as dissolves
+  from or to black. Slides, pushes and wipes are written as dissolves, with a warning.
 
 ## Scale, position and opacity
 
@@ -122,7 +123,7 @@ Select a picture clip and use **Transform** in the inspector: scale and opacity 
 percent, and position as a percentage of the frame (positive X moves right, positive
 Y down). The picture-in-picture button shrinks the clip to a third in the lower right
 corner, and reset restores it. Layers below show around and through a transformed
-picture. Interchange exports refuse transformed clips.
+picture. FCPXML exports transforms; OTIO and EDL exports leave them out, with a warning.
 
 ## Motion
 
@@ -146,8 +147,8 @@ For smooth slow motion, interpret the frame rate instead: in the inspector's
 in when the importer could verify it; type it for variable-rate phone footage) and
 the rate to **Play at**, then click the tick. 120 fps played at 24 fps shows every
 recorded frame at exactly 20% speed. A longer clip
-never overwrites the next one; it moves to a track above. Interchange exports
-refuse speed changes.
+never overwrites the next one; it moves to a track above. FCPXML writes speed as a
+time map, OTIO as a linear time warp and EDLs as an `M2` motion effect.
 
 ## Colour
 
@@ -280,7 +281,10 @@ these warnings into refusals, for when exact decoded parity matters more than
 convenience.
 
 FCPXML, OpenTimelineIO and track EDL exports are also available from the File
-menu. FCPXML also carries volume, fades, scale, position,
+menu. If the sequence uses something a format can't carry, such as colour
+correction in an EDL, an alert lists what will be left out, naming the clips, and you
+can export the rest or cancel. Clips that can't be placed exactly are left out, never
+moved. FCPXML also carries volume, fades, scale, position,
 opacity and their keyframes as Final Cut adjustments (DTD-valid; editor import of
 these adjustments is not yet verified). DaVinci Resolve 21 imports both with media linked and every clip at the exact
 frame, source offset and layer. Resolve's renders of the imported timelines match
@@ -289,8 +293,8 @@ files) is referenced in its own timecode clock, as editors expect. FCPXML writes
 audio channel selections (for example dual mono, or two channels of a multitrack
 MXF) as `audio-channel-source`, which is valid FCPXML 1.10. Resolve ignores those
 selections and plays the clip's first channel, so check the audio routing after
-importing multitrack sources into Resolve. OTIO has no channel mapping and refuses
-those clips. Final Cut Pro 11 imports the FCPXML with every clip, timecode start
+importing multitrack sources into Resolve. OTIO has no channel mapping, so it
+references the whole stream and warns. Final Cut Pro 11 imports the FCPXML with every clip, timecode start
 and layer intact. See their pages for supported subsets.
 
 ## Preview notices

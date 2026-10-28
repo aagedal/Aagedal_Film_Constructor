@@ -1,6 +1,6 @@
 # FCPXML sequence export
 
-`FCPXMLExporter.export(project:projectName:)` produces an FCPXML 1.10 document and an export report. The app saves this as a `.fcpxml` file. Export validates the project first and refuses unsupported edits with concrete reasons before producing XML.
+`FCPXMLExporter.export(project:projectName:)` produces an FCPXML 1.10 document and an export report. The app saves this as a `.fcpxml` file. Export validates the project first. Edits outside the subset are left out of the XML and listed in the report's `warnings`, which the app shows before the save panel so you can export the rest or cancel. Timing is never rounded: a clip that can't be placed exactly is left out rather than moved.
 
 ## Supported subset
 
@@ -14,9 +14,18 @@
 
 Source media format attributes are deliberately omitted. The core does not currently retain source frame rate, raster, orientation, pixel aspect, color metadata, or sample rate. Substituting the sequence format would invent source properties. The receiving editor must inspect the original media. Mixed-rate interpretation and fit/fill equivalence, particularly rotated or anamorphic media, remain unqualified; a successful report states this limitation.
 
-## Refused features
+## Left out, with a warning
 
-Crossfades, dissolves and other transitions; EQ; speed changes; colour correction and blur; source stream time offsets; partial/reordered audio selections; multiple audio streams; nonidentity channel routing; mono-to-stereo or other differing layout conversion; selection among multiple video streams; still images; unscaled video geometry; missing/nonlocal original URLs; nonzero source timecode without a known source frame rate; unsupported sequence audio layouts/sample rates; empty sequences; times whose denominator exceeds the DTD's 32-bit limit; XML 1.0-incompatible text; and video or sequence timing that would require rounding.
+Each warning names the clips or markers it affects.
+
+- **Clips left out:** still images; media without a local original file; nonzero source timecode without a known source frame rate; source stream time offsets; audio channels missing from the source; video positions or durations off the sequence frame grid; and times whose denominator exceeds the DTD's 32-bit limit.
+- **Effects left out, clip exported:** compression, keying, EQ, stabilisation, colour correction and blur, track and bus effects, and nonidentity channel routing. Differing source and sequence audio layouts are not converted. The choice among multiple video streams is not written, so the receiving editor picks the stream. Unscaled clips are written with Final Cut's `none` conform.
+- **Transitions:** slide, push and wipe transitions are written as cross dissolves. Crossfades between clips on different tracks, and transitions whose other clip is left out, hidden or muted, become cuts.
+- **Markers** off the frame grid or at or after the sequence end are left out. Characters XML 1.0 can't represent are replaced with U+FFFD.
+
+## Refused
+
+Export is refused only when no file can be written: an empty sequence, one whose clips are all left out, an unsupported sequence audio layout or sample rate, a sequence end off the frame grid, or a sequence time whose denominator exceeds 32 bits. The refusal also lists what would have been left out.
 
 Track family names, empty track retention, link groups, and editor preferences do not have equivalents in this subset. The export report explicitly states that they are not interchange metadata. The resulting connected-clip structure represents edit timing and layer order, not an exact round trip of the app's track organization.
 
@@ -34,17 +43,35 @@ keyframes carried `interp`; keyframes now carry only `curve="linear"`. The corre
 warnings (2026-10-26): picture fades start at 0% opacity and volume keyframes appear on
 the audio clip. Resolve's interpretation is still to be checked.
 
+## Transitions and speed
+
+A track with cross dissolves or audio crossfades is written as a connected storyline
+(`spine`) on that track's lane, at offset 0 on the sequence bed, so its children share
+the bed's time. Gaps hold clips at their places. Clips keep their editorial ranges and
+meet at each cut; a `transition` starts `before` the cut and lasts the whole transition,
+so the receiving editor plays it from both clips' handles, as Final Cut does. Picture
+transitions reference Final Cut's Cross Dissolve (`FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265`),
+and sound uses Audio Crossfade (`FFAudioTransition`). Linked picture and sound stay one A/V
+clip only when both clips on each side of a transition merge, so a crossfade never loses a
+side. Tracks without transitions keep connected clips exactly as before.
+
+A clip at another speed has a two-point linear `timeMap` across its whole asset (local time
+`origin + media / speed`). Its `start` and keyframe times are in that retimed local time, and
+`preservesPitch` stays at its default of 1, as the app plays it. These elements validate
+against Apple's FCPXML 1.10 DTD (`InterchangeTransitionTests`). Import into Final Cut Pro and
+Resolve has not been checked yet.
+
 ## Markers
 
 Sequence markers are written as one-frame `marker` elements on the sequence bed gap,
 after its anchored clips as the DTD requires, with the name as `value` and the note as
 `note`. FCPXML markers have no colour, so colours are not written. Markers off the
-sequence frame grid or at or after the sequence end are refused. A marked fixture
+sequence frame grid or at or after the sequence end are left out with a warning. A marked fixture
 validates against Apple's FCPXML 1.10 DTD; import into Final Cut Pro is still to be checked.
 
 ## Validation and remaining qualification
 
-Eight `FCPXMLExporterTests` cover exact 24/25/23.976/29.97/59.94 timing, sequence start timecode, DF/NDF mode, lane order, source offsets, escaped names/URLs, reused media resources, mono audio, unused assets, and rejection of unsupported edits.
+Eight `FCPXMLExporterTests` cover exact 24/25/23.976/29.97/59.94 timing, sequence start timecode, DF/NDF mode, lane order, source offsets, escaped names/URLs, reused media resources, mono audio, unused assets, warnings for edits left out, and refusal when nothing can be written.
 
 An optional test checks fixtures against a locally provided [Apple FCPXML 1.10 DTD](https://developer.apple.com/documentation/professional-video-applications/document-type-definition). Set `FCPXML_DTD` to the downloaded DTD path and run:
 

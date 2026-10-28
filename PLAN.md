@@ -200,6 +200,26 @@ express it.
   its SDR preview.
 - [x] Interchange (FCPXML, OTIO, EDL) and stream copy refuse stabilisation, track/bus effects and
   extra buses.
+- [x] Interchange transitions and speed (2026-10-28): cross dissolves and crossfades are written at
+  their editorial cuts using both clips' handles (`Project.interchangeCuts()`; overlapping
+  crossfades are cut at the middle of the overlap). FCPXML puts a track with transitions in a
+  connected storyline at offset 0 with gaps and Final Cut's Cross Dissolve and Audio Crossfade,
+  keeping A/V pairs only where both sides of each transition pair; speed is a linear `timeMap`.
+  OTIO writes `SMPTE_Dissolve` transitions and `LinearTimeWarp` effects; the official OTIO 0.18.1
+  core reads them, and the validator checks offsets, meeting clips, handles and time scalars.
+  Track EDLs write dissolve events, fades as dissolves from or to `BL`, and `M2` speed lines,
+  never rounding source points off the frame grid. The FCPXML fixtures validate against Apple's
+  1.10 DTD. A scripted Resolve 21 import could not run (Resolve refused every script import that
+  day), so editor import of the new elements is still to be checked.
+- [x] Interchange warnings instead of refusals (2026-10-28): FCPXML, OTIO and EDL exports leave out
+  what a format can't carry and return grouped warnings naming the affected clips and markers
+  (`ExportWarnings`); the app lists them in an alert before the save panel, with Export Anyway or
+  Cancel. Effects are dropped and the clip kept; a clip that can't be placed exactly (offline,
+  still, off the grid, stream offsets, unverified EDL timing) is left out, never moved; slides,
+  pushes and wipes become dissolves; cross-track crossfades and transitions that lose a side
+  become cuts; bad markers are left out. Exports are refused only when no file can be written
+  (no exportable clips, unsupported sequence rate/layout, sequence end off the grid), and the
+  refusal also lists what would have been left out.
 
 ## Earlier priority: usable beta (2026-10-23)
 
