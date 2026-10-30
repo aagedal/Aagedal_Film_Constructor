@@ -55,7 +55,9 @@ and Gatekeeper assesses it as "Notarized Developer ID".
    in the bin to open it on the timeline, and right-click it to rename, move or
    delete it. Sequences share the project's media.
 8. Choose **File → Render Sequence…** (⇧⌘E), pick a format, check any warnings,
-   then choose a folder.
+   then choose a folder. The next time, Return exports straight to that folder; a file
+   already there is kept and the new one gets a numbered name. Mark In and Out on the
+   sequence (I and O with the Sequence viewer showing) to render just that part.
 9. Save with ⌘S. Projects reference your media; they don't copy it.
 
 [Basic workspace testing](basic-workspace.md) describes every editing control.
@@ -73,9 +75,22 @@ and Gatekeeper assesses it as "Notarized Developer ID".
 | Q / W | Ripple trim the clip start or end to the playhead |
 | ⌘C ⌘X ⌘V | Copy, cut, and paste at the playhead (clip and linked components) |
 | ⌘D | Duplicate the selected clip after itself |
+| ⇧⌘B | Split every clip under the playhead, on all tracks |
+| ⌥Q / ⌥W | Trim the selected clip's start or end to the playhead, leaving a gap |
+| ⌥← / ⌥→ | Nudge the selected clip (and its linked sound) one frame |
+| C | Select the frontmost clip under the playhead; press again for the next one down |
+| ⎋ | Deselect |
+| V | Disable or enable the selected clip: it keeps its place but is left out of preview and every export |
+| ← / → | Previous or next frame in the visible viewer (⇧ for ten frames) |
+| Home / End | Go to the start or end (fn-← and fn-→ on laptop keyboards) |
 | ↓ / ↑ | Move the playhead to the next or previous cut on any track |
+| I / O | Mark In or Out in the visible viewer: the source, or the sequence |
+| ⇧I / ⇧O | Go to the In or Out |
+| ⌥X | Clear In and Out in the visible viewer |
 | M | Add a marker at the playhead (or select the one already there) |
 | ⇧M / ⌥M | Jump to the next or previous marker |
+| ⌘= / ⌘- | Zoom the timeline in or out around the playhead (⌘+ also zooms in) |
+| N | Turn snapping on or off |
 
 Markers are flags on the timeline ruler. Click one to name it, add a note and pick
 a colour in the inspector; drag it to move it to another frame; right-click it to
@@ -84,8 +99,9 @@ at their sequence time when clips move, ripple or are inserted around them. FCPX
 OTIO exports include them, and track EDLs write them as `* LOC:` locator comments.
 
 Shortcut changes in Settings store only what you changed, so later default changes
-(such as ⌫ for ripple delete) reach you. A saved earlier default such as ⇧⌘⌫ for
-ripple delete is treated as the current default.
+(such as ⌫ for ripple delete, or ← and → for frame steps) reach you. A saved earlier
+default such as ⇧⌘⌫ for ripple delete or ⌥⌘← for the previous frame is treated as the
+current default. Disabled clips are left out of FCPXML, OTIO and EDL exports too.
 
 Insert and overwrite are also buttons beside **Append** under the media bin.
 Insert refuses to split inside a fade or transition, and ripple delete refuses
@@ -269,7 +285,10 @@ up to an hour.
 | HEVC · AAC (MP4) | Smaller files using the hardware encoder |
 
 Every export renders at the sequence resolution, frame rate, audio rate and start
-timecode. Edit points that fall between frames or samples snap to the nearest one. The app then checks the frame count, sample count, codecs and timecode
+timecode. With sequence In and Out marked, the window offers **In to Out** (the
+default) or the entire sequence; a range export starts at the In point's timecode and
+matches the same frames and samples of a full render exactly. The file is named after
+the sequence. Edit points that fall between frames or samples snap to the nearest one. The app then checks the frame count, sample count, codecs and timecode
 before the file appears. Picture is conformed to the sequence frame rate and audio
 is resampled to the sequence rate. Rotation and non-square pixels are corrected.
 

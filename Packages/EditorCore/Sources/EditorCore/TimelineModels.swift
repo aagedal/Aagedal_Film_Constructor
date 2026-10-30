@@ -336,16 +336,19 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
     /// Playback speed: the clip plays `sourceRange.duration × speed` of source in
     /// `sourceRange.duration` of timeline. `sourceRange.start` is in source time.
     public var speed: RationalTime
+    /// A disabled clip keeps its place on the timeline but is left out of preview and every export.
+    public var isEnabled: Bool
     /// Source time consumed by the clip.
     public func sourceExtent() throws -> RationalTime { try sourceRange.duration.multiplied(by: speed) }
     public func sourceEnd() throws -> RationalTime { try sourceRange.start.adding(sourceExtent()) }
     /// Source time reached `timelineOffset` into the clip.
     public func sourceTime(atTimelineOffset offset: RationalTime) throws -> RationalTime { try sourceRange.start.adding(offset.multiplied(by: speed)) }
-    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1, transform: PictureTransform = .identity, volumeKeyframes: [VolumeKeyframe] = [], color: ColorAdjustment = .neutral, speed: RationalTime = RationalTime.one, transformKeyframes: [TransformKeyframe] = [], eq: AudioEQ = .flat, key: ChromaKey? = nil, dynamics: AudioDynamics? = nil, stabilization: Stabilization? = nil) {
+    public init(id: UUID = UUID(), assetID: UUID, sourceRange: TimeRange, timelineStart: RationalTime = .zero, selection: ClipSelection, scalingMode: ScalingMode = .fit, linkGroupID: UUID? = nil, fadeIn: AudioFade = .init(), fadeOut: AudioFade = .init(), gain: Double = 1, transform: PictureTransform = .identity, volumeKeyframes: [VolumeKeyframe] = [], color: ColorAdjustment = .neutral, speed: RationalTime = RationalTime.one, transformKeyframes: [TransformKeyframe] = [], eq: AudioEQ = .flat, key: ChromaKey? = nil, dynamics: AudioDynamics? = nil, stabilization: Stabilization? = nil, isEnabled: Bool = true) {
+        self.isEnabled = isEnabled
         self.id = id; self.assetID = assetID; self.sourceRange = sourceRange; self.timelineStart = timelineStart; self.selection = selection; self.scalingMode = scalingMode; self.linkGroupID = linkGroupID; self.fadeIn = fadeIn; self.fadeOut = fadeOut
         self.gain = gain; self.transform = transform; self.volumeKeyframes = volumeKeyframes; self.color = color; self.speed = speed; self.transformKeyframes = transformKeyframes; self.eq = eq; self.key = key; self.dynamics = dynamics; self.stabilization = stabilization
     }
-    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain, transform, volumeKeyframes, color, speed, transformKeyframes, eq, key, dynamics, stabilization }
+    private enum CodingKeys: String, CodingKey { case id, assetID, sourceRange, timelineStart, selection, scalingMode, linkGroupID, fadeIn, fadeOut, gain, transform, volumeKeyframes, color, speed, transformKeyframes, eq, key, dynamics, stabilization, isEnabled }
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.init(id: try c.decode(UUID.self, forKey: .id), assetID: try c.decode(UUID.self, forKey: .assetID),
@@ -363,7 +366,8 @@ public struct TimelineClip: Identifiable, Equatable, Codable, Sendable {
                   eq: try c.decodeIfPresent(AudioEQ.self, forKey: .eq) ?? .flat,
                   key: try c.decodeIfPresent(ChromaKey.self, forKey: .key),
                   dynamics: try c.decodeIfPresent(AudioDynamics.self, forKey: .dynamics),
-                  stabilization: try c.decodeIfPresent(Stabilization.self, forKey: .stabilization))
+                  stabilization: try c.decodeIfPresent(Stabilization.self, forKey: .stabilization),
+                  isEnabled: try c.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true)
     }
     public var requiredTrackKind: TrackKind { if case .audio = selection { return .audio }; return .video }
     public var requiredAudioLayout: ChannelLayout? { if case .audio(let selection) = selection { return selection.layout }; return nil }

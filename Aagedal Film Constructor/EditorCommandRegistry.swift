@@ -78,17 +78,34 @@ final class EditorCommandRegistry: ObservableObject {
         case .redo: store.redo()
         case .importMedia: store.importMedia()
         case .appendSource: store.appendSelectedAsset()
-        case .markSourceIn: store.markSource(inPoint: true)
-        case .markSourceOut: store.markSource(inPoint: false)
-        case .clearSourceMarks: store.clearSourceMarks()
+        case .markSourceIn: store.showSequenceMonitor ? store.markSequence(inPoint: true) : store.markSource(inPoint: true)
+        case .markSourceOut: store.showSequenceMonitor ? store.markSequence(inPoint: false) : store.markSource(inPoint: false)
+        case .clearSourceMarks: store.showSequenceMonitor ? store.clearSequenceMarks() : store.clearSourceMarks()
+        case .goToIn: store.goToMark(inPoint: true)
+        case .goToOut: store.goToMark(inPoint: false)
         case .splitClip: store.splitSelectedClip()
         case .addTransition: store.addTransitionAtPlayhead()
         case .addTitle: store.addTitle()
         case .insertSource: store.placeSelectedSourceAtPlayhead(mode: .insert)
         case .overwriteSource: store.placeSelectedSourceAtPlayhead(mode: .overwrite)
         case .rippleDelete: store.rippleDeleteSelectedClip()
-        case .previousFrame: store.stepPlayhead(frames: -1)
-        case .nextFrame: store.stepPlayhead(frames: 1)
+        case .previousFrame: store.stepActiveViewer(frames: -1)
+        case .nextFrame: store.stepActiveViewer(frames: 1)
+        case .backTenFrames: store.stepActiveViewer(frames: -10)
+        case .forwardTenFrames: store.stepActiveViewer(frames: 10)
+        case .goToStart: store.goToActiveViewerEnd(start: true)
+        case .goToEnd: store.goToActiveViewerEnd(start: false)
+        case .splitAll: store.splitAllAtPlayhead()
+        case .trimStartToPlayhead: store.trimSelectedClipToPlayhead(edge: .leading)
+        case .trimEndToPlayhead: store.trimSelectedClipToPlayhead(edge: .trailing)
+        case .nudgeLeft: store.nudgeSelectedClip(frames: -1)
+        case .nudgeRight: store.nudgeSelectedClip(frames: 1)
+        case .toggleClipEnabled: store.toggleSelectedClipEnabled()
+        case .selectClipAtPlayhead: store.selectClipAtPlayhead()
+        case .deselectAll: store.deselectTimeline()
+        case .toggleSnapping: store.toggleSnapping()
+        case .zoomIn: store.timelineZoomRequest = .init(factor: 1.5)
+        case .zoomOut: store.timelineZoomRequest = .init(factor: 1 / 1.5)
         case .deleteClip: store.deleteSelectedClip()
         case .playReverse:
             if let sequence = store.sequencePlayback { sequence.playReverse() } else { store.playSourceBackwards() }
@@ -121,12 +138,25 @@ final class EditorCommandRegistry: ObservableObject {
         case .redo: return store.canRedo
         case .importMedia: return !store.isImporting
         case .appendSource: return store.selectedAsset != nil && !store.isImporting
-        case .markSourceIn, .markSourceOut: return store.sourcePlayback != nil || store.pendingSourceTransport != nil
-        case .clearSourceMarks: return store.selectedAssetID.map { store.sourceRanges[$0] != nil } ?? false
+        case .markSourceIn, .markSourceOut:
+            if store.showSequenceMonitor { return store.duration > 0 }
+            return store.sourcePlayback != nil || store.pendingSourceTransport != nil
+        case .clearSourceMarks:
+            if store.showSequenceMonitor { return store.sequenceMarks[store.project.sequenceID] != nil }
+            return store.selectedAssetID.map { store.sourceRanges[$0] != nil } ?? false
+        case .goToIn, .goToOut:
+            if store.showSequenceMonitor { return store.sequenceMarks[store.project.sequenceID] != nil }
+            return store.sourcePlayback != nil && store.selectedSourceRange != nil
+        case .previousFrame, .nextFrame, .backTenFrames, .forwardTenFrames, .goToStart, .goToEnd, .toggleSnapping: return true
+        case .zoomIn, .zoomOut: return UserDefaults.standard.object(forKey: "workspace.showTimeline") as? Bool ?? true
+        case .splitAll, .selectClipAtPlayhead: return store.project.tracks.contains { !$0.clips.isEmpty }
+        case .trimStartToPlayhead, .trimEndToPlayhead: return store.canRippleTrimSelectedClip
+        case .nudgeLeft, .nudgeRight, .toggleClipEnabled: return store.selectedClip != nil
+        case .deselectAll: return store.selectedClipID != nil || store.selectedMarkerID != nil
         case .splitClip, .deleteClip, .addTransition, .rippleDelete: return store.selectedClip != nil
         case .toggleRetime: return store.retimeMode || (store.selectedClip.map { $0.selection != .still } ?? false)
         case .insertSource, .overwriteSource: return store.selectedAsset != nil && !store.isImporting
-        case .previousFrame, .nextFrame, .addTitle, .addMarker: return true
+        case .addTitle, .addMarker: return true
         case .previousMarker, .nextMarker: return !store.project.markers.isEmpty
         case .previousEdit, .nextEdit: return store.project.tracks.contains { !$0.clips.isEmpty }
         case .playReverse:
@@ -149,7 +179,7 @@ final class EditorCommandRegistry: ObservableObject {
     private func allowsDuringTextEditing(_ command: EditorCommandID) -> Bool {
         let shortcut = binding(for: command).normalized
         guard command != .undo, command != .redo, shortcut.command || shortcut.control else { return false }
-        return !["delete", "left", "right", "up", "down", "return", "escape", "tab", "space"].contains(shortcut.key)
+        return !ShortcutBinding.namedKeys.contains(shortcut.key)
     }
     private static var isEditingText: Bool { NSApp?.keyWindow?.firstResponder is NSTextView }
 }
@@ -175,6 +205,8 @@ extension ShortcutBinding {
         case "escape": return .escape
         case "space": return .space
         case "tab": return .tab
+        case "home": return .home
+        case "end": return .end
         default: return normalized.key.first.map { KeyEquivalent($0) }
         }
     }
@@ -227,9 +259,13 @@ final class EditorKeyboardRouter {
 
     static func binding(for event: NSEvent) -> ShortcutBinding? {
         let named: [UInt16: String] = [49: "space", 48: "tab", 51: "delete", 117: "delete", 123: "left", 124: "right",
-                                       125: "down", 126: "up", 36: "return", 76: "return", 53: "escape"]
+                                       125: "down", 126: "up", 36: "return", 76: "return", 53: "escape", 115: "home", 119: "end"]
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard let key = named[event.keyCode] ?? event.charactersIgnoringModifiers?.lowercased(), !key.isEmpty else { return nil }
+        // "+" is Shift-= on US keyboards and its own key on many others; both mean the = binding (zoom in).
+        if key == "+" {
+            return ShortcutBinding(key: "=", command: flags.contains(.command), option: flags.contains(.option), control: flags.contains(.control))
+        }
         return ShortcutBinding(key: key, command: flags.contains(.command), option: flags.contains(.option),
                                control: flags.contains(.control), shift: flags.contains(.shift)).normalized
     }
@@ -258,7 +294,6 @@ extension ShortcutBinding {
     /// all other shortcuts are delivered by EditorKeyboardRouter at key-press time.
     var isMenuKeyEquivalent: Bool {
         let shortcut = normalized
-        return (shortcut.command || shortcut.control)
-            && !["delete", "left", "right", "up", "down", "return", "escape", "tab", "space"].contains(shortcut.key)
+        return (shortcut.command || shortcut.control) && !ShortcutBinding.namedKeys.contains(shortcut.key)
     }
 }

@@ -40,6 +40,9 @@ final class EditorStore: ObservableObject {
     @Published var isRelinkingProxy = false
     // Source marks are per-asset working selections, separate from document edits.
     @Published var sourceRanges: [UUID: TimeRange] = [:]
+    /// Sequence In and Out by sequence ID, also working marks rather than document edits.
+    @Published var sequenceMarks: [UUID: SequenceMarks] = [:]
+    @Published var timelineZoomRequest = TimelineZoomRequest(factor: 1)
     @Published var selectedAssetID: UUID?
     @Published var selectedClipID: UUID?
     @Published var selectedMarkerID: UUID?
@@ -534,6 +537,36 @@ final class EditorStore: ObservableObject {
                 guard position > 0 else { return }
                 do { try await Task.sleep(for: .milliseconds(33)) } catch { return }
             }
+        }
+    }
+
+    /// Moves the paused source by whole frames of its own rate (the sequence rate for stills
+    /// and sound). Repeated presses build on the pending target rather than the last report.
+    func stepSource(frames: Int64) {
+        guard let asset = selectedAsset else { return }
+        let rate = asset.streams.first { $0.kind == .video }?.videoFormat?.frameRate.value.seconds ?? project.settings.frameRate.value.seconds
+        seekSource { current in ((current * rate).rounded() + Double(frames)) / rate }
+    }
+    func seekSource(toSeconds seconds: Double) { seekSource { _ in seconds } }
+    private func seekSource(_ target: (Double) -> Double) {
+        let restoreTime = pendingSourceTransport?.time ?? sourceTransportSeekTime
+        pauseSource()
+        guard let player = sourcePlayback, let asset = selectedAsset else { return }
+        let current = (restoreTime ?? player.currentTime).seconds
+        let seconds = max(0, min(asset.duration.seconds, target(current.isFinite ? current : 0)))
+        let seekTime = CMTime(seconds: seconds, preferredTimescale: 60000)
+        sourceTransportSeekTime = seekTime
+        let epoch = mediaEpoch
+        sourceTransportTask = Task {
+            do { try await player.seek(to: seekTime) } catch {
+                guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset?.id == asset.id, sourcePlayback === player else { return }
+                reportSourceSeekFailure(error)
+                return
+            }
+            // A seek finishes the transport command, so Play / Pause plays again.
+            guard !Task.isCancelled, sourceTransportSeekTime == seekTime else { return }
+            sourceTransportSeekTime = nil
+            sourceTransportTask = nil
         }
     }
 
@@ -1378,7 +1411,7 @@ final class EditorStore: ObservableObject {
 
     var selectedMarker: SequenceMarker? { selectedMarkerID.flatMap { id in project.markers.first { $0.id == id } } }
     /// The playhead on the sequence frame grid, rounded to the nearest frame.
-    private func playheadFrameTime() throws -> RationalTime {
+    func playheadFrameTime() throws -> RationalTime {
         let frames = (playheadSeconds * project.settings.frameRate.value.seconds).rounded()
         guard frames.isFinite, frames >= 0, frames < Double(Int64.max) else { throw EditorCoreError.invalidTime }
         return try project.settings.frameRate.time(forFrames: Int64(frames))

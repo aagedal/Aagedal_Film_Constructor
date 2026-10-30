@@ -18,6 +18,10 @@ struct SequenceExportView: View {
     @AppStorage("exportAudioStreams") private var audioStreams: RenderAudioStreams = .main
     @State private var warnings: [String] = []
     @State private var isAssessing = false
+    @State private var useMarkedRange = true
+    /// The last export folder, kept as a security-scoped bookmark so the next export is one key press.
+    @AppStorage("exportFolderBookmark") private var folderBookmark: Data?
+    @State private var lastFolder: URL?
 
     private var helpers: SequenceExportHelperAvailability {
         SequenceExportService.helperAvailability()
@@ -52,9 +56,20 @@ struct SequenceExportView: View {
                     .disabled(exportTask != nil || completedURL != nil)
                     .help("Write one mix, every main bus, or the main mix plus a stem per track as separate audio streams")
                 }
+                if let marked = draft.markedRange {
+                    GridRow {
+                        Text("Range")
+                        Picker("Range", selection: $useMarkedRange) {
+                            Text("In to Out · \(seconds(marked.duration))").tag(true)
+                            Text("Entire sequence · \(seconds(draft.plan.duration))").tag(false)
+                        }
+                        .labelsHidden().fixedSize()
+                        .disabled(exportTask != nil || completedURL != nil)
+                    }
+                }
                 GridRow {
                     Text("Start timecode")
-                    Text((try? draft.plan.settings.startTimecode.formatted(rate: draft.plan.settings.frameRate)) ?? "")
+                    Text((try? draft.plan.settings.formattedTimecode(at: range?.start ?? .zero)) ?? "")
                         .monospacedDigit()
                 }
             }
@@ -83,7 +98,7 @@ struct SequenceExportView: View {
                 TextField("Filename", text: $filename)
                     .textFieldStyle(.roundedBorder)
                     // Return in the focused filename field continues like the default button.
-                    .onSubmit { if helpers.isAvailable { startExport() } }
+                    .onSubmit { if helpers.isAvailable { exportToDefault() } }
             }
             if !helpers.isAvailable {
                 Label(helpers.message, systemImage: "exclamationmark.triangle")
@@ -108,9 +123,18 @@ struct SequenceExportView: View {
                     Button(completedURL == nil ? "Cancel" : "Done") { dismiss() }
                         .keyboardShortcut(.cancelAction)
                     if completedURL == nil {
-                        Button("Choose export folder…", action: startExport)
-                            .disabled(!helpers.isAvailable)
-                            .keyboardShortcut(.defaultAction)
+                        if let lastFolder {
+                            Button("Choose folder…", action: chooseFolderAndExport)
+                                .disabled(!helpers.isAvailable)
+                            Button("Export to “\(lastFolder.lastPathComponent)”") { export(to: lastFolder) }
+                                .disabled(!helpers.isAvailable)
+                                .keyboardShortcut(.defaultAction)
+                                .help(lastFolder.path)
+                        } else {
+                            Button("Choose export folder…", action: chooseFolderAndExport)
+                                .disabled(!helpers.isAvailable)
+                                .keyboardShortcut(.defaultAction)
+                        }
                     }
                 }
             }
@@ -118,11 +142,17 @@ struct SequenceExportView: View {
         .padding(24).frame(width: 570)
         .interactiveDismissDisabled(exportTask != nil)
         .onDisappear { exportTask?.cancel() }
+        .onAppear {
+            let name = draft.sequenceName.components(separatedBy: CharacterSet(charactersIn: "/:").union(.controlCharacters)).joined(separator: "-")
+                .trimmingCharacters(in: .whitespaces)
+            filename = (name.isEmpty || name.hasPrefix(".") ? "Sequence" : name) + "." + format.fileExtension
+            lastFolder = resolveLastFolder()
+        }
         .onChange(of: format, initial: true) { _, format in
             let stem = (filename as NSString).deletingPathExtension
             filename = (stem.isEmpty ? "Sequence" : stem) + "." + format.fileExtension
         }
-        .task(id: strictQualification) { await assess() }
+        .task(id: "\(strictQualification) \(useMarkedRange)") { await assess() }
     }
 
     /// Probe sources up front so approximations or refusals are visible before choosing a folder.
@@ -140,16 +170,40 @@ struct SequenceExportView: View {
         }
     }
 
-    private var options: SequenceExportOptions { .init(format: format, strictQualification: strictQualification, audioStreams: audioStreams) }
+    private var range: TimeRange? { useMarkedRange ? draft.markedRange : nil }
+    private var options: SequenceExportOptions {
+        .init(format: format, strictQualification: strictQualification, audioStreams: audioStreams, range: range)
+    }
+    private func seconds(_ time: RationalTime) -> String {
+        let total = time.seconds
+        return total >= 60 ? String(format: "%d:%04.1f", Int(total) / 60, total.truncatingRemainder(dividingBy: 60)) : String(format: "%.1f s", total)
+    }
 
-    private func startExport() {
+    private func validateFilename() -> Bool {
         guard !filename.isEmpty, filename != ".", filename != "..",
               !filename.contains("/"), !filename.contains(":"),
               !filename.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
               filename.lowercased().hasSuffix("." + format.fileExtension) else {
             errorMessage = "Enter a .\(format.fileExtension) filename without path separators."
-            return
+            return false
         }
+        return true
+    }
+
+    private func resolveLastFolder() -> URL? {
+        guard let folderBookmark else { return nil }
+        var stale = false
+        guard let url = try? URL(resolvingBookmarkData: folderBookmark, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale)
+        else { return nil }
+        return url
+    }
+
+    private func exportToDefault() {
+        if let lastFolder { export(to: lastFolder) } else { chooseFolderAndExport() }
+    }
+
+    private func chooseFolderAndExport() {
+        guard validateFilename() else { return }
         let panel = NSOpenPanel()
         panel.title = "Choose Export Folder"
         panel.canChooseFiles = false
@@ -157,13 +211,30 @@ struct SequenceExportView: View {
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
         panel.prompt = "Export"
-        panel.message = "Exports \(filename). Existing files are protected from replacement."
+        panel.message = "Exports \(filename). A file already there is kept; the export gets a numbered name."
+        if let lastFolder { panel.directoryURL = lastFolder }
         guard panel.runModal() == .OK, let folder = panel.url else { return }
-        let destination = folder.appendingPathComponent(filename)
+        if let bookmark = try? folder.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
+            folderBookmark = bookmark
+            lastFolder = folder
+        }
+        export(to: folder)
+    }
+
+    /// Exports into the folder, numbering the name ("Sequence 2.mov") rather than replacing a file.
+    private func export(to folder: URL) {
+        guard validateFilename(), exportTask == nil else { return }
         errorMessage = nil; completedURL = nil; fraction = 0; stage = "Preparing"; isCancelling = false
         exportTask = Task { @MainActor in
             let folderAccess = folder.startAccessingSecurityScopedResource()
             defer { if folderAccess { folder.stopAccessingSecurityScopedResource() } }
+            let stem = (filename as NSString).deletingPathExtension
+            var destination = folder.appendingPathComponent(filename)
+            var number = 2
+            while FileManager.default.fileExists(atPath: destination.path) {
+                destination = folder.appendingPathComponent("\(stem) \(number).\(format.fileExtension)")
+                number += 1
+            }
             do {
                 let result = try await SequenceExportService.shared.export(plan: draft.plan, to: destination, options: options) { progress in
                     Task { @MainActor in

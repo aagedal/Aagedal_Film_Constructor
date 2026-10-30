@@ -28,6 +28,7 @@ struct TimelineView: View {
     @State private var dropViewport = CGRect.zero
     /// Horizontal scroll, so track headers stay at the left edge while lanes scroll.
     @State private var scrollX: CGFloat = 0
+    @State private var scrollPosition = ScrollPosition()
     private let labelWidth: CGFloat = 145
     /// A track row and the spacing below it.
     private let rowHeight: CGFloat = 65
@@ -67,7 +68,7 @@ struct TimelineView: View {
                 Button(action: store.deleteSelectedClip) { Label("Delete clip", systemImage: "trash") }
                     .labelStyle(.iconOnly).help("Delete selected clip").disabled(store.selectedClip == nil)
                 Toggle(isOn: $store.snappingEnabled) { Image(systemName: "magnet") }
-                    .toggleStyle(.button).help("Snap clip edges to adjacent clips and the playhead").accessibilityLabel("Snapping")
+                    .toggleStyle(.button).help("Snap clip edges to adjacent clips and the playhead (N)").accessibilityLabel("Snapping")
                 Spacer()
                 Button { store.stepPlayhead(frames: -1) } label: { Image(systemName: "backward.frame") }.help("Previous frame").accessibilityLabel("Previous frame")
                 Button { store.stepPlayhead(frames: 1) } label: { Image(systemName: "forward.frame") }.help("Next frame").accessibilityLabel("Next frame")
@@ -133,9 +134,23 @@ struct TimelineView: View {
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { viewport = $0 }
                 .onScrollGeometryChange(for: CGFloat.self) { max(0, $0.contentOffset.x) } action: { _, x in scrollX = x }
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("timelineDrop")) } action: { dropViewport = $0 }
+                .scrollPosition($scrollPosition)
                 .onChange(of: store.timelineFitRequest) {
                     toggleZoomToFit()
                     scroller.scrollTo("timelineStart", anchor: .topLeading)
+                }
+                .onChange(of: store.timelineZoomRequest) { _, request in
+                    previousZoom = nil
+                    pixelsPerSecond = min(100, max(min(2, fittedZoom), pixelsPerSecond * request.factor))
+                    // Centre the playhead once the canvas has its new width.
+                    let x = store.playheadSeconds * pixelsPerSecond - (viewport.width - labelWidth) / 2
+                    Task { @MainActor in scrollPosition.scrollTo(x: max(0, x)) }
+                }
+                // Playback and keyboard moves page the lanes so the playhead stays in view.
+                .onChange(of: store.playheadSeconds) { _, seconds in
+                    let x = seconds * pixelsPerSecond, visible = viewport.width - labelWidth
+                    guard visible > 80, x < scrollX || x > scrollX + visible - 8 else { return }
+                    scrollPosition.scrollTo(x: max(0, x - 40))
                 }
             }
         }
@@ -217,6 +232,12 @@ struct TimelineView: View {
                     Rectangle().fill(.secondary.opacity(0.4)).frame(width: 1, height: 8)
                 }.offset(x: seconds * pixelsPerSecond + 3, y: 3)
             }
+            if let range = markedRange {
+                Rectangle().fill(Color.accentColor.opacity(0.45))
+                    .frame(width: max(1, (range.upperBound - range.lowerBound) * pixelsPerSecond), height: 5)
+                    .offset(x: range.lowerBound * pixelsPerSecond, y: 25)
+                    .help("Sequence In to Out: Render Sequence exports this range (⌥X clears)")
+            }
             ForEach(store.project.markers) { marker in
                 TimelineMarkerFlag(marker: marker, selected: store.selectedMarkerID == marker.id, pixelsPerSecond: pixelsPerSecond,
                                    select: { store.selectMarker(marker.id) },
@@ -228,6 +249,13 @@ struct TimelineView: View {
         .frame(width: canvasWidth, height: 30)
         .contentShape(Rectangle())
         .gesture(DragGesture(minimumDistance: 0).onChanged { value in store.focusSequenceViewer(); store.seek(to: max(0, min(store.duration, value.location.x / pixelsPerSecond))) })
+    }
+
+    /// The sequence In to Out in seconds, when marked.
+    private var markedRange: ClosedRange<Double>? {
+        guard let marks = store.currentSequenceMarks else { return nil }
+        let start = marks.inPoint?.seconds ?? 0, end = marks.outPoint?.seconds ?? store.duration
+        return end > start ? start...end : nil
     }
 
     private func visibleClips(in track: TimelineTrack) -> [TimelineClip] {
@@ -324,8 +352,15 @@ struct TimelineView: View {
                                 fadeOutCurve: expected.fadeOut.curve, expectedClip: expected)
                         } catch { store.errorMessage = store.audioEditErrorMessage(error) }
                     })
+                .opacity(clip.isEnabled ? 1 : 0.4)
                 .offset(x: clip.timelineStart.seconds * pixelsPerSecond, y: 6)
                 .contextMenu { clipMenu(clip) }
+            }
+            if let range = markedRange {
+                Rectangle().fill(Color.accentColor.opacity(0.06))
+                    .frame(width: (range.upperBound - range.lowerBound) * pixelsPerSecond, height: 64)
+                    .offset(x: range.lowerBound * pixelsPerSecond)
+                    .allowsHitTesting(false)
             }
             markerLines(height: 64)
             playhead(height: 64).allowsHitTesting(false)
@@ -398,6 +433,7 @@ struct TimelineView: View {
         Divider()
         Button("Split at Playhead", action: act(store.splitSelectedClip))
             .disabled(store.playheadSeconds <= clip.timelineStart.seconds || store.playheadSeconds >= end)
+        Button("Split All Tracks at Playhead", action: store.splitAllAtPlayhead)
         Button("Add Transition", action: act { store.addTransitionAtPlayhead() })
         Button("Move Playhead to Clip Start", action: act { store.seek(to: clip.timelineStart.seconds) })
         Button("Move Playhead to Clip End", action: act { store.seek(to: end) })
@@ -431,6 +467,7 @@ struct TimelineView: View {
             Button("Reset Transform", action: act { store.setSelectedClipTransform(scale: "100", x: "0", y: "0", opacity: "100") })
                 .disabled(clip.transform.isIdentity)
         }
+        Button(clip.isEnabled ? "Disable Clip" : "Enable Clip", action: act(store.toggleSelectedClipEnabled))
         Divider()
         Button("Reveal in Media Bin", action: act { store.selectAsset(clip.assetID) })
         if let url = store.asset(id: clip.assetID)?.originalURL {

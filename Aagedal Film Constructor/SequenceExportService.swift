@@ -23,6 +23,8 @@ nonisolated struct SequenceExportOptions: Sendable {
     var format: RenderOutputFormat = .proRes422HQ
     var strictQualification = false
     var audioStreams: RenderAudioStreams = .main
+    /// Sequence span to render; nil renders the whole sequence.
+    var range: TimeRange?
 }
 nonisolated enum SequenceExportError: LocalizedError {
     case unavailable, destination(String), process(String), verification(String)
@@ -63,7 +65,7 @@ actor SequenceExportService {
         let scoped = urls.filter { $0.startAccessingSecurityScopedResource() }
         defer { scoped.forEach { $0.stopAccessingSecurityScopedResource() } }
         let probeURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(options.format.fileExtension)
-        let command = try FFmpegRenderCompiler.compile(plan, outputURL: probeURL, format: options.format, audioStreams: options.audioStreams)
+        let command = try FFmpegRenderCompiler.compile(plan, outputURL: probeURL, format: options.format, audioStreams: options.audioStreams, range: options.range)
         return try await Self.preflight(plan: plan, command: command, ffprobe: ffprobeURL, strict: options.strictQualification).warnings
     }
     func export(plan: TimelineRenderPlan, to outputURL: URL, options: SequenceExportOptions = .init(),
@@ -97,12 +99,13 @@ actor SequenceExportService {
         let sidecarDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("afc-render-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: sidecarDirectory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: sidecarDirectory) }
-        var command = try FFmpegRenderCompiler.compile(plan, outputURL: staged, format: format, audioStreams: options.audioStreams, sidecarDirectory: sidecarDirectory)
+        var command = try FFmpegRenderCompiler.compile(plan, outputURL: staged, format: format, audioStreams: options.audioStreams,
+                                                       sidecarDirectory: sidecarDirectory, range: options.range)
         progress(.init(fraction: 0, renderedSeconds: 0, stage: "Checking sources"))
         let (warnings, hdrSources) = try await preflight(plan: plan, command: command, ffprobe: ffprobe, strict: options.strictQualification)
         if !hdrSources.isEmpty {
             command = try FFmpegRenderCompiler.compile(plan, outputURL: staged, format: format, toneMappedSources: hdrSources,
-                                                       audioStreams: options.audioStreams, sidecarDirectory: sidecarDirectory)
+                                                       audioStreams: options.audioStreams, sidecarDirectory: sidecarDirectory, range: options.range)
         }
         for sidecar in command.sidecars { try sidecar.contents.write(to: sidecar.url, atomically: true, encoding: .utf8) }
         let duration = Double(command.videoFrames) / plan.settings.frameRate.value.seconds
@@ -298,7 +301,7 @@ actor SequenceExportService {
             return (value as? NSNumber)?.int64Value
         }
         let rate = plan.settings.frameRate.value
-        let timecode = try plan.settings.startTimecode.formatted(rate: plan.settings.frameRate)
+        let timecode = command.startTimecode
         let tags = video["tags"] as? [String: Any]
         let formatTags = (root["format"] as? [String: Any])?["tags"] as? [String: Any]
         let checks: [(String, Bool)] = [

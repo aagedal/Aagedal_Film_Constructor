@@ -20,6 +20,8 @@ public struct FFmpegRenderCommand: Equatable, Codable, Sendable {
     public var audioStreamNames: [String] = ["Main 1"]
     /// Files the caller writes before running FFmpeg (stabilisation command lists).
     public var sidecars: [RenderSidecar] = []
+    /// Timecode of the first rendered frame: the sequence start, or the In point of a range.
+    public var startTimecode: String = ""
 }
 
 /// A text file the filter graph reads.
@@ -106,7 +108,7 @@ public enum FFmpegRenderCompiler {
     public static func compile(_ plan: TimelineRenderPlan, outputURL: URL,
                                format: RenderOutputFormat = .proRes422HQ,
                                toneMappedSources: [URL: Int] = [:], audioStreams: RenderAudioStreams = .main,
-                               sidecarDirectory: URL? = nil) throws -> FFmpegRenderCommand {
+                               sidecarDirectory: URL? = nil, range: TimeRange? = nil) throws -> FFmpegRenderCommand {
         try plan.settings.validate()
         guard outputURL.isFileURL, outputURL.pathExtension.lowercased() == format.fileExtension else {
             throw EditorCoreError.invalidModel("Export requires a local \(format.fileExtension.uppercased()) destination")
@@ -123,6 +125,22 @@ public enum FFmpegRenderCompiler {
         let sampleTime = try plan.duration.multiplied(by: Int64(settings.audioSampleRate))
         let samples = try ceiling(sampleTime)
         let rate = fraction(settings.frameRate.value)
+        // A range renders the whole graph and keeps only its frames and samples, so it matches
+        // the same span of a full render exactly. It starts on a frame; audio follows the picture.
+        var firstFrame: Int64 = 0, lastFrame = frames, firstSample: Int64 = 0, lastSample = samples
+        if let range {
+            try range.validate()
+            firstFrame = try nearest(range.start.multiplied(by: settings.frameRate.value))
+            lastFrame = min(frames, try nearest(range.end().multiplied(by: settings.frameRate.value)))
+            func sample(atFrame frame: Int64) throws -> Int64 {
+                try nearest(RationalTime(frame).divided(by: settings.frameRate.value).multiplied(by: Int64(settings.audioSampleRate)))
+            }
+            firstSample = try sample(atFrame: firstFrame)
+            lastSample = lastFrame == frames ? samples : min(samples, try sample(atFrame: lastFrame))
+            guard firstFrame >= 0, lastFrame > firstFrame, lastSample > firstSample else {
+                throw EditorCoreError.invalidModel("The In to Out range is empty or outside the sequence")
+            }
+        }
         // FFmpeg's 5.1 order (FL FR FC LFE BL BR) matches the model's L R C LFE Ls Rs.
         let layout = settings.audioLayout == .mono ? "mono" : settings.audioLayout == .stereo ? "stereo" : "5.1"
         var arguments = ["-hide_banner", "-nostdin", "-n"]
@@ -371,7 +389,8 @@ public enum FFmpegRenderCompiler {
                 }
             }
         }
-        graph.append("[\(videoLabel)]trim=end_frame=\(frames),setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv[video]")
+        let videoTrim = range == nil ? "trim=end_frame=\(frames)" : "trim=start_frame=\(firstFrame):end_frame=\(lastFrame),setpts=PTS-STARTPTS"
+        graph.append("[\(videoLabel)]\(videoTrim),setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv[video]")
         let streams: [(label: String, name: String)]
         if plan.mix.isPlainSum && audioStreams == .main {
             graph.append(audioLabels.map { "[\($0)]" }.joined() + "amix=inputs=\(audioLabels.count):normalize=0,atrim=end_sample=\(samples)[audio]")
@@ -380,14 +399,23 @@ public enum FFmpegRenderCompiler {
             streams = mixGraph(plan.mix, trackAudio: trackAudio, streams: audioStreams, layout: layout, samples: samples,
                                sampleRate: settings.audioSampleRate, channels: settings.audioLayout.channels.count, graph: &graph)
         }
+        var outputs = streams
+        if range != nil {
+            outputs = streams.map { stream in
+                graph.append("[\(stream.label)]atrim=start_sample=\(firstSample):end_sample=\(lastSample),asetpts=PTS-STARTPTS[\(stream.label)r]")
+                return (stream.label + "r", stream.name)
+            }
+        }
+        let startTimecode = try settings.formattedTimecode(at: RationalTime(firstFrame).divided(by: settings.frameRate.value))
         let filterGraph = graph.joined(separator: ";")
-        arguments += ["-filter_complex", filterGraph, "-map", "[video]"] + streams.flatMap { ["-map", "[\($0.label)]"] }
-            + streams.enumerated().flatMap { ["-metadata:s:a:\($0.offset)", "title=\($0.element.name)"] }
+        arguments += ["-filter_complex", filterGraph, "-map", "[video]"] + outputs.flatMap { ["-map", "[\($0.label)]"] }
+            + outputs.enumerated().flatMap { ["-metadata:s:a:\($0.offset)", "title=\($0.element.name)"] }
             + ["-r", rate, "-fps_mode", "cfr"] + format.encoderArguments
             // Sequences are SDR Rec. 709; tag every output so players apply the right matrix.
-            + ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-ar", String(settings.audioSampleRate), "-ac", String(settings.audioLayout.channels.count), "-video_track_timescale", String(settings.frameRate.value.numerator), "-timecode", try settings.startTimecode.formatted(rate: settings.frameRate), outputURL.path]
-        return FFmpegRenderCommand(inputs: inputs, arguments: arguments, filterGraph: filterGraph, videoFrames: frames, audioSamples: samples,
-                                   audioStreamNames: streams.map(\.name), sidecars: sidecars)
+            + ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-ar", String(settings.audioSampleRate), "-ac", String(settings.audioLayout.channels.count), "-video_track_timescale", String(settings.frameRate.value.numerator), "-timecode", startTimecode, outputURL.path]
+        return FFmpegRenderCommand(inputs: inputs, arguments: arguments, filterGraph: filterGraph, videoFrames: lastFrame - firstFrame,
+                                   audioSamples: lastSample - firstSample, audioStreamNames: outputs.map(\.name), sidecars: sidecars,
+                                   startTimecode: startTimecode)
     }
 
     /// Sums each track, runs its effects, sends it to its buses, runs submixes into main

@@ -38,6 +38,8 @@ public enum EditCommand: Sendable {
     /// Change the speed of a clip and its linked components, keeping their source in and the
     /// source they play. Timeline length changes; overlaps move to sibling tracks.
     case setSpeed(clipID: UUID, speed: RationalTime)
+    /// Disabled clips keep their place but are left out of preview and export.
+    case setEnabled(clipIDs: [UUID], enabled: Bool)
     /// Replace the scale and position animation of one picture component.
     case setTransformKeyframes(clipID: UUID, keyframes: [TransformKeyframe])
     /// Point one picture component at other media covering the same moments (for example a
@@ -518,6 +520,13 @@ public struct TimelineEditEngine: Sendable {
                       let c = project.tracks[t].clips.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingClip }
                 guard project.tracks[t].clips[c].requiredTrackKind == .audio else { throw TimelineEditError.invalidAudioSelection }
                 project.tracks[t].clips[c].gain = gain
+            }
+        case .setEnabled(let clipIDs, let enabled):
+            guard !clipIDs.isEmpty else { throw TimelineEditError.missingClip }
+            for id in clipIDs {
+                guard let t = project.tracks.firstIndex(where: { $0.clips.contains { $0.id == id } }),
+                      let c = project.tracks[t].clips.firstIndex(where: { $0.id == id }) else { throw TimelineEditError.missingClip }
+                project.tracks[t].clips[c].isEnabled = enabled
             }
         case .setDynamics(let clipIDs, let dynamics):
             guard !clipIDs.isEmpty else { throw TimelineEditError.missingClip }
