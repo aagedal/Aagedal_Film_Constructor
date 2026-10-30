@@ -123,6 +123,11 @@ private func stillExportProject(url: URL) throws -> Project {
     }
     project.assets[0].originalURL = URL(fileURLWithPath: "/private/tmp/animated.gif")
     #expect(throws: (any Error).self) { try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: URL(fileURLWithPath: "/private/tmp/still-output.mov")) }
+    // The export service renders other formats from a conformed PNG substituted into the plan.
+    let conformed = URL(fileURLWithPath: "/private/tmp/conformed.png")
+    let substituted = try TimelineRenderPlan(project: project).replacingOriginals([project.assets[0].originalURL!: conformed])
+    #expect(substituted.components.map(\.originalURL) == [conformed])
+    #expect(try FFmpegRenderCompiler.compile(substituted, outputURL: URL(fileURLWithPath: "/private/tmp/still-output.mov")).inputs.map(\.url) == [conformed])
     project.assets[0].originalURL = URL(fileURLWithPath: "/private/tmp/transparent.png")
     project.tracks[0].clips[0].sourceRange.start = try RationalTime(1, 48000)
     project.assets[0].streams = []
@@ -135,6 +140,19 @@ private func stillExportProject(url: URL) throws -> Project {
     // Stills always use their first decoded frame; a stream offset cannot move it.
     let offsetStill = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: URL(fileURLWithPath: "/private/tmp/still-output.mov"))
     #expect(offsetStill.filterGraph.contains("trim=end_frame=1,loop="))
+}
+
+@Test func compilerKeepsAlphaOfVideoSourcesWithAnAlphaChannel() throws {
+    let url = URL(fileURLWithPath: "/private/tmp/animated.mov")
+    var project = try stillExportProject(url: url)
+    project.tracks[0].clips[0].selection = .video(streamIndex: 0)
+    let output = URL(fileURLWithPath: "/private/tmp/alpha-output.mov")
+    let opaque = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: output)
+    #expect(opaque.filterGraph.contains("setsar=1,format=yuv444p"))
+    // An alpha source keeps its transparency and is padded clear, as the preview composites it.
+    let alpha = try FFmpegRenderCompiler.compile(TimelineRenderPlan(project: project), outputURL: output, alphaSources: [url])
+    #expect(alpha.filterGraph.contains("setsar=1,format=yuva444p,scale=160:90:force_original_aspect_ratio=decrease"))
+    #expect(alpha.filterGraph.contains(":color=black@0"))
 }
 
 @Test func compilerCoversSampleAlignedAudioEndsWithoutExtendingPCM() throws {

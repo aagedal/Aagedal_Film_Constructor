@@ -307,9 +307,13 @@ final class EditorStore: ObservableObject {
 
     func replaceMedia(assetID: UUID, with imported: ImportedMedia) throws {
         guard let asset = project.assets.first(where: { $0.id == assetID }) else { throw TimelineEditError.missingClip }
+        // Media imported before 5.1 streams were labelled has unknown positions of the same count.
+        func compatible(_ new: ChannelLayout?, _ old: ChannelLayout?) -> Bool {
+            new == old || (old?.channels.allSatisfy { $0 == nil } == true && new?.channels.count == old?.channels.count)
+        }
         guard imported.asset.streams.map(\.index) == asset.streams.map(\.index),
               imported.asset.streams.map(\.kind) == asset.streams.map(\.kind),
-              imported.asset.streams.map(\.audioLayout) == asset.streams.map(\.audioLayout) else {
+              zip(imported.asset.streams, asset.streams).allSatisfy({ compatible($0.audioLayout, $1.audioLayout) }) else {
             throw EditorCoreError.invalidModel("Replacement media must have matching stream identities and channel layouts.")
         }
         try change(bookmarkUpdates: [assetID: imported.bookmark], proxyBookmarkUpdates: [assetID: nil]) { project in
@@ -1709,7 +1713,8 @@ final class EditorStore: ObservableObject {
         guard let asset = selectedAsset, !isImporting else { return }
         let panel = NSOpenPanel()
         panel.title = "Relink \(asset.name)"
-        panel.allowedContentTypes = [.movie, .audio, .image]
+        // The same formats as import; formats that import converts are converted again.
+        panel.allowedContentTypes = MediaConversionService.importContentTypes
         guard panel.runModal() == .OK, let url = panel.url else { return }
         holdAccess(url)
         let epoch = mediaEpoch
@@ -1717,7 +1722,9 @@ final class EditorStore: ObservableObject {
         importTask = Task {
             defer { if epoch == mediaEpoch { isImporting = false } }
             do {
-                let result = try await MediaImporter.inspect(url: url)
+                let result = try await MediaImporter.inspectOrConvert(url: url) {
+                    statusMessage = "Converting \(url.lastPathComponent) for editing…"
+                }
                 guard !Task.isCancelled, epoch == mediaEpoch else { return }
                 try replaceMedia(assetID: asset.id, with: result)
             } catch { if !Task.isCancelled, epoch == mediaEpoch { report(error) } }

@@ -1,3 +1,4 @@
+import AudioToolbox
 import AVFoundation
 import CoreMedia
 import EditorCore
@@ -51,6 +52,75 @@ private actor StillPreviewDecoder {
     }
 }
 
+/// FFmpeg, which renders exports, decodes multichannel audio in WAVE/SMPTE order
+/// (L R C LFE Ls Rs). AVFoundation decodes compressed audio in the stream's own order
+/// instead (AAC 5.1 as C L R Ls Rs LFE). Source channel indices follow FFmpeg's order;
+/// AVFoundation readers that address single channels request that order explicitly.
+nonisolated enum SourceChannelOrder {
+    private static let smpte51: [AudioChannelLabel] = [kAudioChannelLabel_Left, kAudioChannelLabel_Right, kAudioChannelLabel_Center,
+                                                       kAudioChannelLabel_LFEScreen, kAudioChannelLabel_LeftSurround, kAudioChannelLabel_RightSurround]
+
+    /// Mono, stereo and recognised 5.1 streams are labelled; other layouts keep unknown positions.
+    static func layout(of description: CMAudioFormatDescription) -> ChannelLayout {
+        let count = Int(CMAudioFormatDescriptionGetStreamBasicDescription(description)?.pointee.mChannelsPerFrame ?? 0)
+        if count == 1 { return .mono }
+        if count == 2 { return .stereo }
+        if count == 6, let labels = labels(of: description) {
+            // Rear and side surrounds (5.1 back/side) both play on the surround speakers.
+            let normalized = labels.map { label -> AudioChannelLabel in
+                switch label {
+                case kAudioChannelLabel_RearSurroundLeft, kAudioChannelLabel_LeftSurroundDirect: kAudioChannelLabel_LeftSurround
+                case kAudioChannelLabel_RearSurroundRight, kAudioChannelLabel_RightSurroundDirect: kAudioChannelLabel_RightSurround
+                default: label
+                }
+            }
+            // Both decoders keep PCM in file order; compressed 5.1 decodes in FFmpeg's order.
+            let pcm = CMAudioFormatDescriptionGetStreamBasicDescription(description)?.pointee.mFormatID == kAudioFormatLinearPCM
+            if pcm ? normalized == smpte51 : Set(normalized) == Set(smpte51) { return .surround51 }
+        }
+        return ChannelLayout(channels: Array(repeating: nil, count: max(count, 1)))
+    }
+
+    /// Reader output settings that decode a compressed 5.1 stream in FFmpeg's order.
+    static func readerSettings(for description: CMAudioFormatDescription) -> [String: Any] {
+        guard layout(of: description) == .surround51,
+              CMAudioFormatDescriptionGetStreamBasicDescription(description)?.pointee.mFormatID != kAudioFormatLinearPCM else { return [:] }
+        var layout = AudioChannelLayout()
+        layout.mChannelLayoutTag = kAudioChannelLayoutTag_MPEG_5_1_A
+        return [AVNumberOfChannelsKey: 6, AVChannelLayoutKey: Data(bytes: &layout, count: MemoryLayout<AudioChannelLayout>.size)]
+    }
+
+    private static func labels(of description: CMAudioFormatDescription) -> [AudioChannelLabel]? {
+        var size = 0
+        guard let layout = CMAudioFormatDescriptionGetChannelLayout(description, sizeOut: &size) else { return nil }
+        return labels(of: layout)
+    }
+
+    /// Channel labels in stream order; layout tags and speaker bitmaps (WAVE-style PCM) are expanded.
+    private static func labels(of layout: UnsafePointer<AudioChannelLayout>, depth: Int = 0) -> [AudioChannelLabel]? {
+        let tag = layout.pointee.mChannelLayoutTag
+        // Expansions keep their tag and fill in the descriptions.
+        if tag == kAudioChannelLayoutTag_UseChannelDescriptions || (depth > 0 && layout.pointee.mNumberChannelDescriptions > 0) {
+            let base = UnsafeRawPointer(layout) + MemoryLayout<AudioChannelLayout>.offset(of: \.mChannelDescriptions)!
+            return (0..<Int(layout.pointee.mNumberChannelDescriptions)).map {
+                base.load(fromByteOffset: $0 * MemoryLayout<AudioChannelDescription>.stride, as: AudioChannelDescription.self).mChannelLabel
+            }
+        }
+        guard depth < 2 else { return nil }
+        let bitmap = tag == kAudioChannelLayoutTag_UseChannelBitmap
+        let property = bitmap ? kAudioFormatProperty_ChannelLayoutForBitmap : kAudioFormatProperty_ChannelLayoutForTag
+        var specifier: UInt32 = bitmap ? layout.pointee.mChannelBitmap.rawValue : tag
+        let specifierSize = UInt32(MemoryLayout<UInt32>.size)
+        var bytes: UInt32 = 0
+        guard AudioFormatGetPropertyInfo(property, specifierSize, &specifier, &bytes) == noErr, bytes > 0 else { return nil }
+        let expanded = UnsafeMutableRawPointer.allocate(byteCount: Int(bytes), alignment: MemoryLayout<AudioChannelLayout>.alignment)
+        defer { expanded.deallocate() }
+        guard AudioFormatGetProperty(property, specifierSize, &specifier, &bytes, expanded) == noErr else { return nil }
+        // A bitmap may expand to a tag, which expands once more.
+        return labels(of: expanded.assumingMemoryBound(to: AudioChannelLayout.self), depth: depth + 1)
+    }
+}
+
 enum MediaImporter {
     /// Decode an oriented monitor-sized image off the main actor. ImageIO may
     /// still use codec scratch memory, but retained pixels never exceed this bound.
@@ -101,8 +171,7 @@ enum MediaImporter {
                 }
                 let count = Int(audio.pointee.mChannelsPerFrame)
                 guard (1...64).contains(count) else { throw MediaImportError.invalidAudioChannels }
-                let layout: ChannelLayout = count == 1 ? .mono : count == 2 ? .stereo
-                    : ChannelLayout(channels: Array(repeating: nil, count: count))
+                let layout = SourceChannelOrder.layout(of: description)
                 streams.append(MediaStream(index: index, kind: .audio, label: "Audio \(index + 1)", audioLayout: layout, timeOffset: offset))
             }
         }
@@ -114,24 +183,41 @@ enum MediaImporter {
     }
 
     /// AVFoundation first; formats it cannot open are converted with the bundled FFmpeg.
+    /// Animated GIF and APNG import as video through the same conversion; other images are stills.
     /// `converting` is called before a conversion starts so the UI can report it.
-    static func inspectOrConvert(url: URL, converting: @MainActor () -> Void) async throws -> ImportedMedia {
-        do {
-            return try await inspect(url: url)
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch {
-            let type = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType ?? UTType(filenameExtension: url.pathExtension)
-            guard type?.conforms(to: .image) != true else { throw error }
-            await converting()
-            let converted = try await MediaConversionService.shared.convert(url)
+    static func inspectOrConvert(url: URL, using service: MediaConversionService = .shared,
+                                 converting: @MainActor () -> Void) async throws -> ImportedMedia {
+        let type = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType ?? UTType(filenameExtension: url.pathExtension)
+        let isImage = type?.conforms(to: .image) == true
+        if !(isImage && isAnimatedImage(url)),
+           !MediaConversionService.alwaysConvertedExtensions.contains(url.pathExtension.lowercased()) {
             do {
-                return try await inspect(url: converted, displayName: url.lastPathComponent)
+                return try await inspect(url: url)
+            } catch is CancellationError {
+                throw CancellationError()
             } catch {
-                try? FileManager.default.removeItem(at: converted)
-                throw error
+                if isImage { throw error }
             }
         }
+        await converting()
+        let converted = try await service.convert(url)
+        do {
+            return try await inspect(url: converted, displayName: url.lastPathComponent)
+        } catch {
+            try? FileManager.default.removeItem(at: converted)
+            throw error
+        }
+    }
+
+    /// GIF or PNG files with more than one image are animations. Multi-page TIFF and other
+    /// image collections stay stills of their first image.
+    nonisolated static func isAnimatedImage(_ url: URL) -> Bool {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let type = CGImageSourceGetType(source) as String?,
+              [UTType.gif.identifier, UTType.png.identifier].contains(type) else { return false }
+        return CGImageSourceGetCount(source) > 1
     }
 
     /// First-frame embedded timecode as exact seconds, from a QuickTime timecode track.

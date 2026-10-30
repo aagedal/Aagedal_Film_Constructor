@@ -260,11 +260,19 @@ use it, and every use in the open sequence changes with it.
 
 **Opened directly** (through AVFoundation): MOV, MP4 and M4V with H.264, HEVC
 (including iPhone HDR) or ProRes; WAV, AIFF, M4A/AAC, ALAC, MP3 and FLAC audio;
-PNG and JPEG stills.
+and any still macOS can read: PNG, JPEG, HEIC, TIFF, PSD, GIF, BMP, JPEG 2000 and
+camera RAW. Multi-page TIFFs and other image collections use their first image.
+Stills larger than 4096 pixels preview reduced and export at full resolution.
+Stills other than sRGB PNG and JPEG are converted to sRGB PNG for export, as the
+preview shows them.
 
 **Converted on import** (through the bundled FFmpeg): MXF (XDCAM, XAVC and AVC-Intra),
-MKV, WebM, AVI, MPEG-TS/M2TS, FLV, WMV, Ogg and MPEG files, and H.264 that macOS
-can't decode, such as 10-bit 4:2:2. The app writes an edit-ready MOV to
+MKV, WebM, AVI, FLV, WMV, Ogg and H.264 that macOS can't decode, such as 10-bit
+4:2:2. MPEG program and transport streams (TS, MTS, M2TS, MPG, VOB, MOD/TOD) are
+always converted: macOS can open some of them but drops their AAC or LPCM sound.
+Animated GIF and APNG files import as video clips at their own frame rate, playing
+once; transparency is kept (ProRes 4444) and composites over lower tracks in preview
+and export. Single-frame GIFs and PNGs stay stills. The app writes an edit-ready MOV to
 `~/Library/Containers/…/Application Support/Converted Media`. When the codec allows
 it, picture is rewrapped. Otherwise it becomes ProRes 422, or ProRes 4444 when the
 source has alpha. All audio streams become 24-bit PCM, and timecode is kept.
@@ -333,9 +341,11 @@ notice appears under the viewer, but playback continues:
 - Full curves and tracking-based stabilisation (levels, chroma key and deshake stabilisation are included), title animation beyond position, scale and opacity, transitions other than dissolves, slides, pushes, wipes, dips and crossfades, and audio effects beyond EQ, compression, limiting and noise reduction are not part of this version.
 - No HDR output. HDR sources are tone mapped to SDR, and the preview shows them
   as macOS displays them.
-- 5.1 sequences export all six channels (L R C LFE Ls Rs). Stereo media is placed
-  on front left/right and mono on centre by default, and the inspector can route
-  any channel. The preview plays the system's stereo downmix.
+- 5.1 sequences export all six channels (L R C LFE Ls Rs). 5.1 media (AAC, AC-3,
+  ALAC or PCM) is placed as one 5.1 component, stereo media on front left/right and
+  mono on centre by default, and the inspector can route any channel. Source
+  channels are numbered in FFmpeg's order (L R C LFE Ls Rs), which is the order
+  the export uses. The preview plays the system's stereo downmix.
 - Reverse playback (J) is silent and steps by seeking, so it can skip frames on long-GOP media.
 - Stream-copy (no re-encode) export is not available in the app yet.
 - Apple Silicon only.

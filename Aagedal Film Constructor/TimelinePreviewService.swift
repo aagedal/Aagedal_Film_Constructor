@@ -205,13 +205,15 @@ actor TimelinePreviewService {
                 guard tracks.indices.contains(streamIndex), tracks[streamIndex].mediaType == .audio else { continue }
                 let reader = try AVAssetReader(asset: asset)
                 reader.timeRange = CMTimeRange(start: CMTime(seconds: request.start, preferredTimescale: 60_000), duration: CMTime(seconds: request.duration, preferredTimescale: 60_000))
+                // Channel indices follow FFmpeg's order, which compressed 5.1 must be decoded into.
+                let order = try await tracks[streamIndex].load(.formatDescriptions).first.map(SourceChannelOrder.readerSettings) ?? [:]
                 let output = AVAssetReaderTrackOutput(track: tracks[streamIndex], outputSettings: [
                     AVFormatIDKey: kAudioFormatLinearPCM,
                     AVLinearPCMBitDepthKey: 32,
                     AVLinearPCMIsFloatKey: true,
                     AVLinearPCMIsBigEndianKey: false,
                     AVLinearPCMIsNonInterleaved: false
-                ])
+                ].merging(order) { _, new in new })
                 output.alwaysCopiesSampleData = false
                 guard reader.canAdd(output) else { continue }
                 reader.add(output)

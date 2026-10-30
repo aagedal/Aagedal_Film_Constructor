@@ -15,5 +15,8 @@ fi
 swiftc -module-cache-path "$smoke_root/module-cache" -parse-as-library \
   -I "$smoke_root" -L "$smoke_root" -lEditorCore \
   "$repo_root/Aagedal Film Constructor/TimelinePreviewService.swift" \
+  "$repo_root/Aagedal Film Constructor/MediaImporter.swift" \
+  "$repo_root/Aagedal Film Constructor/MediaConversionService.swift" \
+  "$repo_root/Aagedal Film Constructor/SequenceExportService.swift" \
   "$repo_root/scripts/timeline-preview-smoke.swift" -o "$smoke_root/preview-smoke"
 DYLD_LIBRARY_PATH="$smoke_root${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" "$smoke_root/preview-smoke" "$smoke_root"
