@@ -5,14 +5,24 @@ import UniformTypeIdentifiers
 
 /// Creates a short movie preserving image alpha whose complete time range can be stretched to a still clip.
 /// Ownership of a successful result passes to the caller, which must remove it after playback.
+/// Any image ImageIO decodes is accepted (HEIC, TIFF, PSD, GIF, RAW, …); multi-image files use the first.
 nonisolated enum SystemStillPreview: Sendable {
+    /// A prepared movie and the original pixels per movie pixel: larger than 1 when an image
+    /// above the preview limit was reduced, so unscaled placement keeps the original size.
+    struct Prepared: Sendable {
+        let url: URL
+        let pixelScale: CGFloat
+    }
+    /// Longest edge of the preview movie; larger images are reduced to it.
+    static let maximumDimension = 4_096
+
     nonisolated enum PreparationError: LocalizedError {
         case unsupportedImage, imageTooLarge, invalidImage, cannotEncode, timedOut
 
         var errorDescription: String? {
             switch self {
-            case .unsupportedImage: "System still preview requires a single PNG or JPEG image."
-            case .imageTooLarge: "System still preview supports images up to 4096 pixels per dimension. Resize larger images for sequence preview."
+            case .unsupportedImage: "This image format cannot be decoded for preview."
+            case .imageTooLarge: "This image is too large to decode for preview."
             case .invalidImage: "The still image could not be decoded."
             case .cannotEncode: "The system could not encode the still preview."
             case .timedOut: "The system still preview encoder timed out."
@@ -20,14 +30,14 @@ nonisolated enum SystemStillPreview: Sendable {
         }
     }
 
-    static func prepare(url: URL, directory: URL) async throws -> URL {
+    static func prepare(url: URL, directory: URL) async throws -> Prepared {
         let worker = Task.detached(priority: .userInitiated) {
             try await encode(url: url, directory: directory)
         }
         return try await withTaskCancellationHandler {
             let result = try await worker.value
             if Task.isCancelled {
-                try? FileManager.default.removeItem(at: result)
+                try? FileManager.default.removeItem(at: result.url)
                 throw CancellationError()
             }
             return result
@@ -36,25 +46,25 @@ nonisolated enum SystemStillPreview: Sendable {
         }
     }
 
-    private static func encode(url: URL, directory: URL) async throws -> URL {
+    private static func encode(url: URL, directory: URL) async throws -> Prepared {
         try Task.checkCancellation()
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         guard let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
-              let type = CGImageSourceGetType(source),
-              [UTType.png.identifier, UTType.jpeg.identifier].contains(type as String),
-              CGImageSourceGetCount(source) == 1 else {
+              CGImageSourceGetCount(source) >= 1 else {
             throw PreparationError.unsupportedImage
         }
         guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? Int,
               let height = properties[kCGImagePropertyPixelHeight] as? Int,
               width > 0, height > 0 else { throw PreparationError.invalidImage }
-        guard width <= 4_096, height <= 4_096 else { throw PreparationError.imageTooLarge }
-        // Thumbnail transformation applies all eight EXIF orientations without reducing resolution.
+        guard width <= 65_536, height <= 65_536 else { throw PreparationError.imageTooLarge }
+        // Thumbnail transformation applies all eight EXIF orientations; only images above
+        // the preview limit are reduced.
+        let longest = max(width, height)
         guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceThumbnailMaxPixelSize: max(width, height),
+            kCGImageSourceThumbnailMaxPixelSize: min(longest, maximumDimension),
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceShouldCacheImmediately: true
         ] as CFDictionary) else { throw PreparationError.invalidImage }
@@ -135,6 +145,6 @@ nonisolated enum SystemStillPreview: Sendable {
         try Task.checkCancellation()
         guard writer.status == .completed else { throw writer.error ?? PreparationError.cannotEncode }
         completed = true
-        return output
+        return Prepared(url: output, pixelScale: CGFloat(longest) / CGFloat(max(image.width, image.height)))
     }
 }

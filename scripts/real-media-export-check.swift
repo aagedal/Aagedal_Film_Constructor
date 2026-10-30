@@ -19,16 +19,14 @@ import EditorCore
         for file in files {
             let label = file.lastPathComponent
             do {
-                let imported: ImportedMedia
-                do {
-                    imported = try await MediaImporter.inspect(url: file)
-                } catch {
-                    // Mirrors MediaImporter.inspectOrConvert with explicit helpers.
-                    let started = Date()
-                    let converted = try await MediaConversionService(ffmpegURL: helpers.appendingPathComponent("ffmpeg"),
-                        ffprobeURL: helpers.appendingPathComponent("ffprobe")).convert(file, into: output)
-                    print("     converted in \(String(format: "%.1f", Date().timeIntervalSince(started))) s → \(converted.lastPathComponent)")
-                    imported = try await MediaImporter.inspect(url: converted, displayName: label)
+                let importStarted = Date()
+                let imported = try await MediaImporter.inspectOrConvert(url: file, using: MediaConversionService(
+                    ffmpegURL: helpers.appendingPathComponent("ffmpeg"), ffprobeURL: helpers.appendingPathComponent("ffprobe"),
+                    outputDirectory: output)) {
+                    print("     converting…")
+                }
+                if imported.asset.originalURL != file {
+                    print("     converted in \(String(format: "%.1f", Date().timeIntervalSince(importStarted))) s → \(imported.asset.originalURL?.lastPathComponent ?? "")")
                 }
                 // AFC_CHECK_LAYOUT=5.1 renders a 5.1 sequence (stereo → front L/R, mono → centre).
                 let layout: ChannelLayout = ProcessInfo.processInfo.environment["AFC_CHECK_LAYOUT"] == "5.1" ? .surround51 : .stereo
@@ -49,7 +47,8 @@ import EditorCore
                 }
                 await preview.close()
                 let plan = try TimelineRenderPlan(project: project)
-                let destination = output.appendingPathComponent((label as NSString).deletingPathExtension + "." + format.fileExtension)
+                // The full source name keeps h264.mp4 and h264.mts from rendering to the same file.
+                let destination = output.appendingPathComponent(label.replacingOccurrences(of: ".", with: "-") + "." + format.fileExtension)
                 let started = Date()
                 let result = try await service.export(plan: plan, to: destination, options: .init(format: format))
                 print("PASS \(label): \(result.videoFrames) frames in \(String(format: "%.1f", Date().timeIntervalSince(started))) s")

@@ -96,7 +96,7 @@ public enum RenderOutputFormat: String, CaseIterable, Codable, Sendable, Identif
 public enum FFmpegRenderCompiler {
     /// Source qualification must be performed by the caller: the canonical plan
     /// does not carry pixel aspect, rotation, color or variable-frame-rate metadata.
-    public static let qualificationLimitations = "Video is conformed to the sequence frame rate and audio to the sequence sample rate. Rotation is applied. Non-square pixels are corrected to square. HDR sources are tone mapped to SDR Rec. 709. PNG/JPEG stills use only the first decoded frame."
+    public static let qualificationLimitations = "Video is conformed to the sequence frame rate and audio to the sequence sample rate. Rotation is applied. Non-square pixels are corrected to square. HDR sources are tone mapped to SDR Rec. 709. Stills use only their first image; formats other than PNG/JPEG are conformed to PNG before rendering."
 
     /// Explicit prototype subset: frame-aligned video/stills, sample-aligned audio,
     /// zero stream offsets, mono/stereo output, originals.
@@ -105,9 +105,12 @@ public enum FFmpegRenderCompiler {
     /// `toneMappedSources` maps HDR originals to their display rotation in degrees (FFprobe
     /// display-matrix convention). Their picture is decoded with VideoToolbox, converted to
     /// SDR Rec. 709 (tone mapped) and rotated explicitly, since hardware frames skip autorotation.
+    /// `alphaSources` are video originals with an alpha channel (ProRes 4444, converted
+    /// animated GIFs); they keep their transparency over lower tracks, as stills do.
     public static func compile(_ plan: TimelineRenderPlan, outputURL: URL,
                                format: RenderOutputFormat = .proRes422HQ,
-                               toneMappedSources: [URL: Int] = [:], audioStreams: RenderAudioStreams = .main,
+                               toneMappedSources: [URL: Int] = [:], alphaSources: Set<URL> = [],
+                               audioStreams: RenderAudioStreams = .main,
                                sidecarDirectory: URL? = nil, range: TimeRange? = nil) throws -> FFmpegRenderCommand {
         try plan.settings.validate()
         guard outputURL.isFileURL, outputURL.pathExtension.lowercased() == format.fileExtension else {
@@ -194,7 +197,8 @@ public enum FFmpegRenderCompiler {
                 let w = settings.width, h = settings.height
                 // Transformed pictures reveal lower layers outside their own picture area.
                 let transformed = component.hasPlacement
-                let clearPad = isStill || transformed
+                let hasAlpha = !isStill && alphaSources.contains(url)
+                let clearPad = isStill || transformed || hasAlpha
                 switch component.scalingMode {
                 case .fit: scaling = "scale=\(w):\(h):force_original_aspect_ratio=decrease,pad=\(w):\(h):(ow-iw)/2:(oh-ih)/2\(clearPad ? ":color=black@0" : "")"
                 case .fill: scaling = "scale=\(w):\(h):force_original_aspect_ratio=increase,crop=\(w):\(h)"
@@ -287,7 +291,7 @@ public enum FFmpegRenderCompiler {
                     ",chromakey=color=\(String(format: "0x%02X%02X%02X", $0.red, $0.green, $0.blue)):similarity=\(key.similarity):blend=\(key.blend)"
                 } } ?? ""
                 let geometry = isStill ? "format=yuva444p\(keying),\(scaling),setsar=1"
-                    : transformed ? "\(squarePixels),format=yuva444p\(keying),\(scaling),setsar=1"
+                    : transformed || hasAlpha ? "\(squarePixels),format=yuva444p\(keying),\(scaling),setsar=1"
                     : "\(squarePixels),\(scaling),setsar=1,format=\(fades.isEmpty ? "yuv444p" : "yuva444p")"
                 var arrangement = ""
                 if component.color.blur > 0 {

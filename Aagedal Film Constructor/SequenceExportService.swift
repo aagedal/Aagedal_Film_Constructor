@@ -1,6 +1,8 @@
 import Foundation
 import Darwin
 import EditorCore
+import ImageIO
+import UniformTypeIdentifiers
 
 nonisolated struct SequenceExportHelperAvailability: Sendable {
     let isAvailable: Bool
@@ -64,6 +66,9 @@ actor SequenceExportService {
         let urls = Set(plan.components.compactMap(\.originalURL))
         let scoped = urls.filter { $0.startAccessingSecurityScopedResource() }
         defer { scoped.forEach { $0.stopAccessingSecurityScopedResource() } }
+        let stills = FileManager.default.temporaryDirectory.appendingPathComponent("afc-assess-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: stills) }
+        let plan = try StillConformer.conform(plan, into: stills)
         let probeURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(options.format.fileExtension)
         let command = try FFmpegRenderCompiler.compile(plan, outputURL: probeURL, format: options.format, audioStreams: options.audioStreams, range: options.range)
         return try await Self.preflight(plan: plan, command: command, ffprobe: ffprobeURL, strict: options.strictQualification).warnings
@@ -99,13 +104,16 @@ actor SequenceExportService {
         let sidecarDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("afc-render-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: sidecarDirectory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: sidecarDirectory) }
+        progress(.init(fraction: 0, renderedSeconds: 0, stage: "Preparing stills"))
+        let plan = try StillConformer.conform(plan, into: sidecarDirectory)
         var command = try FFmpegRenderCompiler.compile(plan, outputURL: staged, format: format, audioStreams: options.audioStreams,
                                                        sidecarDirectory: sidecarDirectory, range: options.range)
         progress(.init(fraction: 0, renderedSeconds: 0, stage: "Checking sources"))
-        let (warnings, hdrSources) = try await preflight(plan: plan, command: command, ffprobe: ffprobe, strict: options.strictQualification)
-        if !hdrSources.isEmpty {
+        let (warnings, hdrSources, alphaSources) = try await preflight(plan: plan, command: command, ffprobe: ffprobe, strict: options.strictQualification)
+        if !hdrSources.isEmpty || !alphaSources.isEmpty {
             command = try FFmpegRenderCompiler.compile(plan, outputURL: staged, format: format, toneMappedSources: hdrSources,
-                                                       audioStreams: options.audioStreams, sidecarDirectory: sidecarDirectory, range: options.range)
+                                                       alphaSources: alphaSources, audioStreams: options.audioStreams,
+                                                       sidecarDirectory: sidecarDirectory, range: options.range)
         }
         for sidecar in command.sidecars { try sidecar.contents.write(to: sidecar.url, atomically: true, encoding: .utf8) }
         let duration = Double(command.videoFrames) / plan.settings.frameRate.value.seconds
@@ -131,9 +139,10 @@ actor SequenceExportService {
         return .init(outputURL: output, videoFrames: command.videoFrames, audioSamples: command.audioSamples, warnings: warnings)
     }
     @concurrent private static func preflight(plan: TimelineRenderPlan, command: FFmpegRenderCommand, ffprobe: URL,
-                                              strict: Bool) async throws -> (warnings: [String], hdrSources: [URL: Int]) {
+                                              strict: Bool) async throws -> (warnings: [String], hdrSources: [URL: Int], alphaSources: Set<URL>) {
         var warnings: [String] = []
         var hdrSources: [URL: Int] = [:]
+        var alphaSources: Set<URL> = []
         for url in Set(command.inputs.map(\.url)).sorted(by: { $0.path < $1.path }) {
             try Task.checkCancellation()
             let data = try await ExportProcess.run(executable: ffprobe, arguments: ["-v", "error", "-show_streams", "-of", "json", url.path], timeout: 30)
@@ -203,6 +212,11 @@ actor SequenceExportService {
                     if rotation != 0 || !sides.allSatisfy({ (numeric($0["rotation"]) ?? 0) == 0 }) {
                         try qualify("Rotated sources are not qualified.", warning: nil)
                     }
+                    let pixelFormat = stream["pix_fmt"] as? String ?? ""
+                    if ["yuva", "gbrap", "rgba", "bgra", "argb", "abgr", "ya"].contains(where: pixelFormat.hasPrefix),
+                       components.contains(where: { $0.selection != .still }) {
+                        alphaSources.insert(url)
+                    }
                     let transfer = stream["color_transfer"] as? String ?? "unknown"
                     let primaries = stream["color_primaries"] as? String ?? "unknown"
                     if ["smpte2084", "arib-std-b67", "bt2020-10", "bt2020-12"].contains(transfer) || primaries == "bt2020" {
@@ -242,7 +256,7 @@ actor SequenceExportService {
                 }
             }
         }
-        return (warnings, hdrSources)
+        return (warnings, hdrSources, alphaSources)
     }
     /// Full selected-stream scan, never a sampling claim. Output, elapsed time and frame
     /// count are bounded; larger/slow sources refuse qualification instead of guessing CFR.
@@ -311,12 +325,22 @@ actor SequenceExportService {
             ("raster", integer(video["width"]) == Int64(plan.settings.width) && integer(video["height"]) == Int64(plan.settings.height)),
             ("frame rate", video["r_frame_rate"] as? String == "\(rate.numerator)/\(rate.denominator)"),
             ("frame count \(integer(video[counted]).map(String.init) ?? "missing") ≠ \(command.videoFrames)", integer(video[counted]) == command.videoFrames),
-            ("timecode", (tags?["timecode"] as? String ?? formatTags?["timecode"] as? String) == timecode),
+            ("timecode", sameTimecode(tags?["timecode"] as? String ?? formatTags?["timecode"] as? String, timecode)),
         ]
         let failed = checks.filter { !$0.1 }.map(\.0)
         guard failed.isEmpty else {
             throw SequenceExportError.verification("Rendered \(format.fileExtension.uppercased()) failed verification: \(failed.joined(separator: ", ")).")
         }
+    }
+    /// FFmpeg writes the frames field with one digit at 10 fps and below ("00:00:00:0").
+    nonisolated static func sameTimecode(_ written: String?, _ expected: String) -> Bool {
+        guard let written else { return false }
+        func fields(_ value: String) -> [Int]? {
+            let parts = value.split(whereSeparator: { $0 == ":" || $0 == ";" || $0 == "." }).map { Int($0) }
+            return parts.count == 4 && parts.allSatisfy { $0 != nil } ? parts.compactMap { $0 } : nil
+        }
+        // Drop-frame separators must still agree.
+        return written.contains(";") == expected.contains(";") && fields(written) != nil && fields(written) == fields(expected)
     }
     nonisolated private static func verifyAudio(_ audio: [String: Any], plan: TimelineRenderPlan, command: FFmpegRenderCommand,
                                                 format: RenderOutputFormat) throws {
@@ -336,6 +360,70 @@ actor SequenceExportService {
         guard failed.isEmpty else {
             throw SequenceExportError.verification("Rendered \(format.fileExtension.uppercased()) failed verification: \(failed.joined(separator: ", ")).")
         }
+    }
+}
+
+/// FFmpeg reads sRGB PNG and JPEG stills directly, applying JPEG EXIF orientation. Every other
+/// still the importer accepts (HEIC, TIFF, PSD, GIF, BMP, JPEG 2000, camera RAW, wide-gamut or
+/// CMYK images) is decoded by ImageIO, oriented, converted to sRGB as the preview draws it, and
+/// written as a PNG of its first image for the render.
+nonisolated enum StillConformer {
+    static func conform(_ plan: TimelineRenderPlan, into directory: URL) throws -> TimelineRenderPlan {
+        var substitutes: [URL: URL] = [:]
+        for component in plan.components where component.selection == .still {
+            guard let url = component.originalURL, url.isFileURL, substitutes[url] == nil, !readsDirectly(url) else { continue }
+            try Task.checkCancellation()
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let output = directory.appendingPathComponent("still-\(substitutes.count)-\(UUID().uuidString.prefix(8)).png")
+            try png(from: url, to: output)
+            substitutes[url] = output
+        }
+        return substitutes.isEmpty ? plan : plan.replacingOriginals(substitutes)
+    }
+
+    private static func readsDirectly(_ url: URL) -> Bool {
+        guard ["png", "jpg", "jpeg"].contains(url.pathExtension.lowercased()),
+              let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let type = CGImageSourceGetType(source) as String?,
+              [UTType.png.identifier, UTType.jpeg.identifier].contains(type),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] else { return false }
+        // FFmpeg ignores embedded profiles, so only untagged or sRGB RGB/grey pictures match the preview.
+        let model = properties[kCGImagePropertyColorModel] as? String
+        let profile = properties[kCGImagePropertyProfileName] as? String
+        return (model == nil || model == (kCGImagePropertyColorModelRGB as String) || model == (kCGImagePropertyColorModelGray as String))
+            && (profile == nil || profile!.hasPrefix("sRGB"))
+    }
+
+    private static func png(from url: URL, to output: URL) throws {
+        func failure(_ reason: String) -> SequenceExportError {
+            .verification("Export still \(url.lastPathComponent): \(reason)")
+        }
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
+              CGImageSourceGetCount(source) >= 1,
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int,
+              width > 0, height > 0 else { throw failure("the image could not be read.") }
+        guard width <= 16384, height <= 16384 else { throw failure("images up to 16384 pixels per side can be rendered.") }
+        // The thumbnail transform applies all eight EXIF orientations at full resolution.
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: max(width, height),
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true
+        ] as CFDictionary) else { throw failure("the image could not be decoded.") }
+        let space = CGColorSpace(name: CGColorSpace.sRGB)!
+        guard let context = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            throw failure("the image could not be converted.")
+        }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard let converted = context.makeImage(),
+              let destination = CGImageDestinationCreateWithURL(output as CFURL, UTType.png.identifier as CFString, 1, nil) else {
+            throw failure("the image could not be converted.")
+        }
+        CGImageDestinationAddImage(destination, converted, nil)
+        guard CGImageDestinationFinalize(destination) else { throw failure("the converted image could not be written.") }
     }
 }
 

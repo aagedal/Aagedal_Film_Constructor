@@ -268,28 +268,27 @@ import UniformTypeIdentifiers
             _ = try await SystemStillPreview.prepare(url: invalid, directory: scratch)
             throw NSError(domain: "Expected invalid image rejection", code: 1)
         } catch { try require(!error.localizedDescription.contains("Expected invalid"), "Invalid images must fail") }
-        let oversized = try fixture("oversized.png", width: 4097, height: 1)
-        do {
-            _ = try await SystemStillPreview.prepare(url: oversized, directory: scratch)
-            throw NSError(domain: "Expected oversized image rejection", code: 1)
-        } catch SystemStillPreview.PreparationError.imageTooLarge { }
-        let gif = directory.appendingPathComponent("unsupported.gif")
+        // Images above the preview limit are reduced, reporting the original pixels per movie pixel.
+        let oversized = try fixture("oversized.png", width: 8192, height: 64)
+        let reduced = try await SystemStillPreview.prepare(url: oversized, directory: directory.appendingPathComponent("reduced"))
+        let reducedSize = try await AVURLAsset(url: reduced.url).load(.tracks).first!.load(.naturalSize)
+        try require(reducedSize.width == 4096 && reduced.pixelScale == 2, "Oversized still is reduced to the preview limit: \(reducedSize), \(reduced.pixelScale)")
+        let gif = directory.appendingPathComponent("animated.gif")
         let gifSource = CGImageSourceCreateWithURL(png as CFURL, nil)!
         let gifImage = CGImageSourceCreateImageAtIndex(gifSource, 0, nil)!
         let gifDestination = CGImageDestinationCreateWithURL(gif as CFURL, UTType.gif.identifier as CFString, 2, nil)!
         for _ in 0..<2 { CGImageDestinationAddImage(gifDestination, gifImage, nil) }
-        try require(CGImageDestinationFinalize(gifDestination), "Create unsupported animated GIF fixture")
+        try require(CGImageDestinationFinalize(gifDestination), "Create animated GIF fixture")
         try require(CGImageSourceGetCount(CGImageSourceCreateWithURL(gif as CFURL, nil)!) == 2,
-            "Unsupported fixture contains multiple frames")
-        do {
-            _ = try await SystemStillPreview.prepare(url: gif, directory: scratch)
-            throw NSError(domain: "Expected unsupported image rejection", code: 1)
-        } catch SystemStillPreview.PreparationError.unsupportedImage { }
+            "Animated fixture contains multiple frames")
+        // Any ImageIO format previews; multi-image files show their first image.
+        let firstFrame = try await SystemStillPreview.prepare(url: gif, directory: directory.appendingPathComponent("gif"))
+        try require(firstFrame.pixelScale == 1, "Animated GIF previews its first image at full size")
         let cancelled = Task { try await SystemStillPreview.prepare(url: png, directory: scratch) }
         cancelled.cancel()
         do { _ = try await cancelled.value; throw NSError(domain: "Expected cancellation", code: 1) }
         catch is CancellationError { }
         try require((try? FileManager.default.contentsOfDirectory(atPath: scratch.path).isEmpty) != false, "Failed/cancelled preparation cleans files")
-        print("System still smoke passed: \(decoded) decoded seeks, fit/fill/none, synthetic source trims, stacked alpha/lower layers, exact cuts, EXIF orientation, live playback, malformed/oversized/animated unsupported input and cancellation.")
+        print("System still smoke passed: \(decoded) decoded seeks, fit/fill/none, synthetic source trims, stacked alpha/lower layers, exact cuts, EXIF orientation, live playback, malformed input, oversized reduction, animated first image and cancellation.")
     }
 }

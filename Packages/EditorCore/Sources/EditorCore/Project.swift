@@ -209,7 +209,7 @@ public struct TimelineRenderPlan: Equatable, Sendable {
         }
     }
     public let settings: SequenceSettings
-    public let components: [Component]
+    public private(set) var components: [Component]
     public let duration: RationalTime
     /// How tracks combine through buses into the main outputs.
     public let mix: AudioMixPlan
@@ -284,6 +284,17 @@ public struct TimelineRenderPlan: Equatable, Sendable {
         }
         components = result; duration = end
         mix = AudioMixPlan(project: project, includedTrackIDs: Set(result.map(\.trackID)).union(project.tracks.filter { !$0.muted && (!soloing || $0.soloed) }.map(\.id)))
+    }
+    /// The same plan reading some originals from substitute files, for example stills
+    /// conformed to a format the renderer decodes.
+    public func replacingOriginals(_ substitutes: [URL: URL]) -> TimelineRenderPlan {
+        var plan = self
+        for index in plan.components.indices {
+            if let url = plan.components[index].originalURL, let substitute = substitutes[url] {
+                plan.components[index].originalURL = substitute
+            }
+        }
+        return plan
     }
 }
 

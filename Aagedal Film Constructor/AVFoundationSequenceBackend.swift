@@ -3,7 +3,7 @@ import AppKit
 import CoreImage
 import EditorCore
 
-/// System-codec preview for video, bounded PNG/JPEG stills and whole mono/stereo audio streams.
+/// System-codec preview for video, still images and whole mono/stereo audio streams.
 /// The canonical plan supplies trims, ordering, routing, gain and fade geometry.
 @MainActor
 final class AVFoundationSequenceBackend: SequencePlaybackBackend {
@@ -25,7 +25,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
     private var closed = false
     private var hasVideo = false
     private let stillDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("afc-system-stills-" + UUID().uuidString)
-    private var stillMovies: [URL: URL] = [:]
+    private var stillMovies: [URL: SystemStillPreview.Prepared] = [:]
     private var stillMovieBytes = 0
     /// The main bus the preview plays; nil or a missing bus plays the first main bus.
     static var monitoredMain: UUID?
@@ -132,14 +132,16 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
             guard let original = component.originalURL else { throw Self.unsupported("Relink missing originals before sequence preview.") }
             var url = original
             var streamIndex: Int
+            var stillScale: CGFloat = 1
             switch component.selection {
             case .still:
-                if let prepared = stillMovies[original] { url = prepared }
+                if let prepared = stillMovies[original] { url = prepared.url; stillScale = prepared.pixelScale }
                 else {
                     guard stillMovies.count < 512 else {
                         throw Self.unsupported("System preview supports up to 512 distinct still images per sequence. Use the native runtime for larger sequences.")
                     }
-                    url = try await SystemStillPreview.prepare(url: original, directory: stillDirectory)
+                    let prepared = try await SystemStillPreview.prepare(url: original, directory: stillDirectory)
+                    url = prepared.url; stillScale = prepared.pixelScale
                     do {
                         try Task.checkCancellation()
                         guard !closed else { throw CancellationError() }
@@ -148,7 +150,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                             throw Self.unsupported("Still-image preparation exceeds the 256 MB system preview limit. Use the native runtime.")
                         }
                         stillMovieBytes += size
-                        stillMovies[original] = url
+                        stillMovies[original] = prepared
                     } catch {
                         try? FileManager.default.removeItem(at: url)
                         throw error
@@ -290,7 +292,7 @@ final class AVFoundationSequenceBackend: SequencePlaybackBackend {
                     if proxies[component.assetID] != nil,
                        let format = component.sourceStreams.first(where: { $0.index == proxies[component.assetID]?.videoStreamIndex })?.videoFormat {
                         factor = CGFloat(format.width) / bounds.width
-                    } else { factor = 1 }
+                    } else { factor = stillScale }
                 }
                 var offsetX = (canvas.width - bounds.width * factor) / 2
                 var offsetY = (canvas.height - bounds.height * factor) / 2

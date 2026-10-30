@@ -19,18 +19,26 @@ nonisolated enum MediaConversionError: LocalizedError {
 actor MediaConversionService {
     static let shared = MediaConversionService()
     /// Extensions offered in the import panel in addition to system movie/audio types.
-    nonisolated static let additionalExtensions = ["mxf", "mkv", "webm", "avi", "ts", "mts", "m2ts", "flv", "wmv", "ogg", "opus", "vob", "mpg", "mpeg"]
+    nonisolated static let additionalExtensions = ["mxf", "mkv", "webm", "avi", "ts", "mts", "m2ts", "m2t", "flv", "wmv", "ogg", "opus", "vob", "mpg", "mpeg", "m2p", "mod", "tod"]
+    /// MPEG program and transport streams are always converted, even when AVFoundation opens
+    /// them: it can omit their AAC/LPCM audio and number their streams differently from FFmpeg,
+    /// which renders the export.
+    nonisolated static let alwaysConvertedExtensions: Set<String> = ["ts", "mts", "m2ts", "m2t", "vob", "mpg", "mpeg", "m2p", "mod", "tod"]
     private let ffmpegURL: URL?
     private let ffprobeURL: URL?
+    /// Where converted files are written; nil uses the app's Converted Media folder.
+    private let defaultDirectory: URL?
 
     init(bundle: Bundle = .main) {
         let helpers = bundle.resourceURL?.appendingPathComponent("Helpers", isDirectory: true)
         ffmpegURL = helpers?.appendingPathComponent("ffmpeg")
         ffprobeURL = helpers?.appendingPathComponent("ffprobe")
+        defaultDirectory = nil
     }
-    init(ffmpegURL: URL, ffprobeURL: URL) {
+    init(ffmpegURL: URL, ffprobeURL: URL, outputDirectory: URL? = nil) {
         self.ffmpegURL = ffmpegURL
         self.ffprobeURL = ffprobeURL
+        defaultDirectory = outputDirectory
     }
 
     nonisolated static var importContentTypes: [UTType] {
@@ -49,7 +57,7 @@ actor MediaConversionService {
         guard let ffmpegURL, let ffprobeURL,
               FileManager.default.isExecutableFile(atPath: ffmpegURL.path),
               FileManager.default.isExecutableFile(atPath: ffprobeURL.path) else { throw MediaConversionError.unavailable }
-        let directory = try directory ?? Self.outputDirectory()
+        let directory = try directory ?? defaultDirectory ?? Self.outputDirectory()
         return try await Self.run(source: source, directory: directory, ffmpeg: ffmpegURL, ffprobe: ffprobeURL)
     }
 
