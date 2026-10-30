@@ -242,6 +242,8 @@ public struct TimelineRenderPlan: Equatable, Sendable {
                 let range = try clip.timelineRange()
                 let clipEnd = try range.end()
                 if try clipEnd.compared(to: end) == .orderedDescending { end = clipEnd }
+                // A disabled clip still holds its place, so the sequence keeps its length.
+                guard clip.isEnabled else { continue }
                 let asset = assetsByID[clip.assetID]!
                 var sourceRange = clip.sourceRange
                 var renderRange = range

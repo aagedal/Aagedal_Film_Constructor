@@ -82,7 +82,7 @@ public enum CMX3600Exporter {
             if relation.style != nil { warnings.add("Slide, push and wipe transitions are exported as dissolves.", for: name) }
             return false
         }
-        let clips = try track.clips.sorted { try cuts.ranges[$0.id]!.timeline.start.compared(to: cuts.ranges[$1.id]!.timeline.start) == .orderedAscending }
+        let clips = try track.clips.filter(\.isEnabled).sorted { try cuts.ranges[$0.id]!.timeline.start.compared(to: cuts.ranges[$1.id]!.timeline.start) == .orderedAscending }
         /// One edit line. A dissolve event has a zero-length line for the outgoing source (or BL)
         /// followed by a `D` line for the incoming one.
         struct Line {

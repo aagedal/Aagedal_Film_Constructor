@@ -35,6 +35,7 @@ struct AppFileSmoke {
         try exerciseTrackSettings()
         try exerciseSourceMarks()
         try exerciseRippleTrimCommands()
+        try exerciseQuickEditCommands()
         try exerciseSequenceSettings()
         try exerciseSequenceMatching()
         let corruptURL = directory.appendingPathComponent("corrupt.png")
@@ -260,6 +261,83 @@ struct AppFileSmoke {
     }
 
     @MainActor
+    static func exerciseQuickEditCommands() throws {
+        let asset = MediaAsset(name: "Quick edit fixture", duration: try RationalTime(8), streams: [MediaStream(index: 0, kind: .video)])
+        let template = TrackTemplate(kind: .video)
+        let family = TrackFamily(baseName: "Video", template: template)
+        let first = TimelineClip(assetID: asset.id, sourceRange: try TimeRange(start: .zero, duration: RationalTime(4)), selection: .video(streamIndex: 0))
+        var upper = first; upper.id = UUID(); upper.timelineStart = try RationalTime(1)
+        let store = EditorStore()
+        defer { store.close() }
+        store.project = Project(settings: try SequenceSettings(), assets: [asset], families: [family], tracks: [
+            TimelineTrack(familyID: family.id, template: template, clips: [upper]),
+            TimelineTrack(familyID: family.id, template: template, clips: [first])])
+        store.showSequenceMonitor = true
+        let registry = EditorCommandRegistry(defaults: UserDefaults(suiteName: "afc-quick-edit-shortcuts")!)
+        registry.reset()
+        let original = store.project
+        // Sequence In and Out, and the range Render Sequence offers.
+        store.playheadSeconds = 1
+        registry.perform(.markSourceIn, store: store, scope: .timeline)
+        store.playheadSeconds = 3
+        registry.perform(.markSourceOut, store: store, scope: .timeline)
+        let marked = try unwrap(store.sequenceMarkedRange(duration: try RationalTime(5)), "Missing sequence range")
+        try check(marked.start == (try RationalTime(1)) && marked.duration == (try RationalTime(2)) && store.sourceRanges.isEmpty, "I/O mark the sequence")
+        try check(store.project == original && !store.canUndo, "Sequence marks do not edit the document")
+        registry.perform(.goToIn, store: store, scope: .timeline)
+        try check(store.playheadSeconds == 1, "Shift-I goes to In")
+        store.playheadSeconds = 4
+        registry.perform(.markSourceIn, store: store, scope: .timeline)
+        try check(store.currentSequenceMarks?.outPoint == nil, "An In after Out clears Out")
+        registry.perform(.clearSourceMarks, store: store, scope: .timeline)
+        try check(store.currentSequenceMarks == nil, "Option-X clears sequence marks")
+        // Navigation.
+        registry.perform(.goToEnd, store: store, scope: .timeline)
+        try check(store.playheadSeconds == 5, "End goes to the sequence end")
+        registry.perform(.backTenFrames, store: store, scope: .timeline)
+        try check(abs(store.playheadSeconds - (5 - 10.0 / 24)) < 0.000001, "Shift-Left steps back ten frames")
+        registry.perform(.goToStart, store: store, scope: .timeline)
+        try check(store.playheadSeconds == 0, "Home goes to the start")
+        // Select at playhead cycles from the front.
+        store.playheadSeconds = 2
+        registry.perform(.selectClipAtPlayhead, store: store, scope: .timeline)
+        try check(store.selectedClipID == upper.id, "C selects the frontmost clip")
+        registry.perform(.selectClipAtPlayhead, store: store, scope: .timeline)
+        try check(store.selectedClipID == first.id, "C again selects the next clip down")
+        // Split every track in one undoable edit.
+        registry.perform(.splitAll, store: store, scope: .timeline)
+        try check(store.project.tracks.allSatisfy { $0.clips.count == 2 }, "Split all divides every clip under the playhead")
+        store.undo(); try check(store.project == original, "Split all is one undo step")
+        // Trim to the playhead without ripple.
+        store.selectedClipID = first.id
+        registry.perform(.trimEndToPlayhead, store: store, scope: .timeline)
+        try check(store.project.tracks[1].clips[0].sourceRange.duration == (try RationalTime(2)), "Option-W trims the end to the playhead")
+        store.undo()
+        registry.perform(.trimStartToPlayhead, store: store, scope: .timeline)
+        let trimmed = try unwrap(store.project.tracks[1].clips.first, "Missing trimmed clip")
+        try check(trimmed.timelineStart == (try RationalTime(2)) && trimmed.sourceRange.start == (try RationalTime(2)), "Option-Q trims the start and leaves a gap")
+        store.undo()
+        // Nudge by a frame.
+        store.selectedClipID = upper.id
+        registry.perform(.nudgeRight, store: store, scope: .timeline)
+        try check(store.project.tracks[0].clips[0].timelineStart == (try RationalTime(25, 24)), "Option-Right nudges one frame")
+        store.undo()
+        // Disable keeps the clip but leaves it out of the render.
+        registry.perform(.toggleClipEnabled, store: store, scope: .timeline)
+        try check(store.project.tracks[0].clips[0].isEnabled == false && (try TimelineRenderPlan(project: store.project).components.count) == 1,
+                  "V disables the clip")
+        registry.perform(.toggleClipEnabled, store: store, scope: .timeline)
+        try check(store.project.tracks[0].clips[0].isEnabled, "V enables it again")
+        registry.perform(.deselectAll, store: store, scope: .timeline)
+        try check(store.selectedClipID == nil, "Escape deselects")
+        let zoom = store.timelineZoomRequest
+        registry.perform(.zoomIn, store: store, scope: .timeline)
+        try check(store.timelineZoomRequest != zoom && store.timelineZoomRequest.factor > 1, "Command-= zooms in")
+        registry.perform(.toggleSnapping, store: store, scope: .timeline)
+        try check(!store.snappingEnabled, "N toggles snapping")
+    }
+
+    @MainActor
     static func exerciseSourceMarks() throws {
         let store = EditorStore()
         defer { store.close() }
@@ -275,8 +353,11 @@ struct AppFileSmoke {
         store.pendingSourceTransport = (CMTime(seconds: 1, preferredTimescale: 60000), false)
         let registry = EditorCommandRegistry(defaults: UserDefaults(suiteName: "afc.source-marks.smoke")!)
         registry.reset()
+        // Marks follow the visible viewer: with the sequence showing, I never marks the source.
+        store.showSequenceMonitor = true
         registry.perform(.markSourceIn, store: store, scope: .timeline)
-        try check(store.sourceRanges.isEmpty, "Source marking shortcuts respect timeline focus")
+        try check(store.sourceRanges.isEmpty, "Mark In follows the visible viewer")
+        store.showSequenceMonitor = false
         registry.perform(.markSourceIn, store: store, scope: .source)
         store.pendingSourceTransport = (CMTime(seconds: 3, preferredTimescale: 60000), false)
         registry.perform(.markSourceOut, store: store, scope: .source)

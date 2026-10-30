@@ -5,6 +5,9 @@ import UniformTypeIdentifiers
 struct SequenceExportDraft: Identifiable {
     let id = UUID()
     let plan: TimelineRenderPlan
+    var sequenceName = "Sequence"
+    /// The sequence In to Out when marked; the export window offers it or the whole sequence.
+    var markedRange: TimeRange?
 }
 
 struct EDLExportDraft: Identifiable {
@@ -22,7 +25,8 @@ extension EditorStore {
             let validationURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent(UUID().uuidString).appendingPathExtension("mov")
             _ = try FFmpegRenderCompiler.compile(plan, outputURL: validationURL)
-            renderExportDraft = SequenceExportDraft(plan: plan)
+            renderExportDraft = SequenceExportDraft(plan: plan, sequenceName: project.sequenceName,
+                                                    markedRange: sequenceMarkedRange(duration: plan.duration))
         } catch { errorMessage = error.localizedDescription }
     }
 

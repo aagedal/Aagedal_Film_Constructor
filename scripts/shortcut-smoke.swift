@@ -42,6 +42,25 @@ import Foundation
         precondition(defaults[.previousMarker] == ShortcutBinding(key: "m", option: true))
         precondition(defaults[.previousEdit] == ShortcutBinding(key: "up") && defaults[.nextEdit] == ShortcutBinding(key: "down"))
         precondition(ShortcutBinding(key: "m").validationError(for: .previousMarker, bindings: defaults) != nil)
+        // Common editor keys: arrows step frames (Shift by ten), Home/End, ⌥ arrows nudge, Shift-I/O go to marks.
+        precondition(defaults[.previousFrame] == ShortcutBinding(key: "left") && defaults[.nextFrame] == ShortcutBinding(key: "right"))
+        precondition(EditorCommandID.previousFrame.formerDefaultBindings == [ShortcutBinding(key: "left", command: true, option: true)])
+        precondition(defaults[.backTenFrames] == ShortcutBinding(key: "left", shift: true))
+        precondition(defaults[.goToStart] == ShortcutBinding(key: "home") && defaults[.goToEnd] == ShortcutBinding(key: "end"))
+        precondition(ShortcutBinding(key: "home").display == "↖" && ShortcutBinding(key: "end").validationError(for: .goToEnd, bindings: defaults) == nil)
+        precondition(defaults[.nudgeLeft] == ShortcutBinding(key: "left", option: true))
+        precondition(defaults[.goToIn] == ShortcutBinding(key: "i", shift: true) && EditorCommandID.goToIn.scope == .document)
+        precondition(EditorCommandID.markSourceIn.scope == .document && EditorCommandID.markSourceIn.title == "Mark In")
+        precondition(defaults[.splitAll] == ShortcutBinding(key: "b", command: true, shift: true))
+        precondition(defaults[.trimStartToPlayhead] == ShortcutBinding(key: "q", option: true))
+        precondition(defaults[.toggleClipEnabled] == ShortcutBinding(key: "v") && defaults[.selectClipAtPlayhead] == ShortcutBinding(key: "c"))
+        precondition(defaults[.deselectAll] == ShortcutBinding(key: "escape") && defaults[.toggleSnapping] == ShortcutBinding(key: "n"))
+        precondition(defaults[.zoomIn] == ShortcutBinding(key: "=", command: true) && defaults[.zoomOut] == ShortcutBinding(key: "-", command: true))
+        // Bare keys stay limited to commands that allow them.
+        precondition(ShortcutBinding(key: "v").validationError(for: .addTransition, bindings: defaults) != nil)
+        // Every default is unique.
+        precondition(Set(EditorCommandID.allCases.compactMap { defaults[$0]!.isEmpty ? nil : defaults[$0]!.display }).count
+                     == EditorCommandID.allCases.filter { !defaults[$0]!.isEmpty }.count)
         // A former default is never also the current one, or saved maps could not tell them apart.
         for command in EditorCommandID.allCases { precondition(!command.formerDefaultBindings.contains(command.defaultBinding)) }
         precondition(EditorCommandID.rippleDelete.formerDefaultBindings == [ShortcutBinding(key: "delete", command: true, shift: true)])
