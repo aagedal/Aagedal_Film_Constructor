@@ -10,11 +10,10 @@ import importlib.util
 import hashlib
 import os
 from pathlib import Path
-import shlex
 import shutil
 import subprocess
 
-LIBRARIES = ('libavformat', 'libavcodec', 'libavutil', 'libswscale', 'libswresample')
+PACKAGE = 'Packages/NativePlaybackProof'
 
 
 def selection(env):
@@ -32,44 +31,54 @@ def selection(env):
     if target != '27.0':
         raise ValueError('Native development integration requires macOS deployment target 27.0')
     paths = {}
-    for name in ('SRCROOT', 'DERIVED_FILE_DIR', 'SDKROOT', 'AFC_NATIVE_PKG_CONFIG',
-                 'AFC_NATIVE_NOTICES', 'AFC_NATIVE_PROVENANCE'):
+    for name in ('SRCROOT', 'DERIVED_FILE_DIR', 'SDKROOT'):
         path = Path(env.get(name, ''))
         if not path.is_absolute():
             raise ValueError(f'{name} must be an explicit absolute path')
         paths[name] = path
-    tool = paths['AFC_NATIVE_PKG_CONFIG']
-    if not tool.is_file() or not os.access(tool, os.X_OK):
-        raise ValueError('Selected pkg-config must be an executable file')
-    if not paths['AFC_NATIVE_NOTICES'].is_dir() or not any(p.is_file() for p in paths['AFC_NATIVE_NOTICES'].rglob('*')):
-        raise ValueError('Selected notices must be a nonempty directory')
-    if not paths['AFC_NATIVE_PROVENANCE'].is_file() or not paths['AFC_NATIVE_PROVENANCE'].read_bytes().strip():
-        raise ValueError('Selected provenance must be a nonempty file')
     return paths
+
+
+def mpvkit_pin(package_dir):
+    """The resolved MPVKit revision; Package.swift pins it exactly."""
+    resolved = json.loads((package_dir / 'Package.resolved').read_text())
+    pins = [pin for pin in resolved.get('pins', []) if pin.get('identity') == 'mpvkit']
+    if len(pins) != 1 or not pins[0].get('state', {}).get('revision'):
+        raise ValueError('Package.resolved does not pin exactly one MPVKit revision')
+    return dict(location=pins[0]['location'], revision=pins[0]['state']['revision'])
+
+
+def write_attribution(root, scratch, pin):
+    """Notices and provenance for the statically linked MPVKit FFmpeg build."""
+    license_file = scratch / 'checkouts/MPVKit/LICENSE'
+    if not license_file.is_file() or not license_file.read_bytes().strip():
+        raise ValueError('The resolved MPVKit checkout has no LICENSE')
+    notices = root / 'notices'
+    if notices.exists():
+        shutil.rmtree(notices)
+    notices.mkdir()
+    shutil.copyfile(license_file, notices / 'MPVKit-LICENSE')
+    (notices / 'README').write_text(
+        'FFmpeg and its dependencies are statically linked from the GPL build of\n'
+        f'{pin["location"]} at {pin["revision"]}.\n'
+        'Corresponding source is published with that repository and its releases.\n')
+    provenance = root / 'provenance.json'
+    provenance.write_text(json.dumps(dict(mpvkit=pin, product='MPVKit-GPL', linkage='static'), indent=2) + '\n')
+    return notices, provenance
 
 
 def compile_runtime(paths, env):
     root = paths['DERIVED_FILE_DIR'] / 'native-playback'
     root.mkdir(parents=True, exist_ok=True)
-    tool = paths['AFC_NATIVE_PKG_CONFIG']
-    build_env = dict(env)
-    # SwiftPM's system-library discovery uses this same selected tool.
-    build_env['PATH'] = str(tool.parent) + os.pathsep + env.get('PATH', '/usr/bin:/bin')
-    build_env['PKG_CONFIG'] = str(tool)
-    flags = []
-    queries = {}
-    for option, forwarded in [('--cflags', '-Xcc'), ('--libs', '-Xlinker')]:
-        output = subprocess.check_output([str(tool), option, *LIBRARIES], text=True)
-        queries[option] = output.strip()
-        for flag in shlex.split(output):
-            flags += [forwarded, flag]
+    package_dir = paths['SRCROOT'] / PACKAGE
     swift = subprocess.check_output(['/usr/bin/xcrun', '--find', 'swift'], text=True).strip()
-    command = [swift, 'build', '--package-path', str(paths['SRCROOT'] / 'Packages/NativePlaybackProof'),
+    command = [swift, 'build', '--package-path', str(package_dir),
         '--scratch-path', str(root / 'build'), '--cache-path', str(root / 'cache'),
         '--disable-sandbox', '--configuration', 'debug', '--triple', 'arm64-apple-macosx27.0',
-        '--sdk', str(paths['SDKROOT']), '--product', 'NativePlaybackRuntime', *flags]
+        '--sdk', str(paths['SDKROOT']), '--product', 'NativePlaybackRuntime']
+    pin = mpvkit_pin(package_dir)
     (root / 'build-selection.json').write_text(json.dumps(dict(
-        releaseCertified=False, command=command, pkgConfig=str(tool), pkgConfigQueries=queries,
+        releaseCertified=False, command=command, mpvkit=pin,
         architecture='arm64', deploymentTarget='27.0',
         sourceHashes={str(path.relative_to(paths['SRCROOT'])): hashlib.sha256(path.read_bytes()).hexdigest()
             for package in ('EditorCore', 'NativePlaybackProof')
@@ -77,9 +86,10 @@ def compile_runtime(paths, env):
                 *sorted((paths['SRCROOT'] / 'Packages' / package / 'Sources').rglob('*'))]
             if path.is_file()},
         swiftVersion=subprocess.check_output([swift, '--version'], text=True).strip()), indent=2) + '\n')
-    subprocess.run(command, env=build_env, check=True)
+    subprocess.run(command, env=dict(env), check=True)
+    write_attribution(root, root / 'build', pin)
     # Resolve SwiftPM's actual target-triple output rather than assuming its layout.
-    products = Path(subprocess.check_output([*command, '--show-bin-path'], env=build_env, text=True).strip())
+    products = Path(subprocess.check_output([*command, '--show-bin-path'], env=dict(env), text=True).strip())
     if not (products / 'libNativePlaybackRuntime.dylib').is_file():
         raise ValueError('SwiftPM did not produce the selected native runtime')
     alias = root / 'products'
@@ -88,7 +98,7 @@ def compile_runtime(paths, env):
     elif alias.exists():
         raise ValueError('Unexpected native products directory; refusing to replace it')
     alias.symlink_to(products, target_is_directory=True)
-    header = paths['SRCROOT'] / 'Packages/NativePlaybackProof/Sources/CNativeDecoder/include/CNativeDecoder.h'
+    header = package_dir / 'Sources/CNativeDecoder/include/CNativeDecoder.h'
     if '"' in str(header) or '\n' in str(header):
         raise ValueError('Repository path cannot be expressed in the C module map')
     (root / 'CNativeDecoder.modulemap').write_text('module CNativeDecoder { header "' + str(header) + '" export * }\n')
@@ -107,7 +117,8 @@ def embed_runtime(paths, env):
         '--runtime-only', str(paths['DERIVED_FILE_DIR'] / 'native-playback/products/libNativePlaybackRuntime.dylib'),
         '--library-dir', str(paths['DERIVED_FILE_DIR'] / 'native-playback/products'),
         '--frameworks', str(frameworks), '--resources', str(resources),
-        '--notices', str(paths['AFC_NATIVE_NOTICES']), '--provenance', str(paths['AFC_NATIVE_PROVENANCE']),
+        '--notices', str(paths['DERIVED_FILE_DIR'] / 'native-playback/notices'),
+        '--provenance', str(paths['DERIVED_FILE_DIR'] / 'native-playback/provenance.json'),
         '--deployment-target', '27.0', '--sign-identity', identity], check=True)
     shutil.copyfile(paths['DERIVED_FILE_DIR'] / 'native-playback/build-selection.json', resources / 'build-selection.json')
 

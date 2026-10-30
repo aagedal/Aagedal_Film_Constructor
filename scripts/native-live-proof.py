@@ -13,6 +13,8 @@ from pathlib import Path
 import shlex
 import subprocess
 
+from native_parity import mpvkit_pin
+
 
 def positive_seconds(value):
     seconds = float(value)
@@ -56,7 +58,6 @@ def read_observations(path, scripted=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--pkg-config', type=Path, required=True)
     parser.add_argument('--project', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--launch', action='store_true')
@@ -68,24 +69,16 @@ def main():
     args = parser.parse_args()
     if args.scripted_duration is not None and not args.launch:
         parser.error('--scripted-duration requires --launch')
-    pkg = args.pkg_config.resolve(strict=True)
     project = args.project.resolve(strict=True)
     output = args.output.absolute()
     output.mkdir(parents=True, exist_ok=False)
     repo = Path(__file__).resolve().parent.parent
     env = os.environ.copy()
-    env['PATH'] = str(pkg.parent) + os.pathsep + env.get('PATH', '')
     env['CLANG_MODULE_CACHE_PATH'] = str(output / 'module-cache')
     env['SWIFTPM_MODULECACHE_OVERRIDE'] = str(output / 'module-cache')
-    libraries = ['libavformat', 'libavcodec', 'libavutil', 'libswscale', 'libswresample']
-    flags = []
-    for option, forwarded in [('--cflags', '-Xcc'), ('--libs', '-Xlinker')]:
-        values = subprocess.check_output([str(pkg), option, *libraries], env=env, text=True)
-        for item in shlex.split(values):
-            flags += [forwarded, item]
     common = ['--package-path', str(repo / 'Packages/NativePlaybackProof'),
               '--scratch-path', str(output / 'build'), '--cache-path', str(output / 'cache'),
-              '--disable-sandbox', *flags]
+              '--disable-sandbox']
     commands = [['swift', 'build', '--product', 'NativeLiveProof', *common],
                 ['swift', 'test', *common]]
     manifest = {'commands': commands, 'project': str(project),
@@ -97,12 +90,7 @@ def main():
     executable = output / 'build/debug/NativeLiveProof'
     manifest['executableSHA256'] = hashlib.sha256(executable.read_bytes()).hexdigest()
     manifest['dependencies'] = subprocess.check_output(['otool', '-L', str(executable)], text=True)
-    dependencies = {}
-    for library in libraries:
-        libdir = Path(subprocess.check_output([str(pkg), '--variable=libdir', library], env=env, text=True).strip())
-        dylib = (libdir / (library + '.dylib')).resolve(strict=True)
-        dependencies[library] = {'path': str(dylib), 'sha256': hashlib.sha256(dylib.read_bytes()).hexdigest()}
-    manifest['libraries'] = dependencies
+    manifest['mpvkit'] = mpvkit_pin(repo)
     manifest_path = output / 'manifest.json'
     manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
     observation_path = output / 'live-observations.jsonl'

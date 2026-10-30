@@ -299,6 +299,67 @@ invalid:
     return result;
 }
 
+/* Builds without the png/jpeg pipe demuxers (such as MPVKit's) open stills through
+ * image2, which names the codec from the file extension. Require the matching signature. */
+static int still_signature_matches(const char *path, enum AVCodecID codec_id) {
+    unsigned char header[8] = {0};
+    FILE *file = fopen(path, "rb");
+    if (!file) return 0;
+    size_t length = fread(header, 1, sizeof(header), file);
+    fclose(file);
+    static const unsigned char png[8] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
+    if (codec_id == AV_CODEC_ID_PNG) return length == 8 && !memcmp(header, png, 8);
+    if (codec_id == AV_CODEC_ID_MJPEG) return length >= 3 && header[0] == 0xFF && header[1] == 0xD8 && header[2] == 0xFF;
+    return 0;
+}
+
+/* image2 reads the whole file as one packet. Split it with the same parser the pipe
+ * demuxers use, so concatenated images still count as more than one. Returns the
+ * number of images found, stopping at two, or -1 on failure. */
+static int still_image_count(const char *path, enum AVCodecID codec_id) {
+    AVCodecParserContext *parser = av_parser_init(codec_id);
+    AVCodecContext *context = avcodec_alloc_context3(NULL);
+    FILE *file = fopen(path, "rb");
+    int count = -1;
+    if (!parser || !context || !file) goto done;
+    count = 0;
+    uint8_t buffer[65536];
+    int finished = 0;
+    while (!finished && count < 2) {
+        size_t length = fread(buffer, 1, sizeof(buffer), file);
+        if (length == 0) {
+            if (ferror(file)) { count = -1; break; }
+            finished = 1;
+        }
+        const uint8_t *input = length ? buffer : NULL;
+        int remaining = (int)length;
+        do {
+            uint8_t *output = NULL;
+            int output_size = 0;
+            int used = av_parser_parse2(parser, context, &output, &output_size, input, remaining,
+                                        AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
+            if (used < 0) { count = -1; goto done; }
+            if (output_size > 0) count++;
+            if (input) { input += used; remaining -= used; }
+            // At end of input, flush once per call until the parser has nothing left.
+            else if (output_size == 0) break;
+        } while ((remaining > 0 || !input) && count < 2);
+    }
+done:
+    if (file) fclose(file);
+    avcodec_free_context(&context);
+    av_parser_close(parser);
+    return count;
+}
+
+static int qualified_still_format(const AVFormatContext *format, const AVCodecParameters *parameters, const char *path) {
+    const char *name = format->iformat->name;
+    if (parameters->codec_id == AV_CODEC_ID_PNG && !strcmp(name, "png_pipe")) return 1;
+    if (parameters->codec_id == AV_CODEC_ID_MJPEG && !strcmp(name, "jpeg_pipe")) return 1;
+    return !strcmp(name, "image2") && still_signature_matches(path, parameters->codec_id) &&
+           still_image_count(path, parameters->codec_id) == 1;
+}
+
 static AFCDecoder *open_decoder(const char *path, int stream_index, int still,
                              char *error, size_t error_size) {
     clear_error(error, error_size);
@@ -317,6 +378,8 @@ static AFCDecoder *open_decoder(const char *path, int stream_index, int still,
     decoder->stream_index = stream_index;
     AVDictionary *options = NULL;
     av_dict_set(&options, "protocol_whitelist", "file", 0);
+    // image2 must read the literal path, never expand it as a numbered sequence.
+    if (still) av_dict_set(&options, "pattern_type", "none", 0);
     int result = avformat_open_input(&decoder->format, path, NULL, &options);
     av_dict_free(&options);
     if (result < 0) {
@@ -336,8 +399,7 @@ static AFCDecoder *open_decoder(const char *path, int stream_index, int still,
     AVCodecParameters *parameters = decoder->stream->codecpar;
     decoder->kind = parameters->codec_type;
     if (still && (decoder->format->nb_streams != 1 || stream_index != 0 ||
-        !((parameters->codec_id == AV_CODEC_ID_PNG && !strcmp(decoder->format->iformat->name, "png_pipe")) ||
-          (parameters->codec_id == AV_CODEC_ID_MJPEG && !strcmp(decoder->format->iformat->name, "jpeg_pipe"))))) {
+        !qualified_still_format(decoder->format, parameters, path))) {
         fail(error, error_size, "Still decoder requires one PNG/JPEG image stream");
         goto invalid;
     }

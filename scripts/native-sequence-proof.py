@@ -12,19 +12,21 @@ import os
 import math
 import struct
 from pathlib import Path
-import shlex
 import subprocess
 import uuid
 from urllib.parse import unquote, urlparse
 
-from native_parity import compare_float_audio, compare_rgb, compare_rgb_region
+from native_parity import compare_float_audio, compare_rgb, compare_rgb_region, mpvkit_pin
+
+
+# A fresh cache downloads every MPVKit binary artifact before building.
+SWIFTPM_TIMEOUT = 1800
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('ffmpeg', type=Path)
     parser.add_argument('ffprobe', type=Path)
-    parser.add_argument('pkg_config', type=Path)
     parser.add_argument('fixture', type=Path)
     parser.add_argument('output', type=Path)
     subset = parser.add_mutually_exclusive_group()
@@ -33,7 +35,7 @@ def main():
     subset.add_argument("--stills-only", action="store_true", help="Qualify PNG alpha/JPEG still fit/fill/none and baseline only")
     subset.add_argument('--partial-tail-only', action='store_true', help='Qualify an audio tail ending between video frames and baseline only')
     args = parser.parse_args()
-    for executable in (args.ffmpeg, args.ffprobe, args.pkg_config):
+    for executable in (args.ffmpeg, args.ffprobe):
         if not executable.is_absolute() or not os.access(executable, os.X_OK):
             parser.error('Supply explicit absolute executable paths')
     if not args.fixture.is_absolute() or not (args.fixture / 'result.json').is_file():
@@ -48,7 +50,7 @@ def main():
     root = args.output
     repo = Path(__file__).resolve().parent.parent
     result = {'passed': False, 'variants': [], 'limitations': [
-        'Development dynamically linked libraries, no bundled/signed distribution',
+        'Development build statically linking the pinned MPVKit FFmpeg; no bundled/signed distribution',
         'Bounded square-pixel SDR CFR video and matching-rate PCM audio only',
         'Native CGImage/PNG captures and offline AVAudioEngine; no live display/CoreAudio A/V sync',
         'Only recorded video scaling/PNG-alpha/JPEG fixtures qualified; no general image-format/color/VFR conformance, compressed audio/resampling, video transitions or proxies',
@@ -56,8 +58,6 @@ def main():
     ]}
     commands = []
     env = os.environ.copy()
-    # SwiftPM's pkg-config must resolve the supplied tool, not an unrelated helper.
-    env['PATH'] = str(args.pkg_config.parent) + os.pathsep + env.get('PATH', '')
     env['CLANG_MODULE_CACHE_PATH'] = str(root / 'module-cache')
     env['SWIFTPM_MODULECACHE_OVERRIDE'] = str(root / 'module-cache')
 
@@ -89,21 +89,10 @@ def main():
     try:
         identities = {}
         for name, path, flag in [('ffmpeg', args.ffmpeg, '-version'),
-                                 ('ffprobe', args.ffprobe, '-version'),
-                                 ('pkgConfig', args.pkg_config, '--version')]:
+                                 ('ffprobe', args.ffprobe, '-version')]:
             identities[name] = {'path': str(path), 'sha256': digest(path),
                                'version': run([path, flag], name + '-version.txt', capture=True)}
-        libraries = ['libavformat', 'libavcodec', 'libavutil', 'libswscale', 'libswresample']
-        run([args.pkg_config, '--modversion', *libraries], 'library-versions.txt')
-        cflags = shlex.split(run([args.pkg_config, '--cflags', *libraries], 'library-cflags.txt', capture=True))
-        ldflags = shlex.split(run([args.pkg_config, '--libs', *libraries], 'library-ldflags.txt', capture=True))
-        flags = [flag for item in cflags for flag in ('-Xcc', item)]
-        flags += [flag for item in ldflags for flag in ('-Xlinker', item)]
-        for library in libraries:
-            libdir = Path(run([args.pkg_config, '--variable=libdir', library], library + '-libdir.txt', capture=True))
-            path = libdir / (library + '.dylib')
-            identities[library] = {'path': str(path.resolve()), 'sha256': digest(path)}
-            run(['otool', '-L', path], library + '-dependencies.txt')
+        identities['mpvkit'] = mpvkit_pin(repo)
         source_files = [repo / 'scripts/native-sequence-proof.py', repo / 'scripts/native_parity.py']
         for directory in (repo / 'Packages/NativePlaybackProof', repo / 'Packages/EditorCore'):
             source_files += [p for p in directory.rglob('*') if p.is_file() and
@@ -111,14 +100,14 @@ def main():
         write_json(root / 'source-manifest.json', {str(p.relative_to(repo)): digest(p) for p in sorted(source_files)})
         run(['git', '-C', repo, 'status', '--short'], 'git-status.txt')
         run(['swift', 'build', '--package-path', repo / 'Packages/NativePlaybackProof',
-             '--scratch-path', root / 'build', '--cache-path', root / 'cache', '--disable-sandbox', *flags], 'build.log')
+             '--scratch-path', root / 'build', '--cache-path', root / 'cache', '--disable-sandbox'], 'build.log', timeout=SWIFTPM_TIMEOUT)
         run(['swift', 'test', '--package-path', repo / 'Packages/NativePlaybackProof',
-             '--scratch-path', root / 'build', '--cache-path', root / 'cache', '--disable-sandbox', *flags], 'runtime-tests.log')
+             '--scratch-path', root / 'build', '--cache-path', root / 'cache', '--disable-sandbox'], 'runtime-tests.log', timeout=SWIFTPM_TIMEOUT)
         native = root / 'build/debug/NativeSequenceProof'
         identities['nativeExecutable'] = {'path': str(native), 'sha256': digest(native)}
         run(['otool', '-L', native], 'native-dependencies.txt')
         run(['swift', 'build', '--package-path', repo / 'Packages/EditorCore',
-             '--scratch-path', root / 'core-build', '--cache-path', root / 'cache', '--disable-sandbox'], 'core-build.log')
+             '--scratch-path', root / 'core-build', '--cache-path', root / 'cache', '--disable-sandbox'], 'core-build.log', timeout=SWIFTPM_TIMEOUT)
         compiler = root / 'core-build/debug/RenderPlanProof'
         write_json(root / 'identities.json', identities)
         fixture_project = json.loads((args.fixture / 'project.json').read_text())

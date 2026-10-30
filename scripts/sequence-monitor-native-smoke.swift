@@ -37,7 +37,7 @@ import CryptoKit
         var project = Project(settings: settings, assets: [asset], families: [family, audioFamily],
             tracks: [.init(familyID: family.id, template: video, clips: [clip]),
                      .init(familyID: audioFamily.id, template: audio, clips: [audioClip])])
-        let proxyURL = source.deletingLastPathComponent().appendingPathComponent("proxy.nut")
+        let proxyURL = source.deletingLastPathComponent().appendingPathComponent("proxy.mov")
         let proxyBytes = try Data(contentsOf: proxyURL)
         let attributes = try FileManager.default.attributesOfItem(atPath: source.path)
         let sourceSize = (attributes[.size] as! NSNumber).int64Value

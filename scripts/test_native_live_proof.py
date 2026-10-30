@@ -97,16 +97,11 @@ class HarnessTests(unittest.TestCase):
     def run_harness(self, launch=False, records=None, scripted=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            pkg = root / 'pkg-config'; pkg.write_text('fixture')
             project = root / 'project.json'; project.write_text('{}')
             output = root / 'result'
-            for library in ['libavformat', 'libavcodec', 'libavutil', 'libswscale', 'libswresample']:
-                (root / (library + '.dylib')).write_bytes(b'fixture')
             commands = []
 
             def check_output(command, **kwargs):
-                if '--variable=libdir' in command:
-                    return str(root)
                 if command[0] == 'otool':
                     return 'fixture linkage'
                 return ''
@@ -122,7 +117,7 @@ class HarnessTests(unittest.TestCase):
                     path.write_text(''.join(json.dumps(record) + '\n' for record in records))
                 return subprocess.CompletedProcess(command, 0)
 
-            arguments = ['native-live-proof.py', '--pkg-config', str(pkg), '--project',
+            arguments = ['native-live-proof.py', '--project',
                          str(project), '--output', str(output)]
             if launch:
                 arguments.append('--launch')

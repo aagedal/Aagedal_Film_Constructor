@@ -55,3 +55,13 @@ def compare_float_audio(actual, expected_s16, channels, tolerance=1 / 32768):
             raise ValueError(f'Sample {index} error {error} exceeds {tolerance}')
         maximum = max(maximum, error)
     return {'samplesPerChannel': len(floats) // channels, 'maxErrorInS16Units': maximum * 32768}
+
+
+def mpvkit_pin(repo):
+    """The MPVKit revision that supplies the runtime's statically linked FFmpeg."""
+    import json
+    resolved = json.loads((repo / 'Packages/NativePlaybackProof/Package.resolved').read_text())
+    pins = [pin for pin in resolved.get('pins', []) if pin.get('identity') == 'mpvkit']
+    if len(pins) != 1:
+        raise ValueError('Package.resolved must pin exactly one MPVKit revision')
+    return {'location': pins[0]['location'], 'revision': pins[0]['state']['revision']}

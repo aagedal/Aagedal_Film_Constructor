@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -18,64 +19,61 @@ configure = load('configure-native-playback')
 
 class NativeXcodeDevelopmentTests(unittest.TestCase):
     def fixture(self, root):
-        tool = root / 'pkg-config'
-        tool.write_text('#!/bin/sh\nexit 0\n')
-        tool.chmod(0o755)
-        notices = root / 'notices'
-        notices.mkdir()
-        (notices / 'NOTICE').write_text('Development notices')
-        provenance = root / 'provenance.txt'
-        provenance.write_text('Development provenance')
         return dict(AFC_NATIVE_PLAYBACK='YES', CONFIGURATION='Debug', ACTION='build', ARCHS='arm64',
             MACOSX_DEPLOYMENT_TARGET='27.0', SRCROOT=str(root), DERIVED_FILE_DIR=str(root / 'derived'),
-            SDKROOT=str(root), AFC_NATIVE_PKG_CONFIG=str(tool), AFC_NATIVE_NOTICES=str(notices),
-            AFC_NATIVE_PROVENANCE=str(provenance))
+            SDKROOT=str(root))
+
+    def package(self, root, pins):
+        package = root / build.PACKAGE
+        package.mkdir(parents=True)
+        (package / 'Package.resolved').write_text(json.dumps(dict(pins=pins, version=3)))
+        return package
 
     def test_default_is_unselected_and_unsupported_selection_fails(self):
         self.assertIsNone(build.selection({}))
         with self.assertRaises(ValueError):
             build.selection({'AFC_NATIVE_PLAYBACK': 'maybe'})
 
-    def test_release_archive_universal_wrong_deployment_and_missing_attribution_fail(self):
+    def test_release_archive_universal_wrong_deployment_and_relative_paths_fail(self):
         with tempfile.TemporaryDirectory() as directory:
             env = self.fixture(Path(directory))
             self.assertEqual(build.selection(env)['SRCROOT'], Path(directory))
             for field, value in [('CONFIGURATION', 'Release'), ('ACTION', 'install'),
                 ('ARCHS', 'arm64 x86_64'), ('MACOSX_DEPLOYMENT_TARGET', '14.0'),
-                ('AFC_NATIVE_PKG_CONFIG', 'relative'), ('AFC_NATIVE_NOTICES', '/missing'),
-                ('AFC_NATIVE_PROVENANCE', '/missing')]:
+                ('SRCROOT', 'relative'), ('DERIVED_FILE_DIR', '')]:
                 with self.subTest(field=field), self.assertRaises(ValueError):
                     build.selection(dict(env, **{field: value}))
 
-    def test_selection_is_explicit_local_and_preserves_spaces(self):
-        with tempfile.TemporaryDirectory(prefix='native selection ') as directory:
-            env = self.fixture(Path(directory))
-            with patch.object(configure.subprocess, 'run') as run:
-                settings = configure.selected_settings(*[Path(env[key]) for key in (
-                    'AFC_NATIVE_PKG_CONFIG', 'AFC_NATIVE_NOTICES', 'AFC_NATIVE_PROVENANCE')])
-            self.assertIn('AFC_NATIVE_PLAYBACK = YES', settings)
-            self.assertIn('AFC_NATIVE_PKG_CONFIG = ' + env['AFC_NATIVE_PKG_CONFIG'], settings)
-            self.assertIn('-lNativePlaybackRuntime', settings)
-            self.assertIn('SWIFT_INCLUDE_PATHS = $(inherited) "$(DERIVED_FILE_DIR)/native-playback/products" "$(DERIVED_FILE_DIR)/native-playback/products/Modules"', settings)
-            run.assert_called_once_with([env['AFC_NATIVE_PKG_CONFIG'], '--exists', *configure.LIBRARIES], check=True)
+    def test_enable_writes_runtime_link_settings_without_machine_paths(self):
+        self.assertIn('AFC_NATIVE_PLAYBACK = YES', configure.SETTINGS)
+        self.assertIn('-lNativePlaybackRuntime', configure.SETTINGS)
+        self.assertIn('SWIFT_INCLUDE_PATHS = $(inherited) "$(DERIVED_FILE_DIR)/native-playback/products" "$(DERIVED_FILE_DIR)/native-playback/products/Modules"', configure.SETTINGS)
+        self.assertNotIn('PKG_CONFIG', configure.SETTINGS)
 
-    def test_unrepresentable_xcconfig_values_are_rejected(self):
-        for value in ('/tmp/a\nb', '/tmp/a//b', '/tmp/a"b', '/tmp/$(HOME)', '/tmp/a\\b'):
-            with self.subTest(value=value), self.assertRaises(ValueError):
-                configure.xcconfig_value(value)
-
-    def test_build_uses_selected_tool_target_sdk_and_records_exact_flags(self):
+    def test_mpvkit_pin_requires_exactly_one_revision(self):
         with tempfile.TemporaryDirectory() as directory:
-            env = self.fixture(Path(directory))
+            pin = dict(identity='mpvkit', location='https://github.com/aagedal/MPVKit', state=dict(revision='abc'))
+            package = self.package(Path(directory), [pin])
+            self.assertEqual(build.mpvkit_pin(package), dict(location=pin['location'], revision='abc'))
+            for pins in ([], [dict(pin, state={})], [pin, pin]):
+                (package / 'Package.resolved').write_text(json.dumps(dict(pins=pins)))
+                with self.subTest(pins=pins), self.assertRaises(ValueError):
+                    build.mpvkit_pin(package)
+
+    def test_build_uses_target_sdk_and_records_mpvkit_attribution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            env = self.fixture(root)
             paths = build.selection(env)
-            products = Path(directory) / 'actual-products'
+            self.package(root, [dict(identity='mpvkit', location='https://github.com/aagedal/MPVKit',
+                                     state=dict(revision='f957f48'))])
+            checkout = paths['DERIVED_FILE_DIR'] / 'native-playback/build/checkouts/MPVKit'
+            checkout.mkdir(parents=True)
+            (checkout / 'LICENSE').write_text('GNU GENERAL PUBLIC LICENSE')
+            products = root / 'actual-products'
             products.mkdir()
             (products / 'libNativePlaybackRuntime.dylib').write_bytes(b'development test')
             def capture(command, **kwargs):
-                if '--cflags' in command:
-                    return '-I/explicit/include\n'
-                if '--libs' in command:
-                    return '-L/explicit/lib -lavformat\n'
                 if command[:2] == ['/usr/bin/xcrun', '--find']:
                     return '/usr/bin/swift\n'
                 if '--version' in command:
@@ -86,12 +84,14 @@ class NativeXcodeDevelopmentTests(unittest.TestCase):
             command = run.call_args.args[0]
             self.assertIn('arm64-apple-macosx27.0', command)
             self.assertIn('--sdk', command)
-            self.assertIn('-I/explicit/include', command)
-            self.assertIn('-lavformat', command)
-            root = paths['DERIVED_FILE_DIR'] / 'native-playback'
-            self.assertEqual((root / 'products').resolve(), products.resolve())
-            self.assertTrue((root / 'CNativeDecoder.modulemap').is_file())
-            self.assertIn('releaseCertified', (root / 'build-selection.json').read_text())
+            self.assertFalse(any(flag in command for flag in ('-Xcc', '-Xlinker')))
+            native = paths['DERIVED_FILE_DIR'] / 'native-playback'
+            self.assertEqual((native / 'products').resolve(), products.resolve())
+            self.assertTrue((native / 'CNativeDecoder.modulemap').is_file())
+            self.assertIn('releaseCertified', (native / 'build-selection.json').read_text())
+            self.assertEqual((native / 'notices/MPVKit-LICENSE').read_text(), 'GNU GENERAL PUBLIC LICENSE')
+            self.assertIn('f957f48', (native / 'notices/README').read_text())
+            self.assertEqual(json.loads((native / 'provenance.json').read_text())['mpvkit']['revision'], 'f957f48')
 
     def test_disabled_cleanup_preserves_unrelated_frameworks(self):
         with tempfile.TemporaryDirectory() as directory:
