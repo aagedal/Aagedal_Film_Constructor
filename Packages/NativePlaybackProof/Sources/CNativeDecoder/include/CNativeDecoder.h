@@ -125,6 +125,69 @@ int afc_preview_peaks(AFCPreview *preview, double start, double duration, int bi
                       const int *channels, int channel_count, float *peaks, size_t peak_count,
                       char *error, size_t error_size);
 
+/** libmpv Source viewer player; no libmpv type crosses this ABI.
+ *
+ * Two serial callers: a control caller for everything except render, and a
+ * render caller for afc_source_render/afc_source_release_render only. The render
+ * caller must never wait on the control caller. Release the render context on
+ * the render caller before close/destroy, which may otherwise do it themselves.
+ * No foreign callbacks are installed: keep polling events and rendering.
+ *
+ * open accepts absolute local regular files and container ff-index values (-1
+ * disables that media type) and starts paused. With external_audio, audio is
+ * that file's ff-index stream (proxy picture with original sound) and
+ * audio_delay aligns it. OPENED means explicit track selection finished and
+ * both selected IDs were read back. Timestamps are raw container time (no
+ * start-time rebase). Exact seeks show the first frame at or after the target;
+ * COMMAND_REPLY acknowledges execution and PLAYBACK_RESTART, which can coalesce,
+ * follows decoding. Load/track failures are terminal: destroy and recreate.
+ * Negative statuses are the errors below or unmodified libmpv error codes.
+ */
+typedef struct AFCSourcePlayer AFCSourcePlayer;
+enum { AFC_SOURCE_INVALID = -1000, AFC_SOURCE_STATE = -1001,
+       AFC_SOURCE_BUSY = -1002, AFC_SOURCE_TRACK = -1003 };
+typedef enum {
+    AFC_SOURCE_OPENED = 1, AFC_SOURCE_COMMAND_REPLY, AFC_SOURCE_PLAYBACK_RESTART,
+    AFC_SOURCE_POSITION, AFC_SOURCE_PAUSE, AFC_SOURCE_END_FILE, AFC_SOURCE_ERROR,
+    AFC_SOURCE_SHUTDOWN
+} AFCSourceEventType;
+typedef struct {
+    AFCSourceEventType type;
+    uint64_t request_id;
+    int status;
+    double seconds;
+    int paused;
+    int64_t video_track_id;
+    int64_t audio_track_id;
+    int end_reason; /* libmpv end reason; EOF is zero. */
+    char message[256];
+} AFCSourceEvent;
+/** audio_output: 1 plays through CoreAudio, 0 decodes to a null output. */
+int afc_source_create(AFCSourcePlayer **out, int audio_output, char *error, size_t capacity);
+int afc_source_open(AFCSourcePlayer *player, const char *path, int video_ff_index, int audio_ff_index,
+                    const char *external_audio, double audio_delay, uint64_t request_id);
+/** Raw container seconds. Request IDs are nonzero and unique among pending requests. */
+int afc_source_seek(AFCSourcePlayer *player, double seconds, uint64_t request_id);
+int afc_source_set_paused(AFCSourcePlayer *player, int paused, uint64_t request_id);
+/** Event count or a negative error; capacity and budget are 1...1024. */
+int afc_source_poll(AFCSourcePlayer *player, AFCSourceEvent *events, size_t capacity, size_t budget);
+/** Last observed time-pos (raw container seconds); STATE until one is observed. */
+int afc_source_position(AFCSourcePlayer *player, double *seconds);
+/** Current time-pos read synchronously from the core (control caller). */
+int afc_source_time_pos(AFCSourcePlayer *player, double *seconds);
+/** Display size of the selected video (control caller; may briefly block). */
+int afc_source_video_size(AFCSourcePlayer *player, int *width, int *height);
+/** Render caller: 1 when a frame was drawn into the bgr0 surface (B G R X bytes),
+ * 0 when nothing changed. force redraws the current frame. stride is bytes per row. */
+int afc_source_render(AFCSourcePlayer *player, int width, int height, uint8_t *bgr0, size_t stride, int force);
+void afc_source_release_render(AFCSourcePlayer *player);
+void afc_source_close(AFCSourcePlayer *player);
+void afc_source_destroy(AFCSourcePlayer **player);
+/** Asset zero in raw container seconds (the earliest audio/video stream start,
+ * as the import probe defines it) and the first video ff-index, or -1. */
+int afc_source_media_origin(const char *path, int64_t *numerator, int64_t *denominator,
+                            int *first_video_index, char *error, size_t capacity);
+
 #ifdef __cplusplus
 }
 #endif

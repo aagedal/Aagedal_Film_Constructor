@@ -259,7 +259,7 @@ What each consumer does with an unconverted original:
 | Sequence monitor | Native runtime plays it (admission is its guarantee) |
 | Timeline thumbnails | FFmpeg (`NativeMediaPreview`) when AVFoundation cannot play the file, which also covers MOVs that AVFoundation reads but cannot decode |
 | Timeline waveforms | FFmpeg when AVFoundation cannot read the file |
-| Source viewer | One native frame at the playhead, with "plays in the Sequence monitor"; there is no source transport until the MPV source viewer lands. With a verified proxy it shows proxy picture without audio |
+| Source viewer | libmpv (see [MPV Source viewer](#mpv-source-viewer-native-runtime)): transport, scrub, marks and sound on FFmpeg's frame grid; with a verified proxy, proxy picture plus the original's sound. One native frame if libmpv cannot open it |
 | Export, proxies, render-a-deshaken-copy, noise reduction | Unchanged: bundled FFmpeg reads the original |
 | Relink | Same `inspectOrConvert` path, so the replacement is probed or converted the same way |
 | Interchange (FCPXML/OTIO/EDL) | References the original file, which other applications may not read |
@@ -275,6 +275,45 @@ Known differences from `inspect` on media both read, pinned by
   72,000-sample AAC file, AVFoundation reports 70,912 samples.
 
 Known concerns, not addressed here: the app bundles two FFmpeg copies (helpers and
-the runtime dylib), and the 8.1.2-era MPV proofs showed color differences and AAC/MP3
-seek issues.
+the runtime dylib). The MPV colour and AAC/MP3 seek findings are rechecked on n9.0.2
+under [MPV Source viewer](#mpv-source-viewer-native-runtime).
+
+## MPV Source viewer (native runtime)
+
+With the native runtime, the Source viewer plays originals AVFoundation cannot
+(`AVURLAsset.isPlayable` is false) through libmpv: media imported unconverted through
+FFmpeg, and MOVs AVFoundation reads but cannot decode (FFV1, DNxHR, …). Everything
+AVFoundation plays keeps AVPlayer, and normal builds are unchanged.
+
+| Situation | Source viewer |
+| --- | --- |
+| AVFoundation plays the original (any build) | AVPlayer, as before |
+| Native-only original, HiRes | libmpv: original picture and sound ("HiRes source · native playback") |
+| Native-only original, Proxy with a verified proxy | libmpv: proxy picture plus the original's sound from its own FFmpeg stream index ("Proxy picture · original audio · native playback") |
+| Native-only original offline, verified proxy | AVPlayer proxy picture without audio, as before |
+| libmpv cannot open the original | One native frame, "plays in the Sequence monitor", as before step 3 |
+| libmpv cannot open the proxy | AVPlayer proxy picture without the original's audio |
+
+Timing follows export, not MPV's defaults. MPV reads raw container time
+(`rebase-start-time=no`); asset zero is the earliest audio/video stream start, as in the
+import probe. The picture is the asset's first video stream by FFmpeg index, and seeks
+land on its frame grid including its start offset: a request inside frame *n* seeks
+exactly to *n*'s own timestamp, MPV shows the first frame at or after it, and the
+reported time is that frame's asset time. A mark rounded from it is the frame export
+trims at (`fps=…:round=near` from the stream's offset). Requests within 1/1000 frame of
+a boundary count as that boundary, because the store's 1/60000 s clock cannot hold every
+1001/24000 frame start. The asset end and audio past the last frame keep their own time,
+so Out at the end stays exclusive. Sound is the asset's first audio stream by FFmpeg
+index; further streams are not mixed in yet. A proxy's picture starts at asset zero, and
+the original's sound is shifted by the two files' start difference.
+
+Video is drawn by libmpv's software renderer (`vo=libmpv`, render API `sw`, fitted within
+1920×1080) on its own queue and shown in a layer; there is no GPU presentation or
+VideoToolbox decoding yet. Sound plays through CoreAudio. Measured on n9.0.2 (see
+[evidence](evidence/mpv-source-viewer-20261031/README.md)): tagged BT.709/601 colour
+matches FFmpeg's conversion in flat areas (mean 0.003–0.005, peak 3), with chroma-edge
+differences from the upsampling filter (frame means 0.48–1.74). Source audio after a
+seek is an approximation: in MPV's timestamp seek mode PCM passes 12/24 and ALAC 18/24
+exact-range checks, AAC and MP3 0/24, unchanged from 8.1.2. Neither affects export or the
+Sequence monitor, which do not use MPV.
 

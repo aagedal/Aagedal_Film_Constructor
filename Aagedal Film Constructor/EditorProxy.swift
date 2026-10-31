@@ -1,6 +1,9 @@
 import AppKit
 import AVFoundation
 import EditorCore
+#if canImport(NativePlaybackRuntime)
+import NativePlaybackRuntime
+#endif
 
 struct ProxyCreationDraft: Identifiable {
     let id = UUID()
@@ -230,8 +233,15 @@ extension EditorStore {
             sourcePreviewTask = Task {
                 // A readable source can still use a codec unsupported by AVFoundation.
                 // Probe only when a verified generated proxy could be a useful fallback.
-                let originalPlayable = originalExists
+                let avFoundationPlayable = originalExists
                     ? (try? await AVURLAsset(url: originalURL).load(.isPlayable)) ?? false : false
+                #if canImport(NativePlaybackRuntime)
+                // libmpv plays a readable original that AVFoundation cannot.
+                let nativeOriginal = originalExists && !avFoundationPlayable
+                #else
+                let nativeOriginal = false
+                #endif
+                let originalPlayable = avFoundationPlayable || nativeOriginal
                 guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset,
                       representation == playbackRepresentation else { return }
                 let matches = representation == .original && originalPlayable
@@ -242,13 +252,7 @@ extension EditorStore {
                     proxyExists: FileManager.default.isReadableFile(atPath: proxy.url.path), proxyIntegrityMatches: matches,
                     originalExists: originalPlayable && FileManager.default.isReadableFile(atPath: originalURL.path))
                 installSourcePreview(asset: asset, originalURL: originalURL, resolution: resolution,
-                    time: time, playing: playing, preservingTransport: preservingTransport)
-                #if canImport(NativePlaybackRuntime)
-                // A native-only original is present; only AVFoundation cannot add its audio here.
-                if originalExists, !originalPlayable, proxyPlaybackMessage == "HiRes unavailable · proxy picture · original audio unavailable" {
-                    proxyPlaybackMessage = "Proxy picture · native original plays with sound in the Sequence monitor"
-                }
-                #endif
+                    time: time, playing: playing, preservingTransport: preservingTransport, nativeOriginal: nativeOriginal)
             }
             return
         }
@@ -264,8 +268,54 @@ extension EditorStore {
         if restoring { restoreSourceTransport(backend: player, time: time, playing: playing) }
     }
 
+    #if canImport(NativePlaybackRuntime)
+    private enum MPVSourceInstall { case installed, obsolete, failed(Error) }
+
+    /// The original's first picture stream and first sound stream, by FFmpeg index,
+    /// on that picture stream's frame grid and start offset.
+    private static func mpvOriginalMedia(_ asset: MediaAsset, url: URL) -> NativeSourceMedia {
+        let video = asset.streams.filter { $0.kind == .video }.min { $0.index < $1.index }
+        let audio = asset.streams.filter { $0.kind == .audio }.min { $0.index < $1.index }
+        return NativeSourceMedia(url: url, videoStreamIndex: video?.index, audioStreamIndex: audio?.index,
+                                 frameRate: video?.videoFormat?.frameRate.value, videoOffset: video?.timeOffset ?? .zero,
+                                 duration: asset.duration)
+    }
+
+    /// Opens libmpv, restores the pending transport and installs the backend, as the
+    /// AVFoundation proxy path does. Seek failures are reported here.
+    private func installMPVSource(asset: MediaAsset, media: NativeSourceMedia, time: CMTime, playing: Bool,
+                                  epoch: UUID, representation: PlaybackRepresentation) async -> MPVSourceInstall {
+        func current() -> Bool {
+            !Task.isCancelled && epoch == mediaEpoch && selectedAsset == asset && representation == playbackRepresentation
+        }
+        let backend = MPVSourceBackend(player: NativeSourcePlayer(media: media))
+        do {
+            try await backend.player.open()
+        } catch {
+            backend.close()
+            return current() ? .failed(error) : .obsolete
+        }
+        guard current() else { backend.close(); return .obsolete }
+        do {
+            try await backend.seek(to: pendingSourceTransport?.time ?? time)
+        } catch {
+            backend.close()
+            if current() { reportSourceSeekFailure(error) }
+            return .obsolete
+        }
+        guard current() else { backend.close(); return .obsolete }
+        sourcePlayback = backend
+        if pendingSourceTransport?.playing ?? playing { backend.play() }
+        pendingSourceTransport = nil
+        statusMessage = "Source preview: \(asset.name)"
+        return .installed
+    }
+    #endif
+
+    /// `nativeOriginal` says whether the original needs libmpv (AVFoundation cannot play
+    /// it); nil when not yet checked. Normal builds never use it.
     private func installSourcePreview(asset: MediaAsset, originalURL: URL, resolution: ProxyPlaybackResolution,
-                                      time: CMTime, playing: Bool, preservingTransport: Bool) {
+                                      time: CMTime, playing: Bool, preservingTransport: Bool, nativeOriginal: Bool? = nil) {
         guard let playbackURL = resolution.url else {
             proxyPlaybackMessage = "HiRes unavailable · no verified proxy available"
             statusMessage = "Missing media: \(asset.name). Choose Relink in the inspector."
@@ -285,15 +335,28 @@ extension EditorStore {
         let epoch = mediaEpoch
         if !resolution.usesProxy {
             #if canImport(NativePlaybackRuntime)
-            // Media imported unconverted through FFmpeg can be unreadable by AVFoundation. The
-            // Source viewer then shows one native frame; the Sequence monitor plays it.
+            // Media imported unconverted through FFmpeg can be unreadable by AVFoundation.
+            // libmpv then plays it; if libmpv cannot, the viewer shows one native frame.
             if pendingSourceTransport == nil { pendingSourceTransport = (time, playing) }
+            let message = proxyPlaybackMessage
             sourcePreviewTask = Task {
-                let playable = (try? await AVURLAsset(url: playbackURL).load(.isPlayable)) ?? false
+                let playable: Bool
+                if let nativeOriginal { playable = !nativeOriginal }
+                else { playable = (try? await AVURLAsset(url: playbackURL).load(.isPlayable)) ?? false }
                 guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation else { return }
                 if playable {
                     installOriginalSourcePlayer(asset: asset, url: playbackURL, time: time, playing: playing, restoring: true)
                     return
+                }
+                proxyPlaybackMessage = "\(message) · loading native playback…"
+                switch await installMPVSource(asset: asset, media: Self.mpvOriginalMedia(asset, url: playbackURL),
+                                              time: time, playing: playing, epoch: epoch, representation: representation) {
+                case .installed:
+                    proxyPlaybackMessage = "\(message) · native playback"
+                    return
+                case .obsolete: return
+                case .failed(let error):
+                    statusMessage = "Native source playback unavailable for \(asset.name): \(error)"
                 }
                 let seconds = (pendingSourceTransport?.time ?? time).seconds
                 pendingSourceTransport = nil
@@ -313,6 +376,36 @@ extension EditorStore {
             return
         }
         if pendingSourceTransport == nil { pendingSourceTransport = (time, playing) }
+        #if canImport(NativePlaybackRuntime)
+        // Proxy picture with the original's sound, which only libmpv can read.
+        if resolution.status == .available, nativeOriginal == true, let proxy = asset.proxy {
+            let audio = Self.mpvOriginalMedia(asset, url: originalURL).audioStreamIndex
+            let message = proxyPlaybackMessage
+            sourcePreviewTask = Task {
+                let outcome: MPVSourceInstall
+                do {
+                    let media = try NativeSourceMedia.proxy(url: playbackURL, frameRate: proxy.frameRate, duration: asset.duration,
+                                                            original: originalURL, audioStreamIndex: audio)
+                    proxyPlaybackMessage = "\(message) · loading native playback…"
+                    outcome = await installMPVSource(asset: asset, media: media, time: time, playing: playing,
+                                                     epoch: epoch, representation: representation)
+                } catch { outcome = .failed(error) }
+                switch outcome {
+                case .installed: proxyPlaybackMessage = "\(message) · native playback"
+                case .obsolete: break
+                case .failed(let error):
+                    guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation else { return }
+                    // AVFoundation still plays the proxy picture, without the original's sound.
+                    statusMessage = "Native source playback unavailable for \(asset.name): \(error)"
+                    installSourcePreview(asset: asset, originalURL: originalURL,
+                        resolution: ProxyPlaybackResolution(url: playbackURL, status: .originalUnavailable, usesProxy: true),
+                        time: time, playing: playing, preservingTransport: preservingTransport, nativeOriginal: false)
+                    proxyPlaybackMessage = "Proxy picture · original audio unavailable"
+                }
+            }
+            return
+        }
+        #endif
         if resolution.status == .originalUnavailable, let proxy = asset.proxy,
            let pictureDuration = try? RationalTime(proxy.frameCount).divided(by: proxy.frameRate),
            (pendingSourceTransport?.time ?? time).seconds >= pictureDuration.seconds {
