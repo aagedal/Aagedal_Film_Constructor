@@ -17,6 +17,10 @@ nonisolated enum StabilizationAnalyzer {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         let asset = AVURLAsset(url: url)
+        // Media imported unconverted through FFmpeg may be unreadable by AVFoundation.
+        guard try await asset.load(.isReadable) else {
+            throw EditorCoreError.invalidModel("Analysis cannot read this format. Render a deshaken copy instead.")
+        }
         let tracks = try await asset.load(.tracks)
         guard tracks.indices.contains(streamIndex), tracks[streamIndex].mediaType == .video else {
             throw EditorCoreError.invalidModel("The clip's picture stream is unavailable for analysis")

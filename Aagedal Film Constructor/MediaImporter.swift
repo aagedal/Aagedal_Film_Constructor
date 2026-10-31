@@ -4,6 +4,9 @@ import CoreMedia
 import EditorCore
 import ImageIO
 import UniformTypeIdentifiers
+#if canImport(NativePlaybackRuntime)
+import NativePlaybackRuntime
+#endif
 
 struct ImportedMedia: Sendable {
     let asset: MediaAsset
@@ -182,7 +185,10 @@ enum MediaImporter {
         return ImportedMedia(asset: asset, bookmark: bookmark)
     }
 
-    /// AVFoundation first; formats it cannot open are converted with the bundled FFmpeg.
+    /// AVFoundation first. With the native runtime, movies AVFoundation cannot open import
+    /// unconverted when FFmpeg reads them and the sequence monitor's decoder can play every
+    /// stream; other formats are converted with the bundled FFmpeg. MPEG program/transport
+    /// streams always convert (AVFoundation would number their streams for previews).
     /// Animated GIF and APNG import as video through the same conversion; other images are stills.
     /// `converting` is called before a conversion starts so the UI can report it.
     static func inspectOrConvert(url: URL, using service: MediaConversionService = .shared,
@@ -198,6 +204,15 @@ enum MediaImporter {
             } catch {
                 if isImage { throw error }
             }
+            #if canImport(NativePlaybackRuntime)
+            do {
+                return try await inspectNative(url: url)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                // Not natively playable (or not readable by FFmpeg): convert as before.
+            }
+            #endif
         }
         await converting()
         let converted = try await service.convert(url)
@@ -208,6 +223,37 @@ enum MediaImporter {
             throw error
         }
     }
+
+    #if canImport(NativePlaybackRuntime)
+    /// FFmpeg's reading of an original, referenced unconverted: FFmpeg stream indices, exact
+    /// durations, offsets and cadence from packet timing, layouts in FFmpeg's channel order and
+    /// embedded timecode. With `requiresNativePlayback`, every stream must also open in the
+    /// sequence monitor's decoder, since AVFoundation previews cannot stand in for it.
+    @concurrent
+    static func inspectNative(url: URL, displayName: String? = nil, requiresNativePlayback: Bool = true) async throws -> ImportedMedia {
+        try Task.checkCancellation()
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let bookmark = try url.bookmarkData(options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess], includingResourceValuesForKeys: nil, relativeTo: nil)
+        let probe = try NativeMediaProbe(url: url)
+        try Task.checkCancellation()
+        if requiresNativePlayback { try probe.verifyNativePlayback(url: url) }
+        try Task.checkCancellation()
+        var asset = MediaAsset(name: displayName ?? url.lastPathComponent, originalURL: url,
+                               duration: probe.duration, streams: probe.streams)
+        asset.sourceTimecodeStart = probe.sourceTimecodeStart
+        return ImportedMedia(asset: asset, bookmark: bookmark)
+    }
+
+    /// One picture of an original AVFoundation cannot read, for the Source viewer.
+    @concurrent
+    static func nativeFrame(url: URL, streamIndex: Int, seconds: Double) async -> CGImage? {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        return try? NativeMediaPreview.thumbnails(url: url, streamIndex: streamIndex, times: [max(0, seconds)],
+                                                  maximumWidth: 2048, maximumHeight: 2048).first
+    }
+    #endif
 
     /// GIF or PNG files with more than one image are animations. Multi-page TIFF and other
     /// image collections stay stills of their first image.

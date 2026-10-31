@@ -216,3 +216,65 @@ The next build removes owned native outputs. It refuses to replace unrelated
 frameworks or unrecognized resources. System AAC preview keeps working and now
 shows its source-edge approximation notice; normalize audio to PCM/ALAC when
 faithful boundaries are required. See [AAC qualification status](evidence/system-compressed-audio-20261014/AAC-preview-notice.md).
+
+## Unconverted FFmpeg imports (native runtime)
+
+With the native runtime selected, import tries AVFoundation first as before. Movies
+it cannot open are then probed with libavformat (`NativeMediaProbe`) and imported
+**unconverted** when the sequence monitor's decoder can play every stream; anything
+else still goes through the FFmpeg conversion. Normal builds always convert, because
+AVFoundation has to play the media there. MPEG program/transport streams keep
+converting even with the native runtime, and images (including animated GIF/APNG)
+keep their existing paths.
+
+The probe reproduces `MediaImporter.inspect`: FFmpeg stream indices (which export
+maps by), the asset duration as the latest stream end from the earliest stream
+start, per-stream start offsets, a `VideoSourceFormat` only when every packet proves
+one constant square-pixel, untransformed cadence (never `avg_frame_rate`), mono/stereo
+by count and 5.1 only when FFmpeg decodes L R C LFE Ls Rs (the source channel order
+import already documents), and first-frame timecode (a QuickTime tmcd track's own
+rate, else a stream/format `timecode` tag such as MXF's at the picture rate), as
+frames × frame duration. The packet scan has AVFoundation qualification's bounds
+(five seconds, 100,000 video packets).
+
+Admission (`verifyNativePlayback`) needs a proven video cadence and audio packets
+that tile the sample grid exactly. Every stream also has to open in the native
+decoder, which applies its codec, zero-origin, geometry and first-frame checks.
+Decoded-frame qualification still runs when playback first reads the stream. In
+practice:
+
+| Source | Result |
+| --- | --- |
+| NUT, MXF (OP1a), MOV-family with FFV1, UT Video, DNxHD/HR, CineForm, ProRes… and PCM | Imported unconverted |
+| Matroska/WebM at 24, 23.976 or 29.97 fps | Converted: the millisecond clock proves no exact cadence |
+| Matroska PCM, or Opus/Vorbis/AAC/MP3/FLAC audio in any container AVFoundation cannot open | Converted: the native decoder takes PCM/ALAC only, on the exact sample grid |
+| Interlaced, anamorphic or alpha video (most DV, QuickTime RLE with alpha) | Converted: refused by the native decoder |
+| Streams starting after asset zero | Converted: the native decoder requires zero-origin streams |
+| Probe scan over budget (very long files) | Converted, as the cadence stays unproven |
+
+What each consumer does with an unconverted original:
+
+| Consumer | Behaviour |
+| --- | --- |
+| Sequence monitor | Native runtime plays it (admission is its guarantee) |
+| Timeline thumbnails | FFmpeg (`NativeMediaPreview`) when AVFoundation cannot play the file, which also covers MOVs that AVFoundation reads but cannot decode |
+| Timeline waveforms | FFmpeg when AVFoundation cannot read the file |
+| Source viewer | One native frame at the playhead, with "plays in the Sequence monitor"; there is no source transport until the MPV source viewer lands. With a verified proxy it shows proxy picture without audio |
+| Export, proxies, render-a-deshaken-copy, noise reduction | Unchanged: bundled FFmpeg reads the original |
+| Relink | Same `inspectOrConvert` path, so the replacement is probed or converted the same way |
+| Interchange (FCPXML/OTIO/EDL) | References the original file, which other applications may not read |
+| Analysis-based stabilisation | Refused with "render a deshaken copy instead" (Vision reads frames through AVFoundation) |
+| AVFoundation preview (non-native builds) | Cannot play these originals; a project that uses them needs the native runtime or a relink to converted media |
+
+Known differences from `inspect` on media both read, pinned by
+`scripts/native-import-probe-smoke.py`:
+- An empty edit before MOV audio lies inside AVFoundation's track range, so `inspect`
+  reports offset 0. FFmpeg reports where the samples begin, and that is the offset the
+  FFmpeg export aligns by, so `inspect` is the one that disagrees with export here.
+- Audio-only AAC/Opus encoder delay is trimmed differently by each reader. For a
+  72,000-sample AAC file, AVFoundation reports 70,912 samples.
+
+Known concerns, not addressed here: the app bundles two FFmpeg copies (helpers and
+the runtime dylib), and the 8.1.2-era MPV proofs showed color differences and AAC/MP3
+seek issues.
+

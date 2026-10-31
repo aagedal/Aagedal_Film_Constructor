@@ -19,7 +19,7 @@ nonisolated enum MediaConversionError: LocalizedError {
 actor MediaConversionService {
     static let shared = MediaConversionService()
     /// Extensions offered in the import panel in addition to system movie/audio types.
-    nonisolated static let additionalExtensions = ["mxf", "mkv", "webm", "avi", "ts", "mts", "m2ts", "m2t", "flv", "wmv", "ogg", "opus", "vob", "mpg", "mpeg", "m2p", "mod", "tod"]
+    nonisolated static let additionalExtensions = ["mxf", "mkv", "webm", "nut", "avi", "ts", "mts", "m2ts", "m2t", "flv", "wmv", "ogg", "opus", "vob", "mpg", "mpeg", "m2p", "mod", "tod"]
     /// MPEG program and transport streams are always converted, even when AVFoundation opens
     /// them: it can omit their AAC/LPCM audio and number their streams differently from FFmpeg,
     /// which renders the export.
