@@ -2671,3 +2671,20 @@ See [AAC PNS evidence](docs/evidence/mpv-aac-pns-20261017/README.md).
   sandbox access and runtime distribution also remain open.
 
 See [MP3 container evidence](docs/evidence/mpv-mp3-container-20261017/README.md).
+
+### Native runtime on MPVKit FFmpeg checkpoint (2026-10-30)
+
+- `NativePlaybackRuntime` now links FFmpeg n9.0.2 statically from the pinned
+  `aagedal/MPVKit` `MPVKit-GPL` product (7f5d3f5, `aagedal-1.1.0-n9.0.2-editor.1`),
+  replacing the pkg-config system library. The Debug opt-in is
+  `scripts/configure-native-playback.py --enable`; the build writes MPVKit notices
+  and provenance itself, and the embedded closure is the runtime dylib alone.
+- The previous playback-only release lacked the PNG/JPEG pipe demuxers (FFmpeg 9
+  renamed them), NUT, and the DV, v210, CineForm, QuickTime RLE, TIFF and JPEG
+  2000 decoders. `editor.1` adds them plus PNG/MJPEG encoders for MPV screenshots.
+  Stills opened through `image2` are still accepted only with a matching
+  signature and one parsed image.
+- Verification: 46 runtime tests, 111 Python tests (eight optional skips), the
+  native app-controller smoke and a native-enabled Debug app build pass. The
+  barcode sequence parity proof fails explicitly because its QuickTime RLE
+  fixture has no decoder; rerun it once the fork adds the editorial decoders.

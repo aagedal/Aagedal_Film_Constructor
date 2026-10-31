@@ -1,8 +1,15 @@
 # Native sequence engine experiment
 
-Development macOS executable using locally installed FFmpeg headers/libraries.
+Development macOS runtime linking FFmpeg 9.0.2 statically from the pinned
+[aagedal/MPVKit](https://github.com/aagedal/MPVKit) GPL build (`MPVKit-GPL`).
 It is deliberately separate from the app and its EditorCore dependency graph.
-No Homebrew library is selected, installed or bundled for the shipping app.
+No local FFmpeg installation or pkg-config is used.
+
+The `editor.1` release adds editorial demuxers and decoders to MPVKit's
+playback-oriented FFmpeg: PNG/JPEG/TIFF/DPX/EXR pipes, NUT, GXF and W64, plus DV,
+v210, r210, CineForm, QuickTime RLE, UT Video, TIFF and JPEG 2000. Builds without
+the PNG/JPEG pipe demuxers open stills through `image2`; the decoder accepts that
+only with a matching file signature and exactly one parsed image.
 
 The `CNativeDecoder` bridge owns a serial libavformat/libavcodec context for each
 exact container stream. It qualifies all presentation timestamps on first use,
@@ -66,8 +73,8 @@ WAV ranges against an independent exact sample oracle. Invalid async-session
 retention limits fail at construction rather than on first playback.
 
 Use [the repository proof runner](../../scripts/native-sequence-proof.py) with
-explicit FFmpeg, FFprobe, pkg-config, completed barcode-fixture and fresh output
-paths. It captures the actual linked dylib hashes, commands, source identities,
+explicit FFmpeg, FFprobe, completed barcode-fixture and fresh output
+paths. It records the pinned MPVKit revision supplying the linked FFmpeg, commands, source identities,
 output counts, sequential parity and complete seek/rebuild cases. The fade variant
 compares overlapping edge envelopes, both curves and fractional sample durations
 against independently rendered FFmpeg PCM after a primed plan replacement.
@@ -130,12 +137,11 @@ interruption and requires explicit Play to restart; it never submits a reset
 node's clock as if it belonged to the previous playback epoch. Closing or
 releasing the monitor removes its configuration observer.
 
-Build and test with explicitly selected local libraries, capturing dependency
-hashes and command logs into a fresh directory:
+Build and test against the pinned MPVKit FFmpeg, capturing its revision
+and command logs into a fresh directory:
 
 ```sh
 python3 scripts/native-live-proof.py \
-  --pkg-config /absolute/path/pkg-config \
   --project /absolute/path/proof-project.json \
   --output /absolute/path/fresh-live-proof
 ```
@@ -175,9 +181,7 @@ The player-node clock measures rendered samples, not acoustic speaker arrival;
 output latency is not compensated. The display is polled at 5 ms and can drop
 frames when decode finishes late; it is not synchronized to display refresh.
 There is no measured A/V sync or automatic device-change/underrun recovery,
-real-time decoding guarantee, or signed redistributable FFmpeg bundle. Local
-FFmpeg dylibs can require a newer macOS version than this package's deployment
-floor. This executable remains disconnected from the shipping app.
+real-time decoding guarantee, or signed redistributable FFmpeg bundle. This executable remains disconnected from the shipping app.
 
 The live monitor accepts only canonical mono/stereo layouts and rejects a player
 clock whose sample rate differs from the sequence grid. Before priming, again
@@ -214,5 +218,6 @@ rpaths, records hashes/architectures/deployment versions and ad-hoc signs the
 bundle. A second controller smoke runs with developer loader paths cleared and
 checks actual dyld load observations. It never replaces shipping dependencies.
 See [packaging evidence](../../docs/evidence/native-runtime-packaging-20261014/README.md).
-The locally tested dependency closure requires macOS 27 and has unreviewed
-attribution/notices; a compatible attributed distribution remains required.
+With MPVKit's static FFmpeg the closure is the runtime dylib alone. Its
+attribution/notices remain unreviewed; a compatible attributed distribution
+remains required.

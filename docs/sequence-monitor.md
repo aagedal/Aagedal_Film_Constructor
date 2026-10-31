@@ -71,8 +71,10 @@ bounds for gain, fades and crossfades. Initial volume is established before dela
 clips begin, avoiding a brief unity-gain onset. Nonlinear ramps remain approximate;
 AAC boundaries, resampling, measured A/V timing and signed sandbox media grants remain open.
 
-Without an explicit local native selection, the app does not link development FFmpeg libraries. Bundled FFmpeg and
-FFprobe executables alone do not supply that library runtime. Native-enabled
+Without an explicit local native selection, the app does not link the native runtime. Bundled FFmpeg and
+FFprobe executables alone do not supply that library runtime. The runtime statically links FFmpeg 9.0.2
+from the pinned [aagedal/MPVKit](https://github.com/aagedal/MPVKit) GPL build, so no local FFmpeg
+libraries or pkg-config are needed. Native-enabled
 builds use the existing FFmpeg bridge instead of the system backend.
 
 An opt-in development harness compiles the production controller against the
@@ -82,19 +84,19 @@ build an isolated unsigned copy of the actual SwiftUI workspace:
 
 ```sh
 python3 scripts/sequence-monitor-native-smoke.py \
-  --pkg-config /absolute/path/to/pkg-config \
   --ffmpeg /absolute/path/to/ffmpeg \
   --output /private/tmp/afc-native-workspace-proof \
   --build-workspace
 ```
 
-Supply existing explicit tools; the script installs nothing. The output directory
+The FFmpeg executable only generates fixtures and reference frames; the runtime
+uses MPVKit's libraries. The first build downloads MPVKit's binary artifacts. The output directory
 must be new. Without `--build-workspace`, only the production-controller smoke is
 built and run. macOS audio services and Swift macro services require host access
 when running under a restricted agent sandbox.
 
 The output includes the SwiftPM runtime build, controller smoke executable,
-`fixture.nut`, a normal `fixture.afcproject`, and independent FFmpeg `seek.rgb` and
+`fixture.mov`, a normal `fixture.afcproject`, and independent FFmpeg `seek.rgb` and
 `edited.rgb` reference captures, plus a distinct lossless proxy fixture and
 `proxy-seek.rgb`. The synthetic proxy changes picture intentionally to expose an
 accidental original decode; generated ProRes proxy verification is covered separately
@@ -109,13 +111,12 @@ open -n -a '/private/tmp/afc-native-workspace-proof/Native Sequence Workspace.ap
 
 Click the timeline to select Sequence, or use the viewer header icon / Tab,
 then play or seek in the timeline. This app uses
-a distinct development bundle identifier. Its FFmpeg libraries remain at the
-explicitly selected local paths and the runtime remains in the output build tree;
-keep both available. It does not include executable media helpers, so workflows
+a distinct development bundle identifier. The runtime remains in the output build
+tree; keep it available. It does not include executable media helpers, so workflows
 that require bundled FFmpeg/FFprobe are unavailable in this isolated harness.
 Do not distribute this app: no dependency collection, attribution qualification,
 release signing, notarization, sandbox qualification, or minimum-OS acceptance is
-performed. A local library may itself require a newer OS than the package target.
+performed.
 
 ## Verification and limits
 
@@ -179,27 +180,26 @@ local closure fits that baseline; attributed release dependencies remain open.
 
 ## Native playback in Xcode Debug
 
-The app and both Swift packages now require macOS 27. Select existing local
-FFmpeg development libraries explicitly, with their dependency notices and build
-provenance:
+The app and both Swift packages now require macOS 27. Select the native runtime
+for Debug builds:
 
 ```sh
-python3 scripts/configure-native-playback.py \
-  --pkg-config /absolute/path/pkg-config \
-  --notices /absolute/dependency-notices \
-  --provenance /absolute/build-provenance.txt
+python3 scripts/configure-native-playback.py --enable
 ```
 
 This creates ignored `Configuration/LocalNativePlayback.xcconfig`. Build the
 ordinary app scheme in Debug for Apple Silicon. Xcode builds the Swift runtime
-before compiling the workspace, discovers the complete non-system dylib closure,
+before compiling the workspace; the first build downloads the pinned MPVKit
+binary artifacts. FFmpeg and its dependencies are linked statically into
+`libNativePlaybackRuntime.dylib`. The build discovers the complete non-system dylib closure,
 checks thin arm64/deployment compatibility, relocates it into `Contents/Frameworks`,
-and signs nested libraries before signing the app. The closure contains the native
-runtime and its FFmpeg dependencies; the separately bundled FFmpeg/FFprobe helpers
+and signs nested libraries before signing the app. The closure is the native
+runtime alone; the separately bundled FFmpeg/FFprobe helpers
 continue to support import, proxies and export.
 
 `Contents/Resources/NativeRuntime` retains dependency hashes, actual deployment
-versions, notices, supplied provenance and the exact build selection. No developer
+versions, MPVKit's license notice, provenance naming the resolved MPVKit revision
+and the exact build selection. No developer
 library paths are needed at runtime. Selection remains development-only: Release
 and archive native opt-in are refused while attribution and distribution review
 are incomplete. The native engine still supports its qualified CFR/SDR picture,

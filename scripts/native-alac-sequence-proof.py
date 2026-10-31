@@ -13,11 +13,14 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import shlex
 import subprocess
 from urllib.parse import unquote, urlparse
 
-from native_parity import compare_float_audio, compare_rgb
+from native_parity import compare_float_audio, compare_rgb, mpvkit_pin
+
+
+# A fresh cache downloads every MPVKit binary artifact before building.
+SWIFTPM_TIMEOUT = 1800
 
 
 def digest(path):
@@ -34,12 +37,11 @@ def write_json(path, value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ('ffmpeg', 'pkg_config', 'fixture', 'output'):
+    for name in ('ffmpeg', 'fixture', 'output'):
         parser.add_argument(name, type=Path)
     args = parser.parse_args()
-    for executable in (args.ffmpeg, args.pkg_config):
-        if not executable.is_absolute() or not os.access(executable, os.X_OK):
-            parser.error('Supply explicit absolute executable paths')
+    if not args.ffmpeg.is_absolute() or not os.access(args.ffmpeg, os.X_OK):
+        parser.error('Supply an explicit absolute FFmpeg path')
     if not args.fixture.is_absolute() or not (args.fixture / 'result.json').is_file():
         parser.error('Fixture must be an absolute existing render-plan proof directory')
     proof = json.loads((args.fixture / 'result.json').read_text())
@@ -52,12 +54,11 @@ def main():
     root = args.output
     repo = Path(__file__).resolve().parent.parent
     env = os.environ.copy()
-    env['PATH'] = str(args.pkg_config.parent) + os.pathsep + env.get('PATH', '')
     env['CLANG_MODULE_CACHE_PATH'] = str(root / 'module-cache')
     env['SWIFTPM_MODULECACHE_OVERRIDE'] = str(root / 'module-cache')
     commands = []
     result = {'passed': False, 'variants': [], 'limitations': [
-        'Development local FFmpeg dylibs; no bundled/signed shipping dependency qualification',
+        'Development build statically linking the pinned MPVKit FFmpeg; no bundled/signed shipping dependency qualification',
         'Sequence runtime proof covers two mono ALAC source streams, 48 kHz, 16/24-bit only',
         'Offline native audio engine and image captures; no live display/CoreAudio synchronization or latency',
         'No lossy audio, resampling, offsets, gaps, codec delay/padding or general malformed-file qualification'
@@ -76,29 +77,16 @@ def main():
         run([args.ffmpeg, '-hide_banner', '-nostdin', '-n', *arguments], log)
 
     try:
-        libraries = ['libavformat', 'libavcodec', 'libavutil', 'libswscale', 'libswresample']
-        cflags = shlex.split(run([args.pkg_config, '--cflags', *libraries], 'cflags.txt', capture=True))
-        ldflags = shlex.split(run([args.pkg_config, '--libs', *libraries], 'ldflags.txt', capture=True))
-        flags = [flag for item in cflags for flag in ('-Xcc', item)]
-        flags += [flag for item in ldflags for flag in ('-Xlinker', item)]
-        identities = {}
-        for name, executable, flag in [('ffmpeg', args.ffmpeg, '-version'),
-                                      ('pkgConfig', args.pkg_config, '--version')]:
-            identities[name] = {'path': str(executable), 'sha256': digest(executable),
-                'version': run([executable, flag], name + '-version.txt', capture=True)}
-        for library in libraries:
-            libdir = Path(run([args.pkg_config, '--variable=libdir', library],
-                library + '-libdir.txt', capture=True))
-            dylib = libdir / (library + '.dylib')
-            identities[library] = {'path': str(dylib.resolve()), 'sha256': digest(dylib)}
+        identities = {'ffmpeg': {'path': str(args.ffmpeg), 'sha256': digest(args.ffmpeg),
+            'version': run([args.ffmpeg, '-version'], 'ffmpeg-version.txt', capture=True)},
+            'mpvkit': mpvkit_pin(repo)}
         source_files = [repo / 'scripts/native-alac-sequence-proof.py', repo / 'scripts/native_parity.py']
         for directory in (repo / 'Packages/NativePlaybackProof', repo / 'Packages/EditorCore'):
             source_files += [path for path in directory.rglob('*') if path.is_file() and
                 '.build' not in path.parts and path.suffix in ('.swift', '.c', '.h', '.modulemap')]
         write_json(root / 'source-manifest.json', {str(path.relative_to(repo)): digest(path) for path in sorted(source_files)})
         run(['swift', 'build', '--package-path', repo / 'Packages/NativePlaybackProof',
-            '--scratch-path', root / 'build', '--cache-path', root / 'cache', '--disable-sandbox',
-            *flags], 'build.log')
+            '--scratch-path', root / 'build', '--cache-path', root / 'cache', '--disable-sandbox'], 'build.log', timeout=SWIFTPM_TIMEOUT)
         native = root / 'build/debug/NativeSequenceProof'
         identities['nativeExecutable'] = {'path': str(native), 'sha256': digest(native)}
         write_json(root / 'identities.json', identities)

@@ -89,8 +89,8 @@ struct ProxyPlaybackTests {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let original = directory.appendingPathComponent("original.nut")
-        let proxyURL = directory.appendingPathComponent("proxy.nut")
+        let original = directory.appendingPathComponent("original.mov")
+        let proxyURL = directory.appendingPathComponent("proxy.mov")
         try ffmpeg(["-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=2",
                     "-f", "lavfi", "-i", "color=red:size=8x4:rate=30:duration=1",
                     "-f", "lavfi", "-i", "color=blue:size=8x4:rate=30:duration=1",
