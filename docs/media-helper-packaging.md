@@ -118,3 +118,77 @@ Complete dependency notices and corresponding-source review remain outstanding,
 and the prepared manifest retains `releaseCertified: false`. These CLI binaries
 support proxies and rendered export; they do not supply the FFmpeg-library bridge
 needed for native sequence monitoring.
+
+## Two FFmpeg copies (2026-10-31)
+
+With the Debug-only native runtime selected, the app carries two FFmpeg builds: these
+helpers, and FFmpeg linked statically into `libNativePlaybackRuntime.dylib` from the
+pinned `aagedal/MPVKit` fork (`MPVKit-GPL`, 7f5d3f5). Normal and Release builds carry
+only the helpers. `scripts/ffmpeg-copies-audit.py` compares the two:
+
+```sh
+python3 scripts/ffmpeg-copies-audit.py --helpers /absolute/prepared-helpers \
+  --runtime /absolute/libNativePlaybackRuntime.dylib --helper-demuxers --json report.json
+```
+
+| | Helpers | Runtime |
+| --- | --- | --- |
+| Version | FFmpeg 9.0.2 release | `n9.0.2` tag (same release) |
+| Licence | GPL v3 or later, no nonfree | GPL v3 or later, no nonfree |
+| Configuration | "full" build: x264, x265, vpx, aom, SVT-AV1, vvenc, JPEG XL, WebP, Opus, Vorbis, LAME, Theora, OpenJPEG, VMAF, whisper; `yadif_videotoolbox` patch | MPVKit playback allow-lists plus `editor.1` additions: dav1d, uavs3d, libplacebo/Vulkan, lcms2, GnuTLS, smbclient |
+| Components | 199 encoders, 530 decoders, 484 filters, 183 muxers, 366 demuxers | 45 encoders, 230 decoders, 67 filters, 13 muxers, 67 demuxers |
+| Size | `ffmpeg` 60.1 MB + `ffprobe` 60.0 MB, each fully static | inside the 60 MB Debug runtime with libmpv; the GPL `Libav*`/`Libsw*` static archives total 39 MB for arm64 + x86_64 |
+| Signing | separate executables, app identity, hardened runtime, sandbox inheritance | nested library sealed in the app (Debug only) |
+
+`Configuration/FFmpegRequirements.json` records, per feature, what the app's
+command lines use: export (`FFmpegRenderCompiler` and its audio effects), proxies,
+conversion, the deshaken copy and noise reduction. `prepare-media-helpers.py`
+now requires all of it, which adds `libx264`, `aac`, `hevc_videotoolbox`, `deshake`,
+`afftdn`, the export audio-effect filters and the MP4/WAV/f32le muxers to the old
+minimum. The pinned pair passes. The runtime's FFmpeg covers none of these features
+in full: it lacks `prores_ks` and `libx264` (it has only `prores_aw` and the
+VideoToolbox encoders), 20 export filters (`pad`, `setsar`, `settb`, `loop`, `anullsrc`,
+`adelay`, `aeval`, `asetpts`, `fade`, `chromakey`, …), `deshake`, `afftdn`/`amerge`, and
+the WAV and f32le muxers.
+
+In the other direction, the runtime can decode every codec the helpers can except
+AVS3 (`libuavs3d`), and it has one extra demuxer (`dash`). The runtime admits
+unconverted imports and the helpers export them, so `MediaImporter.inspectNative` now
+also requires every imported stream's codec to appear in the bundled
+`Helpers/decoders.txt`. Otherwise the import falls back to conversion, as other
+media the runtime cannot play does.
+
+When native embedding is selected, the Xcode embed phase runs the audit against the
+bundled helper listings (never executing the sandbox-inheriting helper copies). The
+build fails if the versions or licences differ, if either copy is nonfree, or if the
+helpers lack a required component. The report is written to
+`Resources/NativeRuntime/ffmpeg-copies.json`.
+
+### Consolidation options
+
+- **In-process export through the runtime's libraries (rejected).** Export parity is
+  defined by FFmpeg command lines, and `fftools` is not part of the libraries: option
+  parsing, stream mapping, `-ss`/`-t` placement, filtergraph wiring, `-timecode`,
+  `-movflags`, progress reporting. Rebuilding that in-process means requalifying every
+  export path, and the runtime lacks the components anyway. The app would also lose
+  process isolation (a crashing or leaking filtergraph would take the editor down) and
+  terminate-to-cancel. Release has no runtime, so it would still need the helpers.
+- **A helper dynamically linked against the runtime (rejected as stated).** The dylib
+  exports the full FFmpeg API, so linking works. But each helper launch would load
+  the Swift runtime, libmpv and MoltenVK, the components would still be missing, and
+  Release would have to ship the runtime. A useful variant is FFmpeg as its own
+  shared `libav*` dylibs, used by both the runtime and thin helper executables. That
+  is the only option that saves size (about 120 MB of static helpers), but MPVKit
+  publishes static XCFrameworks, so it needs fork changes first.
+- **One FFmpeg build for both (recommended next step).** MPVKit's macOS build already
+  compiles FFmpeg's programs (it passes `--enable-ffplay` and does not pass
+  `--disable-programs`). Widening the fork's allow-lists to
+  `FFmpegRequirements.json` and adding x264, then publishing that build's `ffmpeg`
+  and `ffprobe` with notices as a signed release asset, would let `MediaHelpers.json`
+  pin helpers from the same source, configuration and version as the runtime. The
+  audit would then report no gaps. This changes the helpers Release ships (they would
+  lose x265, VPX, AOM, whisper and other encoders the app does not use), so it waits
+  for a product decision, a fork release, and helper signing and notarization.
+
+Until then, the version, licence and requirement checks above stop the copies from
+drifting silently, and the import check keeps runtime-admitted media exportable.

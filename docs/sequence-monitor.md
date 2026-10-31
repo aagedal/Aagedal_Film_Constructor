@@ -274,9 +274,13 @@ Known differences from `inspect` on media both read, pinned by
 - Audio-only AAC/Opus encoder delay is trimmed differently by each reader. For a
   72,000-sample AAC file, AVFoundation reports 70,912 samples.
 
-Known concerns, not addressed here: the app bundles two FFmpeg copies (helpers and
-the runtime dylib). The MPV colour and AAC/MP3 seek findings are rechecked on n9.0.2
-under [MPV Source viewer](#mpv-source-viewer-native-runtime).
+With the native runtime the app bundles two FFmpeg copies: the helpers and the runtime
+dylib. Both are 9.0.2 and GPL v3, but they are configured differently (see
+[two FFmpeg copies](media-helper-packaging.md#two-ffmpeg-copies-2026-10-31)). Unconverted
+import therefore also requires the helpers, which export, to decode every stream's codec,
+from the bundled `Helpers/decoders.txt`. Today that only excludes AVS3. The native Debug
+build fails if the two copies' versions or licences drift apart. The MPV colour and AAC/MP3
+seek findings are rechecked on n9.0.2 under [MPV Source viewer](#mpv-source-viewer-native-runtime).
 
 ## MPV Source viewer (native runtime)
 

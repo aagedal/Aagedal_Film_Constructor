@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "about": "FFmpeg components the app's helper command lines use, by feature. prepare-media-helpers.py requires every non-optional entry; ffmpeg-copies-audit.py checks both bundled FFmpeg copies against it. Update this file with any new encoder, filter or muxer in a command line.",
+  "features": {
+    "export": {
+      "source": "Packages/EditorCore/Sources/EditorCore/FFmpegRenderCompiler.swift, AudioEffects.swift, AudioDynamics.swift",
+      "encoders": ["prores_ks", "pcm_s24le", "libx264", "aac", "hevc_videotoolbox"],
+      "decoders": ["png", "mjpeg"],
+      "filters": ["acompressor", "adelay", "aeval", "aformat", "amix", "anullsink", "anullsrc", "apad", "aresample",
+                  "asetpts", "asplit", "atempo", "atrim", "biquad", "chromakey", "color", "crop", "fade", "format", "fps",
+                  "gblur", "geq", "hflip", "hwdownload", "loop", "lut", "lutrgb", "lutyuv", "overlay", "pad", "pan",
+                  "scale", "scale_vt", "sendcmd", "setparams", "setpts", "setsar", "settb", "transpose", "trim", "vflip",
+                  "volume"],
+      "muxers": ["mov", "mp4"]
+    },
+    "proxies": {
+      "source": "Aagedal Film Constructor/ProxyGenerationService.swift",
+      "encoders": ["prores_ks"],
+      "optionalEncoders": ["libx264"],
+      "filters": ["scale", "setsar"],
+      "muxers": ["mov"]
+    },
+    "conversion": {
+      "source": "Aagedal Film Constructor/MediaConversionService.swift",
+      "encoders": ["prores_ks", "pcm_s24le"],
+      "muxers": ["mov"]
+    },
+    "stabilise": {
+      "source": "Aagedal Film Constructor/StabilisationService.swift",
+      "encoders": ["hevc_videotoolbox"],
+      "filters": ["deshake"],
+      "muxers": ["mov"]
+    },
+    "noiseReduction": {
+      "source": "Aagedal Film Constructor/NoiseReductionService.swift",
+      "encoders": ["pcm_s24le"],
+      "filters": ["afftdn", "amerge", "aresample", "pan"],
+      "muxers": ["wav", "f32le"]
+    }
+  }
+}
