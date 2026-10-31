@@ -66,8 +66,8 @@ final class EditorStore: ObservableObject {
     }
     // AVFoundation's player is exposed only for its native presentation surface.
     var sourcePlayer: AVPlayer? {
-        guard let surface = sourcePlayback?.surface else { return nil }
-        switch surface { case .avFoundation(let player): return player }
+        if case .avFoundation(let player) = sourcePlayback?.surface { return player }
+        return nil
     }
     @Published var previewImage: NSImage?
     @Published var statusMessage = "Import media to begin."

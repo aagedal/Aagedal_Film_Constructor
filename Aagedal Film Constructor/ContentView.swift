@@ -1,6 +1,9 @@
 import SwiftUI
 import AVKit
 import EditorCore
+#if canImport(NativePlaybackRuntime)
+import NativePlaybackRuntime
+#endif
 
 struct ContentView: View {
     @ObservedObject var store: EditorStore
@@ -407,6 +410,14 @@ struct ContentView: View {
         }
     }
 
+    /// The native runtime's libmpv source picture, when that backend is installed.
+    private var mpvSourcePicture: AnyView? {
+        #if canImport(NativePlaybackRuntime)
+        if case .mpv(let player) = store.sourcePlayback?.surface { return AnyView(MPVSourcePlayerView(player: player)) }
+        #endif
+        return nil
+    }
+
     private var sourceMonitor: some View {
         VStack(spacing: 0) {
             HStack {
@@ -421,6 +432,8 @@ struct ContentView: View {
                     Image(nsImage: image).resizable().scaledToFit().padding(12)
                 } else if let player = store.sourcePlayer {
                     SourcePlayerView(player: player)
+                } else if let picture = mpvSourcePicture {
+                    picture
                 } else {
                     VStack(spacing: 10) {
                         Image(systemName: "play.rectangle").font(.system(size: 38))
@@ -1499,6 +1512,38 @@ private struct SourcePlayerView: NSViewRepresentable {
         if view.player !== player { view.player = player }
     }
 }
+
+#if canImport(NativePlaybackRuntime)
+/// libmpv's software-rendered source picture, fitted like AVPlayerView. Never takes focus.
+private struct MPVSourcePlayerView: NSViewRepresentable {
+    let player: NativeSourcePlayer
+    final class PictureView: NSView {
+        weak var player: NativeSourcePlayer?
+        override var acceptsFirstResponder: Bool { false }
+        override init(frame: NSRect) {
+            super.init(frame: frame)
+            wantsLayer = true
+            layer?.backgroundColor = NSColor.black.cgColor
+            layer?.contentsGravity = .resizeAspect
+        }
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+        func attach(_ player: NativeSourcePlayer) {
+            guard self.player !== player else { return }
+            self.player?.onFrame = nil
+            self.player = player
+            layer?.contents = player.frame
+            player.onFrame = { [weak self] image in self?.layer?.contents = image }
+        }
+    }
+    func makeNSView(context: Context) -> PictureView {
+        let view = PictureView()
+        view.attach(player)
+        return view
+    }
+    func updateNSView(_ view: PictureView, context: Context) { view.attach(player) }
+    static func dismantleNSView(_ view: PictureView, coordinator: ()) { view.player?.onFrame = nil }
+}
+#endif
 
 /// Editing shortcuts are suspended while a text field has focus. Keep focus out of
 /// fields when a workspace opens, and end text editing when the user clicks

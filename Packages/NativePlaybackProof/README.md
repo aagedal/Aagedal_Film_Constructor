@@ -33,6 +33,20 @@ MXF/MOV readings. `scripts/native-import-probe-smoke.py` compares the app import
 AVFoundation and plays and exports unconverted NUT/MXF originals. See
 [unconverted imports](../../docs/sequence-monitor.md#unconverted-ffmpeg-imports-native-runtime).
 
+`NativeSourcePlayer` is the app's Source viewer transport for originals AVFoundation cannot
+play, built on libmpv from the same MPVKit build. The C side (`NativeSourcePlayer.c`) grew out
+of the `scripts/mpv-source-bridge.c` proof: asynchronous load with explicit `ff-index`/kind
+track resolution read back before OPENED, correlated command replies, bounded copied events
+and no foreign callbacks into Swift. It adds the software render API (`vo=libmpv`), raw
+container time (`rebase-start-time=no`), and an external audio file for proxy picture with
+the original's sound. The Swift side runs libmpv on a control queue and renders on a separate
+queue that never waits on it, and exposes a main-actor API in asset seconds. Picture seeks land
+on the selected stream's FFmpeg frame grid, including its start offset, and report the shown
+frame's time (`NativeSourceClock`). `SourcePlayerTests` check frame identity against FFmpeg's
+own frame indices on NUT and MXF, offsets and container origins, stream identity, proxies with
+external audio, superseded seeks, teardown and colour. See the
+[MPV Source viewer](../../docs/sequence-monitor.md#mpv-source-viewer-native-runtime).
+
 The [ALAC evidence](../../docs/evidence/native-alac-20261015/qualification.md)
 retains 313 ASan/UBSan checks with independent exact sample patterns, packet-edge
 and reverse/repeated seeks, plus native sequence/offline audio-engine parity.

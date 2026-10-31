@@ -2718,3 +2718,35 @@ See [MP3 container evidence](docs/evidence/mpv-mp3-container-20261017/README.md)
   decoder changes before they can skip conversion. The 5-second probe budget sends
   very long native-only files to conversion.
 
+
+### MPV Source viewer checkpoint (2026-10-31)
+
+- With the native runtime, the Source viewer plays originals AVFoundation cannot
+  (`isPlayable` false) through libmpv: unconverted FFmpeg imports and MOVs AVFoundation reads
+  but cannot decode. A new `MPVSourceBackend` sits behind `SourcePlaybackBackend`; AVPlayer
+  keeps everything AVFoundation plays and normal builds are unchanged. With a verified proxy,
+  Proxy mode shows proxy picture plus the original's sound (an external audio file in MPV);
+  before, that was proxy picture without sound. If libmpv cannot open the media, the previous
+  single-frame / silent-proxy fallbacks remain.
+- `NativeSourcePlayer` (runtime) grows the `mpv-source-bridge.c` proof into the app: explicit
+  `ff-index`/kind track resolution, software render API on its own queue, raw container time.
+  Picture seeks land on the asset's first video stream's FFmpeg frame grid, including its start
+  offset, and report the shown frame's time, so marks equal export's trim frames. Asset zero is
+  the earliest stream start, as in the import probe. Sound is the first audio stream by FFmpeg
+  index; further streams are not mixed in.
+- Rechecked on n9.0.2: tagged colour now matches FFmpeg's conversion in flat areas (mean ≤ 0.005,
+  peak 3), with chroma-edge differences from the upsampling filter. The unchanged audio proof's
+  timestamp mode, which the viewer uses, repeats 30/96 (AAC and MP3 0/24); the best filter control
+  improves from 68/96 to 72/96 (86/96 with MP3 in MOV) as natural AAC EOF becomes exact. Nonzero
+  AAC tail seeks still fail. See [MPV Source viewer evidence](docs/evidence/mpv-source-viewer-20261031/README.md).
+- Verification: 59 runtime tests (9 new `SourcePlayerTests`: NUT/MXF frame indices against FFmpeg
+  decodes, offsets/origins, stream identity, proxy with external audio, superseded seeks, teardown,
+  colour), the new `scripts/source-viewer-native-smoke.py` through `EditorStore`, 111 Python tests
+  (eight optional skips), the import probe smoke, the 29/29 native sequence parity proof on a fresh
+  render-plan fixture, the proxy-workspace smoke, and Debug app builds with the native runtime
+  enabled and disabled. The app-file smoke passes only without its OTIO block (lines 105–119),
+  which predates this work: since `2b40f45` OTIO export warns with a modal alert instead of
+  refusing, so the unmodified smoke waits on that alert.
+- Not covered: GPU presentation and VideoToolbox decoding (software rendering, fitted within
+  1920×1080), mixing several audio streams, sample-exact source audio after seeks, untagged colour
+  (MPV's matrix guess), and the two FFmpeg copies the app ships (helpers and runtime dylib).

@@ -17,6 +17,11 @@ import subprocess
 import sys
 
 REVISION = '400202b687841fb394cbf0ef59ad8c6fcfc1275b'
+# Clean MPVKit checkouts these proofs accept, with the release their Libmpv-GPL
+# artifact must come from: the 8.1.2-era CoreAudio fix, and the n9.0.2 editor
+# build the native runtime links (Packages/NativePlaybackProof).
+PINS = {REVISION: 'aagedal-1.0.0-n8.1.2-coreaudio.2',
+        '7f5d3f53bd2676aa5c569271ada72752a2e83267': 'aagedal-1.1.0-n9.0.2-editor.1'}
 ARTIFACTS = ('Libmpv-GPL', 'Libavcodec-GPL', 'Libavdevice-GPL', 'Libavfilter-GPL',
              'Libavformat-GPL', 'Libavutil-GPL', 'Libswresample-GPL', 'Libswscale-GPL',
              'Libssl', 'Libcrypto', 'Libass', 'Libfreetype', 'Libfribidi', 'Libharfbuzz',
@@ -87,15 +92,15 @@ def compare_rgb(actual, expected, mean_limit=3.0, max_limit=32, width=None):
 def pinned_checkout(checkout):
     revision = subprocess.check_output(['git', '-C', str(checkout), 'rev-parse', 'HEAD'], text=True).strip()
     status = subprocess.check_output(['git', '-C', str(checkout), 'status', '--porcelain', '--untracked-files=no'], text=True)
-    if revision != REVISION or status:
-        raise ValueError('MPVKit must be a clean checkout at ' + REVISION)
+    if revision not in PINS or status:
+        raise ValueError('MPVKit must be a clean checkout at one of ' + ', '.join(PINS))
     package = (checkout / 'Package.swift').read_text()
     # Record the expected upstream archive identity separately from hashes of
     # extracted local bytes: this does not reauthenticate a missing zip archive.
     match = re.search(r'name: "Libmpv-GPL",\s*url: "([^"]+)",\s*checksum: "([a-f0-9]{64})"', package)
-    if not match or not match[1].endswith('/aagedal-1.0.0-n8.1.2-coreaudio.2/Libmpv-GPL.xcframework.zip'):
-        raise ValueError('Pinned package does not select the corrected CoreAudio artifact')
-    return {'revision': revision, 'packageSHA256': digest(checkout / 'Package.swift'),
+    if not match or not match[1].endswith('/' + PINS[revision] + '/Libmpv-GPL.xcframework.zip'):
+        raise ValueError('Pinned package does not select the artifact release for its revision')
+    return {'revision': revision, 'release': PINS[revision], 'packageSHA256': digest(checkout / 'Package.swift'),
             'declaredLibmpvArchiveURL': match[1], 'declaredLibmpvArchiveSHA256': match[2],
             'archiveBytesReauthenticated': False}
 
