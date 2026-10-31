@@ -33,6 +33,15 @@ MXF/MOV readings. `scripts/native-import-probe-smoke.py` compares the app import
 AVFoundation and plays and exports unconverted NUT/MXF originals. See
 [unconverted imports](../../docs/sequence-monitor.md#unconverted-ffmpeg-imports-native-runtime).
 
+This FFmpeg is a second copy beside the app's `ffmpeg`/`ffprobe` helpers. Both are the same
+release and licence, but the runtime's playback configuration lacks most of what export,
+proxies and conversion use (`prores_ks`, `libx264`, 20 export filters, WAV output). Export
+therefore stays on the helpers. `scripts/ffmpeg-copies-audit.py` compares the copies against
+`Configuration/FFmpegRequirements.json`, and the Xcode embed phase runs it and fails on
+version or licence drift. See
+[two FFmpeg copies](../../docs/media-helper-packaging.md#two-ffmpeg-copies-2026-10-31)
+for the audit and the path to a single build.
+
 `NativeSourcePlayer` is the app's Source viewer transport for originals AVFoundation cannot
 play, built on libmpv from the same MPVKit build. The C side (`NativeSourcePlayer.c`) grew out
 of the `scripts/mpv-source-bridge.c` proof: asynchronous load with explicit `ff-index`/kind
