@@ -20,6 +20,19 @@ Audio supports PCM plus 16/24-bit ALAC with canonical mono/stereo layouts at
 lossy audio, and other ALAC formats fail explicitly. Full-stream qualification is intentionally expensive;
 it is evidence gathering, not the final startup strategy.
 
+`NativeMediaProbe` is the import probe for media AVFoundation cannot open. It demuxes
+every packet once, within AVFoundation qualification's bounds, and reports FFmpeg stream
+indices, exact rational durations and start offsets from packet timing, a
+`VideoSourceFormat` only for a proven constant square-pixel cadence, the app's channel
+layouts in FFmpeg order, and tmcd/MXF/tag timecode. `verifyNativePlayback` admits media
+only when packet timing already meets this decoder's grids (video cadence, sample-exact
+contiguous audio) and every stream opens here. `NativeMediaPreview` gives approximate
+thumbnails and waveform peaks for any decodable stream. It applies none of the exact-grid
+qualification and is meant for timeline previews. `MediaProbeTests` cover NUT/Matroska/
+MXF/MOV readings. `scripts/native-import-probe-smoke.py` compares the app importer against
+AVFoundation and plays and exports unconverted NUT/MXF originals. See
+[unconverted imports](../../docs/sequence-monitor.md#unconverted-ffmpeg-imports-native-runtime).
+
 The [ALAC evidence](../../docs/evidence/native-alac-20261015/qualification.md)
 retains 313 ASan/UBSan checks with independent exact sample patterns, packet-edge
 and reverse/repeated seeks, plus native sequence/offline audio-engine parity.

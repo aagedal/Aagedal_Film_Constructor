@@ -243,12 +243,25 @@ extension EditorStore {
                     originalExists: originalPlayable && FileManager.default.isReadableFile(atPath: originalURL.path))
                 installSourcePreview(asset: asset, originalURL: originalURL, resolution: resolution,
                     time: time, playing: playing, preservingTransport: preservingTransport)
+                #if canImport(NativePlaybackRuntime)
+                // A native-only original is present; only AVFoundation cannot add its audio here.
+                if originalExists, !originalPlayable, proxyPlaybackMessage == "HiRes unavailable · proxy picture · original audio unavailable" {
+                    proxyPlaybackMessage = "Proxy picture · native original plays with sound in the Sequence monitor"
+                }
+                #endif
             }
             return
         }
         let resolution = asset.resolvePlayback(representation: playbackRepresentation, sourceFingerprint: fingerprint, proxyExists: proxyExists, originalExists: originalExists)
         installSourcePreview(asset: asset, originalURL: originalURL, resolution: resolution,
             time: time, playing: playing, preservingTransport: preservingTransport)
+    }
+
+    private func installOriginalSourcePlayer(asset: MediaAsset, url: URL, time: CMTime, playing: Bool, restoring: Bool) {
+        let player = AVFoundationSourceBackend(player: AVPlayer(url: url))
+        sourcePlayback = player
+        statusMessage = "Source preview: \(asset.name)"
+        if restoring { restoreSourceTransport(backend: player, time: time, playing: playing) }
     }
 
     private func installSourcePreview(asset: MediaAsset, originalURL: URL, resolution: ProxyPlaybackResolution,
@@ -271,12 +284,32 @@ extension EditorStore {
         let representation = playbackRepresentation
         let epoch = mediaEpoch
         if !resolution.usesProxy {
-            let player = AVFoundationSourceBackend(player: AVPlayer(url: playbackURL))
-            sourcePlayback = player
-            statusMessage = "Source preview: \(asset.name)"
-            if pendingSourceTransport != nil || preservingTransport {
-                restoreSourceTransport(backend: player, time: time, playing: playing)
+            #if canImport(NativePlaybackRuntime)
+            // Media imported unconverted through FFmpeg can be unreadable by AVFoundation. The
+            // Source viewer then shows one native frame; the Sequence monitor plays it.
+            if pendingSourceTransport == nil { pendingSourceTransport = (time, playing) }
+            sourcePreviewTask = Task {
+                let playable = (try? await AVURLAsset(url: playbackURL).load(.isPlayable)) ?? false
+                guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation else { return }
+                if playable {
+                    installOriginalSourcePlayer(asset: asset, url: playbackURL, time: time, playing: playing, restoring: true)
+                    return
+                }
+                let seconds = (pendingSourceTransport?.time ?? time).seconds
+                pendingSourceTransport = nil
+                proxyPlaybackMessage = "Native media · plays in the Sequence monitor"
+                statusMessage = "\(asset.name) plays in the Sequence monitor; the Source viewer shows one frame."
+                guard let stream = asset.streams.first(where: { $0.kind == .video }) else { return }
+                let image = await MediaImporter.nativeFrame(url: playbackURL, streamIndex: stream.index,
+                                                            seconds: seconds.isFinite ? seconds : 0)
+                guard !Task.isCancelled, epoch == mediaEpoch, selectedAsset == asset, representation == playbackRepresentation else { return }
+                previewImage = image.map { NSImage(cgImage: $0, size: .zero) }
+                proxyPlaybackMessage = "Native media · picture only · plays in the Sequence monitor"
             }
+            #else
+            installOriginalSourcePlayer(asset: asset, url: playbackURL, time: time, playing: playing,
+                                        restoring: pendingSourceTransport != nil || preservingTransport)
+            #endif
             return
         }
         if pendingSourceTransport == nil { pendingSourceTransport = (time, playing) }

@@ -2,6 +2,9 @@ import AVFoundation
 import AppKit
 import EditorCore
 import ImageIO
+#if canImport(NativePlaybackRuntime)
+import NativePlaybackRuntime
+#endif
 
 /// Requests include the source range and channel map, so trims and zoom never reuse stale imagery.
 nonisolated struct TimelinePreviewRequest: Hashable, Sendable {
@@ -170,6 +173,15 @@ actor TimelinePreviewService {
             return TimelinePreview(images: [image])
         case .video(let streamIndex):
             let asset = AVURLAsset(url: request.url)
+            #if canImport(NativePlaybackRuntime)
+            // Originals imported unconverted through FFmpeg (FFmpeg stream indices), or movies
+            // AVFoundation reads but cannot decode, whose track order FFmpeg shares.
+            if !((try? await asset.load(.isPlayable)) ?? false) {
+                let times = (0..<request.thumbnailCount).map { request.start + request.duration * (Double($0) + 0.5) / Double(request.thumbnailCount) }
+                return TimelinePreview(images: try NativeMediaPreview.thumbnails(url: request.url, streamIndex: streamIndex, times: times,
+                                                                                  maximumWidth: 180, maximumHeight: 100))
+            }
+            #endif
             let tracks = try await asset.load(.tracks)
             guard tracks.indices.contains(streamIndex), tracks[streamIndex].mediaType == .video else { return TimelinePreview() }
             let composition = AVMutableComposition()
@@ -198,8 +210,21 @@ actor TimelinePreviewService {
             }
         case .audio(let selection):
             let asset = AVURLAsset(url: request.url)
-            let tracks = try await asset.load(.tracks)
             var peaks = Array(repeating: Array(repeating: Float(0), count: request.waveformBins), count: selection.channels.count)
+            #if canImport(NativePlaybackRuntime)
+            if !((try? await asset.load(.isReadable)) ?? false) {
+                for streamIndex in Set(selection.channels.map(\.streamIndex)).sorted() {
+                    try Task.checkCancellation()
+                    let channelMap = selection.channels.enumerated().filter { $0.element.streamIndex == streamIndex }
+                    let streamPeaks = try NativeMediaPreview.peaks(url: request.url, streamIndex: streamIndex,
+                        channels: channelMap.map(\.element.channelIndex), start: request.start,
+                        duration: request.duration, bins: request.waveformBins)
+                    for (position, channel) in channelMap.enumerated() { peaks[channel.offset] = streamPeaks[position] }
+                }
+                return TimelinePreview(peaks: peaks)
+            }
+            #endif
+            let tracks = try await asset.load(.tracks)
             for streamIndex in Set(selection.channels.map(\.streamIndex)).sorted() {
                 try Task.checkCancellation()
                 guard tracks.indices.contains(streamIndex), tracks[streamIndex].mediaType == .audio else { continue }

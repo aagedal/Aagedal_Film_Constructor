@@ -2688,3 +2688,33 @@ See [MP3 container evidence](docs/evidence/mpv-mp3-container-20261017/README.md)
   native app-controller smoke and a native-enabled Debug app build pass. The
   barcode sequence parity proof fails explicitly because its QuickTime RLE
   fixture has no decoder; rerun it once the fork adds the editorial decoders.
+
+### FFmpeg import probing checkpoint (2026-10-31)
+
+- With the native runtime selected, movies AVFoundation cannot open (NUT, MXF,
+  Matroska, …) are probed by libavformat (`NativeMediaProbe`) and import unconverted
+  when the native decoder can play every stream: proven constant video cadence,
+  sample-exact contiguous PCM/ALAC, zero-origin streams, and a successful decoder open.
+  Everything else, and every non-native build, converts as before. MPEG program/
+  transport streams and animated images keep converting.
+- The probe yields `inspect`'s model from packet timing: FFmpeg stream indices, exact
+  durations and start offsets, cadence-proven `VideoSourceFormat`, FFmpeg-order channel
+  layouts and tmcd/MXF/tag timecode. Timeline thumbnails and waveforms fall back to
+  FFmpeg (`NativeMediaPreview`). The Source viewer shows one native frame and points to
+  the Sequence monitor. Analysis stabilisation refuses with a pointer to the deshaken
+  copy. Export, proxies and relink were already FFmpeg-based or reuse import. See
+  [unconverted imports](docs/sequence-monitor.md#unconverted-ffmpeg-imports-native-runtime).
+- Parity: 11 files both readers open match `inspect` exactly (durations, rates, layouts,
+  offsets, NDF/DF/23.976 timecode), with two pinned reader differences. AVFoundation
+  puts an empty-edit MOV audio offset at 0, while FFmpeg's value is the one export
+  aligns by. Audio-only AAC/Opus priming durations also differ. Of 7 native-only
+  fixtures, NUT FFV1/UT Video and MXF DNxHR import unconverted and play and export
+  natively. Matroska (ms clock), Opus and offset audio convert.
+- Verification: 50 runtime tests, 111 Python tests (eight optional skips), the import
+  probe smoke, the 29/29 native sequence parity proof, and Debug app builds with the
+  native runtime enabled and disabled all pass.
+- Not covered: image sequences (TIFF/DPX/EXR) need an import UI with a frame rate.
+  Matroska at NTSC rates and compressed audio (Opus/Vorbis/FLAC/AAC) need native
+  decoder changes before they can skip conversion. The 5-second probe budget sends
+  very long native-only files to conversion.
+

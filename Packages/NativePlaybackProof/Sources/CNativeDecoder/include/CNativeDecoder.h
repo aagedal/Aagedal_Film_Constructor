@@ -71,6 +71,60 @@ int afc_decoder_audio(AFCDecoder *decoder, int64_t start_sample,
                       float *interleaved, size_t float_count,
                       char *error, size_t error_size);
 
+/** Import probe: libavformat's view of a local file as the app's media model.
+ * Every packet is demuxed once (bounded like AVFoundation import qualification)
+ * so durations, offsets and frame cadence come from packet timing, never from
+ * avg_frame_rate. Stream indices are FFmpeg's, which export maps by. */
+typedef struct AFCProbe AFCProbe;
+
+enum { AFC_PROBE_VIDEO = 0, AFC_PROBE_AUDIO = 1 };
+/** Mono and stereo by channel count; 5.1 only when FFmpeg decodes L R C LFE Ls Rs. */
+enum { AFC_PROBE_LAYOUT_UNKNOWN = 0, AFC_PROBE_LAYOUT_MONO, AFC_PROBE_LAYOUT_STEREO, AFC_PROBE_LAYOUT_SURROUND51 };
+
+typedef struct {
+    int index;                 /* container stream index */
+    int kind;                  /* AFC_PROBE_VIDEO or AFC_PROBE_AUDIO */
+    int time_base_num, time_base_den;
+    int64_t start_pts;         /* first presentation timestamp */
+    int64_t duration_pts;      /* presentation extent from start_pts */
+    int64_t offset_num, offset_den; /* start relative to the earliest stream, in seconds */
+    char codec[32];
+    /* Video. frame_duration is the proven constant cadence in time-base ticks,
+     * zero when packet timing does not prove one (or the scan budget ran out). */
+    int width, height;
+    int square_untransformed;
+    int64_t frame_duration;
+    /* Audio. sample_exact: every packet tiles the sample grid contiguously. */
+    int channels, sample_rate, layout;
+    int sample_exact;
+} AFCProbeStream;
+
+AFCProbe *afc_probe_open(const char *path, char *error, size_t error_size);
+void afc_probe_close(AFCProbe *probe);
+const char *afc_probe_format_name(const AFCProbe *probe);
+int afc_probe_stream_count(const AFCProbe *probe);
+int afc_probe_stream(const AFCProbe *probe, int position, AFCProbeStream *stream);
+/** Asset duration: the latest stream end measured from the earliest stream start. */
+int afc_probe_duration(const AFCProbe *probe, int64_t *numerator, int64_t *denominator);
+/** First-frame embedded timecode as a frame count and its frame duration in
+ * seconds (QuickTime tmcd rate, else the picture rate). Nonzero when absent. */
+int afc_probe_timecode(const AFCProbe *probe, int64_t *frames, int64_t *frame_numerator, int64_t *frame_denominator);
+
+/** Approximate timeline previews (thumbnails, waveforms) for any decodable
+ * stream. Times are asset seconds, zero at the earliest stream start. */
+typedef struct AFCPreview AFCPreview;
+AFCPreview *afc_preview_open(const char *path, int stream_index, char *error, size_t error_size);
+void afc_preview_close(AFCPreview *preview);
+/** RGBA32 of the first frame at or after `seconds`, fitted within max_width x
+ * max_height (1...4096) with display aspect; output dimensions are returned. */
+int afc_preview_frame(AFCPreview *preview, double seconds, int max_width, int max_height,
+                      uint8_t *rgba, size_t rgba_size, int *width, int *height, char *error, size_t error_size);
+/** Absolute peaks (clamped to 1) of source channels in FFmpeg order, channel-major
+ * `bins` values each, over [start, start + duration). */
+int afc_preview_peaks(AFCPreview *preview, double start, double duration, int bins,
+                      const int *channels, int channel_count, float *peaks, size_t peak_count,
+                      char *error, size_t error_size);
+
 #ifdef __cplusplus
 }
 #endif

@@ -7,7 +7,7 @@ public struct ProofFailure: Error, CustomStringConvertible {
     public init(_ message: String) { description = message }
 }
 
-private func message(_ chars: [CChar]) -> String {
+func message(_ chars: [CChar]) -> String {
     String(decoding: chars.prefix(while: { $0 != 0 }).map { UInt8(bitPattern: $0) }, as: UTF8.self)
 }
 
