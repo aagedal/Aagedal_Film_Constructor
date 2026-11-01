@@ -3,9 +3,11 @@
 A fresh checkout builds with bundled FFmpeg and FFprobe automatically, in both
 Debug and Release. Open the Xcode project and build: the existing helper phase
 runs `bootstrap-media-helpers.py` when no local override is selected. The first
-build downloads the signed Apple Silicon 9.0.2 ZIP from this repository's pinned
-GitHub dependency release. `Configuration/MediaHelpers.json` records the exact
-URL, archive SHA-256 and executable hashes. Preparation verifies signatures,
+build downloads the signed, notarized Apple Silicon FFmpeg 9.0.2 helper ZIP from the
+pinned `aagedal/MPVKit` release, which is also the source of the native runtime's FFmpeg
+(see [one FFmpeg build](#one-ffmpeg-build-2026-11-01)). `Configuration/MediaHelpers.json`
+records the exact URL, archive SHA-256, executable hashes, and the archive's root folder
+and notice files. Preparation verifies signatures,
 matching build configurations, capabilities and system-only dependencies before
 publishing an ignored `.local/downloaded-media-helpers/` cache. Subsequent builds
 validate and reuse that cache without network access. Concurrent builds share a
@@ -19,7 +21,7 @@ The first build needs internet access and macOS command-line tools/Python 3.
 These pinned executables run on Apple Silicon. To seed the cache offline, run:
 
 ```sh
-python3 scripts/bootstrap-media-helpers.py --archive /absolute/ffmpeg-9.0.2-full-signed.zip
+python3 scripts/bootstrap-media-helpers.py --archive /absolute/ffmpeg-helpers-n9.0.2-editor.2-arm64.zip
 ```
 
 Set `AFC_BUNDLE_MEDIA_HELPERS=NO` in Xcode build settings or on `xcodebuild` to
@@ -36,7 +38,7 @@ python3 scripts/prepare-media-helpers.py \
   --output /absolute/new/prepared-helpers
 ```
 
-Preparation checks matching version/configuration, required render filters and encoders, and system-only dynamic dependencies. It rejects `--enable-nonfree`. The prepared directory records helper hashes, full version output, dependency lists, capabilities, archived notices and supplied provenance. Preparation never downloads helpers or verifies the accuracy/completeness of supplied licensing or provenance material. All manifests explicitly record unreviewed notices/provenance and `releaseCertified: false`.
+Preparation checks matching version/configuration, every non-optional component in `Configuration/FFmpegRequirements.json` (encoders, decoders, filters, muxers and input formats), and system-only dynamic dependencies. It rejects `--enable-nonfree`. The prepared directory records helper hashes, full version output, dependency lists, capabilities, archived notices and supplied provenance. Preparation never downloads helpers or verifies the accuracy/completeness of supplied licensing or provenance material. All manifests explicitly record unreviewed notices/provenance and `releaseCertified: false`.
 
 Set the Xcode build setting `AFC_MEDIA_HELPER_DIR` to the absolute prepared directory. The copy phase verifies every prepared file hash, rejects links/unexpected files, copies to `Resources/Helpers`, and signs each helper with the app signing identity, hardened runtime and sandbox inheritance when signing is enabled. Leave the setting unset to use the pinned automatic helpers; set `AFC_BUNDLE_MEDIA_HELPERS=NO` to remove bundled helpers. Signing changes executable bytes; the manifest hashes identify the prepared input binaries, not the signed app copies. Do not mutate or re-prepare the directory while a build is copying it.
 
@@ -85,7 +87,10 @@ paths cleared. It verifies raster, exact fractional frame rate/count and output
 SHA256 while preserving the original fixture. This is an unsigned integration
 test; it does not qualify signed sandbox execution or native UI gestures.
 
-## Signed 9.0.2 local integration (2026-10-14)
+## Signed 9.0.2 local integration (2026-10-14, superseded)
+
+These were the pinned helpers until 2026-11-01. They were a separate "full" FFmpeg build;
+see [two FFmpeg copies](#two-ffmpeg-copies-2026-10-31) and the build that replaced them.
 
 The user-supplied `ffmpeg-9.0.2-full-signed.zip` contains both Apple Silicon
 helpers, a build README, qualification metadata and a notarization report.
@@ -121,14 +126,15 @@ needed for native sequence monitoring.
 
 ## Two FFmpeg copies (2026-10-31)
 
-With the Debug-only native runtime selected, the app carries two FFmpeg builds: these
+This section records the state before [one FFmpeg build](#one-ffmpeg-build-2026-11-01).
+With the Debug-only native runtime selected, the app carried two FFmpeg builds: these
 helpers, and FFmpeg linked statically into `libNativePlaybackRuntime.dylib` from the
 pinned `aagedal/MPVKit` fork (`MPVKit-GPL`, 7f5d3f5). Normal and Release builds carry
 only the helpers. `scripts/ffmpeg-copies-audit.py` compares the two:
 
 ```sh
 python3 scripts/ffmpeg-copies-audit.py --helpers /absolute/prepared-helpers \
-  --runtime /absolute/libNativePlaybackRuntime.dylib --helper-demuxers --json report.json
+  --runtime /absolute/libNativePlaybackRuntime.dylib --json report.json --check --require-same-build
 ```
 
 | | Helpers | Runtime |
@@ -180,7 +186,7 @@ helpers lack a required component. The report is written to
   shared `libav*` dylibs, used by both the runtime and thin helper executables. That
   is the only option that saves size (about 120 MB of static helpers), but MPVKit
   publishes static XCFrameworks, so it needs fork changes first.
-- **One FFmpeg build for both (recommended next step).** MPVKit's macOS build already
+- **One FFmpeg build for both (implemented 2026-11-01, below).** MPVKit's macOS build already
   compiles FFmpeg's programs (it passes `--enable-ffplay` and does not pass
   `--disable-programs`). Widening the fork's allow-lists to
   `FFmpegRequirements.json` and adding x264, then publishing that build's `ffmpeg`
@@ -190,5 +196,63 @@ helpers lack a required component. The report is written to
   lose x265, VPX, AOM, whisper and other encoders the app does not use), so it waits
   for a product decision, a fork release, and helper signing and notarization.
 
-Until then, the version, licence and requirement checks above stop the copies from
-drifting silently, and the import check keeps runtime-admitted media exportable.
+The version, licence and requirement checks above stop the copies from drifting
+silently, and the import check keeps runtime-admitted media exportable.
+
+## One FFmpeg build (2026-11-01)
+
+The pinned helpers now come from the `aagedal/MPVKit` fork release
+[`aagedal-1.1.0-n9.0.2-editor.2`](https://github.com/aagedal/MPVKit/releases/tag/aagedal-1.1.0-n9.0.2-editor.2).
+That fork release is also the MPVKit revision the native runtime pins (`1406082`). One FFmpeg
+configure run builds the `Libav*-GPL` frameworks the runtime links and the arm64 `ffmpeg`/`ffprobe`
+in `ffmpeg-helpers-n9.0.2-editor.2-arm64.zip`. Release builds ship those helpers; the runtime
+stays Debug-only. The fork's `docs/editor-helpers/README.md` describes the recipe.
+
+The fork's configuration was widened for this, adding components and removing none:
+
+- Every decoder and demuxer, because conversion reads whatever the helpers decode.
+- x264 (GPL, `stable` at `b35605a`), as the new `Libx264-GPL` framework.
+- Every entry in `Configuration/FFmpegRequirements.json`, optional ones included: `prores_ks`,
+  the export, transition, audio-effect, stabilisation and noise-reduction filters, test sources,
+  the WAV/`f32le`/`s16le`/`rawvideo`/`null`/`nut` muxers and the `lavfi` input device.
+
+`ffplay` is no longer built (no Homebrew SDL2). The helpers link only system libraries. The
+fork's `prepare-editor-release.py` checks the compiled configuration of both slices against the
+requirements file. It also checks that the arm64 configure line is embedded in both helpers and
+in `libavcodec.a`. The helpers are signed with Developer ID (hardened runtime, timestamp) and
+notarized. The archive carries `README.md`, `build.json` (configuration, source revisions,
+hashes), the notarization log and the GPLv3, FFmpeg, x264 and MPVKit licences. The release
+publishes the corresponding source.
+
+| | Old helpers (full build) | Shared build (helpers = runtime) |
+| --- | --- | --- |
+| Components | 199 encoders, 530 decoders, 484 filters, 183 muxers | 49 encoders, 525 decoders, 100 filters, 18 muxers |
+| Conversion inputs | 500 codecs, 367 input formats | 499 codecs (gains AVS3; loses JPEG XL and animated JPEG XL, which came from libjxl), 368 input formats (gains `dash`, `imf`; loses `avfoundation` capture) |
+| Helper size | 60.1 MB + 60.0 MB | 51.5 MB + 51.3 MB, fully static, macOS 12.0+ |
+
+The runtime used to have 45 encoders, 230 decoders, 67 filters, 13 muxers and 67 demuxers. The
+Debug runtime dylib grows from 59.9 MB to 65.6 MB (+5.7 MB, +9.5%). For the arm64 slice,
+libavcodec grows by 4.1 MB, libavformat by 1.2 MB and libavfilter by 0.3 MB, and libx264 adds
+2.0 MB. Every component the runtime had is still enabled, so media it already played keeps
+its decoders and demuxers. The 59 runtime tests and the 29-variant sequence parity proof pass.
+Media that only the new decoders or demuxers can read still has to pass the native import
+checks before the runtime admits it.
+
+The helpers lose the encoders and filters the app never used (x265, VPX, AOM, SVT-AV1, vvenc,
+WebP, Opus, Vorbis, LAME, Theora, OpenJPEG, VMAF, whisper, …), the `avfoundation` capture
+device, and JPEG XL decoding. The app accepts only PNG and JPEG stills, so a `.jxl` file reached
+the helpers only through generic conversion.
+
+`ffmpeg-copies-audit.py` now also reports whether the copies are one build: the same version
+string and the same configure line, whitespace aside, including the build's own `--prefix`.
+Configure applies flags in order, so a reordered line counts as a different build.
+`--require-same-build` makes that a `--check` failure. The native Debug embed phase requires it
+whenever the pinned helpers are bundled; helpers chosen with `AFC_MEDIA_HELPER_DIR` are local
+builds and are still checked for version, licence and components. The audit reads input formats
+from the prepared `demuxers.txt` (devices such as `lavfi` included). It never runs the bundled
+helpers.
+
+`FFmpegRequirements.json` gained `alphamerge` (wipe transitions, previously missing). It also
+gained an `acceptance` feature for the in-app acceptance and story drivers, which generate
+fixtures with the bundled helper through `lavfi`, and an optional `verification` feature
+listing what the smokes need when run against the pinned helpers.

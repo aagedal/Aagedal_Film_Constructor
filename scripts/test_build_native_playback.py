@@ -114,7 +114,12 @@ class NativeXcodeDevelopmentTests(unittest.TestCase):
             self.assertIn('--check', command)
             self.assertEqual(command[command.index('--helpers') + 1], str(helpers))
             self.assertTrue(command[command.index('--runtime') + 1].endswith('native-playback/products/libNativePlaybackRuntime.dylib'))
-            self.assertNotIn('--helper-demuxers', command)
+            self.assertIn('--require-same-build', command)
+            # Explicit local helpers are a different build; drift and components are still checked.
+            with patch.object(build.subprocess, 'run') as run:
+                build.audit_ffmpeg_copies(paths, dict(env, AFC_MEDIA_HELPER_DIR='/local/helpers'), resources)
+            self.assertIn('--check', run.call_args.args[0])
+            self.assertNotIn('--require-same-build', run.call_args.args[0])
 
     def test_disabled_cleanup_preserves_unrelated_frameworks(self):
         with tempfile.TemporaryDirectory() as directory:

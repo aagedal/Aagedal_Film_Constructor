@@ -47,14 +47,25 @@ def validate_prepared(directory, pin):
         return False
 
 
+def notice_names(pin):
+    # The archive's documentation members; the pin names them (older pins used the defaults).
+    names = pin.get('notices', ['README.md', 'qualification.json', 'notarization.json'])
+    if not names or any(not isinstance(name, str) or '/' in name or name.startswith('.') or name in ('ffmpeg', 'ffprobe')
+                        for name in names):
+        raise ValueError('Unsupported helper notice names in the pin')
+    return names
+
+
 def extract_verified(archive, destination, pin):
     if digest(archive) != pin['sha256']:
         raise ValueError('Downloaded helper archive SHA256 mismatch')
     # Only known files are extracted; archive paths/links never select destinations.
-    names = ['ffmpeg', 'ffprobe', 'README.md', 'qualification.json', 'notarization.json']
+    root = pin.get('archiveRoot', 'full')
+    if not isinstance(root, str) or not root or '/' in root or root.startswith('.'):
+        raise ValueError('Unsupported helper archive root in the pin')
     with zipfile.ZipFile(archive) as package:
-        for name in names:
-            info = package.getinfo('full/' + name)
+        for name in ['ffmpeg', 'ffprobe', *notice_names(pin)]:
+            info = package.getinfo(root + '/' + name)
             if info.file_size > 200_000_000:
                 raise ValueError('Unexpected helper archive member size')
             with package.open(info) as source, (destination / name).open('wb') as output:
@@ -90,7 +101,7 @@ def bootstrap(cache, pin, archive=None):
             extract_verified(downloaded, extracted, pin)
             notices = staging / 'notices'
             notices.mkdir()
-            for name in ('README.md', 'qualification.json', 'notarization.json'):
+            for name in notice_names(pin):
                 shutil.copyfile(extracted / name, notices / name)
             provenance = staging / 'provenance.txt'
             provenance.write_text(

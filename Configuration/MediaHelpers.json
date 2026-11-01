@@ -1,9 +1,20 @@
 {
   "version": "9.0.2",
-  "url": "https://github.com/aagedal/Aagedal_Film_Constructor/releases/download/media-helpers-9.0.2/ffmpeg-9.0.2-full-signed.zip",
-  "sha256": "5989664a399ab795df0d326a7571509ad4f2ceb913f323f89332309df6a6ce3e",
+  "source": "aagedal/MPVKit aagedal-1.1.0-n9.0.2-editor.2: the FFmpeg configure run that also built Packages/NativePlaybackProof's MPVKit-GPL libraries",
+  "url": "https://github.com/aagedal/MPVKit/releases/download/aagedal-1.1.0-n9.0.2-editor.2/ffmpeg-helpers-n9.0.2-editor.2-arm64.zip",
+  "sha256": "479bce6bb4a332bf55238ea86d630e507bcab5a56218573342657cc9e1b5c768",
+  "archiveRoot": "ffmpeg-helpers",
+  "notices": [
+    "README.md",
+    "build.json",
+    "notarization.json",
+    "COPYING.GPLv3",
+    "FFmpeg-LICENSE.md",
+    "x264-COPYING",
+    "MPVKit-LICENSE"
+  ],
   "binaries": {
-    "ffmpeg": "ec3d81944809bf5d0173edb77b8dbf8eaeabf2388289812ce87b3f90fbe410c6",
-    "ffprobe": "f2cabc2f9dbd8bd0325b4ed105cf434de9117ceda984bea1bf1e03450876d5ad"
+    "ffmpeg": "208ba7f424661eacc10e64d344b092df6baaa60fe1700441db7c6570c9a6195e",
+    "ffprobe": "12942e9bb222253221a9a84b5995502010c5fd2fbcb8838e6f1617d86daa3841"
   }
 }

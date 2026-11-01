@@ -45,6 +45,25 @@ class BootstrapTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'ffmpeg SHA256'):
                 bootstrap.extract_verified(archive, output, pin)
 
+    def test_pin_selects_archive_root_and_notice_members(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            archive = root / 'helpers.zip'
+            notices = ['README.md', 'build.json', 'COPYING.GPLv3']
+            with zipfile.ZipFile(archive, 'w') as package:
+                for name in ('ffmpeg', 'ffprobe', *notices, 'unlisted.txt'):
+                    package.writestr('ffmpeg-helpers/' + name, name.encode())
+            pin = {'sha256': bootstrap.digest(archive), 'archiveRoot': 'ffmpeg-helpers', 'notices': notices,
+                   'binaries': {name: hashlib.sha256(name.encode()).hexdigest() for name in ('ffmpeg', 'ffprobe')}}
+            output = root / 'output'
+            output.mkdir()
+            with patch.object(bootstrap.subprocess, 'run'):
+                bootstrap.extract_verified(archive, output, pin)
+            self.assertEqual({path.name for path in output.iterdir()}, {'ffmpeg', 'ffprobe', *notices})
+            for unsafe in ({'archiveRoot': '../x'}, {'notices': ['../escape']}, {'notices': ['ffmpeg']}, {'notices': []}):
+                with self.subTest(pin=unsafe), self.assertRaisesRegex(ValueError, 'Unsupported'):
+                    bootstrap.extract_verified(archive, output, dict(pin, **unsafe))
+
     def test_cache_validates_bytes_and_reuses_without_network(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
