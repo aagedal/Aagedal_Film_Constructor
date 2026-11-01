@@ -2,6 +2,7 @@
 """Prepare explicitly supplied FFmpeg helpers; never downloads or certifies licensing."""
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -10,8 +11,11 @@ import shutil
 import subprocess
 import tempfile
 
-REQUIRED_FILTERS = {'color', 'anullsrc', 'trim', 'atrim', 'setpts', 'asetpts', 'fps', 'scale', 'pad', 'crop', 'setsar', 'format', 'overlay', 'loop', 'settb', 'aresample', 'pan', 'aformat', 'volume', 'aeval', 'adelay', 'amix'}
-REQUIRED_ENCODERS = {'prores_ks', 'pcm_s24le'}
+# The app's command lines declare what they use in Configuration/FFmpegRequirements.json.
+_spec = importlib.util.spec_from_file_location('ffmpeg_copies_audit', Path(__file__).with_name('ffmpeg-copies-audit.py'))
+audit = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(audit)
+REQUIRED = audit.required(audit.load_requirements())
 
 def capture(executable, *arguments):
     return subprocess.check_output([str(executable), *arguments], stderr=subprocess.STDOUT, text=True)
@@ -51,11 +55,11 @@ def prepare(args):
     encoders = capture(args.ffmpeg, '-hide_banner', '-encoders')
     decoders = capture(args.ffmpeg, '-hide_banner', '-decoders')
     muxers = capture(args.ffmpeg, '-hide_banner', '-muxers')
-    def available(listing):
-        return {line.split()[1] for line in listing.splitlines() if len(line.split()) >= 2 and re.fullmatch(r'[.A-Z]{1,6}', line.split()[0])}
-    if (not REQUIRED_FILTERS <= available(filters) or not REQUIRED_ENCODERS <= available(encoders)
-            or not {'png', 'mjpeg'} <= available(decoders) or 'mov' not in available(muxers)):
-        raise ValueError('Supplied FFmpeg lacks required export filters, encoders, image decoders or MOV muxer')
+    listings = dict(encoders=encoders, decoders=decoders, filters=filters, muxers=muxers)
+    missing = {kind: sorted(REQUIRED[kind] - audit.listing_names(listings[kind])) for kind in audit.KINDS}
+    if any(missing.values()):
+        raise ValueError('Supplied FFmpeg lacks components the app uses (Configuration/FFmpegRequirements.json): '
+                         + '; '.join(f'{kind} {", ".join(names)}' for kind, names in missing.items() if names))
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix='.media-helpers-', dir=output.parent))
     try:
@@ -74,7 +78,7 @@ def prepare(args):
         (temporary / 'muxers.txt').write_text(muxers)
         files = {str(p.relative_to(temporary)): digest(p) for p in sorted(temporary.rglob('*')) if p.is_file()}
         manifest = {'schemaVersion': 1, 'helpers': helpers, 'files': files,
-                    'capabilities': {'requiredFilters': sorted(REQUIRED_FILTERS), 'requiredEncoders': sorted(REQUIRED_ENCODERS), 'requiredImageDecoders': ['mjpeg', 'png'], 'requiredMuxers': ['mov']},
+                    'capabilities': {'requiredFilters': sorted(REQUIRED['filters']), 'requiredEncoders': sorted(REQUIRED['encoders']), 'requiredImageDecoders': sorted(REQUIRED['decoders']), 'requiredMuxers': sorted(REQUIRED['muxers'])},
                     'licenseReview': 'unreviewed', 'provenanceReview': 'unreviewed', 'releaseCertified': False}
         (temporary / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
         temporary.rename(output)

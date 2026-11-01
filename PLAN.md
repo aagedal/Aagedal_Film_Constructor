@@ -2750,3 +2750,38 @@ See [MP3 container evidence](docs/evidence/mpv-mp3-container-20261017/README.md)
 - Not covered: GPU presentation and VideoToolbox decoding (software rendering, fitted within
   1920×1080), mixing several audio streams, sample-exact source audio after seeks, untagged colour
   (MPV's matrix guess), and the two FFmpeg copies the app ships (helpers and runtime dylib).
+
+### Single FFmpeg copy audit checkpoint (2026-10-31)
+
+- Audit: the bundled helpers and the runtime's MPVKit FFmpeg are the same release (9.0.2 /
+  `n9.0.2`) and licence (GPL v3, no nonfree), but configured very differently. The helpers are a
+  "full" build (199 encoders, 484 filters, 183 muxers, x264/x265/VPX/AOM/whisper, …). The
+  runtime keeps MPVKit's playback allow-lists (45 encoders, 67 filters, 13 muxers) and lacks
+  `prores_ks`, `libx264`, 20 export filters, `deshake`, `afftdn`/`amerge` and the WAV/f32le
+  muxers. In the other direction, the runtime decodes only AVS3 (`libuavs3d`) that the helpers
+  cannot. See [two FFmpeg copies](docs/media-helper-packaging.md#two-ffmpeg-copies-2026-10-31).
+- Consolidation was not possible in this step. In-process export through libavfilter would
+  rebuild `fftools` (the command lines are the export parity contract), lose process isolation
+  and terminate-to-cancel, and still leave Release on the helpers, since the runtime is
+  Debug-only. Linking the helpers against the runtime dylib would load libmpv/MoltenVK in every
+  helper, still lack the components, and require shipping the runtime in Release. The sound
+  path is one MPVKit fork build whose allow-lists cover `Configuration/FFmpegRequirements.json`
+  (plus x264) and that also publishes its already-built `ffmpeg`/`ffprobe` as the pinned helper
+  asset. That changes what Release ships, so it waits for a product decision. Only shared
+  `libav*` dylibs, a further fork change, would also save the ~120 MB of static helpers.
+- Implemented: `Configuration/FFmpegRequirements.json` declares, per feature, what the app's
+  helper command lines use (export, proxies, conversion, stabilise, noise reduction).
+  `prepare-media-helpers.py` now requires all of it, up from a filter subset plus ProRes/PCM;
+  the pinned pair passes. `scripts/ffmpeg-copies-audit.py` compares both copies. The native
+  Debug embed phase runs it against the bundled listings, fails on version or licence drift or
+  missing helper components, and writes `NativeRuntime/ffmpeg-copies.json`. Unconverted
+  native import now also requires every stream's codec in the helpers' `Helpers/decoders.txt`,
+  so media the runtime admits stays exportable (AVS3 falls back to conversion).
+- The app-file smoke's stale OTIO expectation is fixed: it checks the exporter's still-omission
+  warning instead of waiting on the "Export Anyway" alert, and passes unmodified.
+- Verification: 119 Python tests (eight optional skips), 59 runtime and 95 EditorCore tests, the
+  import probe smoke (now including the helper decodability guard), the source viewer smoke,
+  the 29/29 native sequence parity proof on a fresh render-plan fixture, the proxy-service,
+  export-service, proxy-workspace and app-file smokes, the real-media check (H.264 and ProRes
+  422 HQ from MOV/MP4/DNxHR sources), and Debug app builds with the native runtime enabled
+  (audit embedded) and disabled.

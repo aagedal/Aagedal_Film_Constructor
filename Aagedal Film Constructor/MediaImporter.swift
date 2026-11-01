@@ -15,10 +15,13 @@ struct ImportedMedia: Sendable {
 
 enum MediaImportError: LocalizedError {
     case unsupportedMedia, invalidDuration, invalidImage, invalidAudioChannels
+    /// The playback runtime reads this codec but the bundled FFmpeg helper, which exports, cannot.
+    case helperCannotDecode(String)
 
     var errorDescription: String? {
         switch self {
         case .unsupportedMedia: "This file has no supported video or audio tracks."
+        case .helperCannotDecode(let codec): "The bundled FFmpeg cannot decode \(codec), so this media could not be exported."
         case .invalidDuration: "The media does not have a finite, positive duration."
         case .invalidImage: "This image could not be read."
         case .invalidAudioChannels: "The audio channel layout is unsupported."
@@ -229,20 +232,50 @@ enum MediaImporter {
     /// durations, offsets and cadence from packet timing, layouts in FFmpeg's channel order and
     /// embedded timecode. With `requiresNativePlayback`, every stream must also open in the
     /// sequence monitor's decoder, since AVFoundation previews cannot stand in for it.
+    /// The runtime links its own FFmpeg build, while export, proxies and conversion run the bundled
+    /// helper, so every imported stream's codec must also be in `helperCodecs` (nil: no helper listing).
     @concurrent
-    static func inspectNative(url: URL, displayName: String? = nil, requiresNativePlayback: Bool = true) async throws -> ImportedMedia {
+    static func inspectNative(url: URL, displayName: String? = nil, requiresNativePlayback: Bool = true,
+                              helperCodecs: Set<String>? = helperDecodableCodecs()) async throws -> ImportedMedia {
         try Task.checkCancellation()
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         let bookmark = try url.bookmarkData(options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess], includingResourceValuesForKeys: nil, relativeTo: nil)
         let probe = try NativeMediaProbe(url: url)
         try Task.checkCancellation()
+        if let helperCodecs, let codec = probe.streams.lazy.compactMap({ probe.codecs[$0.index] }).first(where: { !helperCodecs.contains($0) }) {
+            throw MediaImportError.helperCannotDecode(codec)
+        }
         if requiresNativePlayback { try probe.verifyNativePlayback(url: url) }
         try Task.checkCancellation()
         var asset = MediaAsset(name: displayName ?? url.lastPathComponent, originalURL: url,
                                duration: probe.duration, streams: probe.streams)
         asset.sourceTimecodeStart = probe.sourceTimecodeStart
         return ImportedMedia(asset: asset, bookmark: bookmark)
+    }
+
+    /// Codec names the bundled helper decodes, from its prepared `-decoders` listing.
+    nonisolated static func helperDecodableCodecs(bundle: Bundle = .main) -> Set<String>? {
+        guard let url = bundle.resourceURL?.appendingPathComponent("Helpers/decoders.txt"),
+              let listing = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        return decodableCodecs(listing: listing)
+    }
+
+    /// Rows below the dashed separator; FFmpeg appends "(codec x)" when a decoder's name differs.
+    nonisolated static func decodableCodecs(listing: String) -> Set<String> {
+        let lines = listing.split(separator: "\n", omittingEmptySubsequences: false)
+        guard let separator = lines.firstIndex(where: { line in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            return trimmed.count >= 3 && trimmed.allSatisfy { $0 == "-" }
+        }) else { return [] }
+        return Set(lines[(separator + 1)...].compactMap { line -> String? in
+            let fields = line.split(whereSeparator: \.isWhitespace)
+            guard fields.count >= 2 else { return nil }
+            if let last = fields.last, last.hasSuffix(")"), fields.count >= 2, fields[fields.count - 2] == "(codec" {
+                return String(last.dropLast())
+            }
+            return String(fields[1])
+        })
     }
 
     /// One picture of an original AVFoundation cannot read, for the Source viewer.

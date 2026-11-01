@@ -93,6 +93,29 @@ class NativeXcodeDevelopmentTests(unittest.TestCase):
             self.assertIn('f957f48', (native / 'notices/README').read_text())
             self.assertEqual(json.loads((native / 'provenance.json').read_text())['mpvkit']['revision'], 'f957f48')
 
+    def test_embedding_audits_both_ffmpeg_copies(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            env = dict(self.fixture(root), TARGET_BUILD_DIR=str(root / 'app'), UNLOCALIZED_RESOURCES_FOLDER_PATH='Resources')
+            paths = build.selection(env)
+            resources = root / 'app/Resources/NativeRuntime'
+            resources.mkdir(parents=True)
+            with patch.object(build.subprocess, 'run') as run:
+                build.audit_ffmpeg_copies(paths, env, resources)
+            run.assert_not_called()
+            self.assertIsNone(json.loads((resources / 'ffmpeg-copies.json').read_text())['helpers'])
+            helpers = root / 'app/Resources/Helpers'
+            helpers.mkdir()
+            (helpers / 'manifest.json').write_text('{}')
+            with patch.object(build.subprocess, 'run') as run:
+                build.audit_ffmpeg_copies(paths, env, resources)
+            command = run.call_args.args[0]
+            self.assertTrue(run.call_args.kwargs['check'])
+            self.assertIn('--check', command)
+            self.assertEqual(command[command.index('--helpers') + 1], str(helpers))
+            self.assertTrue(command[command.index('--runtime') + 1].endswith('native-playback/products/libNativePlaybackRuntime.dylib'))
+            self.assertNotIn('--helper-demuxers', command)
+
     def test_disabled_cleanup_preserves_unrelated_frameworks(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

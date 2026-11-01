@@ -112,6 +112,21 @@ enum ProbeSmokeFailure: Error, CustomStringConvertible {
             }
         }
 
+        // 2b. The runtime's FFmpeg is a separate build from the export helper: admission also needs the
+        // helper to decode every stream (MediaImporter reads the bundled Helpers/decoders.txt listing).
+        let helperCodecs = MediaImporter.decodableCodecs(listing: try String(contentsOf: file("helper-decoders.txt"), encoding: .utf8))
+        try check(helperCodecs.isSuperset(of: ["ffv1", "utvideo", "dnxhd", "pcm_s16le", "pcm_s24le", "av1", "prores"]) &&
+                  !helperCodecs.contains("=") && !helperCodecs.contains("libdav1d"), "Helper decoder listing parse")
+        for name in admitted.keys.sorted() {
+            _ = try await MediaImporter.inspectNative(url: file(name), helperCodecs: helperCodecs)
+        }
+        do {
+            _ = try await MediaImporter.inspectNative(url: file("dnxhr-tc.mxf"), helperCodecs: helperCodecs.subtracting(["pcm_s16le"]))
+            throw ProbeSmokeFailure.failed("Admitted media whose audio the helper cannot decode")
+        } catch MediaImportError.helperCannotDecode(let codec) {
+            try check(codec == "pcm_s16le", "Undecodable codec reported as \(codec)")
+        }
+
         // 3. Unconverted originals play natively (full decoded-frame qualification) and export.
         let export = SequenceExportService(ffmpegURL: ffmpeg, ffprobeURL: ffprobe)
         for (name, rate, width, height) in [("ffv1-pcm.nut", 24, 320, 180), ("dnxhr-tc.mxf", 25, 640, 360)] {
@@ -140,6 +155,6 @@ enum ProbeSmokeFailure: Error, CustomStringConvertible {
 
         print("Native import probe smoke passed: \(parityCount) parity files (\(pinned.count) pinned reader differences), "
               + "\(nativeOnly.count) native-only fixtures (\(admitted.count) imported unconverted, \(nativeOnly.count - admitted.count) converted), "
-              + "native playback and export of unconverted NUT/MXF, thumbnails and waveform peaks")
+              + "helper decodability guard, native playback and export of unconverted NUT/MXF, thumbnails and waveform peaks")
     }
 }

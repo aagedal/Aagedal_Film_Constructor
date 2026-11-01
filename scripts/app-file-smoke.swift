@@ -112,12 +112,13 @@ struct AppFileSmoke {
         store.edlExportDraft = nil
         let beforeOTIO = store.project
         let otioHistory = (store.canUndo, store.canRedo)
-        store.exportOTIO()
-        try check(store.errorMessage?.contains("OpenTimelineIO") == true,
-                  "Unsupported stills fail OpenTimelineIO validation before opening a save panel")
-        try check(store.project == beforeOTIO && store.canUndo == otioHistory.0 && store.canRedo == otioHistory.1,
-                  "Refused OpenTimelineIO export preserves the project and undo history")
-        store.errorMessage = nil
+        // Stills are left out with a warning, and the store then asks "Export Anyway" in a modal
+        // alert that this headless smoke cannot answer, so check the exporter's warning directly.
+        let otio = try OTIOExporter.export(project: store.project)
+        try check(otio.warnings.contains { $0.contains("Clips left out: still-image") },
+                  "OpenTimelineIO export warns that stills are left out: \(otio.warnings)")
+        try check(store.errorMessage == nil && store.project == beforeOTIO && store.canUndo == otioHistory.0 && store.canRedo == otioHistory.1,
+                  "Assessing OpenTimelineIO export preserves the project and undo history")
         try exerciseInterchangeDestinationProtection(directory: directory, asset: audio.asset)
         let emptyExport = EditorStore()
         emptyExport.beginRenderExport()

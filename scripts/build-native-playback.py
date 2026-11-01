@@ -121,6 +121,24 @@ def embed_runtime(paths, env):
         '--provenance', str(paths['DERIVED_FILE_DIR'] / 'native-playback/provenance.json'),
         '--deployment-target', '27.0', '--sign-identity', identity], check=True)
     shutil.copyfile(paths['DERIVED_FILE_DIR'] / 'native-playback/build-selection.json', resources / 'build-selection.json')
+    audit_ffmpeg_copies(paths, env, resources)
+
+
+def audit_ffmpeg_copies(paths, env, resources):
+    """The app now carries two FFmpeg copies; refuse version or licence drift between them.
+
+    The helpers phase runs first, so its prepared listings are already in the bundle. Their
+    signed copies are never executed here (they inherit the app sandbox).
+    """
+    helpers = Path(env['TARGET_BUILD_DIR']) / env['UNLOCALIZED_RESOURCES_FOLDER_PATH'] / 'Helpers'
+    report = resources / 'ffmpeg-copies.json'
+    if not (helpers / 'manifest.json').is_file():
+        report.write_text(json.dumps(dict(helpers=None, note='Built without media helpers; nothing to compare.'), indent=2) + '\n')
+        return
+    subprocess.run(['python3', str(paths['SRCROOT'] / 'scripts/ffmpeg-copies-audit.py'),
+        '--helpers', str(helpers), '--requirements', str(paths['SRCROOT'] / 'Configuration/FFmpegRequirements.json'),
+        '--runtime', str(paths['DERIVED_FILE_DIR'] / 'native-playback/products/libNativePlaybackRuntime.dylib'),
+        '--json', str(report), '--check'], check=True)
 
 
 def clean_disabled_outputs(env):

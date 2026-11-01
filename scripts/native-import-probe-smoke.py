@@ -55,6 +55,8 @@ FIXTURES = {
 }
 for name, arguments in FIXTURES.items():
     subprocess.run([str(args.ffmpeg), '-hide_banner', '-loglevel', 'error', *arguments, str(fixtures / name)], check=True)
+# The listing prepare-media-helpers.py bundles as Helpers/decoders.txt.
+(fixtures / 'helper-decoders.txt').write_text(subprocess.check_output([str(args.ffmpeg), '-hide_banner', '-decoders'], text=True))
 
 # Xcode's toolchain and SDK for both the package and the harness, never another swift on PATH.
 xcrun = lambda *arguments: subprocess.check_output(['/usr/bin/xcrun', *arguments], text=True).strip()
