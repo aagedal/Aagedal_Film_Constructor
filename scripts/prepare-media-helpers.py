@@ -55,8 +55,9 @@ def prepare(args):
     encoders = capture(args.ffmpeg, '-hide_banner', '-encoders')
     decoders = capture(args.ffmpeg, '-hide_banner', '-decoders')
     muxers = capture(args.ffmpeg, '-hide_banner', '-muxers')
-    listings = dict(encoders=encoders, decoders=decoders, filters=filters, muxers=muxers)
-    missing = {kind: sorted(REQUIRED[kind] - audit.listing_names(listings[kind])) for kind in audit.KINDS}
+    demuxers = capture(args.ffmpeg, '-hide_banner', '-demuxers')
+    listings = dict(encoders=encoders, decoders=decoders, filters=filters, muxers=muxers, demuxers=demuxers)
+    missing = {kind: sorted(REQUIRED[kind] - audit.names(kind, listings[kind])) for kind in audit.KINDS}
     if any(missing.values()):
         raise ValueError('Supplied FFmpeg lacks components the app uses (Configuration/FFmpegRequirements.json): '
                          + '; '.join(f'{kind} {", ".join(names)}' for kind, names in missing.items() if names))
@@ -72,13 +73,11 @@ def prepare(args):
                 raise ValueError('Notices must not contain symbolic links')
         shutil.copytree(args.notices, temporary / 'notices')
         shutil.copyfile(args.provenance, temporary / 'provenance.txt')
-        (temporary / 'filters.txt').write_text(filters)
-        (temporary / 'encoders.txt').write_text(encoders)
-        (temporary / 'decoders.txt').write_text(decoders)
-        (temporary / 'muxers.txt').write_text(muxers)
+        for kind, text in listings.items():
+            (temporary / f'{kind}.txt').write_text(text)
         files = {str(p.relative_to(temporary)): digest(p) for p in sorted(temporary.rglob('*')) if p.is_file()}
         manifest = {'schemaVersion': 1, 'helpers': helpers, 'files': files,
-                    'capabilities': {'requiredFilters': sorted(REQUIRED['filters']), 'requiredEncoders': sorted(REQUIRED['encoders']), 'requiredImageDecoders': sorted(REQUIRED['decoders']), 'requiredMuxers': sorted(REQUIRED['muxers'])},
+                    'capabilities': {'requiredFilters': sorted(REQUIRED['filters']), 'requiredEncoders': sorted(REQUIRED['encoders']), 'requiredImageDecoders': sorted(REQUIRED['decoders']), 'requiredMuxers': sorted(REQUIRED['muxers']), 'requiredDemuxers': sorted(REQUIRED['demuxers'])},
                     'licenseReview': 'unreviewed', 'provenanceReview': 'unreviewed', 'releaseCertified': False}
         (temporary / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
         temporary.rename(output)

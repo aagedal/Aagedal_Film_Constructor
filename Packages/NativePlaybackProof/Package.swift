@@ -10,9 +10,9 @@ let package = Package(
     products: [.library(name: "NativePlaybackRuntime", type: .dynamic, targets: ["NativePlaybackRuntime"])],
     dependencies: [
         .package(path: "../EditorCore"),
-        // aagedal-1.1.0-n9.0.2-editor.1: MPV 0.41, FFmpeg n9.0.2 (matches the bundled helpers)
-        // with editorial demuxers/decoders and PNG/JPEG encoders.
-        .package(url: "https://github.com/aagedal/MPVKit", revision: "7f5d3f53bd2676aa5c569271ada72752a2e83267")
+        // aagedal-1.1.0-n9.0.2-editor.2: MPV 0.41, FFmpeg n9.0.2. The same FFmpeg configure run built
+        // the bundled helpers (Configuration/MediaHelpers.json), so the app carries one FFmpeg build.
+        .package(url: "https://github.com/aagedal/MPVKit", revision: "1406082db63e9014e90fca6021d9ad4b6aff415a")
     ],
     targets: [
         .target(name: "CNativeDecoder", dependencies: [.product(name: "MPVKit-GPL", package: "MPVKit")]),

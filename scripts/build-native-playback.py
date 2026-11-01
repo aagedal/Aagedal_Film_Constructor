@@ -125,8 +125,11 @@ def embed_runtime(paths, env):
 
 
 def audit_ffmpeg_copies(paths, env, resources):
-    """The app now carries two FFmpeg copies; refuse version or licence drift between them.
+    """The app carries two FFmpeg copies; refuse version or licence drift between them.
 
+    The pinned helpers come from the runtime's own MPVKit build, so with them the copies must
+    also be one build (same version and configuration). Helpers chosen with
+    AFC_MEDIA_HELPER_DIR are local builds and are checked for drift and components only.
     The helpers phase runs first, so its prepared listings are already in the bundle. Their
     signed copies are never executed here (they inherit the app sandbox).
     """
@@ -138,7 +141,8 @@ def audit_ffmpeg_copies(paths, env, resources):
     subprocess.run(['python3', str(paths['SRCROOT'] / 'scripts/ffmpeg-copies-audit.py'),
         '--helpers', str(helpers), '--requirements', str(paths['SRCROOT'] / 'Configuration/FFmpegRequirements.json'),
         '--runtime', str(paths['DERIVED_FILE_DIR'] / 'native-playback/products/libNativePlaybackRuntime.dylib'),
-        '--json', str(report), '--check'], check=True)
+        '--json', str(report), '--check', *([] if env.get('AFC_MEDIA_HELPER_DIR') else ['--require-same-build'])],
+        check=True)
 
 
 def clean_disabled_outputs(env):

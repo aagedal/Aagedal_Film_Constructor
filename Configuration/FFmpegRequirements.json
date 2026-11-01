@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "about": "FFmpeg components the app's helper command lines use, by feature. prepare-media-helpers.py requires every non-optional entry; ffmpeg-copies-audit.py checks both bundled FFmpeg copies against it. Update this file with any new encoder, filter or muxer in a command line.",
+  "about": "FFmpeg components the app's helper command lines use, by feature. prepare-media-helpers.py requires every non-optional entry; ffmpeg-copies-audit.py checks both bundled FFmpeg copies against it, and the MPVKit fork's prepare-editor-release.py checks its compiled configuration against every entry, optional ones included. Update this file with any new encoder, filter, muxer or input format in a command line. Conversion reads whatever the helpers can decode, so it names no decoders or demuxers.",
   "features": {
     "export": {
       "source": "Packages/EditorCore/Sources/EditorCore/FFmpegRenderCompiler.swift, AudioEffects.swift, AudioDynamics.swift",
       "encoders": ["prores_ks", "pcm_s24le", "libx264", "aac", "hevc_videotoolbox"],
       "decoders": ["png", "mjpeg"],
-      "filters": ["acompressor", "adelay", "aeval", "aformat", "amix", "anullsink", "anullsrc", "apad", "aresample",
-                  "asetpts", "asplit", "atempo", "atrim", "biquad", "chromakey", "color", "crop", "fade", "format", "fps",
-                  "gblur", "geq", "hflip", "hwdownload", "loop", "lut", "lutrgb", "lutyuv", "overlay", "pad", "pan",
-                  "scale", "scale_vt", "sendcmd", "setparams", "setpts", "setsar", "settb", "transpose", "trim", "vflip",
-                  "volume"],
+      "filters": ["acompressor", "adelay", "aeval", "aformat", "alphamerge", "amix", "anullsink", "anullsrc", "apad",
+                  "aresample", "asetpts", "asplit", "atempo", "atrim", "biquad", "chromakey", "color", "crop", "fade",
+                  "format", "fps", "gblur", "geq", "hflip", "hwdownload", "loop", "lut", "lutrgb", "lutyuv", "overlay",
+                  "pad", "pan", "scale", "scale_vt", "sendcmd", "setparams", "setpts", "setsar", "settb", "transpose",
+                  "trim", "vflip", "volume"],
       "muxers": ["mov", "mp4"]
     },
     "proxies": {
@@ -36,6 +36,20 @@
       "encoders": ["pcm_s24le"],
       "filters": ["afftdn", "amerge", "aresample", "pan"],
       "muxers": ["wav", "f32le"]
+    },
+    "acceptance": {
+      "source": "Aagedal Film Constructor/AcceptanceDriver.swift (generated fixtures), StoryDriver.swift (music bed)",
+      "encoders": ["libx264", "aac", "prores_ks", "pcm_s16le", "pcm_s24le"],
+      "filters": ["sine", "testsrc", "testsrc2", "smptehdbars", "amix", "volume", "aformat"],
+      "muxers": ["matroska", "mov", "wav"],
+      "demuxers": ["lavfi"]
+    },
+    "verification": {
+      "source": "scripts/*-smoke.sh, native-sequence-proof.py, render-plan-proof.py: fixtures and checks when run against the pinned helpers",
+      "optionalEncoders": ["mpeg4", "ffv1", "qtrle", "pcm_s16le", "libx264", "rawvideo", "wrapped_avframe"],
+      "optionalFilters": ["nullsrc", "aevalsrc", "geq", "select", "psnr", "drawbox", "curves", "setparams", "setsar"],
+      "optionalMuxers": ["null", "rawvideo", "s16le", "nut", "image2"],
+      "optionalDemuxers": ["lavfi"]
     }
   }
 }

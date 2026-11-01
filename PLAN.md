@@ -2785,3 +2785,50 @@ See [MP3 container evidence](docs/evidence/mpv-mp3-container-20261017/README.md)
   export-service, proxy-workspace and app-file smokes, the real-media check (H.264 and ProRes
   422 HQ from MOV/MP4/DNxHR sources), and Debug app builds with the native runtime enabled
   (audit embedded) and disabled.
+
+### One FFmpeg build checkpoint (2026-11-01)
+
+- Implemented the single-build option from the audit above, with the user's approval of the
+  Release distribution change. The pinned helpers now come from the `aagedal/MPVKit` fork
+  release `aagedal-1.1.0-n9.0.2-editor.2`. That is also the runtime's MPVKit pin (`1406082`).
+  One FFmpeg configure run builds the `Libav*-GPL` frameworks and the arm64 `ffmpeg`/`ffprobe`,
+  which are signed with Developer ID and notarized. Release ships those helpers; the runtime
+  stays Debug-only. See [one FFmpeg build](docs/media-helper-packaging.md#one-ffmpeg-build-2026-11-01).
+- The fork's configuration adds components and removes none:
+  - every decoder and demuxer (user choice, so conversion keeps its inputs);
+  - x264 (new `Libx264-GPL`);
+  - `prores_ks`, and every entry in `Configuration/FFmpegRequirements.json`, optional ones
+    included;
+  - the `lavfi` input device;
+  - no ffplay/SDL2, and the helpers link only system libraries.
+
+  The Debug runtime grows from 59.9 to 65.6 MB (+9.5%). The helpers shrink from 60 to 51.5 MB
+  each.
+- Accepted losses, as approved: the encoders and filters the app never used (x265, VPX, AOM,
+  whisper, …). Also lost, and reported here: JPEG XL decoding (libjxl) and the `avfoundation`
+  capture device. The app accepts only PNG/JPEG stills. Conversion inputs go from 500 to 499
+  codecs (AVS3 gained) and from 367 to 368 input formats.
+- The requirements file was incomplete; it now also lists:
+  - `alphamerge` (wipe-transition export);
+  - an `acceptance` feature: the in-app drivers generate fixtures with the bundled helper
+    through `lavfi`;
+  - an optional `verification` feature: what the smokes and the parity proof need from the
+    pinned helpers;
+  - a `demuxers` kind.
+- `ffmpeg-copies-audit.py --require-same-build` asserts one build: the same version string and
+  the same configure line, whitespace aside. The native Debug embed phase requires this for
+  pinned helpers, while `AFC_MEDIA_HELPER_DIR` local helpers are checked for drift and
+  components only. Prepared helpers now record `demuxers.txt`, and the audit no longer runs
+  helpers. Bootstrap reads the archive's root folder and notice files from the pin.
+- Verification: 121 Python tests (eight optional skips); 59 runtime tests; EditorCore 95 Swift
+  Testing and 193 XCTest tests (20 skipped). The export-service, proxy-service,
+  proxy-workspace and app-file smokes and the render-plan fixture ran against the pinned
+  helpers. The import-probe and source-viewer smokes keep Homebrew fixture generation (they
+  need `libopus`/DNxHR encoders) and pass. The native sequence parity proof passes 29/29
+  against the pinned helpers. The real-media check passes H.264 and ProRes 422 HQ from iPhone
+  MOV, WebM, MPEG-TS, MP3, AV1 MP4, XDCAM and DNxHR MXF. Debug builds pass with the native
+  runtime enabled (embedded audit: one build, no errors) and disabled (native outputs removed;
+  left disabled). A Developer ID-signed Release build (app notarization skipped) embeds the
+  pinned helpers, signed with hardened runtime, timestamp and sandbox inheritance, and no
+  runtime.
+

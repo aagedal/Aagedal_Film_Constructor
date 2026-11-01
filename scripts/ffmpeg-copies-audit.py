@@ -2,11 +2,13 @@
 """Compare the two bundled FFmpeg copies: the prepared ffmpeg/ffprobe helpers and the
 FFmpeg linked into libNativePlaybackRuntime.dylib.
 
-Reports versions, licences, coverage of Configuration/FFmpegRequirements.json per
-feature, and codecs/demuxers only the runtime reads (media the runtime could admit
-that the helpers could not export). With --check, a version or licence mismatch, a
-nonfree build or a helper lacking a required component fails. Helper listings come from
-the prepared directory; nothing is executed unless --helper-demuxers is given.
+Reports versions, licences, whether both come from one FFmpeg build (same version and
+configure line), coverage of Configuration/FFmpegRequirements.json per feature, and
+codecs/demuxers only the runtime reads (media the runtime could admit that the helpers
+could not export). With --check, a version or licence mismatch, a nonfree build or a
+helper lacking a required component fails; --require-same-build also fails when the
+configurations differ. Helper listings come from the prepared directory; nothing is
+executed.
 """
 import argparse
 import ctypes
@@ -17,7 +19,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parent.parent
-KINDS = ('encoders', 'decoders', 'filters', 'muxers')
+KINDS = ('encoders', 'decoders', 'filters', 'muxers', 'demuxers')
 
 
 def load_requirements(path=ROOT / 'Configuration/FFmpegRequirements.json'):
@@ -52,6 +54,23 @@ def listing_names(text):
     return {name for _, name, _ in entries(text)}
 
 
+def demuxer_names(text):
+    """Input formats and input devices from an `ffmpeg -demuxers` listing. Its flags are fixed
+    columns (`D`, `E`, `d` for devices), and one row can name several formats (`mov,mp4,…`)."""
+    lines = text.splitlines()
+    start = next((index + 1 for index, line in enumerate(lines) if re.fullmatch(r'\s*-{3,}\s*', line)), 0)
+    names = set()
+    for line in lines[start:]:
+        match = re.match(r'^ ([D ])([E ])([d ]) (\S+)', line)
+        if match and match[1] == 'D':
+            names.update(match[4].split(','))
+    return names
+
+
+def names(kind, text):
+    return demuxer_names(text) if kind == 'demuxers' else listing_names(text)
+
+
 def decodable_codecs(text):
     """Codec names from a `-decoders` listing; FFmpeg appends `(codec x)` when they differ."""
     codecs = set()
@@ -75,20 +94,18 @@ def normalised_version(version):
     return version[1:] if re.fullmatch(r'n\d.*', version) else version
 
 
-def helper_inventory(directory, executable_demuxers=False):
+def helper_inventory(directory):
     directory = Path(directory)
     manifest = json.loads((directory / 'manifest.json').read_text())
     helper = manifest['helpers']['ffmpeg']
+    if not (directory / 'demuxers.txt').is_file():
+        raise ValueError(f'{directory} has no demuxers.txt; prepare it again with scripts/prepare-media-helpers.py')
     listings = {kind: (directory / f'{kind}.txt').read_text() for kind in KINDS}
-    inventory = dict(version=helper['version'], configuration=helper['configuration'],
-                     **{kind: sorted(listing_names(text)) for kind, text in listings.items()},
-                     decodableCodecs=sorted(decodable_codecs(listings['decoders'])), demuxers=None)
-    if executable_demuxers:
-        # Only for unsigned/notarized prepared copies: app copies inherit the app sandbox.
-        output = subprocess.check_output([str(directory / 'ffmpeg'), '-hide_banner', '-demuxers'], text=True)
-        inventory['demuxers'] = sorted({name for flags, names, _ in entries(output) if 'D' in flags
-                                        for name in names.split(',')})
-    return inventory
+    # The manifest keeps the whole `configuration:` line of `ffmpeg -version`.
+    configuration = helper['configuration'].strip().removeprefix('configuration:').strip()
+    return dict(version=helper['version'], configuration=configuration,
+                **{kind: sorted(names(kind, text)) for kind, text in listings.items()},
+                decodableCodecs=sorted(decodable_codecs(listings['decoders'])))
 
 
 class AVCodec(ctypes.Structure):
@@ -112,6 +129,9 @@ def _name(pointer):
 
 def runtime_inventory_in_process(dylib):
     library = ctypes.CDLL(str(dylib))
+    # As the ffmpeg program does, so input devices such as lavfi are listed with the demuxers.
+    if hasattr(library, 'avdevice_register_all'):
+        library.avdevice_register_all()
     for function in ('av_version_info', 'avcodec_configuration', 'avcodec_get_name'):
         getattr(library, function).restype = ctypes.c_char_p
     library.av_codec_is_encoder.argtypes = library.av_codec_is_decoder.argtypes = [ctypes.c_void_p]
@@ -135,12 +155,22 @@ def runtime_inventory(dylib):
     return json.loads(output)
 
 
-def compare(helper, runtime, requirements):
+def compare(helper, runtime, requirements, require_same_build=False):
     report = dict(
         versions=dict(helper=helper['version'], runtime=runtime['version'],
                       match=normalised_version(helper['version']) == normalised_version(runtime['version'])),
         licences=dict(helper=licence(helper['configuration']), runtime=licence(runtime['configuration'])),
+        # One build: the same version string and the same configure line (whitespace aside; configure
+        # applies flags in order), which includes the build's own --prefix, so two builds of one
+        # recipe in different places differ here too.
+        build=dict(sameVersion=helper['version'] == runtime['version'],
+                   sameConfiguration=helper['configuration'].split() == runtime['configuration'].split()),
         features={}, errors=[])
+    report['build']['same'] = report['build']['sameVersion'] and report['build']['sameConfiguration']
+    if not report['build']['sameConfiguration']:
+        helper_flags, runtime_flags = set(helper['configuration'].split()), set(runtime['configuration'].split())
+        report['build']['helperOnlyFlags'] = sorted(helper_flags - runtime_flags)
+        report['build']['runtimeOnlyFlags'] = sorted(runtime_flags - helper_flags)
     report['licences']['match'] = report['licences']['helper'] == report['licences']['runtime']
     for name, feature in requirements.items():
         entry = {}
@@ -155,9 +185,8 @@ def compare(helper, runtime, requirements):
                         report['errors'].append(f'Helper lacks {kind} required by {name}: {", ".join(names)}')
         report['features'][name] = entry
     report['runtimeOnlyDecodableCodecs'] = sorted(set(runtime['decodableCodecs']) - set(helper['decodableCodecs']))
-    report['runtimeOnlyDemuxers'] = (None if helper['demuxers'] is None
-                                     else sorted(set(runtime['demuxers']) - set(helper['demuxers'])))
-    report['counts'] = {copy: {kind: len(inventory[kind]) for kind in (*KINDS, 'demuxers') if inventory[kind] is not None}
+    report['runtimeOnlyDemuxers'] = sorted(set(runtime['demuxers']) - set(helper['demuxers']))
+    report['counts'] = {copy: {kind: len(inventory[kind]) for kind in KINDS}
                         for copy, inventory in (('helper', helper), ('runtime', runtime))}
     if not report['versions']['match']:
         report['errors'].append(f'FFmpeg versions differ: helpers {helper["version"]}, runtime {runtime["version"]}')
@@ -165,13 +194,26 @@ def compare(helper, runtime, requirements):
         report['errors'].append(f'FFmpeg licences differ: helpers {report["licences"]["helper"]}, runtime {report["licences"]["runtime"]}')
     if 'nonfree' in (report['licences']['helper'], report['licences']['runtime']):
         report['errors'].append('A nonfree FFmpeg build cannot be distributed')
+    if require_same_build and not report['build']['same']:
+        report['errors'].append('The helpers and the runtime are not the same FFmpeg build'
+                                + ('' if report['build']['sameVersion'] else ' (version strings differ)')
+                                + ('' if report['build']['sameConfiguration'] else ' (configurations differ)'))
     return report
+
+
+def configuration_difference(build):
+    helper_only, runtime_only = len(build['helperOnlyFlags']), len(build['runtimeOnlyFlags'])
+    if not helper_only and not runtime_only:
+        return ' (the same configure flags in a different order)'
+    return f' ({helper_only} configure flags only in the helpers, {runtime_only} only in the runtime)'
 
 
 def summary(report):
     lines = [f'FFmpeg versions: helpers {report["versions"]["helper"]}, runtime {report["versions"]["runtime"]}'
              f' ({"same release" if report["versions"]["match"] else "DIFFERENT"})',
              f'Licences: helpers {report["licences"]["helper"]}, runtime {report["licences"]["runtime"]}',
+             'Build: ' + ('one FFmpeg build (same version and configuration)' if report['build']['same'] else
+                          'different builds' + ('' if report['build']['sameConfiguration'] else configuration_difference(report['build']))),
              'Component counts: ' + '; '.join(f'{copy} ' + ', '.join(f'{count} {kind}' for kind, count in counts.items())
                                               for copy, counts in report['counts'].items())]
     for name, entry in report['features'].items():
@@ -180,8 +222,7 @@ def summary(report):
             lines.append(f'{name}: {copy} ' + ('complete' if not missing else
                          'lacks ' + '; '.join(f'{kind} {", ".join(names)}' for kind, names in missing.items())))
     lines.append('Codecs only the runtime decodes: ' + (', '.join(report['runtimeOnlyDecodableCodecs']) or 'none'))
-    if report['runtimeOnlyDemuxers'] is not None:
-        lines.append('Demuxers only the runtime has: ' + (', '.join(report['runtimeOnlyDemuxers']) or 'none'))
+    lines.append('Demuxers only the runtime has: ' + (', '.join(report['runtimeOnlyDemuxers']) or 'none'))
     lines += [f'error: {error}' for error in report['errors']]
     return '\n'.join(lines)
 
@@ -194,13 +235,14 @@ def main():
     parser.add_argument('--helpers', type=Path, required=True, help='Prepared helper directory (or an app bundle Helpers copy)')
     parser.add_argument('--runtime', type=Path, required=True, help='libNativePlaybackRuntime.dylib')
     parser.add_argument('--requirements', type=Path, default=ROOT / 'Configuration/FFmpegRequirements.json')
-    parser.add_argument('--helper-demuxers', action='store_true', help='Run the prepared ffmpeg to list its demuxers')
     parser.add_argument('--json', type=Path, help='Write the full report here')
     parser.add_argument('--check', action='store_true', help='Exit nonzero on version/licence drift or missing helper components')
+    parser.add_argument('--require-same-build', action='store_true',
+                        help='With --check, also fail unless both copies have the same version and configuration')
     args = parser.parse_args()
     try:
-        report = compare(helper_inventory(args.helpers, args.helper_demuxers), runtime_inventory(args.runtime),
-                         load_requirements(args.requirements))
+        report = compare(helper_inventory(args.helpers), runtime_inventory(args.runtime),
+                         load_requirements(args.requirements), args.require_same_build)
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
         parser.exit(1, f'FFmpeg copies audit failed: {error}\n')
     if args.json:

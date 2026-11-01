@@ -33,12 +33,21 @@ FILTERS = '''Filters:
  TS aap               AA->A      Apply Affine Projection algorithm to first audio stream.
  .. scale             V->V       Scale the input video size and/or convert the image format.
 '''
+DEMUXERS = '''Formats:
+ D.. = Demuxing supported
+ .E. = Muxing supported
+ ..d = Is a device
+ ---
+ D   3dostr          3DO STR
+ D d lavfi           Libavfilter virtual input device
+ D   mov,mp4,m4a,3gp,3g2,mj2 QuickTime / MOV
+'''
 CONFIGURATION = '--enable-gpl --enable-version3 --enable-static'
 
 
 def inventory(version='9.0.2', configuration=CONFIGURATION, **kinds):
     base = dict(version=version, configuration=configuration, encoders=[], decoders=[], filters=[], muxers=[],
-                decodableCodecs=[], demuxers=None)
+                demuxers=[], decodableCodecs=[])
     return dict(base, **kinds)
 
 
@@ -47,6 +56,9 @@ class FFmpegCopiesAuditTests(unittest.TestCase):
         self.assertEqual(audit.listing_names(FILTERS), {'aap', 'scale'})
         self.assertEqual(audit.listing_names(DECODERS), {'h264', 'libdav1d', 'png', 'mjpeg', 'pcm_s16le'})
         self.assertEqual(audit.decodable_codecs(DECODERS), {'h264', 'av1', 'png', 'mjpeg', 'pcm_s16le'})
+        # Fixed flag columns: input devices are named, and one row can name several formats.
+        self.assertEqual(audit.demuxer_names(DEMUXERS), {'3dostr', 'lavfi', 'mov', 'mp4', 'm4a', '3gp', '3g2', 'mj2'})
+        self.assertEqual(audit.names('demuxers', DEMUXERS), audit.demuxer_names(DEMUXERS))
 
     def test_versions_and_licences(self):
         self.assertEqual(audit.normalised_version('n9.0.2'), '9.0.2')
@@ -66,6 +78,7 @@ class FFmpegCopiesAuditTests(unittest.TestCase):
         self.assertTrue(report['versions']['match'])
         self.assertTrue(report['licences']['match'])
         self.assertEqual(report['errors'], [])
+        self.assertEqual(report['build'], dict(sameVersion=False, sameConfiguration=True, same=False))
         self.assertEqual(report['features']['export']['helperMissing'], {'encoders': ['libx264']})
         self.assertEqual(report['features']['export']['runtimeMissing'], {'encoders': ['libx264', 'prores_ks']})
         self.assertEqual(report['runtimeOnlyDecodableCodecs'], ['avs3'])
@@ -73,40 +86,82 @@ class FFmpegCopiesAuditTests(unittest.TestCase):
 
         drift = audit.compare(inventory(encoders=[]), inventory('n9.1', configuration='--enable-gpl --enable-nonfree'), requirements)
         self.assertEqual(len(drift['errors']), 4)
-        self.assertIsNone(drift['runtimeOnlyDemuxers'])
         self.assertIn('Helper lacks encoders required by export: prores_ks', drift['errors'])
+
+    def test_same_build_requires_identical_version_and_configuration(self):
+        requirements = {'export': {kind: (set(), set()) for kind in audit.KINDS}}
+        same = audit.compare(inventory('n9.0.2'), inventory('n9.0.2'), requirements, require_same_build=True)
+        self.assertTrue(same['build']['same'])
+        self.assertEqual(same['errors'], [])
+        self.assertIn('Build: one FFmpeg build', audit.summary(same))
+        # Spacing is not configuration; flag order is, since configure applies flags in turn.
+        spaced = audit.compare(inventory('n9.0.2'), inventory('n9.0.2', configuration='--enable-gpl  --enable-version3 --enable-static'),
+                               requirements, require_same_build=True)
+        self.assertTrue(spaced['build']['same'])
+        reordered = audit.compare(inventory('n9.0.2'), inventory('n9.0.2', configuration='--enable-static --enable-gpl --enable-version3'),
+                                  requirements)
+        self.assertFalse(reordered['build']['same'])
+        self.assertIn('the same configure flags in a different order', audit.summary(reordered))
+        other = audit.compare(inventory('n9.0.2'), inventory('n9.0.2', configuration=CONFIGURATION + ' --enable-libx264'), requirements)
+        self.assertEqual(other['errors'], [])
+        self.assertFalse(other['build']['same'])
+        self.assertEqual(other['build']['runtimeOnlyFlags'], ['--enable-libx264'])
+        required = audit.compare(inventory('n9.0.2'), inventory('n9.0.2', configuration=CONFIGURATION + ' --enable-libx264'),
+                                 requirements, require_same_build=True)
+        self.assertEqual(required['errors'], ['The helpers and the runtime are not the same FFmpeg build (configurations differ)'])
+        tag = audit.compare(inventory('9.0.2'), inventory('n9.0.2'), requirements, require_same_build=True)
+        self.assertTrue(tag['versions']['match'])
+        self.assertEqual(tag['errors'], ['The helpers and the runtime are not the same FFmpeg build (version strings differ)'])
 
     def test_prepared_helper_listings_are_read_without_running_helpers(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / 'manifest.json').write_text(json.dumps(dict(helpers=dict(ffmpeg=dict(version='9.0.2', configuration=CONFIGURATION)))))
-            for kind, text in dict(encoders='', decoders=DECODERS, filters=FILTERS, muxers='').items():
+            (root / 'manifest.json').write_text(json.dumps(dict(helpers=dict(ffmpeg=dict(version='9.0.2', configuration='configuration: ' + CONFIGURATION)))))
+            for kind, text in dict(encoders='', decoders=DECODERS, filters=FILTERS, muxers='', demuxers=DEMUXERS).items():
                 (root / f'{kind}.txt').write_text(text)
             result = audit.helper_inventory(root)
             self.assertIn('av1', result['decodableCodecs'])
             self.assertEqual(result['filters'], ['aap', 'scale'])
-            self.assertIsNone(result['demuxers'])
+            self.assertIn('lavfi', result['demuxers'])
+            self.assertEqual(result['configuration'], CONFIGURATION)
+            (root / 'demuxers.txt').unlink()
+            with self.assertRaisesRegex(ValueError, 'prepare it again'):
+                audit.helper_inventory(root)
 
     def test_tracked_requirements_drive_preparation(self):
         requirements = audit.load_requirements()
         self.assertEqual(prepare.REQUIRED, audit.required(requirements))
         # The helper features the app ships and the previously hard-coded preparation minimum.
-        self.assertEqual(set(requirements), {'export', 'proxies', 'conversion', 'stabilise', 'noiseReduction'})
+        self.assertEqual(set(requirements), {'export', 'proxies', 'conversion', 'stabilise', 'noiseReduction',
+                                             'acceptance', 'verification'})
         self.assertTrue({'prores_ks', 'pcm_s24le', 'libx264', 'aac', 'hevc_videotoolbox'} <= prepare.REQUIRED['encoders'])
         self.assertTrue({'color', 'anullsrc', 'trim', 'atrim', 'setpts', 'asetpts', 'fps', 'scale', 'pad', 'crop', 'setsar',
                          'format', 'overlay', 'loop', 'settb', 'aresample', 'pan', 'aformat', 'volume', 'aeval', 'adelay',
                          'amix', 'deshake', 'afftdn'} <= prepare.REQUIRED['filters'])
-        self.assertEqual(prepare.REQUIRED['muxers'], {'mov', 'mp4', 'wav', 'f32le'})
+        self.assertEqual(prepare.REQUIRED['muxers'], {'mov', 'mp4', 'wav', 'f32le', 'matroska'})
+        self.assertEqual(prepare.REQUIRED['demuxers'], {'lavfi'})
         self.assertNotIn('libx264', requirements['proxies']['encoders'][0])
+        # Smoke fixtures and checks are reported, never required of local helpers.
+        self.assertFalse(any(needed for needed, _ in requirements['verification'].values()))
 
     def test_every_required_component_appears_in_app_sources(self):
         # Catches stale entries; additions to command lines must be added to the requirements by hand.
-        # Image decoders (png, mjpeg for JPEG stills) are implied by still formats, not named.
+        # Image decoders (png, mjpeg for JPEG stills) are implied by still formats, not named, and
+        # FFmpeg picks some muxers from the output file extension.
         sources = '\n'.join(path.read_text() for directory in ('Aagedal Film Constructor', 'Packages/EditorCore/Sources')
                             for path in (ROOT / directory).rglob('*.swift'))
-        for name in sorted(set().union(*(prepare.REQUIRED[kind] for kind in ('encoders', 'filters', 'muxers')))):
+        by_extension = {'matroska': '.mkv'}
+        for name in sorted(set().union(*(prepare.REQUIRED[kind] for kind in ('encoders', 'filters', 'muxers', 'demuxers')))):
             with self.subTest(component=name):
-                self.assertTrue(name in sources, f'{name} is required but no longer used')
+                self.assertTrue(by_extension.get(name, name) in sources, f'{name} is required but no longer used')
+        scripts = '\n'.join(path.read_text() for pattern in ('*.sh', '*.py', '*.swift')
+                             for path in (ROOT / 'scripts').glob(pattern) if not path.name.startswith('test_'))
+        for kind, (_, optional) in audit.load_requirements()['verification'].items():
+            for name in sorted(optional):
+                with self.subTest(verification=name):
+                    # wrapped_avframe is the null muxer's default encoder (`-f null`).
+                    used = {'wrapped_avframe': 'null'}.get(name, name)
+                    self.assertTrue(used in scripts, f'{name} is listed for verification but no smoke uses it')
 
     @unittest.skipUnless((ROOT / 'Packages/NativePlaybackProof/.build/debug/libNativePlaybackRuntime.dylib').is_file(),
                          'Optional: build Packages/NativePlaybackProof first')
@@ -115,7 +170,16 @@ class FFmpegCopiesAuditTests(unittest.TestCase):
         self.assertEqual(audit.normalised_version(runtime['version']), '9.0.2')
         self.assertEqual(audit.licence(runtime['configuration']), 'GPL version 3 or later')
         self.assertIn('prores', runtime['decodableCodecs'])
-        self.assertNotIn('prores_ks', runtime['encoders'])
+        # The runtime's FFmpeg is the helpers' build, so it has their encoders too.
+        self.assertTrue({'prores_ks', 'libx264'} <= set(runtime['encoders']))
+        pin = json.loads((ROOT / 'Configuration/MediaHelpers.json').read_text())
+        prepared = ROOT / '.local/downloaded-media-helpers' / pin['sha256']
+        if not (prepared / 'manifest.json').is_file():
+            self.skipTest('Optional: run bootstrap-media-helpers.py to compare with the pinned helpers')
+        report = audit.compare(audit.helper_inventory(prepared), runtime, audit.load_requirements(), require_same_build=True)
+        self.assertEqual(report['errors'], [])
+        self.assertTrue(report['build']['same'])
+        self.assertEqual(report['runtimeOnlyDecodableCodecs'], [])
 
 
 if __name__ == '__main__':
