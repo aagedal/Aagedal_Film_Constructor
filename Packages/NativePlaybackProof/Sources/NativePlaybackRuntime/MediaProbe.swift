@@ -18,6 +18,8 @@ public struct NativeMediaProbe: Sendable {
     public let sourceTimecodeStart: RationalTime?
     /// Audio streams whose packets tile the sample grid exactly and contiguously.
     public let sampleExactAudio: Set<Int>
+    /// Each audio stream's packet start and extent in samples, which decoding must reproduce.
+    let audioPacketSamples: [Int: (start: Int64, count: Int64)]
 
     public init(url: URL) throws {
         guard url.isFileURL, url.path.hasPrefix("/") else { throw ProofFailure("Probe requires a local file") }
@@ -33,6 +35,7 @@ public struct NativeMediaProbe: Sendable {
         var streams: [MediaStream] = []
         var codecs: [Int: String] = [:]
         var sampleExact: Set<Int> = []
+        var packetSamples: [Int: (start: Int64, count: Int64)] = [:]
         for position in 0..<afc_probe_stream_count(probe) {
             var stream = AFCProbeStream()
             guard afc_probe_stream(probe, position, &stream) == 0 else { throw ProofFailure("Probe stream is absent") }
@@ -49,7 +52,12 @@ public struct NativeMediaProbe: Sendable {
                 }
                 streams.append(MediaStream(index: index, kind: .video, label: "Video \(index + 1)", timeOffset: offset, videoFormat: format))
             } else {
-                if stream.sample_exact != 0 { sampleExact.insert(index) }
+                if stream.sample_exact != 0 {
+                    sampleExact.insert(index)
+                    // Sample-exact packets have whole-sample starts and extents.
+                    let samples = { (pts: Int64) in pts * Int64(stream.time_base_num) * Int64(stream.sample_rate) / Int64(stream.time_base_den) }
+                    packetSamples[index] = (samples(stream.start_pts), samples(stream.duration_pts))
+                }
                 let layout: ChannelLayout
                 switch Int(stream.layout) {
                 case Int(AFC_PROBE_LAYOUT_MONO): layout = .mono
@@ -64,6 +72,7 @@ public struct NativeMediaProbe: Sendable {
         self.streams = streams
         self.codecs = codecs
         sampleExactAudio = sampleExact
+        audioPacketSamples = packetSamples
         var frames: Int64 = 0
         if afc_probe_timecode(probe, &frames, &numerator, &denominator) == 0 {
             sourceTimecodeStart = try? RationalTime(frames).multiplied(by: RationalTime(numerator, denominator))
@@ -86,8 +95,22 @@ public struct NativeMediaProbe: Sendable {
             if stream.kind == .audio, !sampleExactAudio.contains(stream.index) {
                 throw ProofFailure("\(name): packet timing is not sample-exact")
             }
-            do { _ = try SourceDecoder(url: url, streamIndex: stream.index) } catch {
+            let decoder: SourceDecoder
+            do { decoder = try SourceDecoder(url: url, streamIndex: stream.index) } catch {
                 throw ProofFailure("\(name): \(error)")
+            }
+            // Offsets and durations come from packets, but compressed audio plays what the decoder
+            // emits: encoder delay the container does not mark as discarded (MP3 or AC-3 in MOV,
+            // Vorbis in Ogg) moves the first decoded sample away from the first packet.
+            if decoder.isCompressedAudio, let packets = audioPacketSamples[stream.index] {
+                guard packets.start == 0 else {
+                    throw ProofFailure("\(name): encoder delay is not marked in the container, so decoding starts \(-packets.start) samples after its packets")
+                }
+                let decoded: Int64
+                do { decoded = try decoder.audioLength() } catch { throw ProofFailure("\(name): \(error)") }
+                guard decoded == packets.count else {
+                    throw ProofFailure("\(name): decodes \(decoded) samples, but its packets span \(packets.count)")
+                }
             }
         }
     }

@@ -12,6 +12,7 @@
 #include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
 #include <libavutil/channel_layout.h>
+#include <libavutil/crc.h>
 #include <libavutil/pixdesc.h>
 #include <libswresample/swresample.h>
 #include <libswscale/swscale.h>
@@ -21,6 +22,21 @@
 #define AFC_MAX_CHANNELS 64
 #define AFC_MAX_AUDIO_FLOATS (16LL * 1024 * 1024)
 #define AFC_MAX_PACKET_BYTES (64 * 1024 * 1024)
+/* Compressed audio keeps one 16-byte record per decoded frame (about 26 h of AAC). */
+#define AFC_MAX_AUDIO_FRAMES (1 << 22)
+/* Frames decoded before a seek target; doubled whenever a seek fails verification,
+ * up to the maximum, past which decoding restarts from the stream's first packet. */
+#define AFC_AUDIO_PREROLL_FRAMES 4
+#define AFC_AUDIO_MAX_PREROLL_FRAMES 64
+/* Decode forward instead of seeking when the target is at most this many frames ahead. */
+#define AFC_AUDIO_FORWARD_FRAMES 16
+
+/* A decoded frame of compressed audio from the sequential qualification decode. */
+typedef struct {
+    int64_t unit;
+    int32_t samples;
+    uint32_t crc;
+} AudioFrameRecord;
 
 struct AFCDecoder {
     AVFormatContext *format;
@@ -49,6 +65,19 @@ struct AFCDecoder {
     float *audio_buffer;
     size_t audio_buffer_capacity;
     int audio_buffer_valid;
+    /* Compressed audio carries decoder state across frames, so seeks are only
+     * exact once their output matches the sequential decode, frame by frame. */
+    int indexed;
+    AudioFrameRecord *frames;
+    size_t frame_count;
+    size_t frame_capacity;
+    size_t cached_frame;
+    int cached_verified;
+    int64_t origin_pts;
+    int origin_known;
+    uint32_t first_crc;
+    size_t preroll;          /* the last preroll that reproduced the sequential decode */
+    int history_dependent;   /* only decoding from the first packet reproduces it */
 };
 
 static void clear_error(char *error, size_t size) {
@@ -71,6 +100,8 @@ static int ff_fail(char *error, size_t size, const char *operation, int code) {
     fail(error, size, "%s: %s", operation, detail);
     return code < 0 ? code : AVERROR(EINVAL);
 }
+
+static int open_codec(AFCDecoder *decoder, char *error, size_t size);
 
 static int square_pixels(AVRational ratio) {
     return ratio.num == 0 || (ratio.num > 0 && ratio.num == ratio.den);
@@ -119,6 +150,25 @@ static int pcm_codec(enum AVCodecID codec) {
     }
 }
 
+/* Lossy and lossless codecs whose decoders FFmpeg export also uses. Priming and
+ * padding are trimmed by libavcodec; qualification then requires the decoded
+ * frames to start at zero and tile the sample grid, as for PCM. */
+static int compressed_audio_codec(enum AVCodecID codec) {
+    switch (codec) {
+    case AV_CODEC_ID_AAC:
+    case AV_CODEC_ID_MP2:
+    case AV_CODEC_ID_MP3:
+    case AV_CODEC_ID_AC3:
+    case AV_CODEC_ID_EAC3:
+    case AV_CODEC_ID_FLAC:
+    case AV_CODEC_ID_OPUS:
+    case AV_CODEC_ID_VORBIS:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
 /* Receive presentation-order frames, including delayed B-frames at EOF. A
  * successful receive owns frame until the next call/reset/close. */
 static int next_frame(AFCDecoder *decoder, char *error, size_t size) {
@@ -148,6 +198,12 @@ static int next_frame(AFCDecoder *decoder, char *error, size_t size) {
             if (decoder->packet->stream_index != decoder->stream_index) {
                 av_packet_unref(decoder->packet);
                 continue;
+            }
+            /* The first packet after opening is where export's sequential decode
+             * begins, including priming packets before presentation zero. */
+            if (!decoder->origin_known && decoder->packet->pts != AV_NOPTS_VALUE) {
+                decoder->origin_pts = decoder->packet->pts;
+                decoder->origin_known = 1;
             }
             if (decoder->packet->size > AFC_MAX_PACKET_BYTES) {
                 av_packet_unref(decoder->packet);
@@ -253,15 +309,57 @@ static int reset_to(AFCDecoder *decoder, int64_t pts, char *error, size_t size) 
     swr_free(&decoder->swr);
     decoder->drain_sent = 0;
     decoder->cached = 0;
+    decoder->cached_verified = 0;
     decoder->audio_buffer_valid = 0;
     decoder->needs_seek = 0;
     return 0;
 }
 
+/* Restart where opening began, so priming packets decode as in export. Compressed
+ * audio also gets a new decoder: some keep state that flushing does not reset (the
+ * AAC decoder's noise-substitution generator), so only a new one repeats export. */
+static int reset_to_origin(AFCDecoder *decoder, char *error, size_t size) {
+    int result = reset_to(decoder, decoder->indexed && decoder->origin_known ? decoder->origin_pts : 0, error, size);
+    if (result < 0 || !decoder->indexed) return result;
+    decoder->needs_seek = 1;
+    result = open_codec(decoder, error, size);
+    if (result == 0) decoder->needs_seek = 0;
+    return result;
+}
+
+static uint32_t frame_crc(const AFCDecoder *decoder) {
+    const AVFrame *frame = decoder->frame;
+    int planar = av_sample_fmt_is_planar(frame->format);
+    size_t bytes = (size_t)frame->nb_samples * av_get_bytes_per_sample(frame->format) *
+        (planar ? 1 : decoder->channels);
+    uint32_t crc = 0;
+    for (int plane = 0; plane < (planar ? decoder->channels : 1); ++plane)
+        crc = av_crc(av_crc_get_table(AV_CRC_32_IEEE), crc, frame->extended_data[plane], bytes);
+    return crc;
+}
+
+static int record_frame(AFCDecoder *decoder, int64_t unit, char *error, size_t size) {
+    if (decoder->frame_count == decoder->frame_capacity) {
+        if (decoder->frame_capacity >= AFC_MAX_AUDIO_FRAMES)
+            return fail(error, size, "Source audio frame count exceeds development memory limit");
+        size_t capacity = decoder->frame_capacity ? decoder->frame_capacity * 2 : 1024;
+        AudioFrameRecord *frames = realloc(decoder->frames, capacity * sizeof(*frames));
+        if (!frames) return fail(error, size, "Allocate audio frame index: out of memory");
+        decoder->frames = frames;
+        decoder->frame_capacity = capacity;
+    }
+    uint32_t crc = frame_crc(decoder);
+    if (decoder->frame_count == 0 && crc != decoder->first_crc)
+        return fail(error, size, "Restarting the source audio does not reproduce its first decoded frame");
+    decoder->frames[decoder->frame_count++] = (AudioFrameRecord){unit, decoder->frame->nb_samples, crc};
+    return 0;
+}
+
 static int qualify(AFCDecoder *decoder, AVRational rate, char *error, size_t size) {
     if (decoder->qualified) return 0;
-    int result = reset_to(decoder, 0, error, size);
+    int result = reset_to_origin(decoder, error, size);
     if (result < 0) return result;
+    decoder->frame_count = 0;
     int64_t expected = 0;
     for (;;) {
         result = next_frame(decoder, error, size);
@@ -279,6 +377,10 @@ static int qualify(AFCDecoder *decoder, AVRational rate, char *error, size_t siz
         result = decoder->kind == AVMEDIA_TYPE_VIDEO
             ? video_geometry(decoder, error, size) : audio_shape(decoder, error, size);
         if (result < 0) goto invalid;
+        if (decoder->indexed) {
+            result = record_frame(decoder, unit, error, size);
+            if (result < 0) goto invalid;
+        }
         int increment = decoder->kind == AVMEDIA_TYPE_VIDEO ? 1 : decoder->frame->nb_samples;
         if (expected > INT64_MAX - increment) {
             result = fail(error, size, "Source frame/sample count overflows");
@@ -360,6 +462,23 @@ static int qualified_still_format(const AVFormatContext *format, const AVCodecPa
            still_image_count(path, parameters->codec_id) == 1;
 }
 
+/* A new codec context, as export's decode starts with. */
+static int open_codec(AFCDecoder *decoder, char *error, size_t size) {
+    avcodec_free_context(&decoder->codec);
+    const AVCodec *codec = avcodec_find_decoder(decoder->stream->codecpar->codec_id);
+    if (!codec) return fail(error, size, "Selected source codec has no decoder in this FFmpeg build");
+    decoder->codec = avcodec_alloc_context3(codec);
+    if (!decoder->codec) return fail(error, size, "Allocate decoder state: out of memory");
+    int result = avcodec_parameters_to_context(decoder->codec, decoder->stream->codecpar);
+    if (result < 0) return ff_fail(error, size, "Configure source decoder", result);
+    decoder->codec->thread_count = 1;
+    decoder->codec->max_pixels = AFC_MAX_PIXELS;
+    decoder->codec->pkt_timebase = decoder->stream->time_base;
+    result = avcodec_open2(decoder->codec, codec, NULL);
+    if (result < 0) return ff_fail(error, size, "Initialize source decoder", result);
+    return 0;
+}
+
 static AFCDecoder *open_decoder(const char *path, int stream_index, int still,
                              char *error, size_t error_size) {
     clear_error(error, error_size);
@@ -438,8 +557,9 @@ static AFCDecoder *open_decoder(const char *path, int stream_index, int still,
             goto invalid;
         }
     } else {
-        if (!pcm_codec(parameters->codec_id) && parameters->codec_id != AV_CODEC_ID_ALAC) {
-            fail(error, error_size, "Non-qualified audio is unsupported; this proof requires integer/float PCM or qualified ALAC");
+        decoder->indexed = compressed_audio_codec(parameters->codec_id);
+        if (!pcm_codec(parameters->codec_id) && parameters->codec_id != AV_CODEC_ID_ALAC && !decoder->indexed) {
+            fail(error, error_size, "Audio codec is unsupported; the native decoder takes PCM, ALAC, FLAC, AAC, MP2/MP3, AC-3/E-AC-3, Opus or Vorbis");
             goto invalid;
         }
         decoder->channels = parameters->ch_layout.nb_channels;
@@ -463,7 +583,9 @@ static AFCDecoder *open_decoder(const char *path, int stream_index, int still,
             fail(error, error_size, "ALAC qualification requires 16/24-bit mono/stereo audio at 44100/48000 Hz");
             goto invalid;
         }
-        if (parameters->initial_padding || parameters->trailing_padding) {
+        /* Compressed codecs' priming is trimmed by the decoder and checked on the
+         * decoded grid below; PCM and ALAC keep the stricter container check. */
+        if (!decoder->indexed && (parameters->initial_padding || parameters->trailing_padding)) {
             fail(error, error_size, "Source audio delay/padding is unsupported");
             goto invalid;
         }
@@ -473,31 +595,13 @@ static AFCDecoder *open_decoder(const char *path, int stream_index, int still,
             goto invalid;
         }
     }
-    const AVCodec *codec = avcodec_find_decoder(parameters->codec_id);
-    if (!codec) {
-        fail(error, error_size, "Selected source codec has no decoder in this FFmpeg build");
-        goto invalid;
-    }
-    decoder->codec = avcodec_alloc_context3(codec);
     decoder->packet = av_packet_alloc();
     decoder->frame = av_frame_alloc();
-    if (!decoder->codec || !decoder->packet || !decoder->frame) {
+    if (!decoder->packet || !decoder->frame) {
         fail(error, error_size, "Allocate decoder state: out of memory");
         goto invalid;
     }
-    result = avcodec_parameters_to_context(decoder->codec, parameters);
-    if (result < 0) {
-        ff_fail(error, error_size, "Configure source decoder", result);
-        goto invalid;
-    }
-    decoder->codec->thread_count = 1;
-    decoder->codec->max_pixels = AFC_MAX_PIXELS;
-    decoder->codec->pkt_timebase = decoder->stream->time_base;
-    result = avcodec_open2(decoder->codec, codec, NULL);
-    if (result < 0) {
-        ff_fail(error, error_size, "Initialize source decoder", result);
-        goto invalid;
-    }
+    if (open_codec(decoder, error, error_size) < 0) goto invalid;
     result = next_frame(decoder, error, error_size);
     if (result <= 0) {
         if (!result) fail(error, error_size, "Selected source stream is empty");
@@ -512,6 +616,7 @@ static AFCDecoder *open_decoder(const char *path, int stream_index, int still,
     result = decoder->kind == AVMEDIA_TYPE_VIDEO
         ? video_geometry(decoder, error, error_size) : audio_shape(decoder, error, error_size);
     if (result < 0) goto invalid;
+    if (decoder->indexed) decoder->first_crc = frame_crc(decoder);
     if (still) {
         AVFrame *image = av_frame_clone(decoder->frame);
         if (!image) {
@@ -550,6 +655,7 @@ void afc_decoder_close(AFCDecoder *decoder) {
     sws_freeContext(decoder->sws);
     swr_free(&decoder->swr);
     free(decoder->audio_buffer);
+    free(decoder->frames);
     av_channel_layout_uninit(&decoder->audio_layout);
     av_frame_free(&decoder->frame);
     av_packet_free(&decoder->packet);
@@ -564,7 +670,8 @@ int afc_decoder_channels(const AFCDecoder *decoder) { return decoder ? decoder->
 int afc_decoder_sample_rate(const AFCDecoder *decoder) { return decoder ? decoder->sample_rate : 0; }
 size_t afc_decoder_retained_bytes(const AFCDecoder *decoder) {
     if (!decoder) return 0;
-    size_t bytes = decoder->audio_buffer_capacity * sizeof(float);
+    size_t bytes = decoder->audio_buffer_capacity * sizeof(float) +
+        decoder->frame_capacity * sizeof(AudioFrameRecord);
     if (!decoder->frame) return bytes;
     /* Count every reference, even if a codec shares backing storage. This
      * overestimates rather than understates the retained source budget. */
@@ -745,6 +852,122 @@ static int convert_audio(AFCDecoder *decoder, char *error, size_t size) {
     return 0;
 }
 
+int afc_decoder_compressed_audio(const AFCDecoder *decoder) { return decoder && decoder->indexed; }
+
+int afc_decoder_audio_length(AFCDecoder *decoder, int64_t *samples, char *error, size_t size) {
+    clear_error(error, size);
+    if (!decoder || decoder->kind != AVMEDIA_TYPE_AUDIO || !samples)
+        return fail(error, size, "Audio length requires an audio stream decoder");
+    int result = qualify(decoder, (AVRational){decoder->sample_rate, 1}, error, size);
+    if (result < 0) return result;
+    *samples = decoder->total_units;
+    return 0;
+}
+
+/* The last qualified frame starting at or before sample. */
+static size_t frame_containing(const AFCDecoder *decoder, int64_t sample) {
+    size_t low = 0, high = decoder->frame_count;
+    while (high - low > 1) {
+        size_t middle = low + (high - low) / 2;
+        if (decoder->frames[middle].unit <= sample) low = middle; else high = middle;
+    }
+    return low;
+}
+
+static int copy_audio(AFCDecoder *decoder, int64_t *wanted, int64_t start, int64_t end,
+                      float *interleaved, char *error, size_t size) {
+    int64_t available_end = decoder->cached_unit + decoder->frame->nb_samples;
+    if (decoder->cached_unit > *wanted || available_end <= *wanted) return 0;
+    int result = convert_audio(decoder, error, size);
+    if (result < 0) return result;
+    int64_t copy_end = available_end < end ? available_end : end;
+    memcpy(interleaved + (size_t)(*wanted - start) * decoder->channels,
+        decoder->audio_buffer + (size_t)(*wanted - decoder->cached_unit) * decoder->channels,
+        (size_t)(copy_end - *wanted) * decoder->channels * sizeof(float));
+    *wanted = copy_end;
+    return 0;
+}
+
+/* Compressed audio: seek a few frames early, then accept decoded frames only when
+ * they repeat the qualification decode's timing and CRC. A mismatch doubles the
+ * preroll until decoding restarts from the stream's first packet. Streams whose
+ * decoders keep state a flush does not reset (AAC noise substitution, AC-3 dither)
+ * end up there. After that they are decoded forward to later targets, and earlier
+ * ones try one preroll before restarting (frames without that state still match). */
+static int indexed_audio(AFCDecoder *decoder, int64_t start, int64_t end, AVRational rate,
+                         float *interleaved, char *error, size_t size) {
+    size_t target = frame_containing(decoder, start);
+    size_t preroll = decoder->preroll ? decoder->preroll : AFC_AUDIO_PREROLL_FRAMES;
+    int from_origin = 0, mismatched = 0;
+    int ahead = !decoder->needs_seek && decoder->cached_verified && decoder->cached_frame <= target;
+    int seek = !ahead || (!decoder->history_dependent && target - decoder->cached_frame > AFC_AUDIO_FORWARD_FRAMES);
+    for (;;) {
+        int result;
+        if (seek) {
+            if (target <= preroll) {
+                from_origin = 1;
+                result = reset_to_origin(decoder, error, size);
+            } else {
+                int64_t pts;
+                result = units_to_pts(decoder, decoder->frames[target - preroll].unit, rate, &pts, error, size);
+                if (result >= 0) result = reset_to(decoder, pts, error, size);
+            }
+            if (result < 0) return result;
+        }
+        /* After a seek the next frame's position is unknown until it reaches the target. */
+        size_t next = seek ? SIZE_MAX : decoder->cached_frame + 1;
+        int64_t wanted = start;
+        int mismatch = 0;
+        if (!seek) {
+            result = copy_audio(decoder, &wanted, start, end, interleaved, error, size);
+            if (result < 0) return result;
+        }
+        while (wanted < end) {
+            result = next_frame(decoder, error, size);
+            if (result < 0) return result;
+            if (!result) return fail(error, size, "EOF before the requested source audio samples");
+            int64_t pts, unit;
+            result = frame_pts(decoder, &pts, error, size);
+            if (result < 0) return result;
+            result = pts_to_units(decoder, pts, rate, &unit, error, size);
+            if (result < 0) return result;
+            result = audio_shape(decoder, error, size);
+            if (result < 0) return result;
+            if (next == SIZE_MAX) {
+                // Preroll ends at the target frame; landing past it is a failed seek.
+                if (unit < decoder->frames[target].unit) continue;
+                next = target;
+            }
+            if (next >= decoder->frame_count || decoder->frames[next].unit != unit ||
+                decoder->frames[next].samples != decoder->frame->nb_samples) {
+                mismatch = 1;
+                break;
+            }
+            decoder->cached = 1;
+            decoder->cached_unit = unit;
+            decoder->cached_frame = next++;
+            decoder->cached_verified = 0;
+            if (frame_crc(decoder) != decoder->frames[decoder->cached_frame].crc) {
+                mismatch = 1;
+                break;
+            }
+            decoder->cached_verified = 1;
+            result = copy_audio(decoder, &wanted, start, end, interleaved, error, size);
+            if (result < 0) return result;
+        }
+        if (!mismatch) {
+            if (seek && !from_origin) decoder->preroll = preroll;
+            if (from_origin && mismatched) decoder->history_dependent = 1;
+            return 0;
+        }
+        if (from_origin)
+            return fail(error, size, "Decoding from the stream start does not reproduce the qualified source audio");
+        mismatched = 1;
+        preroll = decoder->history_dependent || preroll >= AFC_AUDIO_MAX_PREROLL_FRAMES ? SIZE_MAX : preroll * 2;
+        seek = 1;
+    }
+}
+
 int afc_decoder_audio(AFCDecoder *decoder, int64_t start_sample,
                       int sample_count, int sample_rate,
                       float *interleaved, size_t float_count,
@@ -765,6 +988,12 @@ int afc_decoder_audio(AFCDecoder *decoder, int64_t start_sample,
     if (start_sample + sample_count > decoder->total_units)
         return fail(error, error_size, "Requested source audio samples extend beyond EOF");
     if (!sample_count) return 0;
+    if (decoder->indexed) {
+        result = indexed_audio(decoder, start_sample, start_sample + sample_count, rate,
+                               interleaved, error, error_size);
+        if (result < 0) decoder->needs_seek = 1;
+        return result;
+    }
     if (decoder->needs_seek || !decoder->cached || start_sample < decoder->cached_unit) {
         int64_t target_pts;
         /* Audio packet timestamps need only be sample-aligned, so choose the

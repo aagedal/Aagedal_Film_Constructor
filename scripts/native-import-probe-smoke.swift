@@ -82,7 +82,10 @@ enum ProbeSmokeFailure: Error, CustomStringConvertible {
             // 24 fps alternates 41/42 ms ticks; no cadence is proven and the duration is the ms extent.
             ("ffv1-24.mkv", Expectation(duration: try t(1999, 1000), formats: [nil], layouts: [], offsets: [.zero], timecode: nil, playable: false)),
             ("ffv1-offset-audio.nut", Expectation(duration: try t(2), formats: [video24], layouts: [.mono], offsets: [.zero, try t(1, 2)], timecode: nil, playable: false)),
-            ("ffv1-opus.mkv", Expectation(duration: try t(251, 125), formats: [nil], layouts: [.mono], offsets: [try t(7, 1000), .zero], timecode: nil, playable: false))
+            ("ffv1-opus.mkv", Expectation(duration: try t(251, 125), formats: [nil], layouts: [.mono], offsets: [try t(7, 1000), .zero], timecode: nil, playable: false)),
+            // Compressed audio on the sample grid: 65 AC-3 frames of 1536 samples (52 picture frames)
+            // outlast the 2 s of video. The native plan needs the asset to end on the frame grid.
+            ("ffv1-ac3.avi", Expectation(duration: try t(52, 25), formats: [video25], layouts: [.mono], offsets: [.zero, .zero], timecode: nil, playable: true))
         ]
         let converter = MediaConversionService(ffmpegURL: ffmpeg, ffprobeURL: ffprobe, outputDirectory: file("converted"))
         try FileManager.default.createDirectory(at: file("converted"), withIntermediateDirectories: true)
@@ -129,7 +132,8 @@ enum ProbeSmokeFailure: Error, CustomStringConvertible {
 
         // 3. Unconverted originals play natively (full decoded-frame qualification) and export.
         let export = SequenceExportService(ffmpegURL: ffmpeg, ffprobeURL: ffprobe)
-        for (name, rate, width, height) in [("ffv1-pcm.nut", 24, 320, 180), ("dnxhr-tc.mxf", 25, 640, 360)] {
+        for (name, rate, width, height, frames, samples) in [("ffv1-pcm.nut", 24, 320, 180, 48, 96000), ("dnxhr-tc.mxf", 25, 640, 360, 50, 96000),
+                                                             ("ffv1-ac3.avi", 25, 320, 180, 52, 99840)] {
             guard let asset = admitted[name] else { throw ProbeSmokeFailure.failed("\(name) was not admitted") }
             var project = Project(settings: try SequenceSettings(width: width, height: height, frameRate: FrameRate(Int64(rate))))
             try project.addAsset(asset)
@@ -142,7 +146,7 @@ enum ProbeSmokeFailure: Error, CustomStringConvertible {
             await session.close()
             let output = file("export-\(name).mov")
             let result = try await export.export(plan: TimelineRenderPlan(project: project), to: output)
-            try check(result.videoFrames == Int64(2 * rate) && result.audioSamples == 96000,
+            try check(result.videoFrames == Int64(frames) && result.audioSamples == Int64(samples),
                       "\(name): export counts \(result.videoFrames) frames, \(result.audioSamples) samples")
         }
 
@@ -155,6 +159,6 @@ enum ProbeSmokeFailure: Error, CustomStringConvertible {
 
         print("Native import probe smoke passed: \(parityCount) parity files (\(pinned.count) pinned reader differences), "
               + "\(nativeOnly.count) native-only fixtures (\(admitted.count) imported unconverted, \(nativeOnly.count - admitted.count) converted), "
-              + "helper decodability guard, native playback and export of unconverted NUT/MXF, thumbnails and waveform peaks")
+              + "helper decodability guard, native playback and export of unconverted NUT/MXF and AC-3 in AVI, thumbnails and waveform peaks")
     }
 }

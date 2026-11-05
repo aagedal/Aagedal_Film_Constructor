@@ -52,6 +52,7 @@ FIXTURES = {
     'ffv1-24.mkv': video(24) + ['-c:v', 'ffv1'],
     'ffv1-offset-audio.nut': video(24) + ['-itsoffset', '0.5'] + sine(1) + ['-map', '0', '-map', '1', '-c:v', 'ffv1', '-c:a', 'pcm_s16le'],
     'ffv1-opus.mkv': video(24) + sine() + ['-c:v', 'ffv1', '-c:a', 'libopus'],
+    'ffv1-ac3.avi': video(25) + sine(2.07) + ['-c:v', 'ffv1', '-c:a', 'ac3'],
 }
 for name, arguments in FIXTURES.items():
     subprocess.run([str(args.ffmpeg), '-hide_banner', '-loglevel', 'error', *arguments, str(fixtures / name)], check=True)

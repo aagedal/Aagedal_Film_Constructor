@@ -38,6 +38,16 @@ final class SourceDecoder {
 
     deinit { afc_decoder_close(handle) }
 
+    var isCompressedAudio: Bool { afc_decoder_compressed_audio(handle) != 0 }
+
+    /// Decodes the whole stream (its qualification) and returns the decoded sample count.
+    func audioLength() throws -> Int64 {
+        var samples: Int64 = 0
+        var error = [CChar](repeating: 0, count: 1024)
+        guard afc_decoder_audio_length(handle, &samples, &error, error.count) == 0 else { throw ProofFailure(message(error)) }
+        return samples
+    }
+
     var retainedBytes: Int { Int(clamping: afc_decoder_retained_bytes(handle)) }
 
     public func video(frame: Int64, rate: FrameRate, width: Int, height: Int,
