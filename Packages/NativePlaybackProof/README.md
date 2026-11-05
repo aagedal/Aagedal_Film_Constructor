@@ -15,10 +15,19 @@ The `CNativeDecoder` bridge owns a serial libavformat/libavcodec context for eac
 exact container stream. It qualifies all presentation timestamps on first use,
 seeks backward with decoder flushing, decodes forward to exact source frames or
 qualified audio sample ranges, and converts to RGB24 or interleaved float without resampling.
-Audio supports PCM plus 16/24-bit ALAC with canonical mono/stereo layouts at
-44.1/48 kHz. VFR, nonzero offsets, inferred timestamps, unsupported geometry,
-lossy audio, and other ALAC formats fail explicitly. Full-stream qualification is intentionally expensive;
-it is evidence gathering, not the final startup strategy.
+Audio supports PCM, 16/24-bit ALAC with canonical mono/stereo layouts at
+44.1/48 kHz, and compressed AAC, MP2/MP3, AC-3/E-AC-3, FLAC, Opus and Vorbis. Compressed
+streams are read as FFmpeg export reads them: libavcodec trims container-marked priming, and
+the decoded frames must start at zero and tile the sample grid. Qualification records each
+decoded frame's position and CRC. A seek decodes from a few frames earlier (4, doubling to
+64) and accepts only frames that repeat those CRCs. Some decoders keep state that flushing
+does not reset: AAC's noise-substitution generator, and AC-3/E-AC-3 and MP2 in the generated
+fixtures. When their output doesn't match, decoding restarts from the stream's first packet
+with a new decoder. Those streams are then decoded forward to later targets, and restart
+only for earlier ones (about 0.4 s per 15 minutes of AAC or AC-3). VFR, nonzero offsets,
+inferred timestamps, unsupported geometry and other ALAC formats fail explicitly.
+Full-stream qualification is intentionally expensive; it is evidence gathering, not the
+final startup strategy.
 
 `NativeMediaProbe` is the import probe for media AVFoundation cannot open. It demuxes
 every packet once, within AVFoundation qualification's bounds, and reports FFmpeg stream

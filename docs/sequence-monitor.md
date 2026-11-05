@@ -145,8 +145,9 @@ Native sequence qualification remains the runtime's existing bounded SDR,
 square-pixel CFR video, matching-rate PCM and scoped 16/24-bit mono/stereo ALAC
 at 44.1/48 kHz, with supported still/fade behavior documented in the native proof.
 See [ALAC qualification](evidence/native-alac-20261015/qualification.md).
-Broader compressed
-audio/resampling/VFR/color support, shipping runtime packaging, measured acoustic
+Matching-rate compressed audio (AAC, MP2/MP3, AC-3/E-AC-3, FLAC, Opus, Vorbis) is
+now decoded too, as described in [compressed audio](#compressed-audio-native-runtime).
+Resampling/VFR/color support, shipping runtime packaging, measured acoustic
 A/V timing, display presentation latency, device-switch acceptance and startup
 latency remain open. Polling only publishes the native player's accepted sample
 position; it does not advance the playhead using elapsed wall time.
@@ -203,8 +204,9 @@ and the exact build selection. No developer
 library paths are needed at runtime. Selection remains development-only: Release
 and archive native opt-in are refused while attribution and distribution review
 are incomplete. The native engine still supports its qualified CFR/SDR picture,
-PNG/JPEG stills and matching-rate PCM plus the qualified ALAC subset; packaging
-does not qualify additional compressed audio, VFR or broader color behavior.
+PNG/JPEG stills, matching-rate PCM plus the qualified ALAC subset, and matching-rate
+compressed audio on the exact sample grid; packaging does not qualify VFR or broader
+color behavior.
 
 To return Debug builds to AVFoundation:
 
@@ -216,6 +218,40 @@ The next build removes owned native outputs. It refuses to replace unrelated
 frameworks or unrecognized resources. System AAC preview keeps working and now
 shows its source-edge approximation notice; normalize audio to PCM/ALAC when
 faithful boundaries are required. See [AAC qualification status](evidence/system-compressed-audio-20261014/AAC-preview-notice.md).
+
+## Compressed audio (native runtime)
+
+The native decoder reads AAC, MP2/MP3, AC-3/E-AC-3, FLAC, Opus and Vorbis at the
+sequence sample rate, in any container where the decoded timing is exact.
+Export decodes each stream from its first packet and cuts with `atrim` on the
+decoded frames' timestamps. So the native decoder counts samples the same way:
+- libavcodec trims priming the container marks (MOV/MP4 edit lists, skip-samples data);
+- the first decoded frame must be at zero;
+- every frame must follow the last on the sample grid.
+
+Those are the PCM rules. Matroska's millisecond clock, Opus in NUT (pre-skip without
+container timing) and Vorbis in NUT fail them and are refused.
+
+Seeking is the new part. AAC, MP3, AC-3 and Vorbis decoders overlap or carry state across
+frames, so a frame decoded right after a seek can differ from the same frame in
+export's sequential decode. Qualification decodes the stream once and keeps each
+frame's position and CRC. A seek decodes from 4 frames earlier, doubling up to 64,
+and accepts frames only when they repeat those CRCs. MP3 and FLAC settle within that.
+Some decoders keep state that flushing does not reset: AAC's noise-substitution random
+generator and, in the generated fixtures, AC-3/E-AC-3 and MP2. For those, only a new
+decoder started from the first packet matches. Once a stream is known to be like that:
+- later targets are reached by decoding forward;
+- an earlier target tries one preroll, then restarts.
+
+On a 30-minute file a restart costs about 0.4 s to reach the middle and 0.8–1.1 s
+to reach the end; forward hops of a minute take about 30 ms. Frames outside
+noise-substitution bands still match after a preroll, so many AAC seeks stay cheap.
+
+`CompressedAudioTests` decodes AAC (MOV, NUT), MP3 (MOV, NUT, AVI), MP2, AC-3,
+E-AC-3, FLAC, Opus (MP4) and Vorbis (Ogg) in blocks and compares them with FFmpeg's
+own decode of the file (within 1e-6). Sixteen forward, backward and boundary seeks
+per file must equal the sequential native read bit for bit. The System backend's
+AAC/MP3 approximations are unchanged.
 
 ## Unconverted FFmpeg imports (native runtime)
 
@@ -247,10 +283,16 @@ practice:
 | --- | --- |
 | NUT, MXF (OP1a), MOV-family with FFV1, UT Video, DNxHD/HR, CineForm, ProRes… and PCM | Imported unconverted |
 | Matroska/WebM at 24, 23.976 or 29.97 fps | Converted: the millisecond clock proves no exact cadence |
-| Matroska PCM, or Opus/Vorbis/AAC/MP3/FLAC audio in any container AVFoundation cannot open | Converted: the native decoder takes PCM/ALAC only, on the exact sample grid |
+| AC-3/MP2 in AVI, AAC in MOV-family files with marked priming, and other compressed audio whose decoded samples start at zero and match its packets | Imported unconverted |
+| Matroska PCM or compressed audio | Converted: millisecond packet times miss the sample grid |
+| Encoder delay kept as unmarked packets before zero (MP3/AC-3 in MOV or NUT, Vorbis/Opus in Ogg) | Converted: the decoded sound starts later than the packets that place it |
+| Opus in NUT, or compressed audio in NUT whose first packet has no duration | Converted: the decoded or packet timing does not start on the grid |
 | Interlaced, anamorphic or alpha video (most DV, QuickTime RLE with alpha) | Converted: refused by the native decoder |
 | Streams starting after asset zero | Converted: the native decoder requires zero-origin streams |
 | Probe scan over budget (very long files) | Converted, as the cadence stays unproven |
+
+Admitting compressed audio decodes it all once at import, to check that the decoded
+sample count equals the packet extent (about 1 s per 30 minutes of AAC).
 
 What each consumer does with an unconverted original:
 

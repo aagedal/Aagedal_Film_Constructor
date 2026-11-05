@@ -71,6 +71,12 @@ int afc_decoder_audio(AFCDecoder *decoder, int64_t start_sample,
                       float *interleaved, size_t float_count,
                       char *error, size_t error_size);
 
+/** Nonzero for compressed audio (AAC, MP2/MP3, AC-3/E-AC-3, FLAC, Opus, Vorbis), whose
+ * seeks are verified against a per-frame index of the qualification decode. */
+int afc_decoder_compressed_audio(const AFCDecoder *decoder);
+/** Qualify an audio stream (decoding all of it) and return its decoded sample count. */
+int afc_decoder_audio_length(AFCDecoder *decoder, int64_t *samples, char *error, size_t error_size);
+
 /** Import probe: libavformat's view of a local file as the app's media model.
  * Every packet is demuxed once (bounded like AVFoundation import qualification)
  * so durations, offsets and frame cadence come from packet timing, never from

@@ -2832,3 +2832,42 @@ See [MP3 container evidence](docs/evidence/mpv-mp3-container-20261017/README.md)
   pinned helpers, signed with hardened runtime, timestamp and sandbox inheritance, and no
   runtime.
 
+
+### Native compressed audio checkpoint (2026-11-05)
+
+- Step 4 of the FFmpeg/MPV plan (widen the native decoder codec by codec) starts with audio:
+  the native decoder now reads AAC, MP2/MP3, AC-3/E-AC-3, FLAC, Opus and Vorbis at the
+  sequence rate, not only PCM/ALAC. It counts samples as export does: libavcodec trims
+  container-marked priming, then the decoded frames must start at zero and tile the sample
+  grid. The PCM/ALAC path is unchanged.
+- Exact seeks: qualification keeps each decoded frame's position and CRC. A seek decodes
+  from 4 frames earlier (doubling to 64) and accepts only frames that repeat those CRCs.
+  MP3 and FLAC settle within the preroll. AAC (noise-substitution random state), AC-3/E-AC-3
+  and MP2 keep decoder state that flushing does not reset. For those, only a new decoder
+  from the first packet matches, so after that:
+  - later targets are reached by decoding forward;
+  - earlier targets try one preroll, then restart.
+
+  On 30-minute files a restart takes 0.4 s to the middle and 0.8–1.1 s to the end; a
+  60 s forward hop takes about 30 ms. See [compressed audio](docs/sequence-monitor.md#compressed-audio-native-runtime).
+- Import admission (`verifyNativePlayback`) also decodes compressed audio once (about 1 s per
+  30 minutes). It requires:
+  - the first packet at zero, because unmarked encoder delay (MP3/AC-3 in MOV or NUT,
+    Vorbis in Ogg) would offset the picture by the delay;
+  - a decoded sample count equal to the packet extent.
+
+  AAC in MOV-family files and AC-3/MP2 in AVI now import unconverted. Matroska and
+  unmarked-delay files still convert.
+- Found, not changed: the native playback plan refuses video edit points off the sequence
+  frame grid, which export snaps. Whole-asset appends whose audio outlasts the picture by a
+  partial frame therefore fail in the native monitor. That gets more likely with codec-sized
+  audio packets.
+- Verification: 64 runtime tests, including `CompressedAudioTests`:
+  - 11 codec/container cases match FFmpeg's decode within 1e-6;
+  - 16 seeks per case equal the sequential read bit for bit;
+  - refusals for Opus in NUT, Matroska and three unmarked-delay files.
+
+  Also: 121 Python tests (nine optional skips), the import-probe smoke (with a new admitted
+  FFV1 + AC-3 AVI that plays natively and exports), and the native sequence parity proof
+  (29/29) on a fresh render-plan fixture. The app was not rebuilt: its sources are
+  unchanged, and the smoke compiles `MediaImporter` against the new runtime.
