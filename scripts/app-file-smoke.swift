@@ -212,7 +212,8 @@ struct AppFileSmoke {
         try exerciseAudioFades()
         try exerciseAudioCrossfades()
         try exerciseShortcuts()
-        print("App file smoke passed: Q/W ripple scope/undo/playhead/remapping/migration and Shift+Z dispatch, E roll/slip/slide/Z-X lift and extract/F match frame, exact source marks/scoped I/O commands/linked range append/explicit audio preview/undo/redo/clear/document reset, track/family naming/gain/retention/undo/redo/document round trip, viewer context/Tab command dispatch/special-key mapping/selection and playhead preservation, exact sequence settings/persistence/render-plan propagation/atomic undo/redo/track and family route rejection, nested-bin persistence/navigation/batch moves/undo/bookmarks/captured imports/deleted-destination fallback, Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
+        try exerciseShortcutPresets()
+        print("App file smoke passed: Q/W ripple scope/undo/playhead/remapping/migration and Shift+Z dispatch, E roll/slip/slide/Z-X lift and extract/F match frame, exact source marks/scoped I/O commands/linked range append/explicit audio preview/undo/redo/clear/document reset, track/family naming/gain/retention/undo/redo/document round trip, viewer context/Tab command dispatch/special-key mapping/selection and playhead preservation, exact sequence settings/persistence/render-plan propagation/atomic undo/redo/track and family route rejection, nested-bin persistence/navigation/batch moves/undo/bookmarks/captured imports/deleted-destination fallback, Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch/second shortcuts/presets/import/reassignment, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
     }
 
     @MainActor
@@ -1048,6 +1049,45 @@ struct AppFileSmoke {
         store.close()
         try await Task.sleep(for: .milliseconds(100))
         try check(store.sourcePlayer == nil && player.rate == 0, "Closing cancels source transport")
+    }
+
+    @MainActor
+    static func exerciseShortcutPresets() throws {
+        let suite = "afc-shortcut-presets-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let registry = EditorCommandRegistry(defaults: defaults)
+        let split = ShortcutBinding(key: "b", command: true)
+        let alternate = ShortcutBinding(key: "f5")
+        try check(registry.activePresetName == KeyboardPreset.builtInName && !registry.isModified, "Starts on the built-in preset")
+        try check(registry.set(alternate, for: .splitClip, slot: 1) == nil && registry.command(for: alternate) == .splitClip,
+                  "A command takes a second shortcut")
+        try check(registry.menuBinding(for: .splitClip) == split && registry.isModified, "Menus keep the first shortcut; the map is modified")
+        try check(EditorCommandRegistry(defaults: defaults).bindings(for: .splitClip) == [split, alternate], "Both shortcuts persist")
+        // Reassigning takes a shortcut from the command that had it.
+        try check(registry.set(ShortcutBinding(key: "j"), for: .addMarker, slot: 1) != nil, "Conflicts are refused by set")
+        try check(registry.reassign(ShortcutBinding(key: "j"), to: .addMarker, slot: 1) == nil
+                  && registry.bindings(for: .playReverse).isEmpty && registry.command(for: ShortcutBinding(key: "j")) == .addMarker,
+                  "Reassign moves a shortcut")
+        try check(registry.savePreset(named: "Editing") == nil && registry.activePresetName == "Editing" && !registry.isModified, "Save As")
+        try check(registry.savePreset(named: KeyboardPreset.builtInName) != nil, "The built-in preset is not replaced")
+        registry.applyPreset(named: KeyboardPreset.builtInName)
+        try check(registry.keymap == .defaults && registry.presets.map(\.name) == ["Editing"], "Switching restores the built-in map")
+        let reopened = EditorCommandRegistry(defaults: defaults)
+        try check(reopened.presets.map(\.name) == ["Editing"] && reopened.keymap == .defaults, "Presets and the active map persist")
+        reopened.applyPreset(named: "Editing")
+        try check(reopened.bindings(for: .splitClip) == [split, alternate] && reopened.command(for: ShortcutBinding(key: "j")) == .addMarker,
+                  "Applying a saved preset")
+        // A shared file imports under a free name and becomes active.
+        let shared = try KeyboardPreset(fileData: reopened.currentPreset.fileData())
+        let imported = reopened.importPreset(shared)
+        try check(imported.name == "Editing 2" && imported.rejected == 0 && reopened.activePresetName == "Editing 2", "Import renames duplicates")
+        try check(reopened.renamePreset("Editing 2", to: "Editing") != nil && reopened.renamePreset("Editing 2", to: "Shared") == nil
+                  && reopened.activePresetName == "Shared", "Rename keeps names unique")
+        reopened.deletePreset(named: "Shared")
+        try check(reopened.activePresetName == KeyboardPreset.builtInName && reopened.isModified, "Deleting keeps the current map")
+        reopened.reset()
+        try check(EditorCommandRegistry(defaults: defaults).keymap == .defaults, "Reset restores defaults persistently")
     }
 
     @MainActor

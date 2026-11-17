@@ -1,8 +1,8 @@
 import Foundation
 
-enum EditorCommandScope: String, Codable { case document, source, timeline }
+nonisolated enum EditorCommandScope: String, Codable { case document, source, timeline }
 
-enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
+nonisolated enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
     case togglePlayback, zoomTimelineToFit, rippleTrimStart, rippleTrimEnd, toggleViewer, undo, redo, importMedia, appendSource, markSourceIn, markSourceOut, clearSourceMarks, splitClip, addTransition, addTitle, insertSource, overwriteSource, previousFrame, nextFrame, deleteClip, rippleDelete, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO, toggleRetime, addMarker, previousMarker, nextMarker, previousEdit, nextEdit, toggleScopes,
          goToStart, goToEnd, backTenFrames, forwardTenFrames, goToIn, goToOut, splitAll, trimStartToPlayhead, trimEndToPlayhead,
          nudgeLeft, nudgeRight, toggleClipEnabled, selectClipAtPlayhead, deselectAll, toggleSnapping, zoomIn, zoomOut,
@@ -92,6 +92,8 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         default: []
         }
     }
+    /// Every command starts with at most this one shortcut; the second slot is the user's.
+    var defaultBindings: [ShortcutBinding] { defaultBinding.isEmpty ? [] : [defaultBinding] }
     var defaultBinding: ShortcutBinding {
         switch self {
         case .togglePlayback: ShortcutBinding(key: "space")
@@ -156,7 +158,105 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-extension EditorCommandID {
+
+/// Groups commands in the shortcut editor's list and colours them on its keyboard.
+nonisolated enum EditorCommandCategory: String, CaseIterable, Identifiable {
+    case playback, navigation, marks, editing, trimming, view, project
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .playback: "Playback"
+        case .navigation: "Navigation"
+        case .marks: "Marks & Markers"
+        case .editing: "Editing"
+        case .trimming: "Trimming"
+        case .view: "View"
+        case .project: "Project"
+        }
+    }
+}
+
+nonisolated extension EditorCommandID {
+    var category: EditorCommandCategory {
+        switch self {
+        case .togglePlayback, .playReverse, .pausePlayback, .playForward: .playback
+        case .previousFrame, .nextFrame, .backTenFrames, .forwardTenFrames, .goToStart, .goToEnd, .goToIn, .goToOut,
+             .previousEdit, .nextEdit: .navigation
+        case .markSourceIn, .markSourceOut, .clearSourceMarks, .addMarker, .previousMarker, .nextMarker: .marks
+        case .appendSource, .insertSource, .overwriteSource, .splitClip, .splitAll, .deleteClip, .rippleDelete, .liftRange,
+             .extractRange, .addTransition, .addTitle, .toggleClipEnabled, .selectClipAtPlayhead, .deselectAll, .matchFrame,
+             .toggleRetime: .editing
+        case .rippleTrimStart, .rippleTrimEnd, .trimStartToPlayhead, .trimEndToPlayhead, .extendEdit, .nudgeLeft, .nudgeRight,
+             .slipBackward, .slipForward, .slideLeft, .slideRight: .trimming
+        case .toggleViewer, .zoomTimelineToFit, .zoomIn, .zoomOut, .toggleSnapping, .toggleScopes: .view
+        case .undo, .redo, .importMedia, .exportSequence, .exportFCPXML, .exportEDL, .exportOTIO: .project
+        }
+    }
+    /// A few words that fit on a key of the shortcut editor's keyboard.
+    var shortTitle: String {
+        switch self {
+        case .togglePlayback: "Play / Pause"
+        case .zoomTimelineToFit: "Zoom to Fit"
+        case .rippleTrimStart: "Ripple Start"
+        case .rippleTrimEnd: "Ripple End"
+        case .toggleViewer: "Source / Seq"
+        case .undo: "Undo"
+        case .redo: "Redo"
+        case .importMedia: "Import"
+        case .appendSource: "Append"
+        case .markSourceIn: "Mark In"
+        case .markSourceOut: "Mark Out"
+        case .clearSourceMarks: "Clear In/Out"
+        case .splitClip: "Split"
+        case .addTransition: "Transition"
+        case .addTitle: "Title"
+        case .insertSource: "Insert"
+        case .overwriteSource: "Overwrite"
+        case .previousFrame: "Prev Frame"
+        case .nextFrame: "Next Frame"
+        case .deleteClip: "Delete"
+        case .rippleDelete: "Ripple Delete"
+        case .playReverse: "Reverse"
+        case .pausePlayback: "Pause"
+        case .playForward: "Forward"
+        case .exportSequence: "Render"
+        case .exportFCPXML: "FCPXML"
+        case .exportEDL: "EDL"
+        case .exportOTIO: "OTIO"
+        case .toggleRetime: "Retime"
+        case .addMarker: "Marker"
+        case .previousMarker: "Prev Marker"
+        case .nextMarker: "Next Marker"
+        case .previousEdit: "Prev Edit"
+        case .nextEdit: "Next Edit"
+        case .toggleScopes: "Scopes"
+        case .goToStart: "Go to Start"
+        case .goToEnd: "Go to End"
+        case .backTenFrames: "−10 Frames"
+        case .forwardTenFrames: "+10 Frames"
+        case .goToIn: "Go to In"
+        case .goToOut: "Go to Out"
+        case .splitAll: "Split All"
+        case .trimStartToPlayhead: "Trim Start"
+        case .trimEndToPlayhead: "Trim End"
+        case .nudgeLeft: "Nudge ←"
+        case .nudgeRight: "Nudge →"
+        case .toggleClipEnabled: "Enable Clip"
+        case .selectClipAtPlayhead: "Select Clip"
+        case .deselectAll: "Deselect"
+        case .toggleSnapping: "Snapping"
+        case .zoomIn: "Zoom In"
+        case .zoomOut: "Zoom Out"
+        case .extendEdit: "Extend Edit"
+        case .slipBackward: "Slip ←"
+        case .slipForward: "Slip →"
+        case .slideLeft: "Slide ←"
+        case .slideRight: "Slide →"
+        case .liftRange: "Lift"
+        case .extractRange: "Extract"
+        case .matchFrame: "Match Frame"
+        }
+    }
     /// Commands that may use a bare or Shift-only key; editor keys never reach focused text.
     var allowsUnmodifiedKey: Bool {
         [.toggleViewer, .markSourceIn, .markSourceOut, .clearSourceMarks, .zoomTimelineToFit, .rippleTrimStart, .rippleTrimEnd, .insertSource,
@@ -166,9 +266,32 @@ extension EditorCommandID {
     }
 }
 
-struct ShortcutBinding: Codable, Equatable {
+nonisolated struct ShortcutModifiers: OptionSet, Hashable {
+    let rawValue: Int
+    static let control = ShortcutModifiers(rawValue: 1)
+    static let option = ShortcutModifiers(rawValue: 2)
+    static let shift = ShortcutModifiers(rawValue: 4)
+    static let command = ShortcutModifiers(rawValue: 8)
+    /// All sixteen combinations, fewest modifiers first.
+    static let allCombinations = (0..<16).map(ShortcutModifiers.init(rawValue:))
+        .sorted { ($0.rawValue.nonzeroBitCount, $0.rawValue) < ($1.rawValue.nonzeroBitCount, $1.rawValue) }
+    /// In the order macOS menus show them.
+    var symbols: String {
+        (contains(.control) ? "⌃" : "") + (contains(.option) ? "⌥" : "") + (contains(.shift) ? "⇧" : "") + (contains(.command) ? "⌘" : "")
+    }
+}
+
+nonisolated struct ShortcutBinding: Codable, Hashable {
     /// Keys named rather than typed; the text system uses all of them for navigation or entry.
-    static let namedKeys = ["left", "right", "up", "down", "home", "end", "delete", "return", "escape", "space", "tab"]
+    static let namedKeys = ["left", "right", "up", "down", "home", "end", "pageup", "pagedown", "delete", "return", "escape", "space", "tab"]
+    /// Text entry ignores function keys, so any command may use one without modifiers.
+    static let functionKeys = (1...12).map { "f\($0)" }
+    /// macOS virtual key codes of the keys that have names rather than characters.
+    /// Forward delete and keypad enter share the names of delete and return.
+    static let keyCodeNames: [UInt16: String] = [
+        49: "space", 48: "tab", 51: "delete", 117: "delete", 123: "left", 124: "right", 125: "down", 126: "up", 36: "return", 76: "return",
+        53: "escape", 115: "home", 119: "end", 116: "pageup", 121: "pagedown", 122: "f1", 120: "f2", 99: "f3", 118: "f4", 96: "f5",
+        97: "f6", 98: "f7", 100: "f8", 101: "f9", 109: "f10", 103: "f11", 111: "f12"]
     var key: String
     var command = false
     var option = false
@@ -181,38 +304,204 @@ struct ShortcutBinding: Codable, Equatable {
         return result
     }
     var isEmpty: Bool { normalized.key.isEmpty }
-    var display: String {
-        let keyLabel = ["left": "←", "right": "→", "up": "↑", "down": "↓", "delete": "⌫", "return": "↩", "escape": "⎋", "space": "Space", "tab": "Tab",
-                        "home": "↖", "end": "↘"][normalized.key] ?? normalized.key.uppercased()
-        return isEmpty ? "None" : (control ? "⌃" : "") + (option ? "⌥" : "") + (shift ? "⇧" : "") + (command ? "⌘" : "") + keyLabel
+    var isFunctionKey: Bool { Self.functionKeys.contains(normalized.key) }
+    var modifiers: ShortcutModifiers {
+        var result: ShortcutModifiers = []
+        if command { result.insert(.command) }
+        if option { result.insert(.option) }
+        if control { result.insert(.control) }
+        if shift { result.insert(.shift) }
+        return result
+    }
+    var keyLabel: String {
+        ["left": "←", "right": "→", "up": "↑", "down": "↓", "delete": "⌫", "return": "↩", "escape": "⎋", "space": "Space", "tab": "Tab",
+         "home": "↖", "end": "↘", "pageup": "⇞", "pagedown": "⇟"][normalized.key] ?? normalized.key.uppercased()
+    }
+    var display: String { isEmpty ? "None" : modifiers.symbols + keyLabel }
+    /// Words a search for this shortcut may use, such as "cmd shift b".
+    var searchText: String {
+        guard !isEmpty else { return "" }
+        let words = [control ? "control ctrl" : "", option ? "option opt alt" : "", shift ? "shift" : "", command ? "command cmd" : ""]
+        return (words + [normalized.key, display]).filter { !$0.isEmpty }.joined(separator: " ").lowercased()
     }
 
-    func validationError(for commandID: EditorCommandID, bindings: [EditorCommandID: ShortcutBinding]) -> String? {
+    /// The binding for a key press, from the key's name or the character it types with
+    /// only Shift applied (as `charactersIgnoringModifiers` reports it).
+    static func pressed(key: String, modifiers: ShortcutModifiers) -> ShortcutBinding? {
+        guard !key.isEmpty else { return nil }
+        // "+" is Shift-= on US keyboards and its own key on many others; both mean the = binding (zoom in).
+        if key == "+" { return ShortcutBinding(key: "=", modifiers: modifiers.subtracting(.shift)) }
+        return ShortcutBinding(key: key, modifiers: modifiers).normalized
+    }
+
+    /// Why no command may use this shortcut: macOS and standard application commands keep theirs.
+    var reservation: String? {
         let candidate = normalized
-        if candidate.isEmpty { return nil }
-        let namedKeys = Self.namedKeys
-        guard namedKeys.contains(candidate.key) || (candidate.key.count == 1 && candidate.key.unicodeScalars.allSatisfy { !$0.properties.isWhitespace && !CharacterSet.controlCharacters.contains($0) }) else {
-            return "Enter one character or left, right, up, down, home, end, delete, return, escape, space, or tab."
-        }
-        guard commandID.isPlayback || commandID.allowsUnmodifiedKey || candidate.command || candidate.option || candidate.control else {
-            return "Include Command, Option, or Control to preserve text entry."
-        }
         // ⇧⌘W is the scopes shortcut; only plain ⌘W closes the window.
         if candidate.command && !candidate.option && !candidate.control && ["q", "w", "n", "o", "s", "h", "m", ",", "c", "v", "x", "a", "f"].contains(candidate.key)
             && !(candidate.shift && candidate.key == "w") {
             return "This shortcut is reserved for standard application or text commands."
         }
-        if candidate.command && ((candidate.option && ["h", "m"].contains(candidate.key)) || (candidate.control && candidate.key == "f") || (candidate.shift && candidate.key == "/")) {
+        // Help is ⌘? on every layout: Shift-/ on U.S. keyboards, Shift-+ on Norwegian ones.
+        if candidate.command && ((candidate.option && ["h", "m"].contains(candidate.key)) || (candidate.control && candidate.key == "f") || candidate.key == "?") {
             return "This shortcut is reserved for standard application commands."
         }
         // Bare or Shift-Space is the editing convention for transport; other Space chords belong to macOS.
-        let transportSpace = commandID.isPlayback && !candidate.command && !candidate.option && !candidate.control
-        if (candidate.key == "space" && !transportSpace) || (candidate.control && ["left", "right", "up", "down"].contains(candidate.key)) || (candidate.command && candidate.option && candidate.key == "escape") {
+        if (candidate.key == "space" && (candidate.command || candidate.option || candidate.control))
+            || (candidate.control && ["left", "right", "up", "down"].contains(candidate.key)) || (candidate.command && candidate.option && candidate.key == "escape") {
             return "This combination is reserved for macOS."
         }
-        for other in EditorCommandID.allCases where other != commandID {
-            if bindings[other]?.normalized == candidate { return "Already assigned to \(other.title)." }
+        return nil
+    }
+    /// The standard command that owns a reserved shortcut, when it has a well-known name.
+    var reservedTitle: String? {
+        let candidate = normalized
+        guard candidate.modifiers == .command else { return nil }
+        return ["q": "Quit", "w": "Close Window", "n": "New Project", "o": "Open…", "s": "Save", "h": "Hide", "m": "Minimize",
+                ",": "Settings…", "c": "Copy", "v": "Paste", "x": "Cut", "a": "Select All", "f": "Find"][candidate.key]
+    }
+
+    /// Why this shortcut cannot run `commandID`, apart from conflicts with other commands.
+    func validationError(for commandID: EditorCommandID) -> String? {
+        let candidate = normalized
+        if candidate.isEmpty { return nil }
+        guard Self.namedKeys.contains(candidate.key) || candidate.isFunctionKey
+                || (candidate.key.count == 1 && candidate.key.unicodeScalars.allSatisfy { !$0.properties.isWhitespace && !CharacterSet.controlCharacters.contains($0) }) else {
+            return "Enter one character, F1–F12, or left, right, up, down, home, end, page up, page down, delete, return, escape, space, or tab."
+        }
+        guard commandID.isPlayback || commandID.allowsUnmodifiedKey || candidate.isFunctionKey || candidate.command || candidate.option || candidate.control else {
+            return "Include Command, Option, or Control to preserve text entry."
+        }
+        if let reservation = candidate.reservation { return reservation }
+        if candidate.key == "space" && !commandID.isPlayback { return "This combination is reserved for macOS." }
+        return nil
+    }
+}
+
+nonisolated extension ShortcutBinding {
+    init(key: String, modifiers: ShortcutModifiers) {
+        self.init(key: key, command: modifiers.contains(.command), option: modifiers.contains(.option),
+                  control: modifiers.contains(.control), shift: modifiers.contains(.shift))
+    }
+    // Absent modifiers decode as off and are not written, which keeps shared preset files short.
+    private enum CodingKeys: String, CodingKey { case key, command, option, control, shift }
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(key: try container.decode(String.self, forKey: .key),
+                  command: try container.decodeIfPresent(Bool.self, forKey: .command) ?? false,
+                  option: try container.decodeIfPresent(Bool.self, forKey: .option) ?? false,
+                  control: try container.decodeIfPresent(Bool.self, forKey: .control) ?? false,
+                  shift: try container.decodeIfPresent(Bool.self, forKey: .shift) ?? false)
+    }
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(key, forKey: .key)
+        for (flag, codingKey) in [(command, CodingKeys.command), (option, .option), (control, .control), (shift, .shift)] where flag {
+            try container.encode(true, forKey: codingKey)
+        }
+    }
+}
+
+/// Every command's shortcuts: up to two each, the first being the one menus show.
+/// A command's shortcuts stay compact, so clearing the first promotes the second.
+nonisolated struct Keymap: Equatable {
+    static let slotCount = 2
+    private var shortcuts: [EditorCommandID: [ShortcutBinding]] = [:]
+
+    static var defaults: Keymap {
+        var keymap = Keymap()
+        for command in EditorCommandID.allCases { keymap.shortcuts[command] = command.defaultBindings }
+        return keymap
+    }
+
+    /// The command's first shortcut, or an empty binding.
+    subscript(command: EditorCommandID) -> ShortcutBinding { binding(for: command, slot: 0) }
+    func bindings(for command: EditorCommandID) -> [ShortcutBinding] { shortcuts[command] ?? [] }
+    func binding(for command: EditorCommandID, slot: Int) -> ShortcutBinding {
+        let list = bindings(for: command)
+        return list.indices.contains(slot) ? list[slot] : ShortcutBinding(key: "")
+    }
+    /// The command that a shortcut runs, and which of that command's shortcuts it is.
+    func assignment(of binding: ShortcutBinding) -> (command: EditorCommandID, slot: Int)? {
+        let target = binding.normalized
+        guard !target.isEmpty else { return nil }
+        for command in EditorCommandID.allCases {
+            if let slot = bindings(for: command).firstIndex(of: target) { return (command, slot) }
         }
         return nil
+    }
+    func command(for binding: ShortcutBinding) -> EditorCommandID? { assignment(of: binding)?.command }
+    /// Every assigned shortcut and its command, for lookups across a whole keyboard.
+    var commandsByBinding: [ShortcutBinding: EditorCommandID] {
+        var result: [ShortcutBinding: EditorCommandID] = [:]
+        for command in EditorCommandID.allCases { for binding in bindings(for: command) { result[binding] = command } }
+        return result
+    }
+
+    /// The other command (or this command's other slot) that already uses `binding`.
+    func conflict(for binding: ShortcutBinding, command: EditorCommandID, slot: Int) -> EditorCommandID? {
+        guard let found = assignment(of: binding) else { return nil }
+        return found.command == command && found.slot == min(slot, bindings(for: command).count) ? nil : found.command
+    }
+    /// Why `binding` cannot be the command's shortcut in `slot`, including conflicts.
+    func validationError(_ binding: ShortcutBinding, for command: EditorCommandID, slot: Int = 0) -> String? {
+        if let error = binding.validationError(for: command) { return error }
+        if let other = conflict(for: binding, command: command, slot: slot) {
+            return other == command ? "Already this command's other shortcut." : "Already assigned to \(other.title)."
+        }
+        return nil
+    }
+
+    /// Sets one shortcut without validation; an empty binding clears the slot, and a
+    /// slot past the command's last shortcut adds one.
+    mutating func set(_ binding: ShortcutBinding, for command: EditorCommandID, slot: Int) {
+        var list = bindings(for: command)
+        let value = binding.normalized
+        if list.indices.contains(slot) {
+            if value.isEmpty { list.remove(at: slot) } else { list[slot] = value }
+        } else if !value.isEmpty {
+            list.append(value)
+        }
+        shortcuts[command] = Array(list.prefix(Self.slotCount))
+    }
+    /// Removes a shortcut from whichever command has it.
+    mutating func unassign(_ binding: ShortcutBinding) {
+        guard let found = assignment(of: binding) else { return }
+        set(ShortcutBinding(key: ""), for: found.command, slot: found.slot)
+    }
+
+    /// Every command's shortcuts by command name, unbound commands included.
+    var savedForm: [String: [ShortcutBinding]] {
+        Dictionary(uniqueKeysWithValues: EditorCommandID.allCases.map { ($0.rawValue, bindings(for: $0)) })
+    }
+    /// The saved form of only the commands whose shortcuts differ from `base`.
+    func changes(from base: Keymap) -> [String: [ShortcutBinding]] {
+        savedForm.filter { name, bindings in EditorCommandID(rawValue: name).map { base.bindings(for: $0) != bindings } ?? false }
+    }
+    /// Rebuilds a keymap from saved choices. Commands absent from `saved` (such as ones
+    /// added since it was written) take their defaults unless a saved choice already
+    /// uses them; saved shortcuts that are invalid or already in use are left out and counted.
+    static func restoring(_ saved: [String: [ShortcutBinding]]) -> (keymap: Keymap, rejected: Int) {
+        var keymap = Keymap()
+        var rejected = 0
+        for command in EditorCommandID.allCases {
+            keymap.shortcuts[command] = []
+            for binding in saved[command.rawValue] ?? [] where !binding.isEmpty {
+                let slot = keymap.bindings(for: command).count
+                if slot < slotCount && keymap.validationError(binding, for: command, slot: slot) == nil {
+                    keymap.set(binding, for: command, slot: slot)
+                } else {
+                    rejected += 1
+                }
+            }
+        }
+        // New or changed defaults must not erase an existing custom map.
+        // Leave such a command unbound if its default is already in use.
+        for command in EditorCommandID.allCases where saved[command.rawValue] == nil {
+            for binding in command.defaultBindings where keymap.assignment(of: binding) == nil {
+                keymap.set(binding, for: command, slot: keymap.bindings(for: command).count)
+            }
+        }
+        return (keymap, rejected)
     }
 }
