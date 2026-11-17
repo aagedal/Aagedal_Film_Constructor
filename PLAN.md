@@ -220,6 +220,18 @@ express it.
   become cuts; bad markers are left out. Exports are refused only when no file can be written
   (no exportable clips, unsupported sequence rate/layout, sequence end off the grid), and the
   refusal also lists what would have been left out.
+- [x] Trim tools (2026-11-17): roll, slip and slide as engine commands (`.roll`, `.slip`, `.slide`)
+  that trim or move linked components together and keep everything else in place. E extends the
+  selected clip's nearer edit to the playhead (a roll when a clip meets it, else a trim into the
+  gap); ⌘-dragging a clip edge rolls the cut, the neighbour following live within both clips'
+  media (`TimelineGesture.rollDelta`). ⌥⌘←/→ slip and ⌥,/⌥. slide by a frame. Slips keep
+  volume and position keyframes in place in the clip (points pushed before the media start
+  become one point at zero on the same curve); stabilisation stays with the media. Z lifts and X
+  extracts the sequence In to Out on every track; F matches the frame under the playhead in the
+  source viewer with the clip's range marked. `TrimEditingTests` and the app file smoke cover them;
+  the ⌘-drag has not had a real-window acceptance run yet.
+- [ ] Multiple clip selection: ⇧/⌘-click and marquee selection, with move, delete, ripple delete,
+  copy, enable and the inspector's shared settings acting on every selected clip.
 
 ## Earlier priority: usable beta (2026-10-23)
 

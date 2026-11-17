@@ -21,6 +21,12 @@ public enum TimelineGesture {
 
     public static func trimDelta(_ proposed: Double, edge: TimelineTrimEdge, clip: TimelineClip, project: Project, quantum: Double, alone: Bool = false) -> Double {
         guard proposed.isFinite, quantum > 0 else { return 0 }
+        let bounds = trimBounds(edge: edge, clip: clip, project: project, quantum: quantum, alone: alone)
+        return onGrid(proposed, lower: bounds.lower, upper: bounds.upper, quantum: quantum)
+    }
+
+    /// How far an edge of the clip (and its linked components) may move, in seconds.
+    static func trimBounds(edge: TimelineTrimEdge, clip: TimelineClip, project: Project, quantum: Double, alone: Bool = false) -> (lower: Double, upper: Double) {
         var lower = -Double.greatestFiniteMagnitude
         var upper = Double.greatestFiniteMagnitude
         for component in components(of: clip, in: project, alone: alone) {
@@ -35,7 +41,12 @@ public enum TimelineGesture {
                 }
             }
         }
-        // Work on a frame/sample grid without rounding beyond the legal source bounds.
+        return (lower, upper)
+    }
+
+    /// Work on a frame/sample grid without rounding beyond the legal source bounds.
+    static func onGrid(_ proposed: Double, lower: Double, upper: Double, quantum: Double) -> Double {
+        guard proposed.isFinite, quantum > 0 else { return 0 }
         let minimum = ceil(lower / quantum - 1e-8)
         let maximum = floor(upper / quantum + 1e-8)
         guard minimum <= maximum else { return 0 }

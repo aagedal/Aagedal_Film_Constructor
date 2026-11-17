@@ -3,12 +3,25 @@ import AppKit
 import EditorCore
 
 /// A clip's live move or trim, which its linked components follow until the edit commits.
+/// In a roll, the clip meeting the dragged edge (`rollIDs`, with its linked components)
+/// follows with its opposite edge.
 private struct LinkedDrag: Equatable {
     var sourceID: UUID
     var ids: Set<UUID>
+    var rollIDs: Set<UUID> = []
     var offset: CGFloat
     var leading: Double
     var trailing: Double
+}
+
+/// How an edge drag edits: with linked components, this component alone (Option-drag), or
+/// as a roll that also trims the clip meeting the edge (Command-drag).
+enum TrimDragMode: Int, Equatable {
+    case linked, alone, roll
+    static var current: TrimDragMode {
+        let flags = NSEvent.modifierFlags
+        return flags.contains(.command) ? .roll : flags.contains(.option) ? .alone : .linked
+    }
 }
 
 struct TimelineView: View {
@@ -263,7 +276,8 @@ struct TimelineView: View {
         return track.clips.filter { clip in
             TimelineClipVisibility.includes(startSeconds: clip.timelineStart.seconds,
                 durationSeconds: clip.sourceRange.duration.seconds, pixelsPerSecond: pixelsPerSecond, range: range,
-                pinned: clip.id == store.selectedClipID || interactingClipIDs.contains(clip.id) || linkedDrag?.ids.contains(clip.id) == true)
+                pinned: clip.id == store.selectedClipID || interactingClipIDs.contains(clip.id) || linkedDrag?.ids.contains(clip.id) == true
+                    || linkedDrag?.rollIDs.contains(clip.id) == true)
         }
     }
 
@@ -288,11 +302,19 @@ struct TimelineView: View {
                         store.selectTimelineClip(clip.id)
                         store.moveSelectedClip(to: seconds, rowOffset: rows)
                     },
-                    proposedTrim: { store.proposedTrimDelta(clip: clip, edge: $0, delta: $1, tolerance: 8 / pixelsPerSecond, alone: $2) },
-                    trim: { edge, delta, alone in
+                    proposedTrim: { edge, delta, mode in
+                        mode == .roll && store.canRoll(clip: clip, edge: edge)
+                            ? store.proposedRollDelta(clip: clip, edge: edge, delta: delta, tolerance: 8 / pixelsPerSecond)
+                            : store.proposedTrimDelta(clip: clip, edge: edge, delta: delta, tolerance: 8 / pixelsPerSecond, alone: mode == .alone)
+                    },
+                    trim: { edge, delta, mode in
                         linkedDrag = nil
-                        store.selectTimelineClip(clip.id)
-                        store.trimSelectedClip(edge: edge, delta: delta, alone: alone)
+                        if mode == .roll && store.canRoll(clip: clip, edge: edge) {
+                            store.rollEdit(clipID: clip.id, edge: edge, delta: delta)
+                        } else {
+                            store.selectTimelineClip(clip.id)
+                            store.trimSelectedClip(edge: edge, delta: delta, alone: mode == .alone)
+                        }
                     },
                     retiming: isRetiming(clip),
                     proposedRetime: { store.proposedRetimeDelta(clip: clip, delta: $0) },
@@ -305,12 +327,21 @@ struct TimelineView: View {
                         store.selectTimelineClip(clip.id)
                         store.setSelectedClipSpeed(percent: percent)
                     },
-                    follow: linkedDrag.flatMap { $0.sourceID != clip.id && $0.ids.contains(clip.id) ? $0 : nil },
-                    dragChanged: { offset, leading, trailing, alone in
-                        if clip.linkGroupID == nil || alone || (offset == 0 && leading == 0 && trailing == 0) {
+                    follow: linkedDrag.flatMap { drag in
+                        if drag.rollIDs.contains(clip.id) {
+                            // The neighbour's opposite edge moves with the cut.
+                            return LinkedDrag(sourceID: drag.sourceID, ids: drag.ids, offset: 0, leading: drag.trailing, trailing: drag.leading)
+                        }
+                        return drag.sourceID != clip.id && drag.ids.contains(clip.id) ? drag : nil
+                    },
+                    dragChanged: { offset, leading, trailing, mode in
+                        let edge: TimelineTrimEdge = leading != 0 ? .leading : .trailing
+                        let neighbour = mode == .roll ? store.project.adjacentClip(to: clip.id, edge: edge) : nil
+                        if (clip.linkGroupID == nil && neighbour == nil) || mode == .alone || (offset == 0 && leading == 0 && trailing == 0) {
                             if linkedDrag?.sourceID == clip.id { linkedDrag = nil }
                         } else {
                             linkedDrag = LinkedDrag(sourceID: clip.id, ids: Set(TimelineGesture.components(of: clip, in: store.project).map(\.id)),
+                                                    rollIDs: Set(neighbour.map { TimelineGesture.components(of: $0, in: store.project).map(\.id) } ?? []),
                                                     offset: offset, leading: leading, trailing: trailing)
                         }
                     },
@@ -576,9 +607,8 @@ private struct TimelineClipView: View {
     let proposedRow: (CGFloat) -> Int
     let rowHeight: CGFloat
     let move: (Double, Int) -> Void
-    /// The Bool is true for an Option-drag, which trims this component alone.
-    let proposedTrim: (TimelineTrimEdge, Double, Bool) -> Double
-    let trim: (TimelineTrimEdge, Double, Bool) -> Void
+    let proposedTrim: (TimelineTrimEdge, Double, TrimDragMode) -> Double
+    let trim: (TimelineTrimEdge, Double, TrimDragMode) -> Void
     /// Retime mode (⌘R): a speed bar on top, and the end handle changes speed.
     let retiming: Bool
     let proposedRetime: (Double) -> Double
@@ -586,7 +616,7 @@ private struct TimelineClipView: View {
     let setSpeed: (String) -> Void
     /// Another clip's live drag that this linked component follows.
     let follow: LinkedDrag?
-    let dragChanged: (CGFloat, Double, Double, Bool) -> Void
+    let dragChanged: (CGFloat, Double, Double, TrimDragMode) -> Void
     let project: Project
     let proposedFade: (Double) -> Double
     let crossfadeHighlighted: Bool
@@ -599,7 +629,7 @@ private struct TimelineClipView: View {
     @GestureState private var ownRow = 0
     @GestureState private var ownLeading = 0.0
     @GestureState private var ownTrailing = 0.0
-    @GestureState private var trimAlone = false
+    @GestureState private var trimMode = TrimDragMode.linked
     private var dragOffset: CGFloat { ownOffset != 0 ? ownOffset : follow?.offset ?? 0 }
     private var leadingDelta: Double { ownLeading != 0 ? ownLeading : follow?.leading ?? 0 }
     private var trailingDelta: Double { ownTrailing != 0 ? ownTrailing : follow?.trailing ?? 0 }
@@ -695,8 +725,8 @@ private struct TimelineClipView: View {
                 }
             }
             .onChange(of: interactionActive) { _, active in interactionChanged(active) }
-            .onChange(of: [Double(ownOffset), ownLeading, ownTrailing, trimAlone ? 1 : 0]) { _, _ in
-                dragChanged(ownOffset, ownLeading, ownTrailing, trimAlone)
+            .onChange(of: [Double(ownOffset), ownLeading, ownTrailing, Double(trimMode.rawValue)]) { _, _ in
+                dragChanged(ownOffset, ownLeading, ownTrailing, trimMode)
             }
             .onTapGesture(perform: select)
             .gesture(DragGesture(minimumDistance: 3, coordinateSpace: .global)
@@ -854,17 +884,17 @@ private struct TimelineClipView: View {
             .contentShape(Rectangle())
             .highPriorityGesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
                 .updating($interactionActive) { _, state, _ in state = true }
-                .updating($trimAlone) { _, state, _ in state = NSEvent.modifierFlags.contains(.option) }
+                .updating($trimMode) { _, state, _ in state = .current }
                 .updating(edge == .leading ? $ownLeading : $ownTrailing) { value, state, _ in
-                    state = proposedTrim(edge, value.translation.width / pixelsPerSecond, NSEvent.modifierFlags.contains(.option))
+                    state = proposedTrim(edge, value.translation.width / pixelsPerSecond, .current)
                 }
                 .onChanged { _ in select() }
                 .onEnded { value in
-                    let alone = NSEvent.modifierFlags.contains(.option)
-                    trim(edge, proposedTrim(edge, value.translation.width / pixelsPerSecond, alone), alone)
+                    let mode = TrimDragMode.current
+                    trim(edge, proposedTrim(edge, value.translation.width / pixelsPerSecond, mode), mode)
                 })
-            .help(edge == .leading ? "Trim clip start; Option-drag to trim only this clip, keeping its link"
-                                   : "Trim clip end; Option-drag to trim only this clip, keeping its link")
+            .help(edge == .leading ? "Trim clip start; Option-drag to trim only this clip, keeping its link; Command-drag to roll the cut with the clip before"
+                                   : "Trim clip end; Option-drag to trim only this clip, keeping its link; Command-drag to roll the cut with the clip after")
     }
 }
 

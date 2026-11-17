@@ -17,6 +17,17 @@ public enum EditCommand: Sendable {
     /// across every track. Unrelated clips intersecting that interval reject the edit.
     case rippleTrim(clipID: UUID, edge: TimelineTrimEdge, at: RationalTime)
     case delete(clipID: UUID)
+    /// Move the cut at one edge of a clip by `delta` (positive is later), trimming the clip that
+    /// meets it on its track by the same amount (a roll). Linked components of both clips follow,
+    /// so the sequence keeps its length and nothing else moves.
+    case roll(clipID: UUID, edge: TimelineTrimEdge, delta: RationalTime)
+    /// Play a later (positive) or earlier source range in the same timeline place (a slip).
+    /// `delta` is timeline time; each component moves its source by `delta × speed`.
+    /// Keyframes stay where they are in the clip; stabilisation stays with the media.
+    case slip(clipID: UUID, delta: RationalTime)
+    /// Move a clip and its linked components by `delta` without changing their source (a slide).
+    /// The clips meeting it on its track trim to keep meeting it.
+    case slide(clipID: UUID, delta: RationalTime)
     /// Replace every audio component linked to the clip (picture or sound) with these
     /// components. A component whose selection already exists keeps its clip and settings;
     /// new ones copy the first existing sound component, or start plain beside a picture.
@@ -67,6 +78,7 @@ public enum TimelineEditError: Error, Equatable, Sendable {
     case missingClip, missingTrack, missingFamily, incompatibleTrack, duplicateClip
     case invalidSplit, unsupportedLinkedSplit
     case invalidRippleTrim, rippleTrimOverlap
+    case noAdjacentClip, trimBeyondMedia
     case invalidAudioCrossfade, missingAudioCrossfade
     case invalidAudioSelection, incompatibleAudioRouting, incompatibleAudioConsolidation
 }
@@ -81,6 +93,8 @@ extension TimelineEditError: LocalizedError {
         case .rippleTrimOverlap:
             return "Cannot ripple trim while another clip crosses the removed interval. Move or trim that clip first."
         case .missingAudioCrossfade: return "The audio crossfade no longer exists."
+        case .noAdjacentClip: return "No clip meets this edge on its track. Trim the clip instead."
+        case .trimBeyondMedia: return "The edit would run a clip past the start or end of its media, below one frame, or before the start of the sequence."
         default: return nil
         }
     }
@@ -195,7 +209,7 @@ public struct TimelineEditEngine: Sendable {
         }
     }
 
-    private static func place(_ clip: TimelineClip, on trackID: UUID, in project: inout Project) throws {
+    static func place(_ clip: TimelineClip, on trackID: UUID, in project: inout Project) throws {
         guard let targetIndex = project.tracks.firstIndex(where: { $0.id == trackID }) else {
             throw TimelineEditError.missingTrack
         }
@@ -221,14 +235,14 @@ public struct TimelineEditEngine: Sendable {
         }
     }
 
-    private static func linked(to clipID: UUID, in project: Project) throws -> [(trackID: UUID, clip: TimelineClip)] {
+    static func linked(to clipID: UUID, in project: Project) throws -> [(trackID: UUID, clip: TimelineClip)] {
         let all = project.tracks.flatMap { track in track.clips.map { (trackID: track.id, clip: $0) } }
         guard let selected = all.first(where: { $0.clip.id == clipID }) else { throw TimelineEditError.missingClip }
         guard let group = selected.clip.linkGroupID else { return [selected] }
         return all.filter { $0.clip.linkGroupID == group }
     }
 
-    private static func remove(_ ids: Set<UUID>, from project: inout Project) {
+    static func remove(_ ids: Set<UUID>, from project: inout Project) {
         for index in project.tracks.indices { project.tracks[index].clips.removeAll { ids.contains($0.id) } }
     }
 
@@ -624,6 +638,12 @@ public struct TimelineEditEngine: Sendable {
                   let c = project.tracks[t].clips.firstIndex(where: { $0.id == clipID }) else { throw TimelineEditError.missingClip }
             guard project.tracks[t].clips[c].requiredTrackKind == .video else { throw TimelineEditError.incompatibleTrack }
             project.tracks[t].clips[c].transform = transform
+        case .roll(let clipID, let edge, let delta):
+            try roll(clipID: clipID, edge: edge, delta: delta, in: &project)
+        case .slip(let clipID, let delta):
+            try slip(clipID: clipID, delta: delta, in: &project)
+        case .slide(let clipID, let delta):
+            try slide(clipID: clipID, delta: delta, in: &project)
         case .delete(let clipID):
             let components = try linked(to: clipID, in: project)
             remove(Set(components.map { $0.clip.id }), from: &project)

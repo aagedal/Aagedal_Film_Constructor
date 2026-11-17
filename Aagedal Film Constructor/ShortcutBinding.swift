@@ -5,7 +5,8 @@ enum EditorCommandScope: String, Codable { case document, source, timeline }
 enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
     case togglePlayback, zoomTimelineToFit, rippleTrimStart, rippleTrimEnd, toggleViewer, undo, redo, importMedia, appendSource, markSourceIn, markSourceOut, clearSourceMarks, splitClip, addTransition, addTitle, insertSource, overwriteSource, previousFrame, nextFrame, deleteClip, rippleDelete, playReverse, pausePlayback, playForward, exportSequence, exportFCPXML, exportEDL, exportOTIO, toggleRetime, addMarker, previousMarker, nextMarker, previousEdit, nextEdit, toggleScopes,
          goToStart, goToEnd, backTenFrames, forwardTenFrames, goToIn, goToOut, splitAll, trimStartToPlayhead, trimEndToPlayhead,
-         nudgeLeft, nudgeRight, toggleClipEnabled, selectClipAtPlayhead, deselectAll, toggleSnapping, zoomIn, zoomOut
+         nudgeLeft, nudgeRight, toggleClipEnabled, selectClipAtPlayhead, deselectAll, toggleSnapping, zoomIn, zoomOut,
+         extendEdit, slipBackward, slipForward, slideLeft, slideRight, liftRange, extractRange, matchFrame
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -61,6 +62,14 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .toggleSnapping: "Snapping"
         case .zoomIn: "Zoom In"
         case .zoomOut: "Zoom Out"
+        case .extendEdit: "Extend Edit to Playhead"
+        case .slipBackward: "Slip Source One Frame Earlier"
+        case .slipForward: "Slip Source One Frame Later"
+        case .slideLeft: "Slide Clip Left One Frame"
+        case .slideRight: "Slide Clip Right One Frame"
+        case .liftRange: "Lift In to Out"
+        case .extractRange: "Extract In to Out"
+        case .matchFrame: "Match Frame"
         }
     }
     var isPlayback: Bool { [.togglePlayback, .playReverse, .pausePlayback, .playForward].contains(self) }
@@ -135,6 +144,14 @@ enum EditorCommandID: String, Codable, CaseIterable, Identifiable {
         case .toggleSnapping: ShortcutBinding(key: "n")
         case .zoomIn: ShortcutBinding(key: "=", command: true)
         case .zoomOut: ShortcutBinding(key: "-", command: true)
+        case .extendEdit: ShortcutBinding(key: "e")
+        case .slipBackward: ShortcutBinding(key: "left", command: true, option: true)
+        case .slipForward: ShortcutBinding(key: "right", command: true, option: true)
+        case .slideLeft: ShortcutBinding(key: ",", option: true)
+        case .slideRight: ShortcutBinding(key: ".", option: true)
+        case .liftRange: ShortcutBinding(key: "z")
+        case .extractRange: ShortcutBinding(key: "x")
+        case .matchFrame: ShortcutBinding(key: "f")
         }
     }
 }
@@ -145,7 +162,7 @@ extension EditorCommandID {
         [.toggleViewer, .markSourceIn, .markSourceOut, .clearSourceMarks, .zoomTimelineToFit, .rippleTrimStart, .rippleTrimEnd, .insertSource,
          .overwriteSource, .rippleDelete, .deleteClip, .addMarker, .nextMarker, .previousEdit, .nextEdit, .previousFrame, .nextFrame,
          .goToStart, .goToEnd, .backTenFrames, .forwardTenFrames, .goToIn, .goToOut, .toggleClipEnabled, .selectClipAtPlayhead,
-         .deselectAll, .toggleSnapping].contains(self)
+         .deselectAll, .toggleSnapping, .extendEdit, .liftRange, .extractRange, .matchFrame].contains(self)
     }
 }
 
