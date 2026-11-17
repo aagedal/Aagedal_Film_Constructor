@@ -123,6 +123,14 @@ final class EditorCommandRegistry: ObservableObject {
         case .nextMarker: store.jumpToMarker(forward: true)
         case .previousEdit: store.jumpToEditPoint(forward: false)
         case .nextEdit: store.jumpToEditPoint(forward: true)
+        case .extendEdit: store.extendEditToPlayhead()
+        case .slipBackward: store.slipSelectedClip(frames: -1)
+        case .slipForward: store.slipSelectedClip(frames: 1)
+        case .slideLeft: store.slideSelectedClip(frames: -1)
+        case .slideRight: store.slideSelectedClip(frames: 1)
+        case .liftRange: store.liftSequenceRange(closingGap: false)
+        case .extractRange: store.liftSequenceRange(closingGap: true)
+        case .matchFrame: store.matchFrame()
         case .toggleScopes: UserDefaults.standard.set(!UserDefaults.standard.bool(forKey: "workspace.showScopes"), forKey: "workspace.showScopes")
         }
     }
@@ -152,6 +160,11 @@ final class EditorCommandRegistry: ObservableObject {
         case .splitAll, .selectClipAtPlayhead: return store.project.tracks.contains { !$0.clips.isEmpty }
         case .trimStartToPlayhead, .trimEndToPlayhead: return store.canRippleTrimSelectedClip
         case .nudgeLeft, .nudgeRight, .toggleClipEnabled: return store.selectedClip != nil
+        case .extendEdit: return store.canExtendEditToPlayhead
+        case .slipBackward, .slipForward: return store.selectedClip.map { $0.selection != .still } ?? false
+        case .slideLeft, .slideRight: return store.selectedClip != nil
+        case .liftRange, .extractRange: return store.canLiftSequenceRange
+        case .matchFrame: return store.matchFrameClip != nil
         case .deselectAll: return store.selectedClipID != nil || store.selectedMarkerID != nil
         case .splitClip, .deleteClip, .addTransition, .rippleDelete: return store.selectedClip != nil
         case .toggleRetime: return store.retimeMode || (store.selectedClip.map { $0.selection != .still } ?? false)

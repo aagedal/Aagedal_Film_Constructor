@@ -36,6 +36,7 @@ struct AppFileSmoke {
         try exerciseSourceMarks()
         try exerciseRippleTrimCommands()
         try exerciseQuickEditCommands()
+        try exerciseTrimToolCommands()
         try exerciseSequenceSettings()
         try exerciseSequenceMatching()
         let corruptURL = directory.appendingPathComponent("corrupt.png")
@@ -211,7 +212,7 @@ struct AppFileSmoke {
         try exerciseAudioFades()
         try exerciseAudioCrossfades()
         try exerciseShortcuts()
-        print("App file smoke passed: Q/W ripple scope/undo/playhead/remapping/migration and Shift+Z dispatch, exact source marks/scoped I/O commands/linked range append/explicit audio preview/undo/redo/clear/document reset, track/family naming/gain/retention/undo/redo/document round trip, viewer context/Tab command dispatch/special-key mapping/selection and playhead preservation, exact sequence settings/persistence/render-plan propagation/atomic undo/redo/track and family route rejection, nested-bin persistence/navigation/batch moves/undo/bookmarks/captured imports/deleted-destination fallback, Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
+        print("App file smoke passed: Q/W ripple scope/undo/playhead/remapping/migration and Shift+Z dispatch, E roll/slip/slide/Z-X lift and extract/F match frame, exact source marks/scoped I/O commands/linked range append/explicit audio preview/undo/redo/clear/document reset, track/family naming/gain/retention/undo/redo/document round trip, viewer context/Tab command dispatch/special-key mapping/selection and playhead preservation, exact sequence settings/persistence/render-plan propagation/atomic undo/redo/track and family route rejection, nested-bin persistence/navigation/batch moves/undo/bookmarks/captured imports/deleted-destination fallback, Finder timeline drops/captured rational placement/batch ordering/target-track siblings/atomic import-clip-grant history/stale-document cancellation, EDL snapshot/selection/export exclusion/original alias protection, WAV/PNG import, bookmarks, relink safety, linked trims/snapping/undo/redo, timecode, initial audio placement/picture-only append, audio channel maps/routing/consolidation/stale drafts, sample-aligned audio fades/overlap/undo, linked crossfade drafts/handles/relink/undo, shortcut persistence/scoped dispatch, source J/K/L/reverse bounds/transport cancellation, workspace resume preserving undo/selection/playhead, project save/reopen, corrupt and unsupported file rejection.")
     }
 
     @MainActor
@@ -336,6 +337,65 @@ struct AppFileSmoke {
         try check(store.timelineZoomRequest != zoom && store.timelineZoomRequest.factor > 1, "Command-= zooms in")
         registry.perform(.toggleSnapping, store: store, scope: .timeline)
         try check(!store.snappingEnabled, "N toggles snapping")
+    }
+
+    /// Roll (E), slip, slide, lift/extract (Z/X) and match frame (F) through the registry.
+    @MainActor
+    static func exerciseTrimToolCommands() throws {
+        let asset = MediaAsset(name: "Trim fixture", duration: try RationalTime(8), streams: [MediaStream(index: 0, kind: .video)])
+        let template = TrackTemplate(kind: .video)
+        let family = TrackFamily(baseName: "Video", template: template)
+        let a = TimelineClip(assetID: asset.id, sourceRange: try TimeRange(start: .zero, duration: RationalTime(4)), selection: .video(streamIndex: 0))
+        let b = TimelineClip(assetID: asset.id, sourceRange: try TimeRange(start: RationalTime(2), duration: RationalTime(4)),
+                             timelineStart: try RationalTime(4), selection: .video(streamIndex: 0))
+        let store = EditorStore()
+        defer { store.close() }
+        store.project = Project(settings: try SequenceSettings(), assets: [asset], families: [family],
+                                tracks: [TimelineTrack(familyID: family.id, template: template, clips: [a, b])])
+        store.showSequenceMonitor = true
+        let registry = EditorCommandRegistry(defaults: UserDefaults(suiteName: "afc-trim-tool-shortcuts")!)
+        registry.reset()
+        let original = store.project
+        func clip(_ id: UUID) throws -> TimelineClip { try unwrap(store.project.tracks.flatMap(\.clips).first { $0.id == id }, "Missing clip") }
+        let frame = try RationalTime(1, 24)
+        // E rolls the nearer cut to the playhead when a clip meets it, else trims into the gap.
+        store.selectedClipID = a.id
+        store.playheadSeconds = 5
+        registry.perform(.extendEdit, store: store, scope: .timeline)
+        try check(try clip(a.id).sourceRange.duration == (try RationalTime(5)) && clip(b.id).timelineStart == (try RationalTime(5))
+                  && clip(b.id).sourceRange == (try TimeRange(start: RationalTime(3), duration: RationalTime(3))), "E rolls the cut to the playhead")
+        store.undo(); try check(store.project == original, "A roll is one undo step")
+        store.selectedClipID = b.id
+        store.playheadSeconds = 8.5
+        registry.perform(.extendEdit, store: store, scope: .timeline)
+        try check(try clip(b.id).sourceRange.duration == (try RationalTime(9, 2)), "E trims into a gap without a neighbour")
+        store.undo()
+        // Slip and slide by one frame.
+        registry.perform(.slipForward, store: store, scope: .timeline)
+        try check(try clip(b.id).sourceRange.start == (try RationalTime(2).adding(frame)) && clip(b.id).timelineStart == (try RationalTime(4)),
+                  "Option-Command-Right slips one frame later")
+        store.undo()
+        registry.perform(.slideLeft, store: store, scope: .timeline)
+        try check(try clip(b.id).timelineStart == (try RationalTime(4).subtracting(frame)) && clip(b.id).sourceRange.start == (try RationalTime(2))
+                  && clip(a.id).sourceRange.duration == (try RationalTime(4).subtracting(frame)), "Option-Comma slides left and trims the clip before")
+        store.undo(); try check(store.project == original, "Slide is one undo step")
+        // Extract In to Out closes the gap; the marks clear and the playhead goes to In.
+        store.playheadSeconds = 1
+        registry.perform(.markSourceIn, store: store, scope: .timeline)
+        store.playheadSeconds = 3
+        registry.perform(.markSourceOut, store: store, scope: .timeline)
+        try check(registry.isEnabled(.extractRange, store: store, scope: .timeline), "Extract needs sequence marks")
+        registry.perform(.extractRange, store: store, scope: .timeline)
+        try check(store.project.tracks[0].clips.map(\.timelineStart.seconds).sorted() == [0, 1, 2] && store.duration == 6, "X extracts In to Out")
+        try check(store.currentSequenceMarks == nil && store.playheadSeconds == 1, "Extract clears the marks and parks at In")
+        try check(!registry.isEnabled(.liftRange, store: store, scope: .timeline), "Lift needs marks")
+        store.undo(); try check(store.project == original, "Extract is one undo step")
+        // F opens the selected clip's source at the playhead with its range marked.
+        store.selectedClipID = b.id
+        store.playheadSeconds = 5
+        registry.perform(.matchFrame, store: store, scope: .timeline)
+        try check(store.selectedAssetID == asset.id && !store.showSequenceMonitor
+                  && store.sourceRanges[asset.id] == (try TimeRange(start: RationalTime(2), duration: RationalTime(4))), "F matches the source frame and range")
     }
 
     @MainActor

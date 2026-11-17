@@ -91,6 +91,11 @@ and Gatekeeper assesses it as "Notarized Developer ID".
 | ⇧M / ⌥M | Jump to the next or previous marker |
 | ⌘= / ⌘- | Zoom the timeline in or out around the playhead (⌘+ also zooms in) |
 | N | Turn snapping on or off |
+| E | Extend edit: move the selected clip's edge nearer the playhead to the playhead. A clip meeting that edge is trimmed to keep meeting it (a roll); otherwise the edge trims into the gap |
+| ⌥⌘← / ⌥⌘→ | Slip: play one frame earlier or later of the source in the same place |
+| ⌥, / ⌥. | Slide the selected clip one frame left or right; the clips either side trim to keep meeting it |
+| Z / X | Lift or extract the sequence In to Out on every track: lift leaves a gap, extract closes it |
+| F | Match frame: open the source of the clip under the playhead at the same frame, with the clip's range marked In to Out |
 
 Markers are flags on the timeline ruler. Click one to name it, add a note and pick
 a colour in the inspector; drag it to move it to another frame; right-click it to
@@ -102,6 +107,13 @@ Shortcut changes in Settings store only what you changed, so later default chang
 (such as ⌫ for ripple delete, or ← and → for frame steps) reach you. A saved earlier
 default such as ⇧⌘⌫ for ripple delete or ⌥⌘← for the previous frame is treated as the
 current default. Disabled clips are left out of FCPXML, OTIO and EDL exports too.
+
+Command-drag a clip edge to roll the cut: the clip meeting it trims by the same amount
+and follows live, linked sound included, so nothing else moves and the sequence keeps
+its length. A roll keeps a dissolve at the cut while both clips still have the handles.
+Slip keeps fades and keyframes where they are in the clip; stabilisation stays with the
+media. Roll, slip and slide stop at the end of the media. Lift and extract clear the
+sequence In and Out and leave the playhead at In.
 
 Insert and overwrite are also buttons beside **Append** under the media bin.
 Insert refuses to split inside a fade or transition, and ripple delete refuses

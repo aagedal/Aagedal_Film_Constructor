@@ -1337,11 +1337,11 @@ final class EditorStore: ObservableObject {
             }
         } catch { report(error) }
     }
-    private func gestureQuantum(for clip: TimelineClip, alone: Bool = false) -> Double {
+    func gestureQuantum(for clip: TimelineClip, alone: Bool = false) -> Double {
         TimelineGesture.components(of: clip, in: project, alone: alone).contains { $0.requiredTrackKind == .video }
             ? 1 / project.settings.frameRate.value.seconds : 0.000001
     }
-    private func snapTargets(excluding clip: TimelineClip, alone: Bool = false) -> [Double] {
+    func snapTargets(excluding clip: TimelineClip, alone: Bool = false) -> [Double] {
         let excluded = Set(TimelineGesture.components(of: clip, in: project, alone: alone).map(\.id))
         return [0, playheadSeconds] + project.markers.map(\.time.seconds) + project.tracks.flatMap(\.clips).filter { !excluded.contains($0.id) }.flatMap {
             [$0.timelineStart.seconds, $0.timelineStart.seconds + $0.sourceRange.duration.seconds]
@@ -1645,7 +1645,7 @@ final class EditorStore: ObservableObject {
         guard selections.count == 1, routing.count == 1 else { throw TimelineEditError.incompatibleAudioConsolidation }
         return .consolidateAudioSources(clipID: clipID, replacingClipIDs: replacingClipIDs, selection: selections[0], routing: routing[0])
     }
-    private func editTime(_ seconds: Double) throws -> RationalTime {
+    func editTime(_ seconds: Double) throws -> RationalTime {
         guard let clip = selectedClip else { return try time(seconds) }
         let linkedVideo = project.tracks.flatMap(\.clips).contains {
             $0.requiredTrackKind == .video && (clip.id == $0.id || (clip.linkGroupID != nil && clip.linkGroupID == $0.linkGroupID))

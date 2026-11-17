@@ -56,6 +56,12 @@ import Foundation
         precondition(defaults[.toggleClipEnabled] == ShortcutBinding(key: "v") && defaults[.selectClipAtPlayhead] == ShortcutBinding(key: "c"))
         precondition(defaults[.deselectAll] == ShortcutBinding(key: "escape") && defaults[.toggleSnapping] == ShortcutBinding(key: "n"))
         precondition(defaults[.zoomIn] == ShortcutBinding(key: "=", command: true) && defaults[.zoomOut] == ShortcutBinding(key: "-", command: true))
+        // Trim tools: Premiere's extend edit, match frame, slip and slide; Avid's lift (Z) and extract (X).
+        precondition(defaults[.extendEdit] == ShortcutBinding(key: "e") && defaults[.matchFrame] == ShortcutBinding(key: "f"))
+        precondition(defaults[.liftRange] == ShortcutBinding(key: "z") && defaults[.extractRange] == ShortcutBinding(key: "x"))
+        precondition(defaults[.slipForward] == ShortcutBinding(key: "right", command: true, option: true))
+        precondition(defaults[.slideLeft] == ShortcutBinding(key: ",", option: true))
+        precondition(EditorCommandID.previousFrame.formerDefaultBindings.contains(defaults[.slipBackward]!), "Slip reuses the old frame-step chord")
         // Bare keys stay limited to commands that allow them.
         precondition(ShortcutBinding(key: "v").validationError(for: .addTransition, bindings: defaults) != nil)
         // Every default is unique.
