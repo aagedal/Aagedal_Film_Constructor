@@ -10,7 +10,7 @@ import SwiftUI
         }
         .defaultSize(width: 1280, height: 800)
         .commands { EditorCommands(registry: commandRegistry) }
-        .onChange(of: commandRegistry.bindings, initial: true) { _, _ in
+        .onChange(of: commandRegistry.keymap, initial: true) { _, _ in
             EditorKeyboardRouter.shared.install(registry: commandRegistry)
         }
 
@@ -223,9 +223,9 @@ private struct EditorCommands: Commands {
 
     private var scope: EditorCommandScope { focusedScope ?? .document }
     private func command(_ id: EditorCommandID) -> some View {
-        let binding = registry.binding(for: id)
+        let binding = registry.menuBinding(for: id)
         return Button(id.title) { registry.perform(id, store: store, scope: scope) }
-            .keyboardShortcut(binding.isMenuKeyEquivalent ? binding.keyEquivalent.map { KeyboardShortcut($0, modifiers: binding.eventModifiers) } : nil)
+            .keyboardShortcut(binding.flatMap { binding in binding.keyEquivalent.map { KeyboardShortcut($0, modifiers: binding.eventModifiers) } })
             .disabled(store == nil)
     }
 

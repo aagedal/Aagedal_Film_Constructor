@@ -114,11 +114,24 @@ the bin and choose **Append with audio selection…** to configure it.
    Cancel the confirmation, then apply and undo/redo; save/reopen the result.
    Verify obsolete empty tracks follow the cleanup preference and retained tracks
    survive. Separate mono creation is disabled while combining components.
-10. Open **Settings → Keyboard Shortcuts** (⌘,). Select a command, change its key
-    and modifiers, and **Apply**. Conflicts and reserved application shortcuts
-    block Apply. Clear removes a binding after Apply; reset restores defaults.
-    Shortcuts persist across launches. Source/timeline commands respect panel
-    focus and leave text entry to native controls.
+10. Open **Settings → Keyboard Shortcuts** (⌘,). The on-screen keyboard follows
+    the current input source (Ø/Æ/Å on Norwegian, ISO or ANSI shape) and colours
+    each key by the category of the command it runs; dots mark commands on that
+    key under other modifiers. Click or hold ⌘ ⌥ ⌃ ⇧ to show that layer. Click a
+    key to list all sixteen modifier combinations, with assignments and reserved
+    system shortcuts. Search commands by name or shortcut ("split", "cmd b"),
+    then click a **Shortcut** or **Alternate** field and press keys to record;
+    each command can have two shortcuts. Dragging a command onto a key assigns it
+    in the shown layer. Reserved chords are refused; a shortcut used by another
+    command asks before reassigning. Shortcuts persist across launches.
+    Source/timeline commands respect panel focus and leave text entry to native controls.
+    **Presets:** Save As stores the current shortcuts under a name; the picker
+    switches presets and asks before discarding unsaved changes. Export, Share
+    or drop/Import a `.afckeys` file to move a preset between machines or people.
+    The file is JSON listing every command's shortcuts. Commands added in later
+    versions take their defaults when free, and reserved or duplicate entries are
+    skipped and reported. The built-in preset cannot be overwritten; Reset to
+    Defaults returns to it.
 11. Scroll and zoom the timeline to see source filmstrips and per-selected-channel
     waveforms. Trim to check that imagery follows source in. Previews are bounded,
     generated asynchronously for visible clips, and show placeholders for offline
@@ -240,7 +253,8 @@ bookmark services must be accessible; restrictive command sandboxes can block
 those services. The unsigned build verifies compilation; use Xcode's normal
 signed Run for testing sandbox grants across launches.
 
-The shortcut smoke checks defaults, conflicts, normalization and reserved bindings.
+The shortcut smoke checks defaults, conflicts, normalization, reserved bindings,
+two shortcuts per command, restoring saved maps and preset files.
 The preview smoke generates WAV/PNG fixtures and uses development FFmpeg, when
 available, for a two-color video; it verifies channel maps, source ranges, cache
 limits and cancellation. These checks do not qualify edited-sequence playback.

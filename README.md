@@ -57,7 +57,7 @@ sequence frame rates, audio output layout/sample-rate settings, sequence timecod
 and frame stepping, and an empty-track cleanup preference are available.
 The mono/stereo/5.1 output configuration is saved; current sequence playback and
 rendered export require mono/stereo. Timeline clips display asynchronous filmstrips and channel waveforms;
-Settings includes persistent keyboard shortcut remapping and conflict checks.
+Settings includes a keyboard shortcut editor with a layout-aware on-screen keyboard, two shortcuts per command, conflict checks, and shareable `.afckeys` presets.
 Source playback supports J (silent reverse), K (pause), and L (forward), with
 monitor buttons and text-entry protection. The app now includes a macOS icon.
 Still source previews decode asynchronously with orientation and a 2048-pixel

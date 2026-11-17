@@ -5,64 +5,148 @@ import SwiftUI
 
 @MainActor
 final class EditorCommandRegistry: ObservableObject {
-    @Published private(set) var bindings: [EditorCommandID: ShortcutBinding]
+    @Published private(set) var keymap: Keymap
+    /// Saved presets, not counting the built-in default.
+    @Published private(set) var presets: [KeyboardPreset]
+    /// The preset the keymap was last switched to or saved as; edits since then mark it modified.
+    @Published private(set) var activePresetName: String
     private let defaults: UserDefaults
-    private static let storageKey = "editor.keyboardShortcuts.v1"
+    private static let legacyStorageKey = "editor.keyboardShortcuts.v1"
+    private static let storageKey = "editor.keyboardShortcuts.v2"
+    private static let presetsKey = "editor.keyboardPresets.v1"
+    private static let activePresetKey = "editor.keyboardPresets.active"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        var resolved = Dictionary(uniqueKeysWithValues: EditorCommandID.allCases.map { ($0, $0.defaultBinding) })
         if let data = defaults.data(forKey: Self.storageKey),
-           let saved = try? JSONDecoder().decode([String: ShortcutBinding].self, from: data) {
+           let saved = try? JSONDecoder().decode([String: [ShortcutBinding]].self, from: data) {
+            keymap = Keymap.restoring(saved).keymap
+        } else if let data = defaults.data(forKey: Self.legacyStorageKey),
+                  let saved = try? JSONDecoder().decode([String: ShortcutBinding].self, from: data) {
             // Maps saved before only changes were stored hold every default of their day;
             // a former default there is not a choice, so the current default replaces it.
-            var custom: Set<EditorCommandID> = []
+            var choices: [String: [ShortcutBinding]] = [:]
             for command in EditorCommandID.allCases {
                 if let value = saved[command.rawValue]?.normalized, !command.formerDefaultBindings.contains(value) {
-                    resolved[command] = value
-                    custom.insert(command)
+                    choices[command.rawValue] = [value]
                 }
             }
-            // New or changed defaults must not erase an existing custom map.
-            // Leave such a command unbound if its default is already in use.
-            for command in EditorCommandID.allCases where !custom.contains(command) {
-                let binding = resolved[command]!
-                if !binding.isEmpty && custom.contains(where: { $0 != command && resolved[$0] == binding }) {
-                    resolved[command] = ShortcutBinding(key: "")
-                }
-            }
-            // Validate the complete restored map, including conflicts with defaults.
-            if EditorCommandID.allCases.contains(where: { resolved[$0]?.validationError(for: $0, bindings: resolved) != nil }) {
-                resolved = Dictionary(uniqueKeysWithValues: EditorCommandID.allCases.map { ($0, $0.defaultBinding) })
-            }
+            keymap = Keymap.restoring(choices).keymap
+        } else {
+            keymap = .defaults
         }
-        bindings = resolved
+        let saved = defaults.data(forKey: Self.presetsKey).flatMap { try? JSONDecoder().decode([KeyboardPreset].self, from: $0) } ?? []
+        let active = defaults.string(forKey: Self.activePresetKey) ?? KeyboardPreset.builtInName
+        presets = saved
+        activePresetName = saved.contains { $0.name == active } ? active : KeyboardPreset.builtInName
     }
 
-    func binding(for command: EditorCommandID) -> ShortcutBinding { bindings[command] ?? command.defaultBinding }
-    func set(_ binding: ShortcutBinding, for command: EditorCommandID) -> String? {
-        if let error = binding.validationError(for: command, bindings: bindings) { return error }
-        bindings[command] = binding.normalized
+    /// The command's first shortcut, or an empty binding.
+    func binding(for command: EditorCommandID) -> ShortcutBinding { keymap[command] }
+    func bindings(for command: EditorCommandID) -> [ShortcutBinding] { keymap.bindings(for: command) }
+    /// The shortcut a menu item shows: the first one menus can deliver without taking keys from text.
+    func menuBinding(for command: EditorCommandID) -> ShortcutBinding? { keymap.bindings(for: command).first { $0.isMenuKeyEquivalent } }
+    func command(for binding: ShortcutBinding) -> EditorCommandID? { keymap.command(for: binding) }
+    func set(_ binding: ShortcutBinding, for command: EditorCommandID, slot: Int = 0) -> String? {
+        if let error = keymap.validationError(binding, for: command, slot: slot) { return error }
+        keymap.set(binding, for: command, slot: slot)
+        persist()
+        return nil
+    }
+    /// Assigns a shortcut that another command holds, removing it from that command.
+    func reassign(_ binding: ShortcutBinding, to command: EditorCommandID, slot: Int) -> String? {
+        var updated = keymap
+        if let other = updated.conflict(for: binding, command: command, slot: slot), other != command { updated.unassign(binding) }
+        if let error = updated.validationError(binding, for: command, slot: slot) { return error }
+        updated.set(binding, for: command, slot: slot)
+        keymap = updated
         persist()
         return nil
     }
     func reset() {
-        bindings = Dictionary(uniqueKeysWithValues: EditorCommandID.allCases.map { ($0, $0.defaultBinding) })
-        defaults.removeObject(forKey: Self.storageKey)
+        keymap = .defaults
+        activePresetName = KeyboardPreset.builtInName
+        for key in [Self.storageKey, Self.legacyStorageKey, Self.activePresetKey] { defaults.removeObject(forKey: key) }
     }
     /// Only changed shortcuts are stored, so later changes to the defaults reach every user.
     private func persist() {
-        let saved = Dictionary(uniqueKeysWithValues: bindings.filter { $0.value != $0.key.defaultBinding }.map { ($0.key.rawValue, $0.value) })
-        if let data = try? JSONEncoder().encode(saved) { defaults.set(data, forKey: Self.storageKey) }
+        if let data = try? JSONEncoder().encode(keymap.changes(from: .defaults)) { defaults.set(data, forKey: Self.storageKey) }
+        defaults.removeObject(forKey: Self.legacyStorageKey)
+        defaults.set(activePresetName, forKey: Self.activePresetKey)
     }
-    func perform(_ command: EditorCommandID, store: EditorStore?, scope: EditorCommandScope) {
+
+    // MARK: Presets
+
+    func preset(named name: String) -> KeyboardPreset? {
+        name == KeyboardPreset.builtInName ? KeyboardPreset(name: name, keymap: .defaults) : presets.first { $0.name == name }
+    }
+    var isBuiltInPresetActive: Bool { activePresetName == KeyboardPreset.builtInName }
+    /// Whether the keymap has changed since its preset was applied or saved.
+    var isModified: Bool { preset(named: activePresetName).map { $0.resolved.keymap != keymap } ?? true }
+    /// The keymap under the active preset's name, as a file would share it.
+    var currentPreset: KeyboardPreset { KeyboardPreset(name: activePresetName, keymap: keymap) }
+    /// Switches to a preset, returning how many of its shortcuts this version could not use.
+    @discardableResult func applyPreset(named name: String) -> Int {
+        guard let preset = preset(named: name) else { return 0 }
+        let resolved = preset.resolved
+        keymap = resolved.keymap
+        activePresetName = name
+        persist()
+        return resolved.rejected
+    }
+    /// Saves the keymap under a name, replacing a saved preset of that name, and makes it active.
+    func savePreset(named proposedName: String) -> String? {
+        let name = proposedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return "Enter a name for the preset." }
+        guard name != KeyboardPreset.builtInName else { return "The built-in preset cannot be replaced. Choose another name." }
+        let preset = KeyboardPreset(name: name, keymap: keymap)
+        if let index = presets.firstIndex(where: { $0.name == name }) { presets[index] = preset } else { presets.append(preset) }
+        activePresetName = name
+        persistPresets()
+        return nil
+    }
+    func renamePreset(_ oldName: String, to proposedName: String) -> String? {
+        let name = proposedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let index = presets.firstIndex(where: { $0.name == oldName }) else { return "Only saved presets can be renamed." }
+        guard !name.isEmpty else { return "Enter a name for the preset." }
+        guard name == oldName || preset(named: name) == nil else { return "A preset named \u{201C}\(name)\u{201D} already exists." }
+        presets[index].name = name
+        if activePresetName == oldName { activePresetName = name }
+        persistPresets()
+        return nil
+    }
+    func deletePreset(named name: String) {
+        presets.removeAll { $0.name == name }
+        if activePresetName == name { activePresetName = KeyboardPreset.builtInName }
+        persistPresets()
+    }
+    /// Adds a shared preset, renamed if its name is taken, and switches to it.
+    func importPreset(_ preset: KeyboardPreset) -> (name: String, rejected: Int) {
+        var imported = preset
+        var suffix = 2
+        while self.preset(named: imported.name) != nil {
+            imported.name = "\(preset.name) \(suffix)"
+            suffix += 1
+        }
+        presets.append(imported)
+        persistPresets()
+        return (imported.name, applyPreset(named: imported.name))
+    }
+    private func persistPresets() {
+        presets.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        if let data = try? JSONEncoder().encode(presets) { defaults.set(data, forKey: Self.presetsKey) }
+        persist()
+    }
+
+    /// `shortcut` is the key that triggered the command; without one, the menu's shortcut applies.
+    func perform(_ command: EditorCommandID, store: EditorStore?, scope: EditorCommandScope, shortcut: ShortcutBinding? = nil) {
         guard let store else { return }
         // Menu validation can be stale; recheck at the moment of the action.
-        guard Self.isEditingText || isEnabled(command, store: store, scope: scope) else { NSSound.beep(); return }
+        guard Self.isEditingText || isEnabled(command, store: store, scope: scope, shortcut: shortcut) else { NSSound.beep(); return }
         if Self.isEditingText {
             if command == .undo { NSApp.sendAction(Selector(("undo:")), to: nil, from: nil) }
             if command == .redo { NSApp.sendAction(Selector(("redo:")), to: nil, from: nil) }
-            if command == .undo || command == .redo || !allowsDuringTextEditing(command) { return }
+            if command == .undo || command == .redo || !allowsDuringTextEditing(command, shortcut: shortcut) { return }
         }
         guard command.isPlayback || scope == .document || command.scope == .document || scope == command.scope else { return }
         switch command {
@@ -134,9 +218,9 @@ final class EditorCommandRegistry: ObservableObject {
         case .toggleScopes: UserDefaults.standard.set(!UserDefaults.standard.bool(forKey: "workspace.showScopes"), forKey: "workspace.showScopes")
         }
     }
-    func isEnabled(_ command: EditorCommandID, store: EditorStore?, scope: EditorCommandScope) -> Bool {
+    func isEnabled(_ command: EditorCommandID, store: EditorStore?, scope: EditorCommandScope, shortcut: ShortcutBinding? = nil) -> Bool {
         guard let store else { return false }
-        if Self.isEditingText && !allowsDuringTextEditing(command) { return command == .undo || command == .redo }
+        if Self.isEditingText && !allowsDuringTextEditing(command, shortcut: shortcut) { return command == .undo || command == .redo }
         guard command.isPlayback || scope == .document || command.scope == .document || scope == command.scope else { return false }
         switch command {
         case .zoomTimelineToFit: return store.duration > 0
@@ -187,12 +271,11 @@ final class EditorCommandRegistry: ObservableObject {
         case .exportSequence, .exportFCPXML, .exportEDL, .exportOTIO: return store.duration > 0 && store.renderExportDraft == nil && store.edlExportDraft == nil && store.audioAppendAsset == nil
         }
     }
-    /// Command/Control chords that have no text-editing meaning stay available while a
-    /// field is focused; bare keys, deletion and arrow navigation belong to the text.
-    private func allowsDuringTextEditing(_ command: EditorCommandID) -> Bool {
-        let shortcut = binding(for: command).normalized
-        guard command != .undo, command != .redo, shortcut.command || shortcut.control else { return false }
-        return !ShortcutBinding.namedKeys.contains(shortcut.key)
+    /// Command/Control chords that have no text-editing meaning, and function keys, stay
+    /// available while a field is focused; bare keys, deletion and arrow navigation belong to the text.
+    private func allowsDuringTextEditing(_ command: EditorCommandID, shortcut: ShortcutBinding?) -> Bool {
+        guard command != .undo, command != .redo else { return false }
+        return (shortcut ?? menuBinding(for: command))?.isMenuKeyEquivalent ?? false
     }
     private static var isEditingText: Bool { NSApp?.keyWindow?.firstResponder is NSTextView }
 }
@@ -220,6 +303,11 @@ extension ShortcutBinding {
         case "tab": return .tab
         case "home": return .home
         case "end": return .end
+        case "pageup": return .pageUp
+        case "pagedown": return .pageDown
+        case let key where isFunctionKey:
+            // AppKit's private-use characters for F1–F12 start at NSF1FunctionKey.
+            return Int(key.dropFirst()).flatMap { UnicodeScalar(NSF1FunctionKey + $0 - 1) }.map { KeyEquivalent(Character($0)) }
         default: return normalized.key.first.map { KeyEquivalent($0) }
         }
     }
@@ -262,7 +350,7 @@ final class EditorKeyboardRouter {
         switch pressed.key {
         case "c" where store.selectedClip != nil: store.copySelectedClip()
         case "x" where store.selectedClip != nil: store.cutSelectedClip()
-        case "d" where store.selectedClip != nil && !EditorCommandID.allCases.contains(where: { registry?.binding(for: $0) == pressed }):
+        case "d" where store.selectedClip != nil && registry?.command(for: pressed) == nil:
             store.duplicateSelectedClip()
         case "v" where store.clipboard != nil: store.pasteAtPlayhead()
         default: return false
@@ -271,16 +359,8 @@ final class EditorKeyboardRouter {
     }
 
     static func binding(for event: NSEvent) -> ShortcutBinding? {
-        let named: [UInt16: String] = [49: "space", 48: "tab", 51: "delete", 117: "delete", 123: "left", 124: "right",
-                                       125: "down", 126: "up", 36: "return", 76: "return", 53: "escape", 115: "home", 119: "end"]
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard let key = named[event.keyCode] ?? event.charactersIgnoringModifiers?.lowercased(), !key.isEmpty else { return nil }
-        // "+" is Shift-= on US keyboards and its own key on many others; both mean the = binding (zoom in).
-        if key == "+" {
-            return ShortcutBinding(key: "=", command: flags.contains(.command), option: flags.contains(.option), control: flags.contains(.control))
-        }
-        return ShortcutBinding(key: key, command: flags.contains(.command), option: flags.contains(.option),
-                               control: flags.contains(.control), shift: flags.contains(.shift)).normalized
+        guard let key = ShortcutBinding.keyCodeNames[event.keyCode] ?? event.charactersIgnoringModifiers?.lowercased() else { return nil }
+        return ShortcutBinding.pressed(key: key, modifiers: ShortcutModifiers(event.modifierFlags))
     }
 
     /// Commands that a focused text field needs are left to the text system.
@@ -291,13 +371,12 @@ final class EditorKeyboardRouter {
         // A focused list (the media bin) moves its selection with the arrow keys.
         if window.firstResponder is NSTableView, ["up", "down", "left", "right"].contains(pressed.key),
            !pressed.command, !pressed.option, !pressed.control { return false }
-        guard let command = EditorCommandID.allCases.first(where: { registry.binding(for: $0) == pressed && !registry.binding(for: $0).isEmpty })
-        else { return false }
+        guard let command = registry.command(for: pressed) else { return false }
         if event.isARepeat && command == .togglePlayback { return true }
         // Source-only commands follow the visible viewer; everything else is document-wide.
         let scope: EditorCommandScope = command.scope == .source && store.showSequenceMonitor ? .timeline : .document
-        guard registry.isEnabled(command, store: store, scope: scope) else { return false }
-        registry.perform(command, store: store, scope: scope)
+        guard registry.isEnabled(command, store: store, scope: scope, shortcut: pressed) else { return false }
+        registry.perform(command, store: store, scope: scope, shortcut: pressed)
         return true
     }
 }
@@ -307,6 +386,16 @@ extension ShortcutBinding {
     /// all other shortcuts are delivered by EditorKeyboardRouter at key-press time.
     var isMenuKeyEquivalent: Bool {
         let shortcut = normalized
-        return (shortcut.command || shortcut.control) && !ShortcutBinding.namedKeys.contains(shortcut.key)
+        return shortcut.isFunctionKey || ((shortcut.command || shortcut.control) && !ShortcutBinding.namedKeys.contains(shortcut.key))
+    }
+}
+
+extension ShortcutModifiers {
+    init(_ flags: NSEvent.ModifierFlags) {
+        self = []
+        if flags.contains(.command) { insert(.command) }
+        if flags.contains(.option) { insert(.option) }
+        if flags.contains(.control) { insert(.control) }
+        if flags.contains(.shift) { insert(.shift) }
     }
 }
